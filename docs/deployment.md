@@ -31,6 +31,7 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make postgres-check` | Services are isolated in PostgreSQL, and data survives a restart and a restore |
 | `make redis-check` | Services are isolated in Redis, nothing survives a restart, and an outage is handled safely |
 | `make qdrant-check` | Qdrant needs a key, and vectors survive a restart and a restore |
+| `make nats-check` | Events survive a restart, only a subject's owner can publish it, failures reach the dead-letter stream, and an outage is reported |
 | `make phase-1-gate` | A call is traced through the gateway, and its breaker opens under a fault |
 
 ## Data
@@ -42,6 +43,9 @@ reset, back up and restore them.
 
 [Qdrant](../infrastructure/data/qdrant/README.md) describes vector storage, and how to reset, back up and
 restore it.
+
+[NATS JetStream](../infrastructure/data/nats/README.md) describes the event streams, who can publish them,
+and what happens when it is down.
 
 ## Environments
 

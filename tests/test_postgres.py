@@ -35,7 +35,11 @@ def documents() -> list[dict[str, Any]]:
 
 
 def statefulset(documents: list[dict[str, Any]]) -> dict[str, Any]:
-    return next(item for item in documents if item["kind"] == "StatefulSet")
+    return next(
+        item
+        for item in documents
+        if item["kind"] == "StatefulSet" and item["metadata"]["name"] == "windops-postgres"
+    )
 
 
 def test_everything_is_in_the_data_namespace(documents: list[dict[str, Any]]) -> None:
@@ -45,7 +49,11 @@ def test_everything_is_in_the_data_namespace(documents: list[dict[str, Any]]) ->
 
 def test_postgres_is_not_exposed_outside_the_cluster(documents: list[dict[str, Any]]) -> None:
     """DEP-007."""
-    service = next(item for item in documents if item["kind"] == "Service")
+    service = next(
+        item
+        for item in documents
+        if item["kind"] == "Service" and item["metadata"]["name"] == "windops-postgres"
+    )
     assert service["spec"]["type"] == "ClusterIP"
 
 

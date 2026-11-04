@@ -1,0 +1,105 @@
+syntax = "proto3";
+package windops.events.v1;
+
+import "google/protobuf/timestamp.proto";
+import "windops/telemetry/v1/telemetry.proto";
+
+// Every durable event in SRS 7.6, with what a consumer needs to route, trace and validate it.
+message EventEnvelope {
+  // Stable across retries, so consumers and JetStream can recognize a duplicate (EVT-003).
+  string event_id = 1;
+  // Required on every event, and validated by every consumer (DAT-007).
+  string tenant_id = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+  // The service that published the event.
+  string producer = 4;
+  string trace_parent = 5;
+  string request_id = 6;
+  oneof payload {
+    TelemetryReceived telemetry_received = 10;
+    TelemetryQualityChanged telemetry_quality = 11;
+    AlarmChanged alarm_changed = 12;
+    FaultDetected fault_detected = 13;
+    CaseUpdated case_updated = 14;
+    EvidenceChanged evidence_changed = 15;
+    WorkOrderSubmitted work_order_submitted = 16;
+    ApprovalDecided approval_decided = 17;
+    WorkOrderCompleted work_order_completed = 18;
+    AuditRecorded audit_recorded = 19;
+  }
+}
+
+// Events carry identifiers rather than sensitive evidence. Consumers fetch details from the owner.
+message TelemetryReceived {
+  string turbine_id = 1;
+  string batch_id = 2;
+  uint32 sample_count = 3;
+}
+
+message TelemetryQualityChanged {
+  string turbine_id = 1;
+  string batch_id = 2;
+  windops.telemetry.v1.Quality quality = 3;
+}
+
+message AlarmChanged {
+  string alarm_id = 1;
+  string turbine_id = 2;
+  AlarmState state = 3;
+}
+
+enum AlarmState {
+  ALARM_STATE_UNSPECIFIED = 0;
+  ALARM_STATE_ACTIVE = 1;
+  ALARM_STATE_ACKNOWLEDGED = 2;
+  ALARM_STATE_CLEARED = 3;
+  ALARM_STATE_SHELVED = 4;
+}
+
+message FaultDetected {
+  string detection_id = 1;
+  string turbine_id = 2;
+  string rule_version = 3;
+  string telemetry_snapshot_id = 4;
+}
+
+message CaseUpdated {
+  string case_id = 1;
+  string status = 2;
+}
+
+// A source record changed, which can make a recommendation stale (SRS 8.5).
+message EvidenceChanged {
+  string source_service = 1;
+  string record_id = 2;
+  string version = 3;
+}
+
+message WorkOrderSubmitted {
+  string work_order_id = 1;
+  string proposal_version = 2;
+}
+
+message ApprovalDecided {
+  string approval_id = 1;
+  string work_order_id = 2;
+  string proposal_version = 3;
+  string evidence_snapshot_id = 4;
+  ApprovalDecision decision = 5;
+}
+
+enum ApprovalDecision {
+  APPROVAL_DECISION_UNSPECIFIED = 0;
+  APPROVAL_DECISION_APPROVED = 1;
+  APPROVAL_DECISION_REJECTED = 2;
+}
+
+message WorkOrderCompleted {
+  string work_order_id = 1;
+  google.protobuf.Timestamp completed_at = 2;
+}
+
+message AuditRecorded {
+  string audit_record_id = 1;
+  string record_hash = 2;
+}

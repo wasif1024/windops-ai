@@ -15,6 +15,7 @@ members = [
     "services/sample-responder-service",
     "shared/cache",
     "shared/contracts",
+    "shared/events",
     "shared/grpc",
     "shared/observability",
     "shared/resilience",
@@ -22,6 +23,7 @@ members = [
 
 [tool.uv.sources]
 windops-cache = { workspace = true }
+windops-events = { workspace = true }
 windops-observability = { workspace = true }
 windops-resilience = { workspace = true }
 windops-grpc = { workspace = true }
@@ -54,6 +56,8 @@ files = [
     "services/sample-responder-service/tests",
     "shared/cache/src",
     "shared/cache/tests",
+    "shared/events/src",
+    "shared/events/tests",
     "shared/grpc/src",
     "shared/grpc/tests",
     "shared/observability/src",
@@ -72,6 +76,8 @@ mypy_path = [
     "services/sample-responder-service/tests",
     "shared/cache/src",
     "shared/cache/tests",
+    "shared/events/src",
+    "shared/events/tests",
     "shared/grpc/src",
     "shared/grpc/tests",
     "shared/observability/src",
@@ -94,6 +100,7 @@ testpaths = [
     "tests",
     "services/*/tests",
     "shared/cache/tests",
+    "shared/events/tests",
     "shared/grpc/tests",
     "shared/observability/tests",
     "shared/resilience/tests",
@@ -117,6 +124,7 @@ dev = [
     "types-pyyaml>=6.0.12.20261103",
     "windops-cache",
     "windops-contracts",
+    "windops-events",
     "windops-grpc",
     "windops-observability",
     "windops-resilience",
