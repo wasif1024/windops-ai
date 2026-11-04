@@ -55,6 +55,8 @@ BUILT_TARGETS = {
     "contracts-gen",
     "sample-check",
     "phase-1-gate",
+    "postgres-provision",
+    "postgres-check",
 }
 PLANNED_TARGETS = SRS_TARGETS - BUILT_TARGETS
 

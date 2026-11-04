@@ -19,7 +19,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -97,10 +97,18 @@ cluster-delete: ## Delete the local cluster and all its data
 cluster-check: ## Deploy a throwaway service to prove the manifests work on the cluster
 	uv run python scripts/verify_cluster.py
 
-infra: ## Create the namespaces, etcd and the observability stack. Phase 2 adds data stores
+infra: ## Create the namespaces, etcd, data stores and the observability stack
 	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/namespaces
 	kubectl --context $(CLUSTER) apply --kustomize infrastructure/gateway/etcd
+	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/data
 	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/observability
+	uv run python scripts/provision_postgres.py
+
+postgres-provision: ## Create each service's PostgreSQL database and login
+	uv run python scripts/provision_postgres.py
+
+postgres-check: ## Prove PostgreSQL isolates services and keeps data on the cluster
+	PYTHONPATH=scripts uv run python scripts/verify_postgres.py
 
 secrets: ## Create local secrets from an ignored file, generating it the first time
 	uv run python scripts/local_secrets.py

@@ -5,11 +5,23 @@ Each file is generated once, with a random value, and then reused so tokens stay
 secret goes only to the namespaces that need it.
 """
 
+import json
 import secrets
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+from provision_postgres import (
+    ADMIN_KEY,
+    ADMIN_USER,
+    HOST,
+    PORT,
+    SECRETS_FILE,
+    SERVICE_NAMESPACES,
+    database_name,
+    read_passwords,
+)
 
 CONTEXT = "windops"
 REPOSITORY = Path(__file__).resolve().parent.parent
@@ -71,6 +83,66 @@ def apply_secret(name: str, namespace: str, path: Path) -> None:
     )  # fmt: skip
 
 
+def ensure_postgres_passwords(path: Path, keys: list[str]) -> list[str]:
+    """Add a password for each missing key, keeping existing ones. Return the keys added."""
+    path.touch(mode=0o600)
+    existing = read_passwords(path)
+    added = [key for key in keys if key not in existing]
+    with path.open("a") as file:
+        for key in added:
+            file.write(f"{key}={secrets.token_urlsafe(32)}\n")
+    return added
+
+
+def postgres_secrets(passwords: dict[str, str]) -> list[dict[str, object]]:
+    """Return the admin Secret and one Secret per service, each only in its own namespace."""
+    manifests = [
+        secret_manifest(
+            "windops-postgres-admin",
+            "windops-data",
+            {"username": ADMIN_USER, "password": passwords[ADMIN_KEY]},
+        )
+    ]
+    for service, namespace in SERVICE_NAMESPACES.items():
+        name = database_name(service)
+        manifests.append(
+            secret_manifest(
+                f"windops-{service}-database",
+                namespace,
+                {
+                    "host": HOST,
+                    "port": PORT,
+                    "database": name,
+                    "username": name,
+                    "password": passwords[service],
+                },
+            )
+        )
+    return manifests
+
+
+def secret_manifest(name: str, namespace: str, values: dict[str, str]) -> dict[str, object]:
+    return {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": {"name": name, "namespace": namespace},
+        "type": "Opaque",
+        "stringData": values,
+    }
+
+
+def apply_postgres_secrets() -> None:
+    added = ensure_postgres_passwords(SECRETS_FILE, [ADMIN_KEY, *SERVICE_NAMESPACES])
+    print(f"Added {len(added)} passwords to {SECRETS_FILE.name}")
+    # Sent over stdin, so no password appears in a process listing.
+    for manifest in postgres_secrets(read_passwords(SECRETS_FILE)):
+        subprocess.run(
+            ["kubectl", "--context", CONTEXT, "apply", "--filename=-"],
+            input=json.dumps(manifest), capture_output=True, text=True, check=True,
+        )  # fmt: skip
+    print(f"Applied PostgreSQL credentials for {len(SERVICE_NAMESPACES)} services")
+
+
 def main() -> int:
     try:
         subprocess.run(
@@ -84,6 +156,7 @@ def main() -> int:
             for namespace in item.namespaces:
                 apply_secret(item.name, namespace, path)
             print(f"Applied the {item.key} to {', '.join(item.namespaces)}")
+        apply_postgres_secrets()
     except subprocess.CalledProcessError as error:
         # Never print the rendered manifest, because it contains the key.
         print(f"Could not apply a secret: {error.stderr}", file=sys.stderr)

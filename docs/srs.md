@@ -27,7 +27,7 @@ SRS v1.1 keeps every v1.0 feature, makes gRPC, microservices, containers and cir
 | No async messaging | NATS JetStream and a transactional outbox | 7 |
 | No REST translation layer | Web BFF Service added, with OpenAPI | 7 |
 | No live progress for long runs | Server-sent events through the BFF | 7 |
-| Telemetry storage undefined | TimescaleDB on PostgreSQL, with retention and sample rates | 8 |
+| Telemetry storage undefined | PostgreSQL time partitions, with retention and sample rates ([ADR 0003](adr/0003-postgresql-without-timescaledb.md)) | 8 |
 | "Material change" undefined | Deterministic staleness rules | 8 |
 | Competing workflow state | One authoritative owner per state type | 5 |
 | No identity for automated runs | Service principal and delegated token rules | 9 |
@@ -469,7 +469,7 @@ The groups are for reading only. Each named service still deploys and scales on 
 | Internal events | NATS JetStream with Protobuf payloads |
 | Backend | Python, with grpc.aio for internal APIs and FastAPI for public, health and metrics endpoints |
 | Agents | LangChain, Deep Agents, LangGraph and Claude |
-| Relational and telemetry data | PostgreSQL with TimescaleDB, and Alembic per service |
+| Relational and telemetry data | PostgreSQL, and Alembic per service |
 | Cache and vectors | Redis and Qdrant |
 | Identity | Keycloak with OIDC |
 | External intelligence | Tavily and a structured weather provider |
@@ -647,14 +647,13 @@ A shared resilience library shall wrap every gRPC client, database-adjacent netw
 
 ## 8. Data architecture and evidence
 
-PostgreSQL remains the system of record, TimescaleDB handles telemetry volume, and immutable evidence snapshots make every approval reproducible. Deterministic rules decide when a recommendation becomes stale.
+PostgreSQL remains the system of record, time partitions handle telemetry volume, and immutable evidence snapshots make every approval reproducible. Deterministic rules decide when a recommendation becomes stale.
 
 ### 8.1 Data stores
 
 | Store | Used for | Must not be used for |
 | --- | --- | --- |
-| PostgreSQL | Service-owned entities, metadata, outboxes, audit and LangGraph checkpoints | Cross-service table access |
-| TimescaleDB | Time-series telemetry, continuous summaries, compression and retention | Non-telemetry business records |
+| PostgreSQL | Service-owned entities, metadata, outboxes, audit, LangGraph checkpoints and time-partitioned telemetry | Cross-service table access |
 | Redis | Cache, rate-limit counters and short-lived coordination, with TTLs | Approvals, audit, source telemetry or durable events |
 | Qdrant | Vector retrieval, filtered by tenant and document metadata | Authoritative document permissions |
 | JetStream | Durable events and work queues | The long-term system of record |
@@ -674,6 +673,8 @@ PostgreSQL remains the system of record, TimescaleDB handles telemetry volume, a
 | SCADA summaries | Every 10 minutes | 2 years |
 | CMS vibration features | Every 10 minutes, with spectral bands | 2 years |
 | Raw CMS waveform windows | On a trigger or schedule, stored as bounded objects or arrays | 90 days, longer if a snapshot references them |
+
+Telemetry tables shall use native PostgreSQL range partitions on event time. The Telemetry Service shall create upcoming partitions, write the summaries and recalculate a summary when late data arrives for its period. Retention shall drop whole partitions. Telemetry is stored uncompressed, so the Phase 13 capacity record shall include its disk use.
 
 Event time and ingestion time shall be stored separately. Telemetry shall also keep source, source record ID, unit, schema version and quality status. A snapshot's referenced data shall be exempt from retention until the snapshot is released.
 
@@ -890,7 +891,7 @@ These are project targets, not industry benchmarks, certification claims or real
 
 - Unit tests for service logic, validators, rules and permission policies.
 - gRPC contract and Buf breaking-change tests.
-- Integration tests for PostgreSQL, TimescaleDB, Redis, Qdrant, JetStream, Tavily, the forecast adapter and MCP servers.
+- Integration tests for PostgreSQL, Redis, Qdrant, JetStream, Tavily, the forecast adapter and MCP servers.
 - End-to-end tests from fault detection through approval and post-maintenance verification.
 - Security tests for RBAC, tenant isolation, prompt injection, secret leakage and rate limits.
 - Fault-injection tests for timeouts, breakers, provider failure and pod loss.
@@ -1019,7 +1020,7 @@ Agents arrive after the deterministic rules exist, so they never need to invent 
 | Phase | Delivers | Exit gate |
 | --- | --- | --- |
 | 1. Platform foundation | Repository, CI, Buf contracts, service template, resilience library, Docker, Minikube, APISIX, logs, traces, metrics and dashboards | A sample gRPC call is traced through the gateway, and its breaker opens under an injected fault |
-| 2. Data and events | PostgreSQL, TimescaleDB, Redis, Qdrant, JetStream, Alembic Jobs, outbox library and Audit Service | An event survives a pod restart, and a redelivered audit event creates only one record |
+| 2. Data and events | PostgreSQL, Redis, Qdrant, JetStream, Alembic Jobs, outbox library and Audit Service | An event survives a pod restart, and a redelivered audit event creates only one record |
 | 3. Identity and tenancy | Keycloak, Identity, Authorization, Tenant, MFA, RBAC, mTLS, Web BFF, frontend shell, branding and base administrator console | Cross-tenant and missing-permission tests all fail safely, and administrator MFA is enforced |
 | 4. Assets and telemetry | Asset, simulator, Telemetry, data-quality detection and fleet screens | A seeded fault profile streams into storage with the correct quality labels |
 | 5. Alarms, detection and cases | Alarm, Fault Detection, Investigation, evidence snapshots and alarm screens | A fault creates one deduplicated case bound to an immutable snapshot |

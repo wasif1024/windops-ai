@@ -391,16 +391,15 @@ def build_architecture() -> None:
     )
 
     # Data and external providers
-    c.frame(40, 840, 660, 950, "Data: each service owns its schema")
+    c.frame(40, 840, 660, 950, "Data: each service owns its database")
     stores = [
-        ("PostgreSQL", "system of record"),
-        ("TimescaleDB", "telemetry"),
+        ("PostgreSQL", "system of record, telemetry"),
         ("Redis", "cache, rate limits"),
         ("Qdrant", "vector retrieval"),
     ]
     for i, (name, note) in enumerate(stores):
-        x0 = 52 + i * 150
-        c.node(x0, 868, x0 + 144, 940, name, note, title_size=14)
+        x0 = 52 + i * 200
+        c.node(x0, 868, x0 + 194, 940, name, note, title_size=14)
 
     c.frame(
         676, 840, 1360, 950, "External and identity providers: reached through circuit breakers"
@@ -528,10 +527,10 @@ SECURITY_LAYERS = (
         "5. Data and events",
         (
             ("NATS JetStream", "durable events, transactional outbox", "service"),
-            ("Data stores", "PostgreSQL, TimescaleDB, Redis, Qdrant", "service"),
+            ("Data stores", "PostgreSQL, Redis, Qdrant", "service"),
         ),
         (
-            Control("Each service has its own schema and credentials", "M2.1"),
+            Control("Each service has its own database and credentials"),
             Control("Tenant isolation in the database, with row-level security", "M3.6"),
             Control("Audit records are append-only and tamper-evident", "M2.7"),
         ),

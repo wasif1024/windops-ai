@@ -11,7 +11,7 @@ SRS 11.4 defines this order:
 make cluster          # start the cluster
 make images           # build service images into the cluster
 make secrets          # create namespaces and local secrets
-make infra            # create etcd and the observability stack
+make infra            # create etcd, PostgreSQL and the observability stack
 make services         # deploy the gateway and services
 make gateway-routes   # apply the gateway's routes
 ```
@@ -28,7 +28,13 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make gateway-check` | The gateway routes, skips unhealthy backends, and keeps routes through restarts |
 | `make observability-check` | One call appears in logs, traces and metrics, and dashboards work |
 | `make sample-check` | Two services work together, through the gateway |
+| `make postgres-check` | Services are isolated in PostgreSQL, and data survives a restart and a restore |
 | `make phase-1-gate` | A call is traced through the gateway, and its breaker opens under a fault |
+
+## Data
+
+[PostgreSQL](../infrastructure/data/postgres/README.md) describes the service databases, and how to
+reset, back up and restore them.
 
 ## Environments
 
