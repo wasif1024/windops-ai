@@ -45,8 +45,10 @@ control is still shown as planned after its modules are finished.
 
 ## Status
 
-Phase 1 (platform foundation) is in progress. The shared libraries, service template, CI, local
-cluster, API gateway and observability stack are built and tested. No business services exist yet.
+Phase 1 (platform foundation) is complete, and its [exit gate](docs/phases/phase-01-exit-gate.md)
+passed on a real local cluster. The shared libraries, service template, CI, API gateway and
+observability stack are built and tested, and two sample services prove them. No business services
+exist yet. Phase 2 (data and events) is next.
 The [tracker](docs/phases/README.md) shows the current position.
 
 ## Requirements

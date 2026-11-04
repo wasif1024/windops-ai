@@ -20,6 +20,10 @@ Routes live in [infrastructure/gateway/routes](../../infrastructure/gateway/rout
 each, and `make gateway-routes` applies them. Every upstream must have active health checks and
 timeouts, so the gateway avoids an unhealthy backend and fails fast. A test enforces this.
 
+Every route must also enable tracing. The plugin's gateway-wide settings are in
+[infrastructure/gateway/plugin-metadata](../../infrastructure/gateway/plugin-metadata), and
+`make gateway-routes` applies them too.
+
 ## Run it locally
 
 ```bash

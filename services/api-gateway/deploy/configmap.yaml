@@ -18,6 +18,10 @@ data:
         port: 7085
       ssl:
         enable: false
+    # Only what routes use. M3.1 and M3.7 add token checks, CORS and rate limits.
+    plugins:
+      - opentelemetry
+    stream_plugins: []
     nginx_config:
       worker_processes: 1
       error_log_level: warn

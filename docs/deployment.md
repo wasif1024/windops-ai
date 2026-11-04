@@ -28,6 +28,7 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make gateway-check` | The gateway routes, skips unhealthy backends, and keeps routes through restarts |
 | `make observability-check` | One call appears in logs, traces and metrics, and dashboards work |
 | `make sample-check` | Two services work together, through the gateway |
+| `make phase-1-gate` | A call is traced through the gateway, and its breaker opens under a fault |
 
 ## Environments
 

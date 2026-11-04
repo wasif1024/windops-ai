@@ -52,3 +52,4 @@ These figures replace estimates as workloads are added. See
 | 2026-11-04 | Whole cluster with the observability stack and etcd, and no gateway | 2.07 GiB of 10 GiB | From `docker stats` |
 | 2026-11-04 | One sample service, with almost no work | 47 MiB | From `kubectl top` |
 | 2026-11-04 | Whole cluster with the stack, gateway and 2 sample services | 2.31 GiB of 10 GiB | From `docker stats` |
+| 2026-11-04 | Tempo while writing stored traces | Over 320 MiB, so its limit is 512 MiB | Killed at 320 MiB after a restart |

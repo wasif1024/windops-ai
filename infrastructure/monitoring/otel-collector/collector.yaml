@@ -18,7 +18,7 @@ data:
         spike_limit_mib: 24
       batch: {}
     exporters:
-      otlp/tempo:
+      otlp_grpc/tempo:
         endpoint: windops-tempo.windops-observability.svc.cluster.local:4317
         tls:
           insecure: true
@@ -27,7 +27,7 @@ data:
         traces:
           receivers: [otlp]
           processors: [memory_limiter, batch]
-          exporters: [otlp/tempo]
+          exporters: [otlp_grpc/tempo]
 ---
 apiVersion: apps/v1
 kind: Deployment

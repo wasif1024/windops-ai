@@ -16,7 +16,8 @@ This path runs today, using the sample services:
 | 2 | API Gateway | Sample caller | HTTP | Upstream health checks |
 | 3 | Sample caller | Sample responder | gRPC | Signed identity, deadline, breaker and bounded retries |
 
-Real requests will reach services through Web BFF, after M3 adds TLS and token checks at the gateway.
+A single trace covers all three steps, and the [Phase 1 exit gate](phases/phase-01-exit-gate.md) proves
+it. Real requests will reach services through Web BFF, after M3 adds TLS and token checks at the gateway.
 
 ## Key decisions
 

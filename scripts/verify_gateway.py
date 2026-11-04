@@ -24,6 +24,7 @@ HOST = f"{WORKLOAD}.{APPLICATION}.svc.cluster.local"
 ROUTE_ID = "gateway-check"
 ROUTE = {
     "uri": "/health/live",
+    "plugins": {"opentelemetry": {"sampler": {"name": "always_on"}}},
     "upstream": {
         "type": "roundrobin",
         "retries": 0,

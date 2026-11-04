@@ -29,6 +29,25 @@ spec:
         runAsGroup: 636
         seccompProfile:
           type: RuntimeDefault
+      # APISIX exits if etcd is unreachable, so wait for it instead of restarting on a fresh start.
+      initContainers:
+        - name: wait-for-etcd
+          image: apache/apisix:3.19.0-debian@sha256:9a7e45dc943fbf10ec916d1232bae4cda9302ae28a4696cfb83c2da01d261141
+          command:
+            - bash
+            - -c
+            - until (exec 3<>/dev/tcp/windops-etcd.windops-system.svc.cluster.local/2379) 2>/dev/null; do sleep 2; done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
       containers:
         - name: apisix
           image: apache/apisix:3.19.0-debian@sha256:9a7e45dc943fbf10ec916d1232bae4cda9302ae28a4696cfb83c2da01d261141

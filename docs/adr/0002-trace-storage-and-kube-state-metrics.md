@@ -23,7 +23,7 @@ which keeps logs, traces and metrics in one place.
 
 ## Consequences
 
-- Two workloads more than SRS 11.2 listed, using an estimated 100 to 200 MiB in total. Measured figures
+- Two workloads more than SRS 11.2 listed, using far less than their limits when idle. Tempo needs a 512 MiB limit, because writing a block of traces briefly needs much more memory. Measured figures
   are in `infrastructure/minikube/README.md`.
 - Grafana can follow a log line to its trace through the shared `trace_id`.
 - Local traces last only 24 hours. Longer retention needs object storage, which is out of scope.
