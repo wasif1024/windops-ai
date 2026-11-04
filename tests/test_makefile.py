@@ -34,6 +34,9 @@ BUILT_TARGETS = {
     "audit",
     "contracts",
     "check",
+    "service",
+    "images",
+    "scaffold-check",
 }
 PLANNED_TARGETS = SRS_TARGETS - BUILT_TARGETS
 

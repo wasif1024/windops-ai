@@ -1,0 +1,20 @@
+"""Start the {{short}} service."""
+
+import asyncio
+
+import grpc
+from windops_grpc import run_service
+
+SERVICE_NAME = "{{short}}"
+
+
+def register(server: grpc.aio.Server) -> None:
+    """Add this service's gRPC servicers to the server."""
+
+
+def main() -> None:
+    asyncio.run(run_service(SERVICE_NAME, register))
+
+
+if __name__ == "__main__":
+    main()

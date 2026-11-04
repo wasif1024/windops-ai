@@ -58,7 +58,8 @@ A pull request can merge only when all of these are true:
 | No direct pushes, and no merge with failing checks | Branch protection on `main` | Active |
 | Squash merge only, and merged branches are deleted | Repository settings | Active |
 | Contract lint and breaking-change checks | Buf, in the `check` job | Active |
-| Container images are scanned | GitHub Actions | Arrives in M1.6 |
+| The service template builds, runs and shuts down cleanly | `image-scan` job, and `make scaffold-check` locally | Active |
+| Container images have no fixable high or critical vulnerabilities | `image-scan` job | Active |
 | Reviewer differs from author | Branch protection on `main` | When a second maintainer joins |
 
 Until a rule is enforced automatically, the author is responsible for following it.

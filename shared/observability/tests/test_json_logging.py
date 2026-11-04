@@ -117,3 +117,8 @@ def test_breaker_state_change_logs_as_json(stream: io.StringIO) -> None:
     entry = entries(stream)[0]
     assert entry["dependency"] == "weather"
     assert entry["to_state"] == "open"
+
+
+def test_terminal_formatting_from_uvicorn_is_dropped(stream: io.StringIO) -> None:
+    logging.getLogger("uvicorn").info("Started", extra={"color_message": "\x1b[36mStarted"})
+    assert "color_message" not in entries(stream)[0]

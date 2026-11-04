@@ -8,7 +8,6 @@ CONTRACTS_BASELINE ?= origin/main
 # Targets a later module delivers, as <target>:<module>. They fail until then, so a
 # command that does nothing yet can never look like it passed.
 PLANNED_TARGETS := \
-	images:M1.6 \
 	secrets:M1.7 \
 	infra:M1.7 \
 	clean:M1.7 \
@@ -21,7 +20,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts check service images scaffold-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -61,6 +60,22 @@ check: lint typecheck contracts test ## Run every check required before a pull r
 audit: ## Check locked dependencies for known vulnerabilities
 	uv export --quiet --locked --all-groups --no-emit-workspace --format requirements-txt --output-file .venv/audit-requirements.txt
 	uv run pip-audit --strict --disable-pip --requirement .venv/audit-requirements.txt
+
+service: ## Create a service from the template: make service NAME=telemetry-service
+	@test -n "$(NAME)" || { echo "Usage: make service NAME=telemetry-service" >&2; exit 1; }
+	uv run python scripts/new_service.py "$(NAME)"
+
+images: ## Build an image for every service
+	@for dockerfile in services/*/Dockerfile; do \
+		[ -f "$$dockerfile" ] || { echo "No services to build yet."; exit 0; }; \
+		service="$$(basename "$$(dirname "$$dockerfile")")"; \
+		name="windops-$${service%-service}"; \
+		echo "Building $$name:local"; \
+		docker build -q -f "$$dockerfile" -t "$$name:local" . || exit 1; \
+	done
+
+scaffold-check: ## Generate, build and run a throwaway service to prove the template works
+	uv run python scripts/verify_scaffold.py $(SCAFFOLD_ARGS)
 
 define planned_target
 $(firstword $(subst :, ,$(1))):

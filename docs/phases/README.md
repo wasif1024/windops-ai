@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 14 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 1. Next up is M1.6.
+**Current position:** Phase 1. Next up is M1.7.
 
 ## How to use this tracker
 
@@ -46,6 +46,12 @@ The SRS defines the requirements, and this file tracks progress against them.
 | 13 | [Resilience and scale](#phase-13-resilience-and-scale) | 8 | Not started |
 | 14 | [Hardening and release](#phase-14-hardening-and-release) | 7 | Not started |
 
+## Optional decisions
+
+| Decision | Status | When |
+| --- | --- | --- |
+| Add Temporal for the long case process across services | Optional, and not planned. LangGraph checkpoints, JetStream and the outbox cover restarts | Review in Phase 14, using what we learned |
+
 ## Prerequisites
 
 - [x] **P.1 SRS baseline:** SRS v1.1 is the complete baseline, so no v1.0 copy is needed. Done 2026-11-04.
@@ -59,7 +65,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [x] **M1.3 Contracts:** Buf lint and breaking-change checks, a sample versioned package, and `docs/grpc-contracts.md` (GRP-001, GRP-002, GRP-007, GRP-008). Done 2026-11-04, PR #3.
 - [x] **M1.4 Resilience library:** `shared/resilience` with the SRS 7.7 breaker defaults, retries and deadlines (RES-001, RES-003, RES-004, RES-006). Done 2026-11-04, PR #4.
 - [x] **M1.5 Observability library:** JSON logs, OpenTelemetry traces and metrics, including circuit breaker state metrics, with secret redaction (OBS-001, OBS-002, OBS-003). Done 2026-11-04, PR #7.
-- [ ] **M1.6 Service scaffold:** template that creates each service's tests, Dockerfile, health checks, breaker wiring, manifests and README, with image scanning added to CI (SRS 9.5), gRPC deadlines, trace context, verified identity, health and error mapping, and startup, shutdown and health-change logs (GRP-003, GRP-004, GRP-006, ARC-001, ARC-004, ARC-005, DEP-001, DEP-002, DEP-003, DEP-004, DEP-005).
+- [x] **M1.6 Service scaffold:** template that creates each service's tests, Dockerfile, health checks, breaker wiring, manifests and README, with image scanning added to CI (SRS 9.5), gRPC deadlines, trace context, verified identity, health and error mapping, and startup, shutdown and health-change logs (GRP-003, GRP-004, GRP-006, ARC-001, ARC-004, ARC-005, DEP-001, DEP-002, DEP-003, DEP-004, DEP-005). Done 2026-11-04, PR #8.
 - [ ] **M1.7 Minikube and Kustomize:** namespaces, Calico and overlays for `local`, `ci` and a production-style example, with per-workload memory limits and a first recorded memory measurement (DEP-007, K8S-006, K8S-007).
 - [ ] **M1.8 API Gateway:** APISIX as the only ingress, with etcd and upstream health (SRS 7.2).
 - [ ] **M1.9 Observability stack:** OpenTelemetry Collector, Prometheus, Alertmanager, Grafana, Loki and Fluent Bit, with the Platform Health and Microservice Health dashboards, and log retention, access and rotation per environment (SRS 10.1, 10.3; OBS-004).
@@ -138,7 +144,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [ ] **M8.1 Vendor checks:** confirm Claude features through Deep Agents, Claude data handling and LangSmith Sandbox availability, as the first task (SRS 13.4; SBX-004).
 - [ ] **M8.2 Agent Runtime Service:** queued jobs and worker replicas, so a replica can fail without losing a run (ARC-006, ARC-007).
 - [ ] **M8.3 Claude policy:** versioned model and effort settings, response handling, caching and budgets (LLM-001, LLM-002, LLM-003, LLM-004, LLM-005, LLM-006, LLM-007, LLM-008, LLM-009, LLM-010).
-- [ ] **M8.4 LangGraph workflow:** SRS 5.4 steps 1 to 13, checkpoints, terminal states, and pause and resume (AGT-003, AGT-004, AGT-005, FR-INV-007).
+- [ ] **M8.4 LangGraph workflow:** SRS 5.4 steps 1 to 13, checkpoints, terminal states, and pause and resume, with a test that kills a worker mid-run and proves the run resumes from its last checkpoint (AGT-003, AGT-004, AGT-005, FR-INV-007).
 - [ ] **M8.5 Agent identities:** token exchange and the `fault-investigator` principal, ineligible for approval and visible in audit (SEC-008, SEC-009, SEC-010).
 - [ ] **M8.6 WindOps MCP:** tenant-scoped tools and per-agent allowlists, with separate read and write paths for external content (MCP-002, MCP-006, MCP-007).
 - [ ] **M8.7 Agents and skills:** Supervisor, SCADA Analyst, Reliability Engineer, Production Impact, Maintenance Planner and Safety Researcher, plus the six SRS 11.5 skills (FR-IMP-004).

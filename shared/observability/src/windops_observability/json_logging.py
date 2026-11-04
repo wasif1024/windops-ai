@@ -18,7 +18,11 @@ _request_id: ContextVar[str | None] = ContextVar("windops_request_id", default=N
 _tenant_id: ContextVar[str | None] = ContextVar("windops_tenant_id", default=None)
 
 # Attributes every LogRecord has, so anything else was passed through `extra`.
-_STANDARD_ATTRIBUTES = frozenset(vars(logging.makeLogRecord({}))) | {"message", "asctime"}
+_STANDARD_ATTRIBUTES = frozenset(vars(logging.makeLogRecord({}))) | {
+    "message",
+    "asctime",
+    "color_message",  # Terminal formatting added by uvicorn.
+}
 
 
 @contextmanager
