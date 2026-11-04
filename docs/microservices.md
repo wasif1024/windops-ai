@@ -24,6 +24,7 @@ Then follow the steps in its README.
 | Tenant-scoped Redis cache and rate limits, with TTLs and a breaker | `windops-cache` | SRS 8.1, DAT-004, DAT-007 |
 | Durable, tenant-carrying events, with retries and dead letters | `windops-events` | SRS 7.6, DAT-007 |
 | Its own migration history and Job, for a service that stores data | `windops-migrations` | DAT-001, DAT-002 |
+| Commits a state change and its event together, with a relay to publish it | `windops-outbox` | EVT-002, EVT-004 |
 | Non-root image, and manifests with probes and memory limits | The service template | DEP-001 to DEP-005 |
 
 ## Call another service

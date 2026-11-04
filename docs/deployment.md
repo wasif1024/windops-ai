@@ -34,6 +34,7 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make qdrant-check` | Qdrant needs a key, and vectors survive a restart and a restore |
 | `make nats-check` | Events survive a restart, only a subject's owner can publish it, failures reach the dead-letter stream, and an outage is reported |
 | `make migrate-check` | Migration Jobs apply once, repeat safely, undo a failure, and cannot collide |
+| `make outbox-check` | A state change and its event commit together, wait out a JetStream outage, and are not stored twice |
 | `make phase-1-gate` | A call is traced through the gateway, and its breaker opens under a fault |
 
 ## Data

@@ -13,6 +13,7 @@ from nats.errors import Error as NatsError
 from nats.js import JetStreamContext
 from nats.js.api import AckPolicy, ConsumerConfig, RetentionPolicy, StorageType, StreamConfig
 from nats.js.errors import APIError, BadRequestError, ServiceUnavailableError
+from windops.events.v1 import events_pb2
 from windops_resilience import BreakerConfig, BreakerOpenError, CircuitBreaker
 
 from windops_events.envelope import Event, InvalidEventError, build_envelope, parse_event
@@ -113,6 +114,12 @@ class EventPublisher:
             trace_parent=trace_parent,
             request_id=request_id,
         )
+        return await self.publish_envelope(subject, envelope)
+
+    async def publish_envelope(
+        self, subject: str, envelope: events_pb2.EventEnvelope
+    ) -> PublishedEvent:
+        """Store an event that was already built, as the outbox does, keeping its ID and time."""
 
         async def send() -> PublishedEvent:
             try:
