@@ -10,6 +10,11 @@ permissions:
   contents: read
   pull-requests: write
 
+# Runs for one pull request must not overlap, or an older run can undo a newer run's label.
+concurrency:
+  group: pr-status-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   pr-status:
     name: pr-status
@@ -22,12 +27,15 @@ jobs:
           EVENT: ${{ github.event_name }}
           ACTION: ${{ github.event.action }}
           PR: ${{ github.event.pull_request.number }}
-          DRAFT: ${{ github.event.pull_request.draft }}
-          TITLE: ${{ github.event.pull_request.title }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           REVIEW: ${{ github.event.review.state }}
         run: |
           set -euo pipefail
+
+          # Read the current state, because the event's copy can be out of date by now.
+          DRAFT="$(gh pr view "$PR" --repo "$REPO" --json isDraft --jq '.isDraft')"
+          TITLE="$(gh pr view "$PR" --repo "$REPO" --json title --jq '.title')"
+          labels="$(gh pr view "$PR" --repo "$REPO" --json labels --jq '.labels[].name')"
 
           desired=""
           if [ "$DRAFT" = "true" ]; then
@@ -41,6 +49,10 @@ jobs:
             case "$ACTION" in
               opened|reopened|ready_for_review|synchronize) desired="status: ready for review" ;;
             esac
+            # Only a draft is a work in progress, so a leftover label is corrected here.
+            if [ -z "$desired" ] && grep -qx "status: wip" <<<"$labels"; then
+              desired="status: ready for review"
+            fi
           fi
 
           # A pull request from a fork gets a read-only token, so it cannot change labels.
@@ -56,7 +68,7 @@ jobs:
 
           labels="$(gh pr view "$PR" --repo "$REPO" --json labels --jq '.labels[].name')"
           failed=0
-          if [ "$DRAFT" = "true" ] || grep -qx "status: wip" <<<"$labels"; then
+          if [ "$DRAFT" = "true" ]; then
             echo "::error::This pull request is a work in progress. Mark it ready for review."
             failed=1
           fi
