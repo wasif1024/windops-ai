@@ -51,7 +51,7 @@ def main() -> int:
         # Never print the rendered manifest, because it contains the key.
         print(f"Could not apply the secret: {error.stderr}", file=sys.stderr)
         return 1
-    print(f"Applied {SECRET_NAME} to {', '.join(NAMESPACES)}")
+    print(f"Applied the signing key to {', '.join(NAMESPACES)}")
     return 0
 
 

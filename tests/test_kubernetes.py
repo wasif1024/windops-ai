@@ -64,7 +64,9 @@ def overlay_with_service(tmp_path: Path, overlay: str) -> list[dict[str, Any]]:
     shutil.copytree(ROOT / "infrastructure" / "kubernetes", kubernetes)
     create_service("telemetry-service", tmp_path)
     file = kubernetes / "base" / "services" / "kustomization.yaml"
-    file.write_text(add_service_to_kustomization("telemetry-service", file.read_text()))
+    # Start from an empty list, because the repository may already have services.
+    empty = "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources: []\n"
+    file.write_text(add_service_to_kustomization("telemetry-service", empty))
     return render(kubernetes / "overlays" / overlay)
 
 
@@ -92,7 +94,7 @@ def test_local_overlay_meets_k8s_007(tmp_path: Path) -> None:
 
 
 def test_service_is_listed_once_in_the_kustomization() -> None:
-    text = (BASE / "services" / "kustomization.yaml").read_text()
+    text = "apiVersion: kustomize.config.k8s.io/v1beta1\nresources: []\n"
     once = add_service_to_kustomization("telemetry-service", text)
     twice = add_service_to_kustomization("telemetry-service", once)
     assert once == twice
