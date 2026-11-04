@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 14 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 2. Next up is M2.1.
+**Current position:** Phase 2. Next up is M2.2.
 
 ## How to use this tracker
 
@@ -35,7 +35,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 | --- | --- | --- | --- |
 | - | [Prerequisites](#prerequisites) | 3 | Done |
 | 1 | [Platform foundation](#phase-1-platform-foundation) | 11 | Done |
-| 2 | [Data and events](#phase-2-data-and-events) | 9 | Not started |
+| 2 | [Data and events](#phase-2-data-and-events) | 9 | In progress |
 | 3 | [Identity and tenancy](#phase-3-identity-and-tenancy) | 11 | Not started |
 | 4 | [Assets and telemetry](#phase-4-assets-and-telemetry) | 10 | Not started |
 | 5 | [Alarms, detection and cases](#phase-5-alarms-detection-and-cases) | 7 | Not started |
@@ -77,7 +77,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 
 ## Phase 2: Data and events
 
-- [ ] **M2.1 PostgreSQL and TimescaleDB:** persistent storage, with a separate database or schema and credentials per service (ARC-002, ARC-003, DEP-006).
+- [x] **M2.1 PostgreSQL:** persistent storage, with a separate database or schema and credentials per service (ARC-002, ARC-003, DEP-006). Done 2026-11-05, PR #16.
 - [ ] **M2.2 Redis:** cache and rate-limit use only, with TTLs and tenant-scoped keys (DAT-004, DAT-007, EVT-005).
 - [ ] **M2.3 Qdrant:** deployed with persistent storage (SRS 8.1).
 - [ ] **M2.4 JetStream:** streams, the SRS 7.6 subjects, Protobuf events, tenant identifiers and a dead-letter stream (EVT-001, EVT-003).
@@ -107,7 +107,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [ ] **M4.2 Simulator core:** seeded, versioned physical models, with all data marked synthetic (SIM-001, SIM-003, SIM-006).
 - [ ] **M4.3 Fault scenarios:** the six starting profiles, injected data problems and hidden ground truth (SIM-002, SIM-004, SIM-005).
 - [ ] **M4.4 Telemetry ingestion:** authenticated device route and required metadata (FR-TEL-001, FR-TEL-002, FR-TEL-005, API-004).
-- [ ] **M4.5 Telemetry storage:** TimescaleDB, with the SRS 8.3 rates and retention (FR-TEL-004).
+- [ ] **M4.5 Telemetry storage:** PostgreSQL time partitions and summaries, with the SRS 8.3 rates and retention (FR-TEL-004).
 - [ ] **M4.6 Data-quality detection:** label missing, duplicated, delayed, malformed and out-of-order data (FR-TEL-003).
 - [ ] **M4.7 Telemetry snapshots:** the SRS 7.4 streaming and snapshot contract, with reproducible metadata (FR-TEL-006).
 - [ ] **M4.8 Fleet screens:** fleet overview, turbine detail and telemetry charts (SRS 4.11).

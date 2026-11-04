@@ -1,0 +1,6 @@
+# SRS section 11.2. Later modules add Redis, Qdrant and NATS here.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: windops-data
+resources:
+  - ../../../data/postgres
