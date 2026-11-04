@@ -12,11 +12,12 @@ make cluster          # start the cluster
 make images           # build service images into the cluster
 make secrets          # create namespaces and local secrets
 make infra            # create etcd, data stores and the observability stack
+make migrate          # run each service's migration Job
 make services         # deploy the gateway and services
 make gateway-routes   # apply the gateway's routes
 ```
 
-`make identity-seed`, `make migrate`, `make seed-demo` and `make smoke-test` arrive with their
+`make identity-seed`, `make seed-demo` and `make smoke-test` arrive with their
 modules. `make help` lists what each one does, and which module delivers it.
 
 ## Check it
@@ -32,6 +33,7 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make redis-check` | Services are isolated in Redis, nothing survives a restart, and an outage is handled safely |
 | `make qdrant-check` | Qdrant needs a key, and vectors survive a restart and a restore |
 | `make nats-check` | Events survive a restart, only a subject's owner can publish it, failures reach the dead-letter stream, and an outage is reported |
+| `make migrate-check` | Migration Jobs apply once, repeat safely, undo a failure, and cannot collide |
 | `make phase-1-gate` | A call is traced through the gateway, and its breaker opens under a fault |
 
 ## Data

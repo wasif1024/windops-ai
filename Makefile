@@ -12,14 +12,13 @@ KUBERNETES_DIR := infrastructure/kubernetes
 # Targets a later module delivers, as <target>:<module>. They fail until then, so a
 # command that does nothing yet can never look like it passed.
 PLANNED_TARGETS := \
-	migrate:M2.5 \
 	identity-seed:M3.1 \
 	eval:M12.8 \
 	chaos:M13.2 \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -65,7 +64,7 @@ audit: ## Check locked dependencies for known vulnerabilities
 
 service: ## Create a service from the template: make service NAME=telemetry-service
 	@test -n "$(NAME)" || { echo "Usage: make service NAME=telemetry-service" >&2; exit 1; }
-	uv run python scripts/new_service.py "$(NAME)"
+	uv run python scripts/new_service.py "$(NAME)" $(if $(DATABASE),--database,)
 
 images: ## Build an image for every service, into the cluster's image store
 	@eval "$$(minikube -p $(CLUSTER) docker-env --shell bash)"; \
@@ -104,6 +103,16 @@ infra: ## Create the namespaces, etcd, data stores and the observability stack
 	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/observability
 	uv run python scripts/provision_postgres.py
 	PYTHONPATH=scripts uv run python scripts/provision_nats.py
+
+migrate: ## Run each service's migration Job, once per release, before make services
+	uv run python scripts/run_migrations.py
+
+migration: ## Add a migration: make migration PACKAGE=windops_audit MESSAGE="add records"
+	@test -n "$(PACKAGE)" -a -n "$(MESSAGE)" || { echo 'Usage: make migration PACKAGE=windops_audit MESSAGE="add records"' >&2; exit 1; }
+	uv run python -m windops_migrations new "$(PACKAGE)" --message "$(MESSAGE)"
+
+migrate-check: ## Prove migration Jobs work on the cluster, using a throwaway service
+	PYTHONPATH=scripts uv run python scripts/verify_migrations.py
 
 postgres-provision: ## Create each service's PostgreSQL database and login
 	uv run python scripts/provision_postgres.py

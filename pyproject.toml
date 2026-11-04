@@ -17,6 +17,7 @@ members = [
     "shared/contracts",
     "shared/events",
     "shared/grpc",
+    "shared/migrations",
     "shared/observability",
     "shared/resilience",
 ]
@@ -24,6 +25,7 @@ members = [
 [tool.uv.sources]
 windops-cache = { workspace = true }
 windops-events = { workspace = true }
+windops-migrations = { workspace = true }
 windops-observability = { workspace = true }
 windops-resilience = { workspace = true }
 windops-grpc = { workspace = true }
@@ -60,6 +62,8 @@ files = [
     "shared/events/tests",
     "shared/grpc/src",
     "shared/grpc/tests",
+    "shared/migrations/src",
+    "shared/migrations/tests",
     "shared/observability/src",
     "shared/observability/tests",
     "shared/resilience/src",
@@ -80,6 +84,8 @@ mypy_path = [
     "shared/events/tests",
     "shared/grpc/src",
     "shared/grpc/tests",
+    "shared/migrations/src",
+    "shared/migrations/tests",
     "shared/observability/src",
     "shared/observability/tests",
     "shared/resilience/src",
@@ -102,6 +108,7 @@ testpaths = [
     "shared/cache/tests",
     "shared/events/tests",
     "shared/grpc/tests",
+    "shared/migrations/tests",
     "shared/observability/tests",
     "shared/resilience/tests",
 ]
@@ -126,6 +133,7 @@ dev = [
     "windops-contracts",
     "windops-events",
     "windops-grpc",
+    "windops-migrations",
     "windops-observability",
     "windops-resilience",
     "windops-sample-caller",

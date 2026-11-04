@@ -28,3 +28,5 @@ docker build -f services/{{directory}}/Dockerfile -t {{workload}}:local .
 2. Add a readiness check for each dependency the service cannot work without.
 3. Call other services through `ServiceClient`, with a breaker for each dependency.
 4. Measure memory, and update the limits in `deploy/deployment.yaml`.
+5. If the service stores data, add migrations with `make migration PACKAGE={{package}} MESSAGE="..."`.
+   [windops-migrations](../../shared/migrations/README.md) explains the rules.
