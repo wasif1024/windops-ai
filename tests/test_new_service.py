@@ -148,6 +148,8 @@ def test_dockerfile_is_pinned_multi_stage_and_non_root(service: Path) -> None:
     assert "USER 10001:10001" in lines
     assert any(line.startswith("RUN uv sync --locked") for line in lines)
     assert not any(line.startswith(("ENV WINDOPS", "COPY .env")) for line in lines)
+    runtime = lines[lines.index(stages[1]) :]
+    assert any("pip uninstall" in line for line in runtime)
 
 
 def test_deployment_meets_the_container_requirements(service: Path) -> None:
