@@ -20,6 +20,21 @@ extension's non-open-source license and its tie to the Telemetry Service's queri
   on the local profile.
 - Keep Redis as the cache, as SRS 8.1 already says. It holds no source telemetry.
 
+## Production design
+
+The shared server suits a laptop, but if it fails, every service loses its database until it restarts.
+Separate pods would cost up to 10 GiB locally, and still would not survive the machine failing. So the
+local cluster keeps one server, and a production deployment would add:
+
+- A standby on another machine for each server, which takes over automatically.
+- Scheduled backups, tested by restoring them (M14.3).
+- Dedicated servers for Telemetry, the busiest service, and Audit, the most critical record. Other
+  services share one.
+
+This is a design only, and it is not built. Separate databases make a move mostly a change of host and
+credentials. Running a database inside a service's pod was rejected, because each replica would get its
+own separate data, and every rolling update would restart the database.
+
 ## Consequences
 
 - One less license and dependency to manage, and standard SQL throughout.

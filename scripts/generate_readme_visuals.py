@@ -571,8 +571,11 @@ OBSERVABILITY_CONTROLS = (
 
 
 def all_controls() -> list[Control]:
-    return [control for layer in SECURITY_LAYERS for control in layer.controls] + list(
-        CLUSTER_CONTROLS + DELIVERY_CONTROLS + OBSERVABILITY_CONTROLS
+    hops = [control for _, controls in HOP_CONTROLS for control in controls]
+    return (
+        [control for layer in SECURITY_LAYERS for control in layer.controls]
+        + list(CLUSTER_CONTROLS + DELIVERY_CONTROLS + OBSERVABILITY_CONTROLS)
+        + hops
     )
 
 
@@ -786,6 +789,492 @@ def build_security_layers() -> None:
     cropped = c.image.crop((0, 0, 1400 * c.s, int(y + 28) * c.s))
     ASSETS.mkdir(parents=True, exist_ok=True)
     cropped.save(ASSETS / "security-layers.png", optimize=True)
+
+
+# ---------------------------------------------------------------- end to end
+
+RED = "#F87171"
+EVENT = "#C4B5FD"
+
+# Security on each kind of hop. The tests hold these to the tracker, like the other controls.
+HOP_CONTROLS = (
+    (
+        "Coming in",
+        (
+            Control("The gateway is the only way in, and nothing else is exposed"),
+            Control("Every route needs health checks and timeouts"),
+            Control("Login through Keycloak (OIDC), with MFA for administrators", "M3.1, M3.2"),
+            Control("TLS, CORS allowlists, rate limits and token validation", "M3.1, M3.7"),
+        ),
+    ),
+    (
+        "Between services",
+        (
+            Control("Every call needs a signed identity and a deadline, or it is rejected"),
+            Control("Tenant comes from the verified identity, never from a request field"),
+            Control("Encrypted calls between services, using mTLS", "M3.3"),
+            Control("Permissions denied by default, and checked on every operation", "M3.5"),
+        ),
+    ),
+    (
+        "Agents",
+        (
+            Control("Agents reach services only through allowlisted MCP tools", "M7.5, M8.6"),
+            Control("An agent that reads web content has no write tools", "M8.6"),
+            Control("Agents can only draft, and can never approve", "M9.5, M10.1"),
+            Control("Web content is untrusted, and is logged and redacted", "M7.4"),
+        ),
+    ),
+    (
+        "Data and events",
+        (
+            Control("Each service has its own database and credentials"),
+            Control("Databases are not reachable from outside the cluster"),
+            Control("Tenant isolation in the database, with row-level security", "M3.6"),
+            Control("Audit records are append-only and tamper-evident", "M2.7"),
+        ),
+    ),
+)
+# Every service in SRS 7.2 is drawn from these, so a test can prove none is missing.
+ENTRY_SERVICES = ("API Gateway", "Web BFF", "Identity", "Authorization", "Tenant")
+AGENT_SERVICE = "Agent Runtime"
+APPLICATION_GROUPS: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
+    (
+        "Operations",
+        "service",
+        (
+            ("Asset", "service"),
+            ("Telemetry", "service"),
+            ("Alarm", "service"),
+            ("Fault Detection", "rule"),
+            ("Investigation", "service"),
+        ),
+    ),
+    (
+        "Knowledge and research",
+        "service",
+        (("Knowledge", "service"), ("Weather", "service"), ("External Intelligence", "service")),
+    ),
+    ("Deterministic checks", "rule", (("Production Impact", "rule"), ("Policy", "rule"))),
+    (
+        "Maintenance",
+        "service",
+        (("Maintenance", "service"), ("Inventory", "service"), ("Approval", "human")),
+    ),
+    ("Record and notify", "service", (("Audit", "service"), ("Notification", "service"))),
+    (
+        "Agent support",
+        "service",
+        (("Agent Sandbox Adapter", "service"), ("Evaluation", "service")),
+    ),
+)
+BREAKER_OUTCOMES = (
+    (
+        "Refuse, because it protects safety or access",
+        RED,
+        (
+            ("Authorization", "deny the operation"),
+            ("Policy", "nothing reaches human review"),
+            ("Production Impact", "block; agents cannot guess"),
+            ("Keycloak", "no new logins, no weaker access"),
+            ("PostgreSQL", "return an error, write nothing"),
+        ),
+    ),
+    (
+        "Pause or refuse new work, and keep what exists",
+        AMBER,
+        (
+            ("Claude API", "pause the run, and resume later"),
+            ("Knowledge, Qdrant", "no uncited claims"),
+            ("Telemetry, Alarm", "no new snapshots; old ones readable"),
+            ("Approval", "reject decisions; queue readable"),
+            ("Forecast provider", "weather checks block or escalate"),
+        ),
+    ),
+    (
+        "Continue, and record the gap or queue the work",
+        GREEN,
+        (
+            ("Tavily", "record a research gap"),
+            ("Sandbox", "continue without the analysis"),
+            ("Audit", "hold in the outbox, alert on backlog"),
+            ("Notification", "queue in JetStream"),
+            ("JetStream", "hold events in the outbox"),
+        ),
+    ),
+)
+
+
+def dashed_arrow(c: Canvas, start: Point, end: Point, color: str = EVENT) -> None:
+    """Draw a dashed arrow for an event, which the sender does not wait on."""
+    length = math.dist(start, end)
+    dashes = max(1, int(length // 9))
+    for index in range(0, dashes, 2):
+        a = index / dashes
+        b = min(1.0, (index + 1) / dashes)
+        c.line(
+            [
+                (start[0] + (end[0] - start[0]) * a, start[1] + (end[1] - start[1]) * a),
+                (start[0] + (end[0] - start[0]) * b, start[1] + (end[1] - start[1]) * b),
+            ],
+            color,
+            1.5,
+        )
+    c.head(end, start, color)
+
+
+def edge_label(c: Canvas, x: float, y: float, value: str, color: str = MUTED) -> None:
+    width = c.text_width(value, 12)
+    c.box(x - width / 2 - 5, y - 9, x + width / 2 + 5, y + 9, fill=BG, outline=BG, radius=4)
+    c.text(x, y, value, 12, color=color, anchor="mm")
+
+
+def draw_communication(c: Canvas, top: float) -> float:
+    """Draw every service by namespace, with how they call each other and where data lives."""
+    c.frame(40, top, 1360, top + 760, "1. How services communicate, and where the data lives")
+
+    # Coming in
+    y = top + 34
+    c.node(60, y + 24, 190, y + 72, "Operators, approvers", kind="human", title_size=13)
+    c.node(60, y + 88, 190, y + 136, "Telemetry simulator", title_size=13)
+    c.node(235, y + 24, 375, y + 72, "React frontend", title_size=13)
+    c.box(450, y, 1340, y + 150, fill=BG, radius=8)
+    c.text(462, y + 14, "windops-system", 12.5, True, MUTED)
+    c.node(
+        470,
+        y + 36,
+        640,
+        y + 96,
+        "API Gateway",
+        "APISIX, the only way in",
+        title_size=14,
+        sub_size=11.5,
+    )
+    c.node(740, y + 36, 900, y + 96, "Web BFF", "no business rules", title_size=14, sub_size=11.5)
+    x = 985
+    for name in ENTRY_SERVICES[2:]:
+        c.node(x, y + 36, x + 110, y + 76, name, title_size=12.5)
+        x += 118
+    c.node(985, y + 96, 1095, y + 136, "Keycloak", title_size=12.5)
+    c.text(1108, y + 116, "Every service asks Authorization first", 11.5, color=MUTED)
+    c.arrow([(190, y + 48), (235, y + 48)])
+    c.arrow([(375, y + 48), (470, y + 48)])
+    edge_label(c, 415, y + 30, "HTTPS")
+    c.arrow([(190, y + 112), (555, y + 112), (555, y + 96)])
+    edge_label(c, 340, y + 112, "authenticated device route")
+    c.arrow([(640, y + 66), (740, y + 66)])
+    edge_label(c, 690, y + 48, "REST, SSE")
+    c.arrow([(900, y + 56), (985, y + 56)])
+    edge_label(c, 942, y + 38, "gRPC")
+    c.arrow([(1040, y + 76), (1040, y + 96)])
+
+    # Agents
+    y = top + 200
+    c.node(
+        60,
+        y + 12,
+        320,
+        y + 84,
+        AGENT_SERVICE,
+        "Supervisor and 5 agents, in windops-application",
+        kind="ai",
+    )
+    c.box(390, y, 1000, y + 96, fill=BG, radius=8)
+    c.text(402, y + 14, "windops-mcp: an agent's only route to services", 12.5, True, MUTED)
+    x = 404
+    for name, note in (
+        ("WindOps MCP", "tenant-scoped, draft only"),
+        ("Documentation MCP", "document permissions"),
+        ("Tavily MCP", "web research"),
+        ("Weather MCP", "weather only"),
+    ):
+        c.node(x, y + 30, x + 140, y + 86, name, note, title_size=12.5, sub_size=10.5)
+        x += 147
+    c.arrow([(320, y + 48), (390, y + 48)])
+    edge_label(c, 355, y + 30, "tools")
+
+    # Application services
+    y = top + 322
+    c.box(60, y, 1340, y + 222, fill=BG, radius=8)
+    c.text(
+        72,
+        y + 15,
+        "windops-application: each service has its own pod, and a breaker for each dependency",
+        12.5,
+        True,
+        MUTED,
+    )
+    c.arrow([(695, y - 26), (695, y)])
+    edge_label(c, 740, y - 13, "gRPC")
+    # Web BFF's calls pass to the right of the MCP servers.
+    c.arrow([(860, top + 130), (860, top + 190), (1100, top + 190), (1100, y)])
+    edge_label(c, 1145, top + 260, "gRPC, with a breaker")
+    x = 72
+    for group, kind, members in APPLICATION_GROUPS:
+        c.box(
+            x,
+            y + 30,
+            x + 202,
+            y + 212,
+            fill=PANEL,
+            outline=KINDS[kind][0] if kind != "service" else LINE,
+        )
+        c.text(x + 101, y + 44, group, 12.5, True, MUTED, "mm")
+        row = y + 58
+        for name, member_kind in members:
+            c.node(x + 8, row, x + 194, row + 26, name, kind=member_kind, title_size=12.5)
+            row += 30
+        x += 210
+
+    # Events
+    y = top + 562
+    c.box(300, y, 1180, y + 36, fill=mix(BG, EVENT, 0.14), outline=EVENT, radius=8)
+    c.text(
+        740,
+        y + 18,
+        "NATS JetStream: events and queued runs, from each service's outbox. The sender "
+        "never waits.",
+        13,
+        True,
+        anchor="mm",
+    )
+    dashed_arrow(c, (740, y - 18), (740, y))
+    dashed_arrow(c, (640, y), (640, y - 18))
+
+    # Data and external providers
+    y = top + 616
+    c.box(60, y, 1010, y + 132, fill=BG, radius=8)
+    c.text(72, y + 14, "windops-data", 12.5, True, MUTED)
+    c.arrow([(180, top + 544), (180, y)])
+    edge_label(c, 240, top + 580, "own login only")
+    c.box(72, y + 28, 760, y + 122, fill=KINDS["service"][1], outline=GREEN, width=1.5)
+    c.text(84, y + 42, "PostgreSQL pod: one server, 20 separate databases", 13.5, True)
+    c.text(
+        84,
+        y + 62,
+        "windops_telemetry, windops_alarm, windops_audit, windops_approval and 16 more",
+        12,
+        color=MUTED,
+    )
+    c.text(
+        84,
+        y + 80,
+        "A login opens only its own database. Service data is never read directly by another",
+        12,
+        color=MUTED,
+    )
+    c.text(
+        84,
+        y + 98,
+        "service: it asks that service over gRPC, or listens for its events.",
+        12,
+        color=MUTED,
+    )
+    c.node(
+        772,
+        y + 28,
+        886,
+        y + 122,
+        "Redis",
+        "cache and rate limits only",
+        title_size=13,
+        sub_size=11.5,
+    )
+    c.node(894, y + 28, 1000, y + 122, "Qdrant", "vector search", title_size=13, sub_size=11.5)
+
+    c.box(1030, y, 1340, y + 132, fill=BG, radius=8)
+    c.text(1042, y + 14, "External, through breakers", 12.5, True, MUTED)
+    c.arrow([(1260, top + 544), (1260, y)])
+    names = ("Claude", "Tavily", "Forecast", "OpenAI", "LangSmith", "Email")
+    for index, name in enumerate(names):
+        col, row = index % 3, index // 3
+        x0 = 1040 + col * 98
+        c.node(
+            x0, y + 30 + row * 48, x0 + 92, y + 72 + row * 48, name, kind="external", title_size=12
+        )
+    return top + 760
+
+
+def draw_call_steps(c: Canvas, top: float) -> float:
+    """Draw one call from start to finish, then the security on each kind of hop."""
+    c.frame(
+        40, top, 1360, top + 380, "2. One gRPC call, step by step, and the security on each hop"
+    )
+    steps = (
+        ("1. Caller's breaker", "If it is open, fail at once and run the fallback", "service"),
+        ("2. The call carries", "Deadline, trace, request ID and signed identity", "service"),
+        ("3. Receiver checks", "No valid identity or deadline means rejected", "rule"),
+        ("4. Authorization", "May this user do this, for this tenant?", "rule"),
+        ("5. Own database", "The work and its event commit together", "service"),
+        (
+            "6. Outbox to JetStream",
+            "Others hear about it, and the caller gets its answer",
+            "service",
+        ),
+    )
+    width = (1280 - 5 * 22) / 6
+    x = 60.0
+    for index, (title, note, kind) in enumerate(steps):
+        c.node(
+            x, top + 34, x + width, top + 124, title, note, kind=kind, title_size=13, sub_size=12
+        )
+        if index < len(steps) - 1:
+            c.arrow([(x + width, top + 79), (x + width + 22, top + 79)])
+        x += width + 22
+
+    c.dot(66, top + 146, 5.5, GREEN)
+    c.text(78, top + 146, "built and tested in the shared code", 12.5, color=MUTED)
+    draw_control_marker(c, 330, top + 146, True)
+    c.text(342, top + 146, "planned, with the module that delivers it", 12.5, color=MUTED)
+    column = 1280 / 4
+    for index, (title, controls) in enumerate(HOP_CONTROLS):
+        x = 60 + index * column
+        c.text(x, top + 172, title, 14, True, KINDS["external"][0])
+        draw_controls(c, x, top + 186, controls, column - 18)
+    return top + 380
+
+
+def draw_breaker(c: Canvas, top: float) -> float:
+    """Draw the breaker's states, then what the caller does when each dependency is down."""
+    c.frame(40, top, 1360, top + 330, "3. What a circuit breaker does when a dependency fails")
+    closed = (70, top + 44, 250, top + 104)
+    opened = (70, top + 170, 250, top + 230)
+    half = (340, top + 108, 520, top + 168)
+    for box, name, note, color in (
+        (closed, "Closed", "calls go through, and are counted", GREEN),
+        (opened, "Open", "calls fail at once, and the fallback runs", RED),
+        (half, "Half-open", "3 test calls go through", AMBER),
+    ):
+        c.box(*box, fill=mix(BG, color, 0.16), outline=color, width=1.5)
+        c.label(*box, name, note, TEXT, MUTED, 14, 11.5)
+    c.arrow([(130, top + 104), (130, top + 170)], RED)
+    c.arrow([(250, top + 200), (430, top + 200), (430, top + 168)], AMBER)
+    c.arrow([(430, top + 108), (430, top + 74), (250, top + 74)], GREEN)
+    c.arrow([(370, top + 168), (370, top + 186), (250, top + 186)], RED)
+    c.text(140, top + 137, "at least 10 recent calls,", 11.5, color=RED)
+    c.text(140, top + 151, "50% failed or slow", 11.5, color=RED)
+    c.text(322, top + 214, "after 30 seconds", 11.5, color=AMBER, anchor="mm")
+    c.text(345, top + 60, "all 3 succeed", 11.5, color=GREEN, anchor="mm")
+    c.text(308, top + 176, "any fails", 11.5, color=RED, anchor="mm")
+    rows = (
+        "Each caller has its own breaker for each dependency,",
+        "so one failure does not spread. Bad requests, such as",
+        "permission denied, do not count as failures.",
+        "Retries: 3 attempts at most, for idempotent calls only.",
+    )
+    for index, row in enumerate(rows):
+        c.text(70, top + 254 + index * 18, row, 12.5, color=MUTED)
+
+    width = 258
+    for index, (title, color, items) in enumerate(BREAKER_OUTCOMES):
+        x = 545 + index * (width + 9)
+        c.box(x, top + 36, x + width, top + 318, fill=BG, outline=color, width=1.25)
+        for row_index, row in enumerate(c.wrap(title, 13, width - 24, bold=True)):
+            c.text(x + 12, top + 52 + row_index * 17, row, 13, True, color)
+        y = top + 92
+        for name, outcome in items:
+            c.text(x + 12, y, name, 13, True)
+            c.text(x + 12, y + 18, outcome, 12, color=MUTED)
+            y += 45
+    return top + 330
+
+
+def draw_database_placement(c: Canvas, top: float) -> float:
+    """Contrast the shared local server with the production design."""
+    c.frame(
+        40, top, 1360, top + 276, "4. Where the databases run, and what happens if the server fails"
+    )
+    c.box(60, top + 36, 680, top + 262, fill=BG, outline=GREEN, width=1.25)
+    c.text(74, top + 54, "Local cluster: built", 14, True, GREEN)
+    for index, name in enumerate(("Telemetry pod", "Alarm pod", "Audit pod")):
+        row = top + 72 + index * 44
+        c.node(74, row, 214, row + 36, name, title_size=12.5)
+        c.arrow([(214, row + 18), (300, row + 18)])
+    c.box(300, top + 72, 666, top + 196, fill=KINDS["service"][1], outline=LINE)
+    c.text(483, top + 90, "One PostgreSQL pod, with a persistent volume", 13, True, anchor="mm")
+    for index, name in enumerate(("windops_telemetry", "windops_alarm", "windops_audit")):
+        c.text(483, top + 116 + index * 24, name, 12.5, color=MUTED, anchor="mm")
+    for index, sentence in enumerate(
+        (
+            "If the pod fails, all services lose their database "
+            "until Kubernetes restarts it. Data stays",
+            "on the volume. Services write nothing meanwhile, and waiting "
+            "events stay in JetStream.",
+        )
+    ):
+        c.text(74, top + 222 + index * 18, sentence, 12.5, color=MUTED)
+
+    c.box(700, top + 36, 1340, top + 262, fill=BG, outline=AMBER, width=1.25)
+    c.text(714, top + 54, "Production design: planned, not built (ADR 0003)", 14, True, AMBER)
+    servers = (
+        ("Telemetry server", "its own primary and standby"),
+        ("Audit server", "its own primary and standby"),
+        ("Shared server", "other services, primary and standby"),
+    )
+    for index, (name, note) in enumerate(servers):
+        x = 714 + index * 206
+        c.node(x, top + 72, x + 198, top + 136, name, note, title_size=13, sub_size=11.5)
+    c.node(
+        714,
+        top + 150,
+        1326,
+        top + 186,
+        "Scheduled backups for every server, tested by restoring them (M14.3)",
+        title_size=12.5,
+    )
+    for index, sentence in enumerate(
+        (
+            "A standby on another machine takes over automatically, "
+            "so one failure stops fewer services.",
+            "Separate databases make a move mostly a change of host and credentials.",
+        )
+    ):
+        c.text(714, top + 222 + index * 18, sentence, 12.5, color=MUTED)
+    return top + 276
+
+
+def build_end_to_end() -> None:
+    c = Canvas(1400, 1920)
+    c.text(40, 34, "How WindOps AI works end to end", 30, True)
+    c.text(
+        40,
+        66,
+        "Target design from SRS v1.1. Only the platform and sample services run today.",
+        16,
+        color=MUTED,
+    )
+    x = 650
+    for index, (kind, name) in enumerate(
+        (
+            ("ai", "AI agent"),
+            ("rule", "Deterministic"),
+            ("human", "Human decision"),
+            ("external", "External"),
+        )
+    ):
+        accent, fill = KINDS[kind]
+        chip_x, chip_y = x + (index % 2) * 140, 34 + (index // 2) * 26
+        c.box(chip_x, chip_y - 8, chip_x + 16, chip_y + 8, fill=fill, outline=accent, radius=4)
+        c.text(chip_x + 23, chip_y, name, 13.5, color=MUTED)
+    c.arrow([(950, 34), (1000, 34)])
+    c.text(1008, 34, "Call: the caller waits (gRPC)", 13.5, color=MUTED)
+    dashed_arrow(c, (950, 60), (1000, 60))
+    c.text(1008, 60, "Event: the sender does not wait", 13.5, color=MUTED)
+    y = draw_communication(c, 90)
+    y = draw_call_steps(c, y + 14)
+    y = draw_breaker(c, y + 14)
+    y = draw_database_placement(c, y + 14)
+    c.text(
+        700,
+        y + 24,
+        "Agents recommend. Deterministic services and authorized humans decide.",
+        16,
+        True,
+        KINDS["human"][0],
+        "mm",
+    )
+    ASSETS.mkdir(parents=True, exist_ok=True)
+    c.image.save(ASSETS / "end-to-end-architecture.png", optimize=True)
 
 
 # --------------------------------------------------------------- orchestration
@@ -1150,4 +1639,5 @@ def build_animation() -> None:
 if __name__ == "__main__":
     build_architecture()
     build_security_layers()
+    build_end_to_end()
     build_animation()
