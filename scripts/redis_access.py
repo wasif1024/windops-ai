@@ -1,8 +1,8 @@
 """Redis logins for each service, shared by `make secrets` and `make redis-check`.
 
 Each login reaches only its own key prefix (ARC-002), and only the commands windops-cache uses. The
-ACL Secret stays in windops-data, beside the administrator password, so it reveals nothing that a reader
-of that namespace could not already reach. Redis hashes these passwords when it loads them.
+ACL Secret stays in windops-data, beside the administrator password, so it reveals nothing that a
+reader of that namespace could not already reach. Redis hashes these passwords when it loads them.
 """
 
 import re
