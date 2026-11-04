@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 14 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 1. Next up is M1.10.
+**Current position:** Phase 1. Next up is M1.11.
 
 ## How to use this tracker
 
@@ -72,7 +72,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [x] **M1.7 Minikube and Kustomize:** namespaces, Calico and overlays for `local`, `ci` and a production-style example, with per-workload memory limits and a first recorded memory measurement (DEP-007, K8S-006, K8S-007). Done 2026-11-04, PR #9.
 - [x] **M1.8 API Gateway:** APISIX as the only ingress, with etcd and upstream health (SRS 7.2). Done 2026-11-04, PR #10.
 - [x] **M1.9 Observability stack:** OpenTelemetry Collector, Prometheus, Alertmanager, Grafana, Loki and Fluent Bit, with the Platform Health and Microservice Health dashboards, and log retention, access and rotation per environment (SRS 10.1, 10.3; OBS-004). Done 2026-11-04, PR #12.
-- [ ] **M1.10 Sample services:** two scaffolded services joined by a gRPC call, plus `docs/architecture.md`, `docs/microservices.md` and `docs/deployment.md`.
+- [x] **M1.10 Sample services:** two scaffolded services joined by a gRPC call, plus `docs/architecture.md`, `docs/microservices.md` and `docs/deployment.md`. Done 2026-11-04, PR #14.
 - [ ] **M1.11 Exit gate:** a sample gRPC call is traced through the gateway, and its breaker opens under an injected fault.
 
 ## Phase 2: Data and events

@@ -1,0 +1,1 @@
+"""WindOps sample-responder service."""

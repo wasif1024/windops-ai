@@ -12,7 +12,6 @@ KUBERNETES_DIR := infrastructure/kubernetes
 # Targets a later module delivers, as <target>:<module>. They fail until then, so a
 # command that does nothing yet can never look like it passed.
 PLANNED_TARGETS := \
-	services:M1.10 \
 	migrate:M2.5 \
 	identity-seed:M3.1 \
 	eval:M12.8 \
@@ -20,7 +19,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts check logs service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -54,6 +53,9 @@ contracts: ## Lint Protobuf contracts and check for breaking changes
 	else \
 		echo "No contracts in $(CONTRACTS_BASELINE) yet, so there is nothing to compare."; \
 	fi
+
+contracts-gen: ## Generate Python code from the Protobuf contracts
+	uv run python scripts/generate_contracts.py
 
 check: lint typecheck contracts test ## Run every check required before a pull request
 
@@ -112,6 +114,12 @@ observability-check: ## Prove logs, traces, metrics and dashboards work on the c
 logs: ## Follow a workload's logs: make logs NAME=windops-telemetry
 	@test -n "$(NAME)" || { echo "Usage: make logs NAME=windops-telemetry" >&2; exit 1; }
 	kubectl --context $(CLUSTER) logs --all-namespaces --follow --selector=app.kubernetes.io/name=$(NAME)
+
+services: ## Deploy the gateway and services, using the chosen overlay
+	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/overlays/$(OVERLAY)
+
+sample-check: ## Prove two services work together on the cluster, through the gateway
+	PYTHONPATH=scripts uv run python scripts/verify_sample.py
 
 gateway: ## Deploy the API gateway
 	kubectl --context $(CLUSTER) apply --kustomize services/api-gateway/deploy

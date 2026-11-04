@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: windops-sample-caller-config
+  labels:
+    app.kubernetes.io/name: windops-sample-caller
+    app.kubernetes.io/part-of: windops
+data:
+  WINDOPS_ENVIRONMENT: local
+  WINDOPS_VERSION: local
+  WINDOPS_LOG_LEVEL: INFO
+  WINDOPS_GRPC_PORT: "50051"
+  WINDOPS_HTTP_PORT: "8080"
+  WINDOPS_OTLP_ENDPOINT: http://windops-otel-collector.windops-observability.svc.cluster.local:4318
+  WINDOPS_SHUTDOWN_GRACE_SECONDS: "20"
+  WINDOPS_SAMPLE_RESPONDER_ADDRESS: dns:///windops-sample-responder.windops-application.svc.cluster.local:50051

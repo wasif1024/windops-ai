@@ -10,7 +10,7 @@ from typing import Any
 
 import grpc
 import uvicorn
-from fastapi import FastAPI, Response
+from fastapi import APIRouter, FastAPI, Response
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -43,12 +43,14 @@ class ServiceRuntime:
         register: Register,
         *,
         readiness_checks: Sequence[ReadinessCheck] = (),
+        http_router: APIRouter | None = None,
         install_global_telemetry: bool = True,
     ) -> None:
         self.name = name
         self._settings = settings
         self._register = register
         self._readiness_checks = readiness_checks
+        self._http_router = http_router
         self._install_global = install_global_telemetry
         self._health = health.aio.HealthServicer()
         self._serving = False
@@ -76,6 +78,8 @@ class ServiceRuntime:
         async def metrics() -> Response:
             return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
+        if self._http_router is not None:
+            app.include_router(self._http_router)
         return app
 
     async def is_ready(self) -> bool:
@@ -167,10 +171,15 @@ async def run_service(
     register: Register,
     *,
     readiness_checks: Sequence[ReadinessCheck] = (),
+    http_router: APIRouter | None = None,
 ) -> None:
     """Run a service until SIGTERM or SIGINT, then shut it down gracefully."""
     runtime = ServiceRuntime(
-        name, Settings.from_env(os.environ), register, readiness_checks=readiness_checks
+        name,
+        Settings.from_env(os.environ),
+        register,
+        readiness_checks=readiness_checks,
+        http_router=http_router,
     )
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

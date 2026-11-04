@@ -10,15 +10,26 @@ dependencies = []
 package = false
 
 [tool.uv.workspace]
-members = ["shared/grpc", "shared/observability", "shared/resilience"]
+members = [
+    "services/sample-caller-service",
+    "services/sample-responder-service",
+    "shared/contracts",
+    "shared/grpc",
+    "shared/observability",
+    "shared/resilience",
+]
 
 [tool.uv.sources]
 windops-observability = { workspace = true }
 windops-resilience = { workspace = true }
 windops-grpc = { workspace = true }
+windops-contracts = { workspace = true }
+windops-sample-caller = { workspace = true }
+windops-sample-responder = { workspace = true }
 
 [tool.ruff]
 line-length = 100
+extend-exclude = ["shared/contracts/src/windops"]
 target-version = "py313"
 
 [tool.ruff.lint]
@@ -35,17 +46,26 @@ python_version = "3.13"
 strict = true
 files = [
     "scripts",
-    "tests",
+    "services/sample-caller-service/src",
+    "services/sample-caller-service/tests",
+    "services/sample-responder-service/src",
+    "services/sample-responder-service/tests",
     "shared/grpc/src",
     "shared/grpc/tests",
     "shared/observability/src",
     "shared/observability/tests",
     "shared/resilience/src",
     "shared/resilience/tests",
+    "tests",
 ]
 explicit_package_bases = true
 mypy_path = [
     "scripts",
+    "shared/contracts/src",
+    "services/sample-caller-service/src",
+    "services/sample-caller-service/tests",
+    "services/sample-responder-service/src",
+    "services/sample-responder-service/tests",
     "shared/grpc/src",
     "shared/grpc/tests",
     "shared/observability/src",
@@ -60,7 +80,7 @@ module = ["test_breaker", "test_real_grpc"]
 disable_error_code = ["comparison-overlap"]
 
 [[tool.mypy.overrides]]
-module = ["grpc_health.*"]
+module = ["grpc_health.*", "grpc_tools.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -77,8 +97,10 @@ pythonpath = ["shared/grpc/tests", "shared/resilience/tests"]
 [dependency-groups]
 dev = [
     "grpcio>=1.85.1",
+    "grpcio-tools>=1.85.1",
     "httpx>=0.28.1",
     "mypy>=2.4.1",
+    "mypy-protobuf>=5.1.0",
     "pillow>=13.0.0",
     "pip-audit>=2.10.1",
     "pytest>=9.2.0",
@@ -86,7 +108,10 @@ dev = [
     "ruff>=0.17.3",
     "types-grpcio>=1.85.0.20261028",
     "types-pyyaml>=6.0.12.20261103",
+    "windops-contracts",
     "windops-grpc",
     "windops-observability",
     "windops-resilience",
+    "windops-sample-caller",
+    "windops-sample-responder",
 ]

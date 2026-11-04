@@ -1,7 +1,7 @@
 # Gateway routes
 
-Add one JSON file per route. The file name is the route's ID. Web BFF adds the first real route
-in M3.7.
+Add one JSON file per route. The file name is the route's ID. `sample.json` is the working example,
+and Web BFF adds the first real route in M3.7.
 
 ```json
 {

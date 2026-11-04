@@ -159,6 +159,12 @@ def check_deployment(root: Path) -> None:
         "docker", "build", "-q", "-f", f"services/{DIRECTORY}/Dockerfile", "-t", IMAGE, ".",
         cwd=root, env=env,
     )  # fmt: skip
+    # Deploy only the throwaway service, because other services' images may not be built.
+    services = root / "infrastructure" / "kubernetes" / "base" / "services" / "kustomization.yaml"
+    services.write_text(
+        "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\n"
+        f"resources:\n  - ../../../../services/{DIRECTORY}/deploy\n"
+    )
     overlay = f"{root}/infrastructure/kubernetes/overlays/local"
     check_overlays(root)
     rendered = kubectl("kustomize", overlay).stdout
@@ -198,10 +204,6 @@ def check_deployment(root: Path) -> None:
     finally:
         kubectl(
             "delete", "--kustomize", f"{root}/services/{DIRECTORY}/deploy", "--ignore-not-found"
-        )
-        # The overlay also deploys the gateway, which `make gateway-check` covers.
-        kubectl(
-            "delete", "--kustomize", f"{root}/services/api-gateway/deploy", "--ignore-not-found"
         )
         # The image cannot be removed while a terminating pod still uses it.
         kubectl(

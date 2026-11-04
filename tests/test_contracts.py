@@ -3,9 +3,13 @@
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+from generate_contracts import generate
 
 ROOT = Path(__file__).resolve().parent.parent
 MODULE = ROOT / "shared" / "protobuf"
@@ -108,3 +112,13 @@ def test_breaking_check_rejects_a_removed_field(tmp_path: Path) -> None:
     proto = copy / TELEMETRY
     proto.write_text(proto.read_text().replace("  string content_hash = 2;\n", ""))
     assert buf("breaking", str(copy), "--against", str(MODULE)).returncode != 0
+
+
+def test_generated_code_matches_the_contracts(tmp_path: Path) -> None:
+    """When this fails, run: make contracts-gen"""
+    generate(tmp_path)
+    committed = ROOT / "shared" / "contracts" / "src"
+    generated_files = sorted(path.relative_to(tmp_path) for path in tmp_path.rglob("*.py*"))
+    assert generated_files
+    for relative in generated_files:
+        assert (committed / relative).read_text() == (tmp_path / relative).read_text(), relative
