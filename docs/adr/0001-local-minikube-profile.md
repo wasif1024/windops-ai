@@ -13,8 +13,9 @@ figures in Phase 13.
 
 ## Decision
 
-- Add a `local` profile of 6 CPUs and 11 GB, which leaves about 5 GB for macOS and
-  development tools.
+- Add a `local` profile of 6 CPUs and 10 GB. Docker Desktop is set to 11 GB, which leaves
+  about 5 GB for macOS and development tools. Docker reports slightly less than its setting,
+  and Minikube refused 11 GB, so the profile uses 10 GB.
 - Keep 8 CPUs and 24 GB as the recommended full size.
 - Run every workload in the `local` profile, with no feature removed (K8S-007).
 - Use one replica per workload and set memory requests and limits per workload.
@@ -25,8 +26,8 @@ Phase exit gates run on the `local` profile unless a gate needs more capacity.
 ## Consequences
 
 - Development and most exit gates need no extra hardware or cloud cost.
-- The fit is unproven. A rough estimate of 8.5 to 11.5 GB leaves little or no
-  margin, so module M1.7 records a first measurement and later phases repeat it
+- The fit is unproven. A rough estimate of 8.5 to 11.5 GB may not fit in 10 GB, though
+  an idle generated service measured about 44 MiB, well under the 150 MB assumed, so module M1.7 records a first measurement and later phases repeat it
   as workloads are added.
 - Local runs can support only one or two concurrent investigations.
 - Performance figures from this profile describe this laptop only.

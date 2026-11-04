@@ -1,0 +1,22 @@
+# An example for a larger cluster, not a tested production deployment (SRS 2.4). Autoscaling
+# arrives in M13.4, and images need a real registry and version tags.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base/namespaces
+  - ../../base/services
+patches:
+  - target:
+      kind: Deployment
+      labelSelector: app.kubernetes.io/part-of=windops
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+  - target:
+      kind: ConfigMap
+      labelSelector: app.kubernetes.io/part-of=windops
+    patch: |-
+      - op: replace
+        path: /data/WINDOPS_ENVIRONMENT
+        value: production-example

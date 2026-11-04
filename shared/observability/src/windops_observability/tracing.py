@@ -20,6 +20,9 @@ from opentelemetry.sdk.trace.export import (
 from windops_observability.redaction import redact, redact_text
 from windops_observability.service import ServiceInfo
 
+# A collector outage must not hold up a service's shutdown or its work.
+_EXPORT_TIMEOUT_SECONDS = 2
+
 
 def _redact_span(span: ReadableSpan) -> ReadableSpan:
     events = [
@@ -105,7 +108,11 @@ def configure_telemetry(
         endpoint = otlp_endpoint.rstrip("/")
         tracer_provider.add_span_processor(
             BatchSpanProcessor(
-                RedactingSpanExporter(OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces"))
+                RedactingSpanExporter(
+                    OTLPSpanExporter(
+                        endpoint=f"{endpoint}/v1/traces", timeout=_EXPORT_TIMEOUT_SECONDS
+                    )
+                )
             )
         )
 
@@ -113,7 +120,9 @@ def configure_telemetry(
     if metric_reader is not None:
         readers.append(metric_reader)
     if otlp_endpoint is not None:
-        exporter = OTLPMetricExporter(endpoint=f"{otlp_endpoint.rstrip('/')}/v1/metrics")
+        exporter = OTLPMetricExporter(
+            endpoint=f"{otlp_endpoint.rstrip('/')}/v1/metrics", timeout=_EXPORT_TIMEOUT_SECONDS
+        )
         readers.append(PeriodicExportingMetricReader(exporter))
     meter_provider = MeterProvider(resource=resource, metric_readers=readers)
 

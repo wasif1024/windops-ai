@@ -37,6 +37,13 @@ BUILT_TARGETS = {
     "service",
     "images",
     "scaffold-check",
+    "cluster",
+    "cluster-stop",
+    "cluster-delete",
+    "cluster-check",
+    "infra",
+    "secrets",
+    "clean",
 }
 PLANNED_TARGETS = SRS_TARGETS - BUILT_TARGETS
 
