@@ -1,5 +1,6 @@
 import asyncio
 import threading
+import time
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -157,6 +158,18 @@ def test_otlp_export_reaches_a_collector_with_secrets_removed(
     assert b"[REDACTED]" in traces
     assert b"supersecretvalue" not in traces
     assert b"windops.circuit_breaker.state" in b"".join(body for _, body in received)
+
+
+def test_unreachable_collector_does_not_delay_shutdown() -> None:
+    telemetry = configure_telemetry(
+        SERVICE, otlp_endpoint="http://127.0.0.1:1", install_global=False
+    )
+    with telemetry.tracer_provider.get_tracer("test").start_as_current_span("work"):
+        pass
+    breaker_state_metrics(telemetry.meter_provider)("weather", "closed", "open")
+    started = time.monotonic()
+    telemetry.shutdown()
+    assert time.monotonic() - started < 8
 
 
 def test_no_exporter_is_safe() -> None:

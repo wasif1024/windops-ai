@@ -4,13 +4,14 @@
 
 PROTO_DIR := shared/protobuf
 CONTRACTS_BASELINE ?= origin/main
+# Commands name this profile and context directly, so they cannot reach another cluster.
+CLUSTER := windops
+OVERLAY ?= local
+KUBERNETES_DIR := infrastructure/kubernetes
 
 # Targets a later module delivers, as <target>:<module>. They fail until then, so a
 # command that does nothing yet can never look like it passed.
 PLANNED_TARGETS := \
-	secrets:M1.7 \
-	infra:M1.7 \
-	clean:M1.7 \
 	logs:M1.9 \
 	services:M1.10 \
 	migrate:M2.5 \
@@ -20,7 +21,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts check service images scaffold-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts check service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -65,8 +66,9 @@ service: ## Create a service from the template: make service NAME=telemetry-serv
 	@test -n "$(NAME)" || { echo "Usage: make service NAME=telemetry-service" >&2; exit 1; }
 	uv run python scripts/new_service.py "$(NAME)"
 
-images: ## Build an image for every service
-	@for dockerfile in services/*/Dockerfile; do \
+images: ## Build an image for every service, into the cluster's image store
+	@eval "$$(minikube -p $(CLUSTER) docker-env --shell bash)"; \
+	for dockerfile in services/*/Dockerfile; do \
 		[ -f "$$dockerfile" ] || { echo "No services to build yet."; exit 0; }; \
 		service="$$(basename "$$(dirname "$$dockerfile")")"; \
 		name="windops-$${service%-service}"; \
@@ -76,6 +78,29 @@ images: ## Build an image for every service
 
 scaffold-check: ## Generate, build and run a throwaway service to prove the template works
 	uv run python scripts/verify_scaffold.py $(SCAFFOLD_ARGS)
+
+cluster: ## Start the local cluster, with SRS 11.4 settings for a 16 GB laptop
+	minikube start -p $(CLUSTER) --driver=docker --container-runtime=docker \
+		--kubernetes-version=v1.35.1 --cpus=6 --memory=10240 --cni=calico --keep-context
+	minikube -p $(CLUSTER) addons enable metrics-server
+
+cluster-stop: ## Stop the local cluster and free its memory, keeping its data
+	minikube stop -p $(CLUSTER) --keep-context-active
+
+cluster-delete: ## Delete the local cluster and all its data
+	minikube delete -p $(CLUSTER)
+
+cluster-check: ## Deploy a throwaway service to prove the manifests work on the cluster
+	uv run python scripts/verify_cluster.py
+
+infra: ## Create the namespaces. Later modules add data stores and observability here
+	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/namespaces
+
+secrets: ## Create local secrets from an ignored file, generating it the first time
+	uv run python scripts/local_secrets.py
+
+clean: ## Remove WindOps workloads and namespaces, keeping the cluster
+	kubectl --context $(CLUSTER) delete --kustomize $(KUBERNETES_DIR)/overlays/$(OVERLAY) --ignore-not-found
 
 define planned_target
 $(firstword $(subst :, ,$(1))):

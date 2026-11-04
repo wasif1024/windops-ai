@@ -898,7 +898,7 @@ These are project targets, not industry benchmarks, certification claims or real
 
 ## 11. Containers, Kubernetes and Minikube
 
-Every service, MCP server, data store and platform component runs as its own container workload, with no feature dropped from the local deployment. The `local` Minikube profile starts at 6 CPUs and 11 GB of memory for a 16 GB laptop, the recommended full size is 8 CPUs and 24 GB, and Phase 13 replaces both with measured figures.
+Every service, MCP server, data store and platform component runs as its own container workload, with no feature dropped from the local deployment. The `local` Minikube profile starts at 6 CPUs and 10 GB of memory for a 16 GB laptop, the recommended full size is 8 CPUs and 24 GB, and Phase 13 replaces both with measured figures.
 
 ### 11.1 Container requirements
 
@@ -934,7 +934,7 @@ Every service, MCP server, data store and platform component runs as its own con
 
 ```bash
 # local profile, for a 16 GB laptop; the recommended full size is --cpus=8 --memory=24576
-minikube start --cpus=6 --memory=11264 --cni=calico
+minikube start --cpus=6 --memory=10240 --cni=calico
 minikube addons enable metrics-server
 # APISIX is the only ingress
 

@@ -95,9 +95,22 @@ def add_workspace_member(directory: str, pyproject: str) -> str:
     return _add_to_list(pyproject, "mypy_path", paths)
 
 
+def add_service_to_kustomization(directory: str, kustomization: str) -> str:
+    """Return the base services kustomization with the service's manifests listed."""
+    found = re.search(r"^resources:.*\Z", kustomization, re.S | re.M)
+    if found is None:
+        raise ScaffoldError("The services kustomization has no resources list")
+    items = set(re.findall(r"^  - (\S+)$", found.group(0), re.M))
+    items.add(f"../../../../services/{directory}/deploy")
+    listed = "".join(f"  - {item}\n" for item in sorted(items))
+    return kustomization[: found.start()] + f"resources:\n{listed}"
+
+
 def register_in_workspace(directory: str, root: Path) -> None:
-    """Add the service to the workspace and lockfile, so the checks include it."""
+    """Add the service to the workspace, lockfile and cluster, so all checks include it."""
     values = template_values(directory)
+    services = root / "infrastructure" / "kubernetes" / "base" / "services" / "kustomization.yaml"
+    services.write_text(add_service_to_kustomization(directory, services.read_text()))
     pyproject = root / "pyproject.toml"
     pyproject.write_text(add_workspace_member(directory, pyproject.read_text()))
     subprocess.run(["uv", "add", "--dev", values["distribution"]], cwd=root, check=True)

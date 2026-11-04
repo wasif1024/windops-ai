@@ -48,7 +48,8 @@ make help      # list every command
 ```
 
 Follow the [coding standards](docs/coding-standards.md) for naming, commit messages,
-pull requests and merge rules.
+pull requests and merge rules. To run on a local cluster, see
+[infrastructure/minikube](infrastructure/minikube/README.md).
 
 ## Repository layout
 

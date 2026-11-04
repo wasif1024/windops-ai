@@ -1,0 +1,6 @@
+# `make service` adds each new service here.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+commonAnnotations:
+  windops.io/managed-by: kustomize
+resources: []
