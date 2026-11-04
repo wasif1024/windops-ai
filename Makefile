@@ -19,7 +19,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -120,6 +120,9 @@ services: ## Deploy the gateway and services, using the chosen overlay
 
 sample-check: ## Prove two services work together on the cluster, through the gateway
 	PYTHONPATH=scripts uv run python scripts/verify_sample.py
+
+phase-1-gate: ## Check the Phase 1 exit gate on the cluster
+	PYTHONPATH=scripts uv run python scripts/verify_phase_1_gate.py
 
 gateway: ## Deploy the API gateway
 	kubectl --context $(CLUSTER) apply --kustomize services/api-gateway/deploy

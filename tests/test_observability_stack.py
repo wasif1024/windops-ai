@@ -134,8 +134,8 @@ def test_retention_is_set_for_each_store(documents: list[dict[str, Any]]) -> Non
 
 def test_collector_sends_traces_to_tempo(documents: list[dict[str, Any]]) -> None:
     config = config_data(documents, "windops-otel-collector-config", "config.yaml")
-    assert config["service"]["pipelines"]["traces"]["exporters"] == ["otlp/tempo"]
-    assert "windops-tempo" in config["exporters"]["otlp/tempo"]["endpoint"]
+    assert config["service"]["pipelines"]["traces"]["exporters"] == ["otlp_grpc/tempo"]
+    assert "windops-tempo" in config["exporters"]["otlp_grpc/tempo"]["endpoint"]
 
 
 @pytest.mark.parametrize("path", sorted(DASHBOARDS.glob("*.json")), ids=lambda path: path.stem)

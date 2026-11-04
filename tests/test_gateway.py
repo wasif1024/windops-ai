@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from gateway_routes import RouteError, load_routes, validate_route
+from gateway_routes import RouteError, load_plugin_metadata, load_routes, validate_route
 
 ROOT = Path(__file__).resolve().parent.parent
 GATEWAY = ROOT / "services" / "api-gateway" / "deploy"
@@ -18,6 +18,7 @@ ETCD = ROOT / "infrastructure" / "gateway" / "etcd"
 LOCAL_OVERLAY = ROOT / "infrastructure" / "kubernetes" / "overlays" / "local"
 GOOD_ROUTE: dict[str, Any] = {
     "uri": "/api/*",
+    "plugins": {"opentelemetry": {"sampler": {"name": "always_on"}}},
     "upstream": {
         "nodes": {"windops-web-bff:8080": 1},
         "checks": {"active": {"http_path": "/health/ready"}},
@@ -52,11 +53,19 @@ def test_valid_route_passes() -> None:
 @pytest.mark.parametrize(
     "route",
     [
-        {"upstream": GOOD_ROUTE["upstream"]},
-        {"uri": "/x"},
-        {"uri": "/x", "upstream": {"nodes": {}, "checks": GOOD_ROUTE["upstream"]["checks"]}},
-        {"uri": "/x", "upstream": {"nodes": {"a:1": 1}}},
-        {"uri": "/x", "upstream": {"nodes": {"a:1": 1}, "checks": {"active": {}}}},
+        {"plugins": GOOD_ROUTE["plugins"], "upstream": GOOD_ROUTE["upstream"]},
+        {"uri": "/x", "plugins": GOOD_ROUTE["plugins"]},
+        {
+            "uri": "/x",
+            "plugins": GOOD_ROUTE["plugins"],
+            "upstream": {"nodes": {}, "checks": GOOD_ROUTE["upstream"]["checks"]},
+        },
+        {"uri": "/x", "plugins": GOOD_ROUTE["plugins"], "upstream": {"nodes": {"a:1": 1}}},
+        {
+            "uri": "/x",
+            "plugins": GOOD_ROUTE["plugins"],
+            "upstream": {"nodes": {"a:1": 1}, "checks": {"active": {}}},
+        },
     ],
     ids=["no-uri", "no-upstream", "no-nodes", "no-checks", "no-http-path"],
 )
@@ -70,7 +79,27 @@ def test_route_without_a_timeout_is_rejected(missing: str) -> None:
     upstream = dict(GOOD_ROUTE["upstream"])
     upstream["timeout"] = {key: 5 for key in ("connect", "send", "read") if key != missing}
     with pytest.raises(RouteError):
-        validate_route("bad.json", {"uri": "/x", "upstream": upstream})
+        validate_route(
+            "bad.json", {"uri": "/x", "plugins": GOOD_ROUTE["plugins"], "upstream": upstream}
+        )
+
+
+def test_route_without_tracing_is_rejected() -> None:
+    route = {key: value for key, value in GOOD_ROUTE.items() if key != "plugins"}
+    with pytest.raises(RouteError):
+        validate_route("bad.json", route)
+
+
+def test_gateway_sends_traces_to_the_collector() -> None:
+    metadata = load_plugin_metadata()["opentelemetry"]
+    assert metadata["resource"]["service.name"] == "windops-gateway"
+    assert "windops-otel-collector" in metadata["collector"]["address"]
+
+
+def test_gateway_enables_only_the_plugins_it_uses() -> None:
+    config = gateway_config()
+    assert config["plugins"] == ["opentelemetry"]
+    assert config["stream_plugins"] == []
 
 
 def test_route_files_are_loaded_and_validated(tmp_path: Path) -> None:
@@ -126,6 +155,14 @@ def test_workload_is_pinned_limited_and_non_root(path: Path, kind: str) -> None:
     assert {"startupProbe", "readinessProbe", "livenessProbe"} <= set(container)
     for section in ("requests", "limits"):
         assert set(container["resources"][section]) == {"cpu", "memory"}
+
+
+def test_gateway_waits_for_etcd_before_starting() -> None:
+    pod = find(render(GATEWAY), "Deployment")["spec"]["template"]["spec"]
+    waiter = pod["initContainers"][0]
+    assert "windops-etcd" in " ".join(waiter["command"])
+    assert waiter["image"] == pod["containers"][0]["image"]
+    assert set(waiter["resources"]["limits"]) == {"cpu", "memory"}
 
 
 def test_etcd_keeps_data_and_stays_internal() -> None:

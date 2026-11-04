@@ -6,6 +6,7 @@ and Web BFF adds the first real route in M3.7.
 ```json
 {
   "uri": "/api/*",
+  "plugins": {"opentelemetry": {"sampler": {"name": "always_on"}}},
   "upstream": {
     "type": "roundrobin",
     "timeout": {"connect": 2, "send": 10, "read": 10},
@@ -22,5 +23,6 @@ and Web BFF adds the first real route in M3.7.
 }
 ```
 
-Every upstream must have `checks.active` and `timeout`, and `make check` fails without them.
+Every route must have the `opentelemetry` plugin, and every upstream must have `checks.active` and
+`timeout`. `make check` fails without them.
 Without timeouts, APISIX waits up to 60 seconds for a backend that is down.

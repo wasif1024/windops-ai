@@ -18,6 +18,7 @@ import httpx
 
 REPOSITORY = Path(__file__).resolve().parent.parent
 ROUTES_DIRECTORY = REPOSITORY / "infrastructure" / "gateway" / "routes"
+PLUGIN_METADATA_DIRECTORY = REPOSITORY / "infrastructure" / "gateway" / "plugin-metadata"
 ADMIN_KEY_FILE = REPOSITORY / "infrastructure" / "minikube" / "secrets.local.gateway.env"
 CONTEXT = "windops"
 NAMESPACE = "windops-system"
@@ -30,7 +31,9 @@ class RouteError(Exception):
 
 
 def validate_route(name: str, route: dict[str, Any]) -> None:
-    """Require health checks and timeouts, so a failing backend fails fast."""
+    """Require tracing, health checks and timeouts on every route."""
+    if "opentelemetry" not in route.get("plugins", {}):
+        raise RouteError(f"{name}: a route needs the opentelemetry plugin, so it can be traced")
     if "uri" not in route and "uris" not in route:
         raise RouteError(f"{name}: a route needs a uri")
     upstream = route.get("upstream")
@@ -105,6 +108,22 @@ def apply_route(base_url: str, key: str, route_id: str, route: dict[str, Any]) -
         raise RouteError(f"Route {route_id} failed: {response.status_code} {response.text}")
 
 
+def load_plugin_metadata(directory: Path = PLUGIN_METADATA_DIRECTORY) -> dict[str, dict[str, Any]]:
+    """Load each plugin's gateway-wide settings. The file name is the plugin's name."""
+    return {path.stem: json.loads(path.read_text()) for path in sorted(directory.glob("*.json"))}
+
+
+def apply_plugin_metadata(base_url: str, key: str, plugin: str, metadata: dict[str, Any]) -> None:
+    response = httpx.put(
+        f"{base_url}/apisix/admin/plugin_metadata/{plugin}",
+        headers={"X-API-KEY": key},
+        json=metadata,
+        timeout=10,
+    )
+    if response.status_code not in (200, 201):
+        raise RouteError(f"Plugin {plugin} failed: {response.status_code} {response.text}")
+
+
 def main() -> int:
     try:
         routes = load_routes()
@@ -113,6 +132,9 @@ def main() -> int:
             return 0
         key = admin_key()
         with port_forward(DEPLOYMENT, NAMESPACE, ADMIN_PORT) as port:
+            for plugin, metadata in load_plugin_metadata().items():
+                apply_plugin_metadata(f"http://127.0.0.1:{port}", key, plugin, metadata)
+                print(f"Applied plugin settings for {plugin}")
             for route_id, route in routes.items():
                 apply_route(f"http://127.0.0.1:{port}", key, route_id, route)
                 print(f"Applied route {route_id}")

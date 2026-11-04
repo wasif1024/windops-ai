@@ -1,0 +1,8 @@
+{
+  "resource": {"service.name": "windops-gateway"},
+  "collector": {
+    "address": "windops-otel-collector.windops-observability.svc.cluster.local:4318",
+    "request_timeout": 3
+  },
+  "batch_span_processor": {"batch_timeout": 2, "inactive_timeout": 1}
+}
