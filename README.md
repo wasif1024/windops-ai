@@ -17,7 +17,7 @@ The animation illustrates the workflow in
 
 ## Architecture
 
-[![Architecture diagram. Users reach a React frontend, API Gateway and Web BFF. Agent Runtime runs the Supervisor and five specialist agents, which use MCP servers to call 23 gRPC services in total. Services exchange durable events over NATS JetStream, store data in PostgreSQL, TimescaleDB, Redis and Qdrant, and use external providers including Claude, Tavily and Open-Meteo.](docs/assets/architecture.png)](docs/assets/architecture.png)
+[![Architecture diagram. Users reach a React frontend, API Gateway and Web BFF. Agent Runtime runs the Supervisor and five specialist agents, which use MCP servers to call 23 gRPC services in total. Services exchange durable events over NATS JetStream, store data in PostgreSQL, Redis and Qdrant, and use external providers including Claude, Tavily and Open-Meteo.](docs/assets/architecture.png)](docs/assets/architecture.png)
 
 This is the target design from the SRS. To update either visual, edit and run
 `scripts/generate_readme_visuals.py`.
