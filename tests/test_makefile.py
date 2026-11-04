@@ -60,6 +60,9 @@ BUILT_TARGETS = {
     "redis-check",
     "qdrant-check",
     "nats-check",
+    "migrate",
+    "migration",
+    "migrate-check",
 }
 PLANNED_TARGETS = SRS_TARGETS - BUILT_TARGETS
 

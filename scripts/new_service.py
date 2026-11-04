@@ -10,8 +10,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+from provision_postgres import SERVICE_NAMESPACES
+
 REPOSITORY = Path(__file__).resolve().parent.parent
 TEMPLATE = Path(__file__).resolve().parent / "service_template"
+# Added for a service that stores state (DAT-001).
+DATABASE_TEMPLATE = Path(__file__).resolve().parent / "service_database_template"
 
 # SRS section 11.2. Every other service runs in windops-application.
 SYSTEM_NAMESPACE_SERVICES = {"identity", "authorization", "tenant", "web-bff"}
@@ -24,13 +28,16 @@ class ScaffoldError(Exception):
     """The service cannot be created."""
 
 
-def template_values(directory: str) -> dict[str, str]:
+def template_values(directory: str, *, database: bool | None = None) -> dict[str, str]:
     if not NAME_PATTERN.fullmatch(directory):
         raise ScaffoldError(f"{directory!r} must use lowercase letters, digits and hyphens")
     if directory in NOT_PYTHON_SERVICES:
         raise ScaffoldError(f"{directory} is not a Python service, so it has no template")
     short = directory.removesuffix("-service")
+    uses_database = short in SERVICE_NAMESPACES if database is None else database
     return {
+        "extra_dependencies": ', "windops-migrations"' if uses_database else "",
+        "extra_sources": "\nwindops-migrations = { workspace = true }" if uses_database else "",
         "directory": directory,
         "short": short,
         "distribution": f"windops-{short}",
@@ -50,28 +57,35 @@ def _render(text: str, values: dict[str, str]) -> str:
     return text
 
 
-def _destination(source: Path, values: dict[str, str]) -> Path:
-    relative = source.relative_to(TEMPLATE).with_suffix("")
+def _destination(source: Path, template: Path, values: dict[str, str]) -> Path:
+    relative = source.relative_to(template).with_suffix("")
     if relative == Path("src/init.py"):
         return Path("src") / values["package"] / "__init__.py"
     if relative.parts[0] == "src":
-        return Path("src") / values["package"] / relative.name
+        return Path("src") / values["package"] / Path(*relative.parts[1:])
     if relative == Path("tests/test_service.py"):
         return Path("tests") / f"test_{values['package']}.py"
     return relative
 
 
-def create_service(directory: str, root: Path) -> Path:
-    """Write the service's files under root/services, and return its directory."""
-    values = template_values(directory)
+def create_service(directory: str, root: Path, *, database: bool | None = None) -> Path:
+    """Write the service's files under root/services, and return its directory.
+
+    A service in SERVICE_NAMESPACES gets migrations, unless `database` says otherwise.
+    """
+    values = template_values(directory, database=database)
     target = root / "services" / directory
     existing = {path.name for path in target.iterdir()} - {".gitkeep"} if target.exists() else set()
     if existing:
         raise ScaffoldError(f"{target} already has files, so it was not changed")
-    for source in sorted(TEMPLATE.rglob("*.tmpl")):
-        output = target / _destination(source, values)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(_render(source.read_text(), values))
+    templates = [TEMPLATE]
+    if values["extra_dependencies"]:
+        templates.append(DATABASE_TEMPLATE)
+    for template in templates:
+        for source in sorted(template.rglob("*.tmpl")):
+            output = target / _destination(source, template, values)
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(_render(source.read_text(), values))
     (target / "src" / values["package"] / "py.typed").touch()
     (target / ".gitkeep").unlink(missing_ok=True)
     return target
@@ -123,9 +137,14 @@ def register_in_workspace(directory: str, root: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("name", help="The directory name in SRS 11.5, such as telemetry-service")
+    parser.add_argument(
+        "--database",
+        action="store_true",
+        help="Add migrations, for a service not in SERVICE_NAMESPACES",
+    )
     arguments = parser.parse_args()
     try:
-        target = create_service(arguments.name, REPOSITORY)
+        target = create_service(arguments.name, REPOSITORY, database=arguments.database or None)
         register_in_workspace(arguments.name, REPOSITORY)
     except ScaffoldError as error:
         print(error, file=sys.stderr)

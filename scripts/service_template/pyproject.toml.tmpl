@@ -4,10 +4,10 @@ version = "0.1.0"
 description = "WindOps {{short}} service"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
-dependencies = ["windops-grpc"]
+dependencies = ["windops-grpc"{{extra_dependencies}}]
 
 [tool.uv.sources]
-windops-grpc = { workspace = true }
+windops-grpc = { workspace = true }{{extra_sources}}
 
 [build-system]
 requires = ["hatchling"]
