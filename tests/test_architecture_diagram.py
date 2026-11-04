@@ -5,7 +5,13 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from generate_readme_visuals import all_controls, read_phase_progress
+from generate_readme_visuals import (
+    AGENT_SERVICE,
+    APPLICATION_GROUPS,
+    ENTRY_SERVICES,
+    all_controls,
+    read_phase_progress,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 TRACKER = (ROOT / "docs" / "phases" / "README.md").read_text()
@@ -55,3 +61,17 @@ def test_roadmap_progress_counts_ticked_modules(tmp_path: Path) -> None:
 
 def test_readme_shows_the_diagram() -> None:
     assert "docs/assets/security-layers.png" in (ROOT / "README.md").read_text()
+
+
+def test_readme_shows_the_end_to_end_diagram() -> None:
+    assert "docs/assets/end-to-end-architecture.png" in (ROOT / "README.md").read_text()
+
+
+def test_end_to_end_diagram_draws_every_srs_service_once() -> None:
+    srs = (ROOT / "docs" / "srs.md").read_text()
+    table = srs[srs.index("### 7.2 Services") : srs.index("### 7.3")]
+    names = re.findall(r"^\| ([A-Z][^|]+?) \|", table, re.M)
+    expected = sorted(name.removesuffix(" (new)") for name in names if name != "Service")
+    drawn = [*ENTRY_SERVICES, AGENT_SERVICE]
+    drawn += [name for _, _, members in APPLICATION_GROUPS for name, _ in members]
+    assert sorted(drawn) == expected

@@ -25,6 +25,13 @@ This is the target design from the SRS. To update either visual, edit and run
 [Service map](docs/service-map.md) shows how all 23 services connect, and what happens when a circuit
 breaker opens.
 
+## How it works end to end
+
+[![End-to-end architecture in four parts. First, all 23 services by Kubernetes namespace, showing gRPC calls, JetStream events, and data in one PostgreSQL pod with 20 separate databases. Second, one gRPC call step by step, with the security on each hop marked as built or planned. Third, the circuit breaker's closed, open and half-open states, and what happens when each dependency fails. Fourth, the shared local database server beside the planned production design with standby servers and backups.](docs/assets/end-to-end-architecture.png)](docs/assets/end-to-end-architecture.png)
+
+This shows how services communicate, where the databases run, how each hop is secured and how circuit
+breakers respond to a failure. Select it to see it full size.
+
 ## System and security architecture
 
 [![Layers from the client to external providers, with the security controls at each. The React frontend reaches the API Gateway over HTTPS, and Web BFF calls services over gRPC with a signed identity, deadline and trace. Agents reach services only through MCP tools. Each service reaches only its own data, and shares events through NATS JetStream. Kubernetes surrounds the edge, agents, services and data, and only named paths leave the cluster. Each layer lists its controls, marked as in place today or planned with the module that delivers them. A strip shows the progress of all 14 delivery phases.](docs/assets/security-layers.png)](docs/assets/security-layers.png)
@@ -42,6 +49,8 @@ control is still shown as planned after its modules are finished.
 | [Implementation tracker](docs/phases/README.md) | All 14 phases and their modules, with what is finished |
 | [ADR 0001: Local Minikube profile](docs/adr/0001-local-minikube-profile.md) | Running every workload on a 16 GB laptop |
 | [ADR 0002: Trace storage](docs/adr/0002-trace-storage-and-kube-state-metrics.md) | Adding Tempo and kube-state-metrics |
+| [ADR 0003: PostgreSQL without TimescaleDB](docs/adr/0003-postgresql-without-timescaledb.md) | Telemetry storage, and the shared local and production database designs |
+| [Service map](docs/service-map.md) | Every service's calls and events, and each failure behavior |
 | [gRPC contracts](docs/grpc-contracts.md) | Versioning, breaking changes and per-call rules |
 | [Observability](docs/observability.md) | Data flow, dashboards and retention by environment |
 | [Coding standards](docs/coding-standards.md) | Merge rules, and what is enforced automatically |
