@@ -4,17 +4,21 @@
 Both visuals show the target design in docs/srs.md (sections 5, 6, 7 and 8).
 Update this script when that design changes, then run it from any directory:
 
-    python3 scripts/generate_readme_visuals.py
+    uv run python scripts/generate_readme_visuals.py
 
 Requires Pillow and ffmpeg. Writes to docs/assets/.
 """
 
+import itertools
 import math
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Any, ClassVar
 
 from PIL import Image, ImageDraw, ImageFont
+
+Point = tuple[float, float]
 
 ASSETS = Path(__file__).resolve().parent.parent / "docs" / "assets"
 
@@ -43,24 +47,24 @@ BOLD_FONTS = [
 ]
 
 
-def mix(a, b, t):
+def mix(a: str, b: str, t: float) -> str:
     """Blend hex color a toward hex color b by fraction t."""
     ca = [int(a[i : i + 2], 16) for i in (1, 3, 5)]
     cb = [int(b[i : i + 2], 16) for i in (1, 3, 5)]
-    return "#" + "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(ca, cb))
+    return "#" + "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(ca, cb, strict=True))
 
 
 class Canvas:
     """Pillow drawing surface addressed in logical, unscaled coordinates."""
 
-    _fonts = {}
+    _fonts: ClassVar[dict[tuple[float, bool], ImageFont.FreeTypeFont]] = {}
 
-    def __init__(self, width, height, scale=2):
+    def __init__(self, width: int, height: int, scale: int = 2) -> None:
         self.width, self.height, self.s = width, height, scale
         self.image = Image.new("RGB", (width * scale, height * scale), BG)
         self.draw = ImageDraw.Draw(self.image)
 
-    def font(self, size, bold=False):
+    def font(self, size: float, bold: bool = False) -> ImageFont.FreeTypeFont:
         key = (size * self.s, bold)
         if key not in self._fonts:
             for path in BOLD_FONTS if bold else REGULAR_FONTS:
@@ -71,10 +75,19 @@ class Canvas:
                 raise FileNotFoundError("No supported font found")
         return self._fonts[key]
 
-    def text_width(self, value, size, bold=False):
+    def text_width(self, value: str, size: float, bold: bool = False) -> float:
         return self.draw.textlength(value, font=self.font(size, bold)) / self.s
 
-    def text(self, x, y, value, size=14, bold=False, color=TEXT, anchor="lm"):
+    def text(
+        self,
+        x: float,
+        y: float,
+        value: str,
+        size: float = 14,
+        bold: bool = False,
+        color: str = TEXT,
+        anchor: str = "lm",
+    ) -> None:
         self.draw.text(
             (x * self.s, y * self.s),
             value,
@@ -83,7 +96,7 @@ class Canvas:
             anchor=anchor,
         )
 
-    def wrap(self, value, size, width, bold=False):
+    def wrap(self, value: str, size: float, width: float, bold: bool = False) -> list[str]:
         lines, current = [], ""
         for word in value.split():
             trial = f"{current} {word}".strip()
@@ -92,9 +105,19 @@ class Canvas:
             else:
                 lines.append(current)
                 current = word
-        return lines + [current]
+        return [*lines, current]
 
-    def box(self, x0, y0, x1, y1, fill=PANEL, outline=LINE, radius=8, width=1):
+    def box(
+        self,
+        x0: float,
+        y0: float,
+        x1: float,
+        y1: float,
+        fill: str | None = PANEL,
+        outline: str = LINE,
+        radius: float = 8,
+        width: float = 1,
+    ) -> None:
         s = self.s
         self.draw.rounded_rectangle(
             (x0 * s, y0 * s, x1 * s, y1 * s),
@@ -104,11 +127,11 @@ class Canvas:
             width=max(1, round(width * s)),
         )
 
-    def line(self, points, color=LINE, width=1.5):
+    def line(self, points: list[Point], color: str = LINE, width: float = 1.5) -> None:
         scaled = [(x * self.s, y * self.s) for x, y in points]
         self.draw.line(scaled, fill=color, width=max(1, round(width * self.s)), joint="curve")
 
-    def head(self, tip, origin, color, size=7):
+    def head(self, tip: Point, origin: Point, color: str, size: float = 7) -> None:
         angle = math.atan2(tip[1] - origin[1], tip[0] - origin[0])
         corners = [tip]
         for offset in (2.6, -2.6):
@@ -117,25 +140,50 @@ class Canvas:
             )
         self.draw.polygon([(x * self.s, y * self.s) for x, y in corners], fill=color)
 
-    def arrow(self, points, color=MUTED, width=1.5, both=False):
+    def arrow(
+        self, points: list[Point], color: str = MUTED, width: float = 1.5, both: bool = False
+    ) -> None:
         self.line(points, color, width)
         self.head(points[-1], points[-2], color)
         if both:
             self.head(points[0], points[1], color)
 
-    def dot(self, x, y, radius, color):
+    def dot(self, x: float, y: float, radius: float, color: str) -> None:
         s = self.s
         self.draw.ellipse(
             ((x - radius) * s, (y - radius) * s, (x + radius) * s, (y + radius) * s),
             fill=color,
         )
 
-    def node(self, x0, y0, x1, y1, title, sub=None, kind="service", title_size=15, sub_size=12.5):
+    def node(
+        self,
+        x0: float,
+        y0: float,
+        x1: float,
+        y1: float,
+        title: str,
+        sub: str | None = None,
+        kind: str = "service",
+        title_size: float = 15,
+        sub_size: float = 12.5,
+    ) -> None:
         accent, fill = KINDS[kind]
         self.box(x0, y0, x1, y1, fill=fill, outline=accent, width=1.25)
         self.label(x0, y0, x1, y1, title, sub, TEXT, MUTED, title_size, sub_size)
 
-    def label(self, x0, y0, x1, y1, title, sub, title_color, sub_color, title_size, sub_size):
+    def label(
+        self,
+        x0: float,
+        y0: float,
+        x1: float,
+        y1: float,
+        title: str,
+        sub: str | None,
+        title_color: str,
+        sub_color: str,
+        title_size: float,
+        sub_size: float,
+    ) -> None:
         """Center a bold title and an optional sub-line, and report any overflow."""
         room = x1 - x0 - 12
         titles = self.wrap(title, title_size, room, bold=True)
@@ -150,7 +198,17 @@ class Canvas:
             self.text((x0 + x1) / 2, y + size * 0.625, value, size, bold, color, "mm")
             y += size * 1.25
 
-    def frame(self, x0, y0, x1, y1, title, color=MUTED, outline=LINE, fill=PANEL):
+    def frame(
+        self,
+        x0: float,
+        y0: float,
+        x1: float,
+        y1: float,
+        title: str,
+        color: str = MUTED,
+        outline: str = LINE,
+        fill: str = PANEL,
+    ) -> None:
         self.box(x0, y0, x1, y1, fill=fill, outline=outline, radius=10)
         self.text(x0 + 14, y0 + 17, title, 14, True, color)
 
@@ -158,11 +216,13 @@ class Canvas:
 # ---------------------------------------------------------------- architecture
 
 
-def build_architecture():
+def build_architecture() -> None:
     c = Canvas(1400, 1058)
 
     c.text(40, 34, "WindOps AI architecture", 30, True)
-    c.text(40, 66, "Target design from SRS v1.1. Implementation starts with Phase 1.", 16, color=MUTED)
+    c.text(
+        40, 66, "Target design from SRS v1.1. Implementation starts with Phase 1.", 16, color=MUTED
+    )
 
     legend = [
         ("ai", "AI agent"),
@@ -195,9 +255,13 @@ def build_architecture():
 
     # Agent Runtime
     c.frame(
-        40, 196, 1060, 372,
+        40,
+        196,
+        1060,
+        372,
         "Agent Runtime: LangGraph, Deep Agents and Claude Opus 5.5",
-        KINDS["ai"][0], KINDS["ai"][0],
+        KINDS["ai"][0],
+        KINDS["ai"][0],
     )
     c.node(450, 222, 650, 268, "Supervisor", "plans, delegates, synthesizes", "ai")
     specialists = [
@@ -210,11 +274,20 @@ def build_architecture():
     width, gap = 188, 10
     for i, (name, role) in enumerate(specialists):
         x0 = 54 + i * (width + gap)
-        c.line([(550, 268), (550, 282), (x0 + width / 2, 282), (x0 + width / 2, 296)], KINDS["ai"][0])
+        c.line(
+            [(550, 268), (550, 282), (x0 + width / 2, 282), (x0 + width / 2, 296)], KINDS["ai"][0]
+        )
         c.node(x0, 296, x0 + width, 362, name, role, "ai", title_size=14.5)
 
     # MCP
-    c.frame(100, 412, 1060, 494, "MCP servers: authenticated, schema-validated, per-agent allowlists", TEXT)
+    c.frame(
+        100,
+        412,
+        1060,
+        494,
+        "MCP servers: authenticated, schema-validated, per-agent allowlists",
+        TEXT,
+    )
     servers = [
         ("WindOps MCP", "tenant-scoped, draft only"),
         ("Documentation MCP", "document permissions"),
@@ -247,7 +320,7 @@ def build_architecture():
         "An agent that reads external content has no write tools.",
         "Each run pins its graph, prompt, model and tool versions.",
     ]
-    y = 234
+    y: float = 234
     for rule in rules:
         for row, value in enumerate(c.wrap(rule, 13.5, 188)):
             if row == 0:
@@ -257,12 +330,28 @@ def build_architecture():
         y += 8
 
     # Services
-    c.frame(40, 534, 1360, 758, "Services: these 20, plus API Gateway, Web BFF and Agent Runtime above, make 23", TEXT)
+    c.frame(
+        40,
+        534,
+        1360,
+        758,
+        "Services: these 20, plus API Gateway, Web BFF and Agent Runtime above, make 23",
+        TEXT,
+    )
     groups = [
         ("Identity and tenancy", [("Identity", ""), ("Authorization", ""), ("Tenant", "")]),
-        ("Operations", [("Asset", ""), ("Telemetry", ""), ("Alarm", ""), ("Fault Detection", "rule")]),
-        ("Investigation", [("Investigation", ""), ("Agent Sandbox Adapter", ""), ("Evaluation", "")]),
-        ("Knowledge and research", [("Knowledge", ""), ("Weather", ""), ("External Intelligence", "")]),
+        (
+            "Operations",
+            [("Asset", ""), ("Telemetry", ""), ("Alarm", ""), ("Fault Detection", "rule")],
+        ),
+        (
+            "Investigation",
+            [("Investigation", ""), ("Agent Sandbox Adapter", ""), ("Evaluation", "")],
+        ),
+        (
+            "Knowledge and research",
+            [("Knowledge", ""), ("Weather", ""), ("External Intelligence", "")],
+        ),
         ("Deterministic checks", [("Production Impact", "rule"), ("Policy", "rule")]),
         ("Maintenance", [("Maintenance", ""), ("Inventory", ""), ("Approval", "human")]),
         ("Record and notify", [("Audit", ""), ("Notification", "")]),
@@ -274,15 +363,31 @@ def build_architecture():
         c.text(x0 + width / 2, 578, name, 13.5, True, MUTED, "mm")
         for row, (service, kind) in enumerate(members):
             y0 = 592 + row * 38.5
-            c.node(x0 + 4, y0, x0 + width - 4, y0 + 33, service, None, kind or "service", title_size=13.5)
+            c.node(
+                x0 + 4,
+                y0,
+                x0 + width - 4,
+                y0 + 33,
+                service,
+                None,
+                kind or "service",
+                title_size=13.5,
+            )
 
     # Events
     c.arrow([(700, 758), (700, 780)], both=True)
     c.box(40, 780, 1360, 824, fill=PANEL, outline=MUTED)
     c.label(
-        40, 780, 1360, 824,
+        40,
+        780,
+        1360,
+        824,
         "NATS JetStream: durable events and work queues, with Protobuf and a transactional outbox",
-        None, TEXT, MUTED, 15, 12,
+        None,
+        TEXT,
+        MUTED,
+        15,
+        12,
     )
 
     # Data and external providers
@@ -297,7 +402,9 @@ def build_architecture():
         x0 = 52 + i * 150
         c.node(x0, 868, x0 + 144, 940, name, note, title_size=14)
 
-    c.frame(676, 840, 1360, 950, "External and identity providers: reached through circuit breakers")
+    c.frame(
+        676, 840, 1360, 950, "External and identity providers: reached through circuit breakers"
+    )
     providers = [
         ("Claude API", "Agent Runtime"),
         ("Tavily", "External Intelligence"),
@@ -313,16 +420,27 @@ def build_architecture():
     # Footer
     c.box(40, 964, 1360, 1000, fill=PANEL)
     c.label(
-        40, 964, 1360, 1000,
+        40,
+        964,
+        1360,
+        1000,
         "Observability: OpenTelemetry, Prometheus, Grafana, Loki, Fluent Bit and Alertmanager. "
         "Runtime: Docker and Kubernetes on Minikube.",
-        None, MUTED, MUTED, 14, 12,
+        None,
+        MUTED,
+        MUTED,
+        14,
+        12,
     )
     c.text(
-        700, 1028,
+        700,
+        1028,
         "Agents recommend. Deterministic services and authorized humans decide. "
         "The system never issues turbine commands.",
-        16, True, KINDS["human"][0], "mm",
+        16,
+        True,
+        KINDS["human"][0],
+        "mm",
     )
     ASSETS.mkdir(parents=True, exist_ok=True)
     c.image.save(ASSETS / "architecture.png", optimize=True)
@@ -339,7 +457,7 @@ HUMAN = KINDS["human"][0]
 ROWS = [127, 183, 239, 295, 351]
 ROW_NAMES = ["scada", "reliability", "safety", "impact", "planner"]
 
-NODES = {
+NODES: dict[str, tuple[float, float, float, float, str, str | None, str]] = {
     "telemetry": (20, 92, 190, 138, "Telemetry", "gearbox temp, vibration", "service"),
     "fault": (20, 153, 190, 199, "Fault Detection", "versioned rules", "rule"),
     "case": (20, 215, 190, 263, "Investigation", "opens the case", "service"),
@@ -369,12 +487,13 @@ for name, y, spec, mcp, service in zip(
         ("Production Impact", "rule"),
         ("Maintenance, Inventory", "service"),
     ],
+    strict=True,
 ):
     NODES[f"{name}_agent"] = (420, y - 24, 596, y + 24, spec[0], spec[1], "ai")
     NODES[f"{name}_mcp"] = (636, y - 24, 796, y + 24, mcp, None, "service")
     NODES[f"{name}_svc"] = (820, y - 24, 980, y + 24, service[0], None, service[1])
 
-PATHS = {
+PATHS: dict[str, list[Point]] = {
     "telemetry_fault": [(105, 138), (105, 153)],
     "fault_case": [(105, 199), (105, 215)],
     "case_snapshot": [(105, 263), (105, 300)],
@@ -385,7 +504,7 @@ PATHS = {
     "draft_approver": [(588, 447), (608, 447)],
     "approver_record": [(784, 447), (804, 447)],
 }
-for name, y in zip(ROW_NAMES, ROWS):
+for name, y in zip(ROW_NAMES, ROWS, strict=True):
     PATHS[f"delegate_{name}"] = [(356, 239), (388, 239), (388, y), (420, y)]
     PATHS[f"tool_{name}"] = [(596, y), (636, y)]
     PATHS[f"grpc_{name}"] = [(796, y), (820, y)]
@@ -394,19 +513,16 @@ for name, y in zip(ROW_NAMES, ROWS):
 ALL_ROWS = ROW_NAMES[:4]
 
 
-def row_nodes(name):
+def row_nodes(name: str) -> list[str]:
     return [f"{name}_agent", f"{name}_mcp", f"{name}_svc"]
 
 
-def row_edges(name):
-    return [f"delegate_{name}", f"tool_{name}", f"grpc_{name}"]
-
-
 # Each pulse is (path, start, end, color), where start and end are fractions of the step.
-STEPS = [
+STEPS: list[dict[str, Any]] = [
     {
         "title": "A deterministic rule detects the fault",
-        "detail": "A synthetic gearbox temperature and vibration abnormality trips a versioned rule. "
+        "detail": "A synthetic gearbox temperature and vibration abnormality trips a "
+        "versioned rule. "
         "No LLM assigns severity.",
         "accent": RULE,
         "dur": 2.8,
@@ -415,7 +531,8 @@ STEPS = [
     },
     {
         "title": "A case opens with frozen evidence",
-        "detail": "The Investigation Service opens a case and records an immutable evidence snapshot "
+        "detail": "The Investigation Service opens a case and records an immutable "
+        "evidence snapshot "
         "with its data quality.",
         "accent": RULE,
         "dur": 2.8,
@@ -424,7 +541,8 @@ STEPS = [
     },
     {
         "title": "The Supervisor plans and delegates",
-        "detail": "It creates a bounded plan and assigns specialists. Tool call, retry, token and cost "
+        "detail": "It creates a bounded plan and assigns specialists. Tool call, retry, "
+        "token and cost "
         "budgets are enforced.",
         "accent": AI,
         "dur": 2.8,
@@ -483,7 +601,8 @@ STEPS = [
     },
     {
         "title": "A draft is prepared and the run stops",
-        "detail": "The checkpoint is saved, the case moves to pending_review and the active run ends. "
+        "detail": "The checkpoint is saved, the case moves to pending_review and the "
+        "active run ends. "
         "Nothing proceeds without a human decision.",
         "accent": AI,
         "dur": 3.2,
@@ -503,7 +622,8 @@ STEPS = [
     },
     {
         "title": "The run resumes and everything is recorded",
-        "detail": "A durable event resumes the run, users are notified and audit keeps the references. "
+        "detail": "A durable event resumes the run, users are notified and audit keeps "
+        "the references. "
         "The system never issues turbine commands.",
         "accent": RULE,
         "dur": 4.6,
@@ -532,10 +652,10 @@ EDGE_STEPS.update({"delegate_planner": 4, "tool_planner": 4, "grpc_planner": 4})
 EDGE_COLORS = {"draft_approver": HUMAN}
 
 
-def point_along(path, fraction):
-    lengths = [math.dist(a, b) for a, b in zip(path, path[1:])]
+def point_along(path: list[Point], fraction: float) -> Point:
+    lengths = [math.dist(a, b) for a, b in itertools.pairwise(path)]
     target = sum(lengths) * fraction
-    for (a, b), length in zip(zip(path, path[1:]), lengths):
+    for (a, b), length in zip(itertools.pairwise(path), lengths, strict=True):
         if target <= length and length > 0:
             t = target / length
             return a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t
@@ -543,7 +663,7 @@ def point_along(path, fraction):
     return path[-1]
 
 
-def draw_node(c, key, state, glow):
+def draw_node(c: Canvas, key: str, state: str, glow: float) -> None:
     x0, y0, x1, y1, title, sub, kind = NODES[key]
     accent, fill = KINDS[kind]
     if state == "idle":
@@ -552,17 +672,25 @@ def draw_node(c, key, state, glow):
         return
     if state == "active":
         pad = 2 + glow
-        c.box(x0 - pad, y0 - pad, x1 + pad, y1 + pad, fill=mix(accent, BG, 0.72), outline=mix(accent, BG, 0.45), radius=10)
+        c.box(
+            x0 - pad,
+            y0 - pad,
+            x1 + pad,
+            y1 + pad,
+            fill=mix(accent, BG, 0.72),
+            outline=mix(accent, BG, 0.45),
+            radius=10,
+        )
     c.box(x0, y0, x1, y1, fill=fill, outline=accent, width=1.75 if state == "active" else 1)
     c.label(x0, y0, x1, y1, title, sub, TEXT, MUTED, 14, 12)
 
 
-def draw_frame(step_index, progress, clock):
+def draw_frame(step_index: int, progress: float, clock: float) -> Image.Image:
     c = Canvas(W, H)
     step = STEPS[step_index]
 
     c.text(20, 28, "From turbine fault to human decision", 22, True)
-    x = 980
+    x: float = 980
     for kind, name in reversed([("ai", "AI agent"), ("rule", "Deterministic"), ("human", "Human")]):
         accent, fill = KINDS[kind]
         x -= c.text_width(name, 13)
@@ -579,7 +707,12 @@ def draw_frame(step_index, progress, clock):
         if fraction:
             c.box(x0, 50, x0 + segment * fraction, 55, fill=TEXT, outline=TEXT, radius=2)
 
-    for x0, label in [(20, "TRIGGER"), (420, "SPECIALISTS"), (636, "MCP TOOLS"), (820, "SERVICES, gRPC")]:
+    for x0, label in [
+        (20, "TRIGGER"),
+        (420, "SPECIALISTS"),
+        (636, "MCP TOOLS"),
+        (820, "SERVICES, gRPC"),
+    ]:
         c.text(x0, 82, label, 11.5, True, MUTED)
     c.box(222, 72, 606, 386, fill=None, outline=mix(AI, BG, 0.55), radius=10)
     c.text(236, 88, "AGENT RUNTIME", 11.5, True, mix(AI, TEXT, 0.25))
@@ -626,12 +759,20 @@ def draw_frame(step_index, progress, clock):
         print(f"WARNING: caption is too long: {step['title']!r}")
     for i, row in enumerate(rows):
         c.text(66, 551 + i * 21, row, 15, color=mix(TEXT, MUTED, 0.5))
-    c.text(500, 618, "Illustration of the SRS v1.1 design, using a synthetic scenario. Not a recording of a running system.", 12.5, color=MUTED, anchor="mm")
+    c.text(
+        500,
+        618,
+        "Illustration of the SRS v1.1 design, using a synthetic scenario. "
+        "Not a recording of a running system.",
+        12.5,
+        color=MUTED,
+        anchor="mm",
+    )
 
-    return c.image.resize((W, H), Image.LANCZOS)
+    return c.image.resize((W, H), Image.Resampling.LANCZOS)
 
 
-def build_animation():
+def build_animation() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         count, clock = 0, 0.0
         for index, step in enumerate(STEPS):
@@ -644,12 +785,20 @@ def build_animation():
         ASSETS.mkdir(parents=True, exist_ok=True)
         subprocess.run(
             [
-                "ffmpeg", "-y", "-loglevel", "error", "-framerate", str(FPS),
-                "-i", f"{tmp}/%04d.png",
+                "ffmpeg",
+                "-y",
+                "-loglevel",
+                "error",
+                "-framerate",
+                str(FPS),
+                "-i",
+                f"{tmp}/%04d.png",
                 "-filter_complex",
                 "split[a][b];[a]palettegen=max_colors=96:stats_mode=full[p];"
                 "[b][p]paletteuse=dither=none:diff_mode=rectangle",
-                "-loop", "0", str(ASSETS / "agent-orchestration.gif"),
+                "-loop",
+                "0",
+                str(ASSETS / "agent-orchestration.gif"),
             ],
             check=True,
         )
