@@ -1194,7 +1194,7 @@ def draw_database_placement(c: Canvas, top: float) -> float:
     c.text(483, top + 90, "One PostgreSQL pod, with a persistent volume", 13, True, anchor="mm")
     for index, name in enumerate(("windops_telemetry", "windops_alarm", "windops_audit")):
         c.text(483, top + 116 + index * 24, name, 12.5, color=MUTED, anchor="mm")
-    for index, row in enumerate(
+    for index, sentence in enumerate(
         (
             "If the pod fails, all services lose their database "
             "until Kubernetes restarts it. Data stays",
@@ -1202,7 +1202,7 @@ def draw_database_placement(c: Canvas, top: float) -> float:
             "events stay in JetStream.",
         )
     ):
-        c.text(74, top + 222 + index * 18, row, 12.5, color=MUTED)
+        c.text(74, top + 222 + index * 18, sentence, 12.5, color=MUTED)
 
     c.box(700, top + 36, 1340, top + 262, fill=BG, outline=AMBER, width=1.25)
     c.text(714, top + 54, "Production design: planned, not built (ADR 0003)", 14, True, AMBER)
@@ -1222,14 +1222,14 @@ def draw_database_placement(c: Canvas, top: float) -> float:
         "Scheduled backups for every server, tested by restoring them (M14.3)",
         title_size=12.5,
     )
-    for index, row in enumerate(
+    for index, sentence in enumerate(
         (
             "A standby on another machine takes over automatically, "
             "so one failure stops fewer services.",
             "Separate databases make a move mostly a change of host and credentials.",
         )
     ):
-        c.text(714, top + 222 + index * 18, row, 12.5, color=MUTED)
+        c.text(714, top + 222 + index * 18, sentence, 12.5, color=MUTED)
     return top + 276
 
 
