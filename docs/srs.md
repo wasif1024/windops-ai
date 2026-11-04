@@ -4,7 +4,7 @@ Nov 4, 2026 · @Wasif
 
 ## 1. Document control
 
-SRS v1.1 keeps every v1.0 feature, makes gRPC, microservices, containers and circuit breaking mandatory, selects Claude, fills the design gaps and reorders delivery. Any v1.0 detail not restated here stays in force. Where the two versions conflict, v1.1 wins.
+SRS v1.1 keeps every v1.0 feature, makes gRPC, microservices, containers and circuit breaking mandatory, selects Claude, fills the design gaps and reorders delivery. v1.1 is the complete baseline, so a v1.0 detail not restated here no longer applies.
 
 | Field | Value |
 | --- | --- |
@@ -284,7 +284,9 @@ The React application shall provide these role-aware screens:
 
 A work order moves only through the Maintenance and Approval services, and agents can reach only the draft state.
 
-*Diagram: work-order lifecycle · 6 states, 1 human decision. See the [live SRS](https://claude.ai/artifact/Cmt6DMeK4rF45JH72X5uLk).*
+![Work-order lifecycle. An agent or planner creates a draft, a planner submits it, and a human decision either approves it or marks it rejected or stale. Approved work moves to completed and then verified. Rejected or stale work is revised as a new version, and the earlier version is kept.](assets/srs/work-order-lifecycle.svg)
+
+*Work-order lifecycle · 6 states, 1 human decision.*
 
 A rejected or stale proposal keeps its history, and only a new version can return for approval.
 
@@ -451,7 +453,9 @@ Tavily remains the required web research integration, and a structured forecast 
 
 The platform has 23 services: the original 19 plus Web BFF, Alarm, Production Impact and Policy. Synchronous calls use gRPC, durable facts travel through NATS JetStream, and every remote dependency sits behind a circuit breaker.
 
-*Diagram: WindOps AI architecture · 23 services, grouped. See the [live SRS](https://claude.ai/artifact/Cmt6DMeK4rF45JH72X5uLk).*
+![WindOps AI architecture. The React frontend and telemetry simulator enter through the APISIX API Gateway. Web BFF calls grouped domain services over gRPC with circuit breakers. Agent Runtime uses MCP servers, which call services over gRPC with no direct data access. Services use data stores, NATS JetStream and external APIs, and every workload is observable.](assets/srs/service-architecture.svg)
+
+*WindOps AI architecture · 23 services, grouped.*
 
 The groups are for reading only. Each named service still deploys and scales on its own.
 
@@ -1005,7 +1009,9 @@ windops-ai/
 
 Delivery runs through 14 phases, ordered by dependency and gated by tests rather than dates. The frontend, logging, tracing and security tests grow in every phase, so nothing critical waits until the end.
 
-*Diagram: delivery roadmap · 14 phases in 4 stages. See the [live SRS](https://claude.ai/artifact/Cmt6DMeK4rF45JH72X5uLk).*
+![Delivery roadmap in four stages. Platform base covers phases 1 to 3, deterministic core covers phases 4 to 6, agents and action covers phases 7 to 10, and proof and release covers phases 11 to 14. Each stage has an exit condition that the next stage depends on.](assets/srs/delivery-roadmap.svg)
+
+*Delivery roadmap · 14 phases in 4 stages.*
 
 Agents arrive after the deterministic rules exist, so they never need to invent thresholds or calculations.
 

@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 14 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Prerequisites. Next up is P.1.
+**Current position:** Phase 1. Next up is M1.1.
 
 ## How to use this tracker
 
@@ -30,7 +30,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 
 | Phase | Name | Modules | Status |
 | --- | --- | --- | --- |
-| - | [Prerequisites](#prerequisites) | 3 | In progress |
+| - | [Prerequisites](#prerequisites) | 3 | Done |
 | 1 | [Platform foundation](#phase-1-platform-foundation) | 11 | Not started |
 | 2 | [Data and events](#phase-2-data-and-events) | 9 | Not started |
 | 3 | [Identity and tenancy](#phase-3-identity-and-tenancy) | 11 | Not started |
@@ -48,8 +48,8 @@ The SRS defines the requirements, and this file tracks progress against them.
 
 ## Prerequisites
 
-- [ ] **P.1 SRS v1.0 copy:** add it as `docs/srs-v1.0.md`, because SRS v1.1 keeps any v1.0 detail it does not restate.
-- [ ] **P.2 SRS diagrams:** copy the roadmap, work-order lifecycle and architecture diagrams from the live SRS into the repository.
+- [x] **P.1 SRS baseline:** SRS v1.1 is the complete baseline, so no v1.0 copy is needed. Done 2026-11-04.
+- [x] **P.2 SRS diagrams:** copy the roadmap, work-order lifecycle and architecture diagrams from the live SRS into the repository. Done 2026-11-04.
 - [x] **P.3 Local capacity:** use a `local` Minikube profile of 6 CPUs and 11 GB ([ADR 0001](../adr/0001-local-minikube-profile.md)). Done 2026-11-04.
 
 ## Phase 1: Platform foundation
