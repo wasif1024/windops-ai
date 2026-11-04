@@ -47,3 +47,6 @@ These figures replace estimates as workloads are added. See
 | 2026-11-04 | APISIX gateway, with no real traffic | 50 MiB | From `kubectl top` |
 | 2026-11-04 | etcd, with no real traffic | 27 MiB | From `kubectl top` |
 | 2026-11-04 | Whole cluster with the gateway and etcd | 1.68 GiB of 10 GiB | From `docker stats` |
+| 2026-11-04 | Grafana, the largest observability workload | 323 MiB | From `kubectl top` |
+| 2026-11-04 | Prometheus, Loki, Tempo, Collector, Fluent Bit, Alertmanager and kube-state-metrics | 335 MiB in total | From `kubectl top`, with almost no data stored |
+| 2026-11-04 | Whole cluster with the observability stack and etcd, and no gateway | 2.07 GiB of 10 GiB | From `docker stats` |

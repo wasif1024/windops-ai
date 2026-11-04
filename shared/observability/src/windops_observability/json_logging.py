@@ -39,6 +39,16 @@ def request_context(
         _tenant_id.reset(tenant_token)
 
 
+@contextmanager
+def tenant_context(tenant_id: str) -> Iterator[None]:
+    """Add a verified tenant ID to logs inside this block, keeping the current request ID."""
+    token = _tenant_id.set(tenant_id)
+    try:
+        yield
+    finally:
+        _tenant_id.reset(token)
+
+
 class JsonFormatter(logging.Formatter):
     """Format each record as one line of redacted JSON."""
 

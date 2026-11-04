@@ -108,3 +108,32 @@ def test_lifecycle_and_health_changes_are_logged(caplog: pytest.LogCaptureFixtur
     assert "Service stopping" in messages
     assert "Service stopped" in messages
     assert "Health changed" in messages
+
+
+def test_calls_produce_metrics_by_status() -> None:
+    async def scenario() -> str:
+        async with running_service() as harness:
+            await harness.method("Echo")(b"hi", timeout=5, metadata=GOOD)
+            with pytest.raises(grpc.aio.AioRpcError):
+                await harness.method("Echo")(b"missing", timeout=5, metadata=GOOD)
+            with pytest.raises(grpc.aio.AioRpcError):
+                await harness.method("Echo")(b"hi", timeout=5)
+            base = f"http://127.0.0.1:{harness.runtime.http_port}"
+            async with httpx.AsyncClient(base_url=base) as client:
+                return (await client.get("/metrics")).text
+
+    text = asyncio.run(scenario())
+    assert "windops_rpc_server_duration_seconds_count" in text
+    for status in ("OK", "NOT_FOUND", "UNAUTHENTICATED"):
+        assert f'rpc_status="{status}"' in text
+
+
+def test_health_checks_produce_no_call_metrics() -> None:
+    async def scenario() -> str:
+        async with running_service() as harness:
+            await grpc_health(harness.channel)
+            base = f"http://127.0.0.1:{harness.runtime.http_port}"
+            async with httpx.AsyncClient(base_url=base) as client:
+                return (await client.get("/metrics")).text
+
+    assert "grpc.health.v1.Health" not in asyncio.run(scenario())

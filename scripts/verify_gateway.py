@@ -62,6 +62,27 @@ def wait_for_status(url: str, expected: int, *, attempts: int = 60) -> None:
     raise RuntimeError(f"{url} never returned {expected}")
 
 
+def remove_route(admin_url: str, key: str) -> None:
+    """Delete the test route, retrying while the gateway reconnects to etcd."""
+    started = time.monotonic()
+    last: object = None
+    for _ in range(6):
+        try:
+            response = httpx.delete(
+                f"{admin_url}/apisix/admin/routes/{ROUTE_ID}",
+                headers={"X-API-KEY": key},
+                timeout=40,
+            )
+            if response.status_code in (200, 404):
+                print(f"The Admin API removed the test route in {time.monotonic() - started:.1f}s")
+                return
+            last = response.status_code
+        except httpx.HTTPError as error:
+            last = error
+        time.sleep(2)
+    raise RuntimeError(f"Could not remove the test route: {last}")
+
+
 def check_service_exposes_only_the_proxy() -> None:
     service = kubectl(
         "get", "service", "windops-gateway", f"--namespace={SYSTEM}",
@@ -176,6 +197,8 @@ def check_gateway(root: Path, key: str) -> None:
             admin = f"http://127.0.0.1:{admin_port}"
             proxy = f"http://127.0.0.1:{proxy_port}"
             check_admin_rejects_wrong_key(admin, key)
+            # Routes persist in etcd, so an interrupted run can leave this one behind.
+            remove_route(admin, key)
             if httpx.get(f"{proxy}/health/live", timeout=5).status_code != 404:
                 raise RuntimeError("The gateway answered a path with no route")
             print("With no route, the gateway returned 404")
@@ -196,11 +219,7 @@ def check_gateway(root: Path, key: str) -> None:
         )
     finally:
         with port_forward(gateway, SYSTEM, 9180) as admin_port:
-            httpx.delete(
-                f"http://127.0.0.1:{admin_port}/apisix/admin/routes/{ROUTE_ID}",
-                headers={"X-API-KEY": key},
-                timeout=10,
-            )
+            remove_route(f"http://127.0.0.1:{admin_port}", key)
         kubectl(
             "delete", "--kustomize", f"{root}/services/{DIRECTORY}/deploy", "--ignore-not-found"
         )

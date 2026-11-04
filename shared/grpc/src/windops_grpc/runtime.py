@@ -110,12 +110,17 @@ class ServiceRuntime:
             otlp_endpoint=settings.otlp_endpoint,
             metric_reader=PrometheusMetricReader(),
             install_global=self._install_global,
+            # Prometheus scrapes /metrics, so sending them too would store them twice.
+            export_metrics_over_otlp=False,
         )
         logger.info(
             "Service starting",
             extra={"grpc_port": settings.grpc_port, "http_port": settings.http_port},
         )
-        server = grpc.aio.server(interceptors=[ServerContextInterceptor(settings.identity_secret)])
+        interceptor = ServerContextInterceptor(
+            settings.identity_secret, meter_provider=self._telemetry.meter_provider
+        )
+        server = grpc.aio.server(interceptors=[interceptor])
         health_pb2_grpc.add_HealthServicer_to_server(self._health, server)
         await self._set_serving(False)
         self._register(server)

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 from opentelemetry.sdk.trace import TracerProvider
-from windops_observability import ServiceInfo, configure_logging, request_context
+from windops_observability import ServiceInfo, configure_logging, request_context, tenant_context
 
 SERVICE = ServiceInfo(name="telemetry", environment="test", version="1.2.3")
 
@@ -52,6 +52,19 @@ def test_request_and_tenant_context_are_included(stream: io.StringIO) -> None:
     assert inside["tenant_id"] == "tenant-a"
     assert "request_id" not in outside
     assert "tenant_id" not in outside
+
+
+def test_tenant_context_keeps_the_request_id_and_restores_the_tenant(
+    stream: io.StringIO,
+) -> None:
+    with request_context(request_id="req-1", tenant_id="tenant-a"):
+        with tenant_context("tenant-b"):
+            logging.getLogger("windops.test").info("Inner")
+        logging.getLogger("windops.test").info("Outer")
+    inner, outer = entries(stream)
+    assert inner["request_id"] == "req-1"
+    assert inner["tenant_id"] == "tenant-b"
+    assert outer["tenant_id"] == "tenant-a"
 
 
 def test_trace_context_is_included(stream: io.StringIO) -> None:

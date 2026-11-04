@@ -86,6 +86,7 @@ def configure_telemetry(
     span_exporter: SpanExporter | None = None,
     metric_reader: MetricReader | None = None,
     install_global: bool = True,
+    export_metrics_over_otlp: bool = True,
 ) -> Telemetry:
     """Create trace and metric providers for a service.
 
@@ -119,7 +120,7 @@ def configure_telemetry(
     readers: list[MetricReader] = []
     if metric_reader is not None:
         readers.append(metric_reader)
-    if otlp_endpoint is not None:
+    if otlp_endpoint is not None and export_metrics_over_otlp:
         exporter = OTLPMetricExporter(
             endpoint=f"{otlp_endpoint.rstrip('/')}/v1/metrics", timeout=_EXPORT_TIMEOUT_SECONDS
         )

@@ -132,7 +132,10 @@ def test_etcd_keeps_data_and_stays_internal() -> None:
     documents = render(ETCD)
     statefulset = find(documents, "StatefulSet")
     assert statefulset["spec"]["volumeClaimTemplates"][0]["metadata"]["name"] == "data"
-    assert find(documents, "Service")["spec"]["clusterIP"] == "None"
+    spec = find(documents, "Service")["spec"]
+    # Not headless, because clients keep a stable address through a pod restart.
+    assert "clusterIP" not in spec
+    assert spec.get("type", "ClusterIP") == "ClusterIP"
 
 
 def test_local_overlay_includes_the_gateway_with_its_config_unchanged() -> None:

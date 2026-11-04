@@ -12,7 +12,6 @@ KUBERNETES_DIR := infrastructure/kubernetes
 # Targets a later module delivers, as <target>:<module>. They fail until then, so a
 # command that does nothing yet can never look like it passed.
 PLANNED_TARGETS := \
-	logs:M1.9 \
 	services:M1.10 \
 	migrate:M2.5 \
 	identity-seed:M3.1 \
@@ -21,7 +20,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts check service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts check logs service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -80,9 +79,12 @@ scaffold-check: ## Generate, build and run a throwaway service to prove the temp
 	uv run python scripts/verify_scaffold.py $(SCAFFOLD_ARGS)
 
 cluster: ## Start the local cluster, with SRS 11.4 settings for a 16 GB laptop
+	@# Restarting a stopped cluster switches kubectl's context, despite --keep-context, so restore it.
+	@previous="$$(kubectl config current-context 2>/dev/null || true)"; \
 	minikube start -p $(CLUSTER) --driver=docker --container-runtime=docker \
-		--kubernetes-version=v1.35.1 --cpus=6 --memory=10240 --cni=calico --keep-context
-	minikube -p $(CLUSTER) addons enable metrics-server
+		--kubernetes-version=v1.35.1 --cpus=6 --memory=10240 --cni=calico --keep-context || exit 1; \
+	minikube -p $(CLUSTER) addons enable metrics-server || exit 1; \
+	if [ -n "$$previous" ]; then kubectl config use-context "$$previous" >/dev/null; fi
 
 cluster-stop: ## Stop the local cluster and free its memory, keeping its data
 	minikube stop -p $(CLUSTER) --keep-context-active
@@ -93,12 +95,23 @@ cluster-delete: ## Delete the local cluster and all its data
 cluster-check: ## Deploy a throwaway service to prove the manifests work on the cluster
 	uv run python scripts/verify_cluster.py
 
-infra: ## Create the namespaces and etcd. Later modules add data stores and observability
+infra: ## Create the namespaces, etcd and the observability stack. Phase 2 adds data stores
 	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/namespaces
 	kubectl --context $(CLUSTER) apply --kustomize infrastructure/gateway/etcd
+	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/observability
 
 secrets: ## Create local secrets from an ignored file, generating it the first time
 	uv run python scripts/local_secrets.py
+
+observability-forward: ## Reach Grafana at http://127.0.0.1:3000
+	kubectl --context $(CLUSTER) port-forward --namespace=windops-observability service/windops-grafana 3000:3000
+
+observability-check: ## Prove logs, traces, metrics and dashboards work on the cluster
+	PYTHONPATH=scripts uv run python scripts/verify_observability.py
+
+logs: ## Follow a workload's logs: make logs NAME=windops-telemetry
+	@test -n "$(NAME)" || { echo "Usage: make logs NAME=windops-telemetry" >&2; exit 1; }
+	kubectl --context $(CLUSTER) logs --all-namespaces --follow --selector=app.kubernetes.io/name=$(NAME)
 
 gateway: ## Deploy the API gateway
 	kubectl --context $(CLUSTER) apply --kustomize services/api-gateway/deploy
