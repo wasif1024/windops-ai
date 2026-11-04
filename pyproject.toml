@@ -9,6 +9,12 @@ dependencies = []
 [tool.uv]
 package = false
 
+[tool.uv.workspace]
+members = ["shared/resilience"]
+
+[tool.uv.sources]
+windops-resilience = { workspace = true }
+
 [tool.ruff]
 line-length = 100
 target-version = "py313"
@@ -18,22 +24,34 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "S", "SIM", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S603", "S607"]
+"shared/*/tests/**" = ["S101"]
 "scripts/**" = ["S603", "S607"]
 
 [tool.mypy]
 python_version = "3.13"
 strict = true
-files = ["scripts", "tests"]
+files = ["scripts", "tests", "shared/resilience/src", "shared/resilience/tests"]
+explicit_package_bases = true
+mypy_path = ["shared/resilience/src", "shared/resilience/tests"]
+
+# A breaker's state property changes between reads, which mypy's narrowing cannot see.
+[[tool.mypy.overrides]]
+module = ["test_breaker", "test_real_grpc"]
+disable_error_code = ["comparison-overlap"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+testpaths = ["tests", "shared/resilience/tests"]
+addopts = "-ra --strict-markers --import-mode=importlib"
+pythonpath = ["shared/resilience/tests"]
 
 [dependency-groups]
 dev = [
+    "grpcio>=1.85.1",
     "mypy>=2.4.1",
     "pillow>=13.0.0",
     "pip-audit>=2.10.1",
     "pytest>=9.2.0",
     "ruff>=0.17.3",
+    "types-grpcio>=1.85.0.20261028",
+    "windops-resilience",
 ]

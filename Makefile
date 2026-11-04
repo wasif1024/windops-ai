@@ -59,7 +59,8 @@ contracts: ## Lint Protobuf contracts and check for breaking changes
 check: lint typecheck contracts test ## Run every check required before a pull request
 
 audit: ## Check locked dependencies for known vulnerabilities
-	uv run pip-audit --local --strict
+	uv export --quiet --locked --all-groups --no-emit-workspace --format requirements-txt --output-file .venv/audit-requirements.txt
+	uv run pip-audit --strict --disable-pip --requirement .venv/audit-requirements.txt
 
 define planned_target
 $(firstword $(subst :, ,$(1))):
