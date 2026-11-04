@@ -1,9 +1,13 @@
 """Keep the service map complete against the SRS, so it cannot quietly miss a service."""
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+from provision_postgres import SERVICE_NAMESPACES
 
 ROOT = Path(__file__).resolve().parent.parent
 SRS = (ROOT / "docs" / "srs.md").read_text()
@@ -53,6 +57,16 @@ def test_every_srs_event_has_a_publisher_and_a_listener(subject: str) -> None:
     assert publishers, f"{subject} has no publisher"
     # Audit's `audit.recorded` is a confirmation for later consumers, so nothing needs it yet.
     assert listeners or subject == "audit.recorded", f"{subject} has no listener"
+
+
+def test_every_service_that_sends_audit_events_has_a_database() -> None:
+    """EVT-002 and EVT-004: audit events leave through an outbox, which needs a database."""
+    table = section(MAP, "## Every service and its links", "The telemetry simulator")
+    rows = [line.split("|") for line in table.splitlines() if line.startswith("| ")]
+    senders = [row[1].strip() for row in rows if "audit events" in row[3].lower()]
+    assert senders
+    for name in senders:
+        assert name.lower().replace(" ", "-") in SERVICE_NAMESPACES, name
 
 
 def test_every_defined_fallback_matches_the_srs() -> None:

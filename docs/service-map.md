@@ -5,7 +5,7 @@ This page shows how all 23 services connect, and what happens when one of them f
 **How far to trust it:** the SRS defines the MCP calls, the workflow, who owns what and the failure
 behaviors marked below. It does not list every service-to-service call, so the links here are a design
 worked out from it. A module that builds a link confirms or corrects that link here, in its own pull
-request. Only the sample services run today.
+request. Today only the sample services and PostgreSQL run.
 
 ## How services connect
 
@@ -142,7 +142,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | Fault Detection | Telemetry | `fault.detected`, audit events | `telemetry.received`, `telemetry.quality`, `alarm.changed` |
 | Investigation | Telemetry, Alarm, Asset | `case.updated`, queued runs, audit events | `fault.detected`, `alarm.changed`, `evidence.changed`, `workorder.completed` |
 | Agent Runtime | MCP servers, Agent Sandbox Adapter, Claude | Audit events | Queued runs, `approval.decided` |
-| Agent Sandbox Adapter | LangSmith Sandbox | Audit events | None |
+| Agent Sandbox Adapter | LangSmith Sandbox | None. Agent Runtime records sandbox use | None |
 | Knowledge | Qdrant, the embedding provider | `evidence.changed`, audit events | None |
 | Weather | The forecast provider | None | None |
 | External Intelligence | Tavily | Audit events | None |
