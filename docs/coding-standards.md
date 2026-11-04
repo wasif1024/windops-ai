@@ -49,7 +49,7 @@ A pull request can merge only when all of these are true:
 
 | Rule | Enforced by | Status |
 | --- | --- | --- |
-| Lint, formatting, types and tests pass | `check` job in GitHub Actions, and `make check` locally | Active |
+| Lint, formatting, types, contracts and tests pass | `check` job in GitHub Actions, and `make check` locally | Active |
 | Dependencies have no known vulnerabilities | `dependency-audit` job, and `make audit` locally | Active |
 | No secrets in the repository or its history | `secrets` job, and GitHub push protection | Active |
 | Static analysis of the code | `codeql` job | Active |
@@ -57,9 +57,9 @@ A pull request can merge only when all of these are true:
 | Pull request titles follow the commit format | `pr-status` job | Active |
 | No direct pushes, and no merge with failing checks | Branch protection on `main` | Active |
 | Squash merge only, and merged branches are deleted | Repository settings | Active |
+| Contract lint and breaking-change checks | Buf, in the `check` job | Active |
 | Container images are scanned | GitHub Actions | Arrives in M1.6 |
 | Reviewer differs from author | Branch protection on `main` | When a second maintainer joins |
-| Contract lint and breaking-change checks | Buf | Arrives in M1.3 |
 
 Until a rule is enforced automatically, the author is responsible for following it.
 
@@ -156,6 +156,7 @@ These come from the SRS, and reviewers check them on every change:
 - A service must not read or write another service's tables (ARC-002).
 - Shared code holds contracts and cross-cutting libraries, never business logic (ARC-004).
 - Service-to-service calls use gRPC, with deadlines and trace context (GRP-001, GRP-003).
+  [gRPC contracts](grpc-contracts.md) has the contract rules.
 - State-changing calls accept an idempotency key (GRP-007).
 - Remote calls go through the shared resilience library (SRS 7.7).
 - Configuration comes from ConfigMaps and Secrets, never from an image (DEP-003).

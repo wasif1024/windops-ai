@@ -37,11 +37,12 @@ phases and their modules.
 
 ## Development
 
-Install [uv](https://docs.astral.sh/uv/) and Make, then run:
+Install [uv](https://docs.astral.sh/uv/), [Buf](https://buf.build/docs/installation/) and
+Make, then run:
 
 ```bash
 make install   # install the locked development tools
-make check     # run lint, formatting, type checks and tests
+make check     # run lint, formatting, type checks, contract checks and tests
 make help      # list every command
 ```
 
