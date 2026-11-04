@@ -637,6 +637,24 @@ A shared resilience library shall wrap every gRPC client, database-adjacent netw
 | Notification | Queue through JetStream; the workflow continues |
 | LangSmith | Buffer or drop traces with an alert; the Audit Service remains authoritative |
 | Sandbox | Mark the analysis unavailable and continue without it |
+| Identity | Existing sessions keep working from their signed tokens; user changes are refused; screens show user IDs in place of names |
+| Keycloak | New logins and token exchange fail; nothing falls back to weaker access |
+| Tenant | Use the last known branding; refuse tenant changes and new tenants |
+| Asset | Refuse new snapshots and work-order validation; existing snapshots stay readable |
+| Fault Detection | Telemetry keeps being stored, and the events wait in JetStream; alert that detection is delayed |
+| Investigation | Refuse new cases and approvals that need a snapshot check; fault events wait in JetStream |
+| Agent Runtime | Queued runs wait, and running ones resume from their last checkpoint; no findings are produced |
+| Weather Service | Same as the forecast provider above |
+| External Intelligence | Same as Tavily above |
+| Production Impact | Mark impact unavailable and block the recommendation until it returns; no agent may estimate figures |
+| Maintenance | Refuse new drafts, submissions and approvals; keep the investigation's findings |
+| Inventory | Mark part availability unknown, and refuse reservations; a plan cannot state that a part is available |
+| Evaluation | Delay evaluation jobs, and do not count a skipped evaluation as passed; investigations are unaffected |
+| Embedding provider | Pause ingestion and semantic search; do not return results that were not permission-checked |
+| Email provider | Same as Notification above, with in-app notifications still delivered |
+| PostgreSQL | The services that need it return `UNAVAILABLE` and write nothing; events already in JetStream wait |
+| Redis | Work continues from the source service, more slowly; rate limits fail closed on protected routes |
+| JetStream | State changes still commit, with their events held in the outbox until it returns |
 
 - **RES-001:** Breaker state changes shall be logged, exported as metrics and alerted when open beyond the configured limit.
 - **RES-002:** Each dependency shall have a bulkhead limit, so one slow service cannot consume all workers.

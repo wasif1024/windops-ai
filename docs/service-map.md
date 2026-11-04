@@ -3,7 +3,7 @@
 This page shows how all 23 services connect, and what happens when one of them fails.
 
 **How far to trust it:** the SRS defines the MCP calls, the workflow, who owns what and the failure
-behaviors marked below. It does not list every service-to-service call, so the links here are a design
+behaviors below. It does not list every service-to-service call, so the links here are a design
 worked out from it. A module that builds a link confirms or corrects that link here, in its own pull
 request. Today only the sample services and PostgreSQL run.
 
@@ -232,14 +232,6 @@ and anything optional lets the work continue while recording the gap.
 | Notification | Queue through JetStream; the workflow continues |
 | LangSmith | Buffer or drop traces with an alert; the Audit Service remains authoritative |
 | Sandbox | Mark the analysis unavailable and continue without it |
-
-### Proposed, because the SRS does not define these yet
-
-These follow the same rules, but are **not requirements until they are accepted into SRS 7.7**. M13.2
-tests every accepted fallback (RES-005).
-
-| Dependency down | Proposed behavior |
-| --- | --- |
 | Identity | Existing sessions keep working from their signed tokens; user changes are refused; screens show user IDs in place of names |
 | Keycloak | New logins and token exchange fail; nothing falls back to weaker access |
 | Tenant | Use the last known branding; refuse tenant changes and new tenants |
