@@ -1,6 +1,7 @@
 """Run remote calls with a deadline, a circuit breaker and bounded retries (SRS section 7.7)."""
 
 import asyncio
+import logging
 import random
 import time
 from collections.abc import Awaitable, Callable
@@ -8,6 +9,8 @@ from dataclasses import dataclass
 
 from windops_resilience.breaker import CircuitBreaker
 from windops_resilience.classify import is_dependency_failure
+
+logger = logging.getLogger("windops.resilience")
 
 
 @dataclass(frozen=True)
@@ -64,5 +67,15 @@ async def call_with_resilience[T](
             delay = random_fraction() * backoff
             if delay >= expires - clock():
                 raise
+            logger.warning(
+                "Retrying a failed call",
+                extra={
+                    "dependency": breaker.dependency,
+                    "attempt": number,
+                    "max_attempts": attempts,
+                    "delay_seconds": delay,
+                    "error_type": type(error).__name__,
+                },
+            )
             await sleep(delay)
     raise AssertionError("Unreachable: the final attempt returns or raises")
