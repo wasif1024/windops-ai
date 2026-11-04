@@ -13,6 +13,7 @@ package = false
 members = [
     "services/sample-caller-service",
     "services/sample-responder-service",
+    "shared/cache",
     "shared/contracts",
     "shared/grpc",
     "shared/observability",
@@ -20,6 +21,7 @@ members = [
 ]
 
 [tool.uv.sources]
+windops-cache = { workspace = true }
 windops-observability = { workspace = true }
 windops-resilience = { workspace = true }
 windops-grpc = { workspace = true }
@@ -50,6 +52,8 @@ files = [
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
     "services/sample-responder-service/tests",
+    "shared/cache/src",
+    "shared/cache/tests",
     "shared/grpc/src",
     "shared/grpc/tests",
     "shared/observability/src",
@@ -66,6 +70,8 @@ mypy_path = [
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
     "services/sample-responder-service/tests",
+    "shared/cache/src",
+    "shared/cache/tests",
     "shared/grpc/src",
     "shared/grpc/tests",
     "shared/observability/src",
@@ -87,6 +93,7 @@ ignore_missing_imports = true
 testpaths = [
     "tests",
     "services/*/tests",
+    "shared/cache/tests",
     "shared/grpc/tests",
     "shared/observability/tests",
     "shared/resilience/tests",
@@ -108,6 +115,7 @@ dev = [
     "ruff>=0.17.3",
     "types-grpcio>=1.85.0.20261028",
     "types-pyyaml>=6.0.12.20261103",
+    "windops-cache",
     "windops-contracts",
     "windops-grpc",
     "windops-observability",

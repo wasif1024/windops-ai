@@ -57,6 +57,7 @@ BUILT_TARGETS = {
     "phase-1-gate",
     "postgres-provision",
     "postgres-check",
+    "redis-check",
 }
 PLANNED_TARGETS = SRS_TARGETS - BUILT_TARGETS
 

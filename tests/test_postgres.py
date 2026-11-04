@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from local_secrets import ensure_postgres_passwords, postgres_secrets
+from local_secrets import ensure_passwords, postgres_secrets
 from provision_postgres import (
     ADMIN_KEY,
     SERVICE_NAMESPACES,
@@ -97,7 +97,8 @@ def test_sql_gives_each_service_its_own_private_database() -> None:
         name = database_name(service)
         assert f"CREATE DATABASE {name} OWNER {name}" in sql
         assert f"REVOKE ALL ON DATABASE {name} FROM PUBLIC;" in sql
-    assert "REVOKE ALL ON DATABASE postgres FROM PUBLIC;" in sql
+    for shared in ("postgres", "template1", "windops_admin"):
+        assert f"REVOKE ALL ON DATABASE {shared} FROM PUBLIC;" in sql
 
 
 def test_sql_gives_service_logins_no_extra_powers() -> None:
@@ -156,15 +157,15 @@ def test_each_secret_reaches_only_its_service_namespace() -> None:
 
 def test_service_passwords_are_all_different(tmp_path: Path) -> None:
     path = tmp_path / "secrets.env"
-    ensure_postgres_passwords(path, [ADMIN_KEY, *SERVICE_NAMESPACES])
+    ensure_passwords(path, [ADMIN_KEY, *SERVICE_NAMESPACES])
     passwords = read_passwords(path)
     assert len(set(passwords.values())) == len(SERVICE_NAMESPACES) + 1
 
 
 def test_password_file_keeps_existing_values_and_adds_new_ones(tmp_path: Path) -> None:
     path = tmp_path / "secrets.env"
-    assert ensure_postgres_passwords(path, ["audit"]) == ["audit"]
+    assert ensure_passwords(path, ["audit"]) == ["audit"]
     original = read_passwords(path)["audit"]
-    assert ensure_postgres_passwords(path, ["audit", "alarm"]) == ["alarm"]
+    assert ensure_passwords(path, ["audit", "alarm"]) == ["alarm"]
     assert read_passwords(path)["audit"] == original
     assert path.stat().st_mode & 0o077 == 0

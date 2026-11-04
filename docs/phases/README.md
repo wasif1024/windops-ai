@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 14 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 2. Next up is M2.2.
+**Current position:** Phase 2. Next up is M2.3.
 
 ## How to use this tracker
 
@@ -78,7 +78,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 ## Phase 2: Data and events
 
 - [x] **M2.1 PostgreSQL:** persistent storage, with a separate database or schema and credentials per service (ARC-002, ARC-003, DEP-006). Done 2026-11-05, PR #16.
-- [ ] **M2.2 Redis:** cache and rate-limit use only, with TTLs and tenant-scoped keys (DAT-004, DAT-007, EVT-005).
+- [x] **M2.2 Redis:** cache and rate-limit use only, with TTLs and tenant-scoped keys (DAT-004, DAT-007, EVT-005). Done 2026-11-05, PR #20.
 - [ ] **M2.3 Qdrant:** deployed with persistent storage (SRS 8.1).
 - [ ] **M2.4 JetStream:** streams, the SRS 7.6 subjects, Protobuf events, tenant identifiers and a dead-letter stream (EVT-001, EVT-003).
 - [ ] **M2.5 Alembic Jobs:** per-service expand/contract migrations, run once per release as Jobs (DAT-001, DAT-002, K8S-005).
