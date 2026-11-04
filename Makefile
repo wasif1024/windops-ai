@@ -18,7 +18,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -43,6 +43,9 @@ test: ## Run the tests
 	uv run pytest
 
 check: lint typecheck test ## Run every check required before a pull request
+
+audit: ## Check locked dependencies for known vulnerabilities
+	uv run pip-audit --local --strict
 
 define planned_target
 $(firstword $(subst :, ,$(1))):

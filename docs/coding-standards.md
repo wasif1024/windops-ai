@@ -9,17 +9,34 @@ The [SRS](srs.md) decides what to build. This document covers how the work is do
 1. Create a branch from the latest `main`.
 2. Make the change, with its tests and documents.
 3. Run `make check` until it passes.
-4. Push the branch and open a pull request.
-5. The automated checks run on the pull request.
-6. Fix anything that fails, and get the change reviewed.
-7. Squash and merge once every merge rule below is met.
+4. Push the branch and open a draft pull request, which shows as work in progress.
+5. Mark it ready for review when the work is finished.
+6. The automated checks run on the pull request.
+7. Fix anything that fails, and get the change reviewed.
+8. Squash and merge once every merge rule below is met.
 
 Nobody pushes directly to `main`, and this includes urgent fixes and document changes.
+
+## Pull request status
+
+Every open pull request shows one status. GitHub's check results and merged state appear
+alongside it.
+
+| Status | Meaning | Set by | Can merge |
+| --- | --- | --- | --- |
+| `status: wip` | Work in progress, and not ready for review | Automatically, on a draft pull request | No |
+| `status: ready for review` | Finished and waiting for review | Automatically, when marked ready or when commits are pushed | Yes, once all merge rules are met |
+| `status: changes requested` | A reviewer asked for changes | Automatically, from the review | Only after pushing the changes |
+| `status: approved` | A reviewer approved it | Automatically, from the review | Yes, once all merge rules are met |
+| `status: blocked` | Waiting on something else; say what in a comment | By hand, alongside the other status | No |
+
+A new commit returns an approved pull request to `status: ready for review`.
 
 ## Merge rules
 
 A pull request can merge only when all of these are true:
 
+- It is not a draft, and is not marked `status: wip` or `status: blocked`.
 - All automated checks pass. A failing check is fixed, not bypassed.
 - The change has been tested, and the pull request says how.
 - The branch is up to date with `main`.
@@ -32,10 +49,15 @@ A pull request can merge only when all of these are true:
 
 | Rule | Enforced by | Status |
 | --- | --- | --- |
-| Lint, formatting, types and tests pass | `make check`, run locally | Active |
-| The same checks run on every pull request | GitHub Actions | Arrives in M1.2 |
-| Dependency, image, static-analysis and secret scanning | GitHub Actions | Arrives in M1.2 |
-| No direct pushes, and no merge with failing checks | Branch protection on `main` | Arrives in M1.2 |
+| Lint, formatting, types and tests pass | `check` job in GitHub Actions, and `make check` locally | Active |
+| Dependencies have no known vulnerabilities | `dependency-audit` job, and `make audit` locally | Active |
+| No secrets in the repository or its history | `secrets` job, and GitHub push protection | Active |
+| Static analysis of the code | `codeql` job | Active |
+| Status labels, and no merge while WIP or blocked | `pr-status` job | Active |
+| Pull request titles follow the commit format | `pr-status` job | Active |
+| No direct pushes, and no merge with failing checks | Branch protection on `main` | Active |
+| Squash merge only, and merged branches are deleted | Repository settings | Active |
+| Container images are scanned | GitHub Actions | Arrives in M1.6 |
 | Reviewer differs from author | Branch protection on `main` | When a second maintainer joins |
 | Contract lint and breaking-change checks | Buf | Arrives in M1.3 |
 
