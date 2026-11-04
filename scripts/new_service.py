@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""Create a service from the template, so every service starts the same way.
+
+make service NAME=telemetry-service
+"""
+
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+REPOSITORY = Path(__file__).resolve().parent.parent
+TEMPLATE = Path(__file__).resolve().parent / "service_template"
+
+# SRS section 11.2. Every other service runs in windops-application.
+SYSTEM_NAMESPACE_SERVICES = {"identity", "authorization", "tenant", "web-bff"}
+# APISIX is configured, not written in Python, so it does not use this template (M1.8).
+NOT_PYTHON_SERVICES = {"api-gateway"}
+NAME_PATTERN = re.compile(r"[a-z][a-z0-9]*(-[a-z0-9]+)*")
+
+
+class ScaffoldError(Exception):
+    """The service cannot be created."""
+
+
+def template_values(directory: str) -> dict[str, str]:
+    if not NAME_PATTERN.fullmatch(directory):
+        raise ScaffoldError(f"{directory!r} must use lowercase letters, digits and hyphens")
+    if directory in NOT_PYTHON_SERVICES:
+        raise ScaffoldError(f"{directory} is not a Python service, so it has no template")
+    short = directory.removesuffix("-service")
+    return {
+        "directory": directory,
+        "short": short,
+        "distribution": f"windops-{short}",
+        "package": f"windops_{short.replace('-', '_')}",
+        "workload": f"windops-{short}",
+        "namespace": "windops-system"
+        if short in SYSTEM_NAMESPACE_SERVICES
+        else "windops-application",
+    }
+
+
+def _render(text: str, values: dict[str, str]) -> str:
+    for key, value in values.items():
+        text = text.replace(f"{{{{{key}}}}}", value)
+    if "{{" in text:
+        raise ScaffoldError(f"The template has an unknown placeholder: {text[text.index('{{') :]}")
+    return text
+
+
+def _destination(source: Path, values: dict[str, str]) -> Path:
+    relative = source.relative_to(TEMPLATE).with_suffix("")
+    if relative == Path("src/init.py"):
+        return Path("src") / values["package"] / "__init__.py"
+    if relative.parts[0] == "src":
+        return Path("src") / values["package"] / relative.name
+    if relative == Path("tests/test_service.py"):
+        return Path("tests") / f"test_{values['package']}.py"
+    return relative
+
+
+def create_service(directory: str, root: Path) -> Path:
+    """Write the service's files under root/services, and return its directory."""
+    values = template_values(directory)
+    target = root / "services" / directory
+    existing = {path.name for path in target.iterdir()} - {".gitkeep"} if target.exists() else set()
+    if existing:
+        raise ScaffoldError(f"{target} already has files, so it was not changed")
+    for source in sorted(TEMPLATE.rglob("*.tmpl")):
+        output = target / _destination(source, values)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(_render(source.read_text(), values))
+    (target / "src" / values["package"] / "py.typed").touch()
+    (target / ".gitkeep").unlink(missing_ok=True)
+    return target
+
+
+def _add_to_list(pyproject: str, key: str, additions: list[str]) -> str:
+    found = re.search(rf"^{key} = \[(.*?)\]", pyproject, re.S | re.M)
+    if found is None:
+        raise ScaffoldError(f"The root pyproject.toml has no {key} list")
+    items = sorted(set(re.findall(r'"([^"]+)"', found.group(1))) | set(additions))
+    listed = "".join(f'    "{item}",\n' for item in items)
+    return pyproject[: found.start()] + f"{key} = [\n{listed}]" + pyproject[found.end() :]
+
+
+def add_workspace_member(directory: str, pyproject: str) -> str:
+    """Return the root pyproject text with the service in the workspace and type checks."""
+    base = f"services/{directory}"
+    paths = [f"{base}/src", f"{base}/tests"]
+    pyproject = _add_to_list(pyproject, "members", [base])
+    pyproject = _add_to_list(pyproject, "files", paths)
+    return _add_to_list(pyproject, "mypy_path", paths)
+
+
+def register_in_workspace(directory: str, root: Path) -> None:
+    """Add the service to the workspace and lockfile, so the checks include it."""
+    values = template_values(directory)
+    pyproject = root / "pyproject.toml"
+    pyproject.write_text(add_workspace_member(directory, pyproject.read_text()))
+    subprocess.run(["uv", "add", "--dev", values["distribution"]], cwd=root, check=True)
+    # Line wrapping and import order depend on the name, so format the result.
+    target = f"services/{directory}"
+    subprocess.run(["uv", "run", "ruff", "check", "--fix", "-q", target], cwd=root, check=True)
+    subprocess.run(["uv", "run", "ruff", "format", "-q", target], cwd=root, check=True)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("name", help="The directory name in SRS 11.5, such as telemetry-service")
+    arguments = parser.parse_args()
+    try:
+        target = create_service(arguments.name, REPOSITORY)
+        register_in_workspace(arguments.name, REPOSITORY)
+    except ScaffoldError as error:
+        print(error, file=sys.stderr)
+        return 1
+    print(f"Created {target.relative_to(REPOSITORY)}. Next, follow the steps in its README.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

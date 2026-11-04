@@ -43,6 +43,7 @@ Make, then run:
 ```bash
 make install   # install the locked development tools
 make check     # run lint, formatting, type checks, contract checks and tests
+make service NAME=telemetry-service   # create a service from the template
 make help      # list every command
 ```
 

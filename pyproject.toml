@@ -10,11 +10,12 @@ dependencies = []
 package = false
 
 [tool.uv.workspace]
-members = ["shared/observability", "shared/resilience"]
+members = ["shared/grpc", "shared/observability", "shared/resilience"]
 
 [tool.uv.sources]
-windops-resilience = { workspace = true }
 windops-observability = { workspace = true }
+windops-resilience = { workspace = true }
+windops-grpc = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -25,7 +26,8 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "S", "SIM", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S603", "S607"]
-"shared/*/tests/**" = ["S101"]
+"shared/*/tests/**" = ["S101", "S105", "S106"]
+"services/*/tests/**" = ["S101", "S105", "S106"]
 "scripts/**" = ["S603", "S607"]
 
 [tool.mypy]
@@ -34,6 +36,8 @@ strict = true
 files = [
     "scripts",
     "tests",
+    "shared/grpc/src",
+    "shared/grpc/tests",
     "shared/observability/src",
     "shared/observability/tests",
     "shared/resilience/src",
@@ -41,6 +45,9 @@ files = [
 ]
 explicit_package_bases = true
 mypy_path = [
+    "scripts",
+    "shared/grpc/src",
+    "shared/grpc/tests",
     "shared/observability/src",
     "shared/observability/tests",
     "shared/resilience/src",
@@ -52,20 +59,34 @@ mypy_path = [
 module = ["test_breaker", "test_real_grpc"]
 disable_error_code = ["comparison-overlap"]
 
+[[tool.mypy.overrides]]
+module = ["grpc_health.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
-testpaths = ["tests", "shared/observability/tests", "shared/resilience/tests"]
+testpaths = [
+    "tests",
+    "services/*/tests",
+    "shared/grpc/tests",
+    "shared/observability/tests",
+    "shared/resilience/tests",
+]
 addopts = "-ra --strict-markers --import-mode=importlib"
-pythonpath = ["shared/resilience/tests"]
+pythonpath = ["shared/grpc/tests", "shared/resilience/tests"]
 
 [dependency-groups]
 dev = [
     "grpcio>=1.85.1",
+    "httpx>=0.28.1",
     "mypy>=2.4.1",
     "pillow>=13.0.0",
     "pip-audit>=2.10.1",
     "pytest>=9.2.0",
+    "pyyaml>=6.0.3",
     "ruff>=0.17.3",
     "types-grpcio>=1.85.0.20261028",
+    "types-pyyaml>=6.0.12.20261103",
+    "windops-grpc",
     "windops-observability",
     "windops-resilience",
 ]
