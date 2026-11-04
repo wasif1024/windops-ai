@@ -1,35 +1,59 @@
 #!/usr/bin/env python3
-"""Create the local cluster's secrets from a git-ignored file.
+"""Create the local cluster's secrets from git-ignored files.
 
-The file is generated once, with a random key, and then reused so tokens stay valid.
+Each file is generated once, with a random value, and then reused so tokens stay valid. Each
+secret goes only to the namespaces that need it.
 """
 
 import secrets
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 CONTEXT = "windops"
-SECRET_NAME = "windops-internal-identity"  # noqa: S105  # A name, not a value.
-NAMESPACES = ("windops-system", "windops-application", "windops-mcp")
-SECRETS_FILE = (
-    Path(__file__).resolve().parent.parent / "infrastructure" / "minikube" / "secrets.local.env"
+REPOSITORY = Path(__file__).resolve().parent.parent
+LOCAL_DIRECTORY = REPOSITORY / "infrastructure" / "minikube"
+NAMESPACES_MANIFEST = REPOSITORY / "infrastructure" / "kubernetes" / "base" / "namespaces"
+
+
+@dataclass(frozen=True)
+class LocalSecret:
+    name: str
+    key: str
+    file_name: str
+    namespaces: tuple[str, ...]
+
+
+LOCAL_SECRETS = (
+    LocalSecret(
+        name="windops-internal-identity",
+        key="signing-key",
+        file_name="secrets.local.env",
+        namespaces=("windops-system", "windops-application", "windops-mcp"),
+    ),
+    LocalSecret(
+        name="windops-gateway-admin",
+        key="admin-key",
+        file_name="secrets.local.gateway.env",
+        namespaces=("windops-system",),
+    ),
 )
 
 
-def ensure_secrets_file(path: Path) -> bool:
+def ensure_secrets_file(path: Path, key: str) -> bool:
     """Create the file if needed, readable only by its owner. Return whether it was created."""
     if path.exists():
         return False
     path.touch(mode=0o600)
-    path.write_text(f"signing-key={secrets.token_urlsafe(48)}\n")
+    path.write_text(f"{key}={secrets.token_urlsafe(48)}\n")
     return True
 
 
-def apply_secret(namespace: str, path: Path) -> None:
+def apply_secret(name: str, namespace: str, path: Path) -> None:
     rendered = subprocess.run(
         [
-            "kubectl", "create", "secret", "generic", SECRET_NAME,
+            "kubectl", "create", "secret", "generic", name,
             f"--namespace={namespace}", f"--from-env-file={path}",
             "--dry-run=client", "--output=yaml",
         ],
@@ -42,16 +66,22 @@ def apply_secret(namespace: str, path: Path) -> None:
 
 
 def main() -> int:
-    created = ensure_secrets_file(SECRETS_FILE)
-    print(f"{'Created' if created else 'Using'} {SECRETS_FILE.name}")
     try:
-        for namespace in NAMESPACES:
-            apply_secret(namespace, SECRETS_FILE)
+        subprocess.run(
+            ["kubectl", "--context", CONTEXT, "apply", f"--kustomize={NAMESPACES_MANIFEST}"],
+            capture_output=True, text=True, check=True,
+        )  # fmt: skip
+        for item in LOCAL_SECRETS:
+            path = LOCAL_DIRECTORY / item.file_name
+            created = ensure_secrets_file(path, item.key)
+            print(f"{'Created' if created else 'Using'} {item.file_name}")
+            for namespace in item.namespaces:
+                apply_secret(item.name, namespace, path)
+            print(f"Applied the {item.key} to {', '.join(item.namespaces)}")
     except subprocess.CalledProcessError as error:
         # Never print the rendered manifest, because it contains the key.
-        print(f"Could not apply the secret: {error.stderr}", file=sys.stderr)
+        print(f"Could not apply a secret: {error.stderr}", file=sys.stderr)
         return 1
-    print(f"Applied the signing key to {', '.join(NAMESPACES)}")
     return 0
 
 

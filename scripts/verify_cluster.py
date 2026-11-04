@@ -199,6 +199,10 @@ def check_deployment(root: Path) -> None:
         kubectl(
             "delete", "--kustomize", f"{root}/services/{DIRECTORY}/deploy", "--ignore-not-found"
         )
+        # The overlay also deploys the gateway, which `make gateway-check` covers.
+        kubectl(
+            "delete", "--kustomize", f"{root}/services/api-gateway/deploy", "--ignore-not-found"
+        )
         # The image cannot be removed while a terminating pod still uses it.
         kubectl(
             "wait", "--for=delete", "pod", f"--namespace={NAMESPACE}",

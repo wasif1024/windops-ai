@@ -1,0 +1,103 @@
+# APISIX stores its routes here (API-005). One member locally, which SRS 2.4 accepts.
+apiVersion: v1
+kind: Service
+metadata:
+  name: windops-etcd
+  labels:
+    app.kubernetes.io/name: windops-etcd
+    app.kubernetes.io/part-of: windops
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: windops-etcd
+  ports:
+    - name: client
+      port: 2379
+      targetPort: client
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: windops-etcd
+  labels:
+    app.kubernetes.io/name: windops-etcd
+    app.kubernetes.io/part-of: windops
+spec:
+  serviceName: windops-etcd
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: windops-etcd
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: windops-etcd
+        app.kubernetes.io/part-of: windops
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: etcd
+          image: quay.io/coreos/etcd:v3.6.16@sha256:a9c7cc12156f4b26ca41f0b57ba5b76c45037ff6c1e47ea3d68cb7908d48a965
+          command:
+            - /usr/local/bin/etcd
+            - --name=windops-etcd-0
+            - --data-dir=/var/lib/etcd/data
+            - --listen-client-urls=http://0.0.0.0:2379
+            - --advertise-client-urls=http://windops-etcd.windops-system.svc.cluster.local:2379
+            - --listen-peer-urls=http://127.0.0.1:2380
+            - --initial-advertise-peer-urls=http://127.0.0.1:2380
+            - --initial-cluster=windops-etcd-0=http://127.0.0.1:2380
+            - --auto-compaction-mode=periodic
+            - --auto-compaction-retention=1h
+            - --quota-backend-bytes=268435456
+          ports:
+            - name: client
+              containerPort: 2379
+          startupProbe:
+            httpGet:
+              path: /health
+              port: client
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: client
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: client
+            periodSeconds: 10
+          # Starting values. Replace them with measured figures (SRS 11).
+          resources:
+            requests:
+              cpu: 25m
+              memory: 48Mi
+            limits:
+              cpu: 250m
+              memory: 192Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/etcd
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi

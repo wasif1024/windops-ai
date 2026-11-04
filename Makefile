@@ -21,7 +21,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts check service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts check service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -93,11 +93,24 @@ cluster-delete: ## Delete the local cluster and all its data
 cluster-check: ## Deploy a throwaway service to prove the manifests work on the cluster
 	uv run python scripts/verify_cluster.py
 
-infra: ## Create the namespaces. Later modules add data stores and observability here
+infra: ## Create the namespaces and etcd. Later modules add data stores and observability
 	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/namespaces
+	kubectl --context $(CLUSTER) apply --kustomize infrastructure/gateway/etcd
 
 secrets: ## Create local secrets from an ignored file, generating it the first time
 	uv run python scripts/local_secrets.py
+
+gateway: ## Deploy the API gateway
+	kubectl --context $(CLUSTER) apply --kustomize services/api-gateway/deploy
+
+gateway-routes: ## Apply the gateway's routes
+	uv run python scripts/gateway_routes.py
+
+gateway-forward: ## Reach the gateway at http://127.0.0.1:9080
+	kubectl --context $(CLUSTER) port-forward --namespace=windops-system service/windops-gateway 9080:80
+
+gateway-check: ## Prove the gateway works on the cluster, using a throwaway service
+	PYTHONPATH=scripts uv run python scripts/verify_gateway.py
 
 clean: ## Remove WindOps workloads and namespaces, keeping the cluster
 	kubectl --context $(CLUSTER) delete --kustomize $(KUBERNETES_DIR)/overlays/$(OVERLAY) --ignore-not-found

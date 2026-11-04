@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: windops-gateway
+  labels:
+    app.kubernetes.io/name: windops-gateway
+    app.kubernetes.io/part-of: windops
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: windops-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: windops-gateway
+        app.kubernetes.io/part-of: windops
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 636
+        runAsGroup: 636
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: apisix
+          image: apache/apisix:3.19.0-debian@sha256:9a7e45dc943fbf10ec916d1232bae4cda9302ae28a4696cfb83c2da01d261141
+          ports:
+            - name: http
+              containerPort: 9080
+            - name: status
+              containerPort: 7085
+          env:
+            - name: APISIX_ADMIN_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: windops-gateway-admin
+                  key: admin-key
+          startupProbe:
+            httpGet:
+              path: /status
+              port: status
+            periodSeconds: 2
+            failureThreshold: 60
+          # Ready only while workers can read their configuration from etcd.
+          readinessProbe:
+            httpGet:
+              path: /status/ready
+              port: status
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: status
+            periodSeconds: 10
+          # Starting values. Replace them with measured figures (SRS 11).
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /usr/local/apisix/conf/config.yaml
+              subPath: config.yaml
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: windops-gateway-config
