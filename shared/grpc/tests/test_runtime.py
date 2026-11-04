@@ -6,8 +6,10 @@ import logging
 import grpc
 import httpx
 import pytest
-from grpc_harness import running_service, token
+from fastapi import APIRouter
+from grpc_harness import running_service, settings, token
 from grpc_health.v1 import health_pb2, health_pb2_grpc
+from windops_grpc import ServiceRuntime
 
 GOOD = (("x-windops-identity", token()),)
 SERVING = health_pb2.HealthCheckResponse.SERVING
@@ -137,3 +139,34 @@ def test_health_checks_produce_no_call_metrics() -> None:
                 return (await client.get("/metrics")).text
 
     assert "grpc.health.v1.Health" not in asyncio.run(scenario())
+
+
+def test_a_service_can_add_http_routes() -> None:
+    router = APIRouter()
+
+    @router.get("/custom")
+    async def custom() -> dict[str, str]:
+        return {"ok": "yes"}
+
+    async def scenario() -> None:
+        root = logging.getLogger()
+        saved_handlers, saved_level = list(root.handlers), root.level
+        runtime = ServiceRuntime(
+            "test-service",
+            settings(),
+            lambda server: None,
+            http_router=router,
+            install_global_telemetry=False,
+        )
+        await runtime.start()
+        try:
+            base = f"http://127.0.0.1:{runtime.http_port}"
+            async with httpx.AsyncClient(base_url=base) as client:
+                assert (await client.get("/custom")).json() == {"ok": "yes"}
+                assert (await client.get("/health/live")).status_code == 200
+        finally:
+            await runtime.stop()
+            root.handlers[:] = saved_handlers
+            root.setLevel(saved_level)
+
+    asyncio.run(scenario())

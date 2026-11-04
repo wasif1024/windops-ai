@@ -11,7 +11,8 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-from windops_grpc import VerifiedIdentity, sign_identity
+from windops_grpc import ServiceClient, VerifiedIdentity, sign_identity
+from windops_resilience import BreakerConfig, CircuitBreaker
 
 GOOD = (("x-windops-identity", token()),)
 EXPORTER = InMemorySpanExporter()
@@ -258,3 +259,23 @@ def test_a_stale_tenant_does_not_leak_into_the_next_call(
         item for item in call_log_entries(capsys) if item["message"] == "Rejected a call"
     )
     assert "tenant_id" not in rejected
+
+
+def test_client_span_is_the_parent_of_the_server_span() -> None:
+    EXPORTER.clear()
+
+    async def scenario() -> None:
+        async with running_service() as harness:
+            active = CircuitBreaker("test", BreakerConfig(slow_call_seconds=5.0))
+            client = ServiceClient(active, identity_token=token)
+            await client.call(harness.method("Echo"), b"hi", idempotent=True, deadline_seconds=5)
+
+    asyncio.run(scenario())
+    spans = EXPORTER.get_finished_spans()
+    server = next(item for item in spans if item.name.endswith("/Echo"))
+    caller = next(item for item in spans if item.name == "call test")
+    assert caller.kind is trace.SpanKind.CLIENT
+    assert server.parent is not None
+    assert caller.context is not None
+    assert server.parent.span_id == caller.context.span_id
+    assert server.parent.trace_id == caller.context.trace_id

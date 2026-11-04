@@ -1,0 +1,21 @@
+[project]
+name = "windops-sample-responder"
+version = "0.1.0"
+description = "WindOps sample-responder service"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "windops-contracts",
+    "windops-grpc",
+]
+
+[tool.uv.sources]
+windops-grpc = { workspace = true }
+windops-contracts = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/windops_sample_responder"]

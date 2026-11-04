@@ -4,11 +4,14 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import Protocol
 
-from opentelemetry import propagate
+from opentelemetry import propagate, trace
+from opentelemetry.trace import SpanKind
 from windops_resilience import CircuitBreaker, RetryPolicy, call_with_resilience
 
 from windops_grpc.identity import IDENTITY_METADATA_KEY, current_identity_token
 from windops_grpc.interceptor import REQUEST_ID_METADATA_KEY
+
+_tracer = trace.get_tracer("windops.grpc")
 
 
 class _UnaryMethod[RequestT, ResponseT](Protocol):
@@ -60,10 +63,15 @@ class ServiceClient:
                 request, timeout=remaining, metadata=outgoing_metadata(identity_token=token)
             )
 
-        return await call_with_resilience(
-            self._breaker,
-            attempt,
-            idempotent=idempotent,
-            deadline_seconds=deadline_seconds,
-            retry=self._retry,
-        )
+        with _tracer.start_as_current_span(
+            f"call {self._breaker.dependency}", kind=SpanKind.CLIENT
+        ) as span:
+            span.set_attribute("rpc.system", "grpc")
+            span.set_attribute("peer.service", self._breaker.dependency)
+            return await call_with_resilience(
+                self._breaker,
+                attempt,
+                idempotent=idempotent,
+                deadline_seconds=deadline_seconds,
+                retry=self._retry,
+            )

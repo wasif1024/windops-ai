@@ -1,0 +1,39 @@
+"""Check that the sample-caller service starts, reports healthy and stops."""
+
+import asyncio
+import logging
+
+import grpc
+from grpc_health.v1 import health_pb2, health_pb2_grpc
+from windops_grpc import ServiceRuntime, Settings
+from windops_sample_caller.main import SERVICE_NAME, register
+
+
+def test_service_starts_healthy_and_stops() -> None:
+    settings = Settings(
+        environment="test",
+        version="test",
+        identity_secret="x" * 32,
+        grpc_port=0,
+        http_port=0,
+        shutdown_grace_seconds=1,
+    )
+    root = logging.getLogger()
+    saved_handlers, saved_level = list(root.handlers), root.level
+
+    async def scenario() -> None:
+        runtime = ServiceRuntime(SERVICE_NAME, settings, register, install_global_telemetry=False)
+        await runtime.start()
+        try:
+            async with grpc.aio.insecure_channel(f"127.0.0.1:{runtime.grpc_port}") as channel:
+                stub = health_pb2_grpc.HealthStub(channel)
+                response = await stub.Check(health_pb2.HealthCheckRequest(), timeout=5)
+                assert response.status == health_pb2.HealthCheckResponse.SERVING
+        finally:
+            await runtime.stop()
+
+    try:
+        asyncio.run(scenario())
+    finally:
+        root.handlers[:] = saved_handlers
+        root.setLevel(saved_level)

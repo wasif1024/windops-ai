@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: windops-sample-responder
+  labels:
+    app.kubernetes.io/name: windops-sample-responder
+    app.kubernetes.io/part-of: windops
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: windops-sample-responder

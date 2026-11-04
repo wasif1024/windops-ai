@@ -5,3 +5,5 @@ commonAnnotations:
   windops.io/managed-by: kustomize
 resources:
   - ../../../../services/api-gateway/deploy
+  - ../../../../services/sample-caller-service/deploy
+  - ../../../../services/sample-responder-service/deploy

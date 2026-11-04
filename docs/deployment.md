@@ -1,0 +1,46 @@
+# Deployment
+
+The system runs on Kubernetes, with Minikube as the local target. Set up the local cluster using
+[infrastructure/minikube](../infrastructure/minikube/README.md).
+
+## Bootstrap
+
+SRS 11.4 defines this order:
+
+```bash
+make cluster          # start the cluster
+make images           # build service images into the cluster
+make secrets          # create namespaces and local secrets
+make infra            # create etcd and the observability stack
+make services         # deploy the gateway and services
+make gateway-routes   # apply the gateway's routes
+```
+
+`make identity-seed`, `make migrate`, `make seed-demo` and `make smoke-test` arrive with their
+modules. `make help` lists what each one does, and which module delivers it.
+
+## Check it
+
+| Command | What it proves |
+| --- | --- |
+| `make scaffold-check` | The service template builds, runs and shuts down cleanly |
+| `make cluster-check` | Manifests, Pod Security, NetworkPolicy and graceful shutdown work on the cluster |
+| `make gateway-check` | The gateway routes, skips unhealthy backends, and keeps routes through restarts |
+| `make observability-check` | One call appears in logs, traces and metrics, and dashboards work |
+| `make sample-check` | Two services work together, through the gateway |
+
+## Environments
+
+| Overlay | Used for | Replicas |
+| --- | --- | --- |
+| `local` | A 16 GB laptop | 1 |
+| `ci` | Automated checks | 1 |
+| `production-example` | An example for a larger cluster, not a tested deployment | 2 |
+
+Set `OVERLAY` to choose one, as in `make services OVERLAY=ci`.
+
+## Limits
+
+- CI renders the manifests, but has no cluster. The checks above run locally.
+- The project is a portfolio-grade platform on synthetic data, and is not certified for production use
+  (SRS 1).

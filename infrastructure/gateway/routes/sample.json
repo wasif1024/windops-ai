@@ -1,0 +1,16 @@
+{
+  "uri": "/sample/*",
+  "upstream": {
+    "type": "roundrobin",
+    "timeout": {"connect": 2, "send": 10, "read": 10},
+    "nodes": {"windops-sample-caller.windops-application.svc.cluster.local:8080": 1},
+    "checks": {
+      "active": {
+        "type": "http",
+        "http_path": "/health/ready",
+        "healthy": {"interval": 2, "successes": 2},
+        "unhealthy": {"interval": 2, "http_failures": 2, "tcp_failures": 2, "timeouts": 2}
+      }
+    }
+  }
+}

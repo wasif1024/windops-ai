@@ -50,3 +50,5 @@ These figures replace estimates as workloads are added. See
 | 2026-11-04 | Grafana, the largest observability workload | 323 MiB | From `kubectl top` |
 | 2026-11-04 | Prometheus, Loki, Tempo, Collector, Fluent Bit, Alertmanager and kube-state-metrics | 335 MiB in total | From `kubectl top`, with almost no data stored |
 | 2026-11-04 | Whole cluster with the observability stack and etcd, and no gateway | 2.07 GiB of 10 GiB | From `docker stats` |
+| 2026-11-04 | One sample service, with almost no work | 47 MiB | From `kubectl top` |
+| 2026-11-04 | Whole cluster with the stack, gateway and 2 sample services | 2.31 GiB of 10 GiB | From `docker stats` |

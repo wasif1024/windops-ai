@@ -51,6 +51,9 @@ BUILT_TARGETS = {
     "observability-forward",
     "observability-check",
     "logs",
+    "services",
+    "contracts-gen",
+    "sample-check",
 }
 PLANNED_TARGETS = SRS_TARGETS - BUILT_TARGETS
 
