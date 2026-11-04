@@ -11,8 +11,10 @@ Requires Pillow and ffmpeg. Writes to docs/assets/.
 
 import itertools
 import math
+import re
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -220,9 +222,7 @@ def build_architecture() -> None:
     c = Canvas(1400, 1058)
 
     c.text(40, 34, "WindOps AI architecture", 30, True)
-    c.text(
-        40, 66, "Target design from SRS v1.1. Implementation starts with Phase 1.", 16, color=MUTED
-    )
+    c.text(40, 66, "Target design from SRS v1.1, built in phases.", 16, color=MUTED)
 
     legend = [
         ("ai", "AI agent"),
@@ -424,7 +424,7 @@ def build_architecture() -> None:
         964,
         1360,
         1000,
-        "Observability: OpenTelemetry, Prometheus, Grafana, Loki, Fluent Bit and Alertmanager. "
+        "Observability: OpenTelemetry, Tempo, Prometheus, Grafana, Loki, Fluent Bit, Alertmanager. "
         "Runtime: Docker and Kubernetes on Minikube.",
         None,
         MUTED,
@@ -444,6 +444,349 @@ def build_architecture() -> None:
     )
     ASSETS.mkdir(parents=True, exist_ok=True)
     c.image.save(ASSETS / "architecture.png", optimize=True)
+
+
+# ------------------------------------------------------------- security by layer
+
+GREEN = "#34D399"
+AMBER = "#FBBF24"
+TRACKER = ASSETS.parent / "phases" / "README.md"
+
+
+@dataclass(frozen=True)
+class Control:
+    text: str
+    module: str | None = None  # The tracker modules that deliver it, or None when in place.
+
+
+@dataclass(frozen=True)
+class Layer:
+    title: str
+    nodes: tuple[tuple[str, str | None, str], ...]
+    controls: tuple[Control, ...]
+    inside_cluster: bool = True
+
+
+SECURITY_LAYERS = (
+    Layer(
+        "1. Client",
+        (
+            ("React frontend", "TypeScript, role-aware screens", "service"),
+            ("Operators and approvers", "8 roles, per tenant", "human"),
+        ),
+        (
+            Control("Login through Keycloak (OIDC), with MFA for administrators", "M3.1, M3.2"),
+            Control("The browser reaches only the gateway, never internal services", "M3.7"),
+        ),
+        inside_cluster=False,
+    ),
+    Layer(
+        "2. Edge",
+        (
+            ("API Gateway", "Apache APISIX, etcd", "service"),
+            ("Web BFF", "FastAPI: REST, OpenAPI, SSE", "service"),
+        ),
+        (
+            Control("The gateway is the only way in, and nothing else is exposed"),
+            Control("Its Admin API needs a key, and answers only from inside its pod"),
+            Control("Every route needs health checks and timeouts, so failures are fast"),
+            Control("TLS, CORS allowlists, rate limits and token validation", "M3.1, M3.7"),
+        ),
+    ),
+    Layer(
+        "3. AI agents",
+        (
+            ("Supervisor and 5 specialists", "LangGraph, Deep Agents, Claude", "ai"),
+            ("MCP servers", "allowlisted tools, schema-checked", "service"),
+        ),
+        (
+            Control(
+                "Agents can only draft, and can never approve or command a turbine", "M8.6, M10.1"
+            ),
+            Control("Each agent gets only its own tools, inside its tenant", "M8.5, M8.6"),
+            Control("An agent that reads web content has no write tools", "M8.6"),
+            Control("Retrieved content is untrusted, and tenant budgets limit runs", "M7.5, M8.3"),
+        ),
+    ),
+    Layer(
+        "4. Microservices",
+        (
+            ("Policy, Approval, Fault Detection", "deterministic rules and humans", "rule"),
+            ("Domain services, 1 image each", "Python, gRPC, versioned Protobuf", "service"),
+        ),
+        (
+            Control("Every call needs a signed identity and a deadline, or it is rejected"),
+            Control("Tenant comes from the verified identity, never from a request field"),
+            Control("Circuit breakers stop an outage from spreading between services"),
+            Control("Internal error details stay in the logs, and never reach the caller"),
+            Control("Encrypted calls between services, using mTLS", "M3.3"),
+            Control("Permissions denied by default, and checked on every operation", "M3.5"),
+            Control("Nobody can approve their own request", "M10.2"),
+        ),
+    ),
+    Layer(
+        "5. Data and events",
+        (
+            ("NATS JetStream", "durable events, transactional outbox", "service"),
+            ("Data stores", "PostgreSQL, TimescaleDB, Redis, Qdrant", "service"),
+        ),
+        (
+            Control("Each service has its own schema and credentials", "M2.1"),
+            Control("Tenant isolation in the database, with row-level security", "M3.6"),
+            Control("Audit records are append-only and tamper-evident", "M2.7"),
+        ),
+    ),
+    Layer(
+        "6. External providers",
+        (
+            ("Claude, OpenAI, Tavily", "models, embeddings, web research", "external"),
+            ("Open-Meteo, LangSmith", "forecasts, agent traces", "external"),
+        ),
+        (
+            Control("Keys stay in ignored files and Kubernetes Secrets, never in images"),
+            Control("Outbound traffic only to named endpoints", "M13.3"),
+            Control("Tenant details are removed before data leaves the cluster", "M7.4, M8.9"),
+        ),
+        inside_cluster=False,
+    ),
+)
+
+CLUSTER_CONTROLS = (
+    Control("Services run as non-root, with a read-only filesystem and no capabilities"),
+    Control("Pod Security is enforced where our own workloads run"),
+    Control("Memory limits and health probes on every workload"),
+    Control("Calico can enforce network rules, proven with a test"),
+    Control("Deny all traffic between namespaces by default", "M13.3"),
+    Control("Signed container images", "M14.2"),
+)
+DELIVERY_CONTROLS = (
+    Control("No direct pushes to main, and every change needs a pull request"),
+    Control("Lint, types, tests, CodeQL, dependency audit, secret and image scans must pass"),
+    Control("Pinned dependencies, base images and CI actions"),
+)
+OBSERVABILITY_CONTROLS = (
+    Control("Known secret and personal-data patterns are removed from logs and traces"),
+    Control("Logs, traces and metrics share one trace ID, and Grafana needs a login"),
+    Control("Every approval and agent action in the audit record", "M2.7, M8.5"),
+)
+
+
+def all_controls() -> list[Control]:
+    return [control for layer in SECURITY_LAYERS for control in layer.controls] + list(
+        CLUSTER_CONTROLS + DELIVERY_CONTROLS + OBSERVABILITY_CONTROLS
+    )
+
+
+def read_phase_progress(tracker: Path = TRACKER) -> list[tuple[int, str, int, int]]:
+    """Return each phase's number, name, finished modules and total modules from the tracker."""
+    text = tracker.read_text()
+    phases = []
+    for match in re.finditer(r"^## Phase (\d+): (.+)$", text, re.M):
+        following = text[match.end() :]
+        next_heading = following.find("\n## ")
+        section = following if next_heading == -1 else following[:next_heading]
+        done = len(re.findall(r"^- \[x\] ", section, re.M))
+        total = done + len(re.findall(r"^- \[ \] ", section, re.M))
+        phases.append((int(match.group(1)), match.group(2), done, total))
+    return phases
+
+
+def draw_control_marker(c: Canvas, x: float, y: float, planned: bool) -> None:
+    if planned:
+        c.dot(x, y, 5.5, AMBER)
+        c.dot(x, y, 3.5, PANEL)
+    else:
+        c.dot(x, y, 5.5, GREEN)
+
+
+def controls_height(c: Canvas, controls: tuple[Control, ...], width: float) -> float:
+    rows = 0
+    for control in controls:
+        suffix = f"  ({control.module})" if control.module else ""
+        rows += len(c.wrap(control.text + suffix, 14.5, width - 22))
+    return rows * 20 + (len(controls) - 1) * 4
+
+
+def draw_controls(
+    c: Canvas, x: float, y: float, controls: tuple[Control, ...], width: float
+) -> None:
+    for control in controls:
+        suffix = f"  ({control.module})" if control.module else ""
+        planned = control.module is not None
+        rows = c.wrap(control.text + suffix, 14.5, width - 22)
+        draw_control_marker(c, x + 6, y + 9, planned)
+        for index, row in enumerate(rows):
+            c.text(x + 22, y + 9 + index * 20, row, 14.5, color=MUTED if planned else TEXT)
+        y += len(rows) * 20 + 4
+
+
+def draw_roadmap(c: Canvas, y: float) -> float:
+    """Draw every delivery phase with its progress, and return the y below it."""
+    phases = read_phase_progress()
+    finished = sum(done for _, _, done, _ in phases)
+    total = sum(count for _, _, _, count in phases)
+    c.text(40, y + 8, f"DELIVERY PLAN: {finished} of {total} modules done", 12.5, True, MUTED)
+    y += 22
+    per_row, gap, height = 7, 8.0, 62.0
+    width = (1320 - gap * (per_row - 1)) / per_row
+    for index, (number, name, done, count) in enumerate(phases):
+        x0 = 40 + (index % per_row) * (width + gap)
+        y0 = y + (index // per_row) * (height + gap)
+        if done == count:
+            accent, fill, state = GREEN, "#0D3B2E", "done"
+        elif done:
+            accent, fill, state = AMBER, KINDS["human"][1], "in progress"
+        else:
+            accent, fill, state = LINE, PANEL, "planned"
+        c.box(x0, y0, x0 + width, y0 + height, fill=fill, outline=accent)
+        c.label(
+            x0, y0, x0 + width, y0 + height,
+            f"{number}. {name}", f"{done} of {count} modules, {state}", TEXT, MUTED, 12.5, 11.5,
+        )  # fmt: skip
+    return y + 2 * height + gap
+
+
+def build_security_layers() -> None:
+    controls = all_controls()
+    in_place = sum(control.module is None for control in controls)
+    planned = len(controls) - in_place
+
+    measure = Canvas(10, 10, scale=1)
+    right_width = 612.0
+    heights = [
+        max(102.0, controls_height(measure, layer.controls, right_width) + 42)
+        for layer in SECURITY_LAYERS
+    ]
+    gap = 34
+    top = 134
+    canvas_height = int(top + sum(heights) + gap * (len(heights) - 1) + 620)
+    c = Canvas(1400, canvas_height)
+
+    c.text(40, 34, "WindOps AI: system and security architecture", 28, True)
+    c.text(
+        40, 68,
+        f"Target design from SRS v1.1: 23 services, {in_place} security controls in place, "
+        f"{planned} planned.",
+        16, color=MUTED,
+    )  # fmt: skip
+    c.text(
+        40, 92,
+        "In place means built and tested in the shared code and templates. "
+        "No real business service runs yet.",
+        14.5, color=MUTED,
+    )  # fmt: skip
+    draw_control_marker(c, 1048, 36, False)
+    c.text(1062, 36, "In place today", 14.5)
+    draw_control_marker(c, 1198, 36, True)
+    c.text(1212, 36, "Planned (module)", 14.5, color=MUTED)
+    c.text(50, 120, "HOW THE PIECES WORK TOGETHER", 12.5, True, MUTED)
+    c.text(722, 120, "SECURITY AT THIS LAYER", 12.5, True, MUTED)
+
+    positions = []
+    y = float(top)
+    for height in heights:
+        positions.append((y, y + height))
+        y += height + gap
+
+    inside = [
+        place
+        for place, layer in zip(positions, SECURITY_LAYERS, strict=True)
+        if layer.inside_cluster
+    ]
+    cluster_top, cluster_bottom = inside[0][0] - 25, inside[-1][1] + 14
+    c.box(
+        40,
+        cluster_top,
+        690,
+        cluster_bottom,
+        fill=None,
+        outline=KINDS["external"][0],
+        radius=12,
+        width=1.5,
+    )
+    c.box(
+        356, cluster_top - 11, 678, cluster_top + 11,
+        fill=KINDS["external"][1], outline=KINDS["external"][0], radius=6,
+    )  # fmt: skip
+    c.text(517, cluster_top, "Kubernetes (Minikube locally): 5 namespaces", 13, True, TEXT, "mm")
+
+    node_y = []
+    for (start, end), layer in zip(positions, SECURITY_LAYERS, strict=True):
+        c.text(62, start + 13, layer.title, 14.5, True, MUTED)
+        node_y.append((start + 28, start + 92))
+        for index, (name, note, kind) in enumerate(layer.nodes):
+            x0 = 62 + index * 308
+            c.node(
+                x0,
+                start + 28,
+                x0 + 296,
+                start + 92,
+                name,
+                note,
+                kind,
+                title_size=14.5,
+                sub_size=12.5,
+            )
+        c.box(708, start, 1360, end, fill=PANEL)
+        c.text(722, start + 14, layer.title, 13.5, True, MUTED)
+        draw_controls(c, 722, start + 28, layer.controls, right_width)
+
+    left_x, right_x = 250.0, 518.0
+    middle = [(first + last) / 2 for first, last in node_y]
+    # Within a layer.
+    c.arrow([(370, middle[0]), (358, middle[0])])  # People use the frontend.
+    c.arrow([(358, middle[1]), (370, middle[1])])  # The gateway forwards to Web BFF.
+    c.arrow([(358, middle[2]), (370, middle[2])])  # Agents call MCP tools.
+    c.arrow([(370, middle[3]), (358, middle[3])])  # Services ask for decisions.
+    # Between layers.
+    c.arrow([(left_x, node_y[0][1]), (left_x, node_y[1][0])])
+    c.text(
+        left_x + 10, node_y[1][0] - 14,
+        "Trust boundary: HTTPS, REST, server-sent events", 13, color=AMBER,
+    )  # fmt: skip
+    c.arrow([(666, middle[1]), (679, middle[1]), (679, middle[3]), (666, middle[3])])
+    c.text(
+        672, node_y[2][0] - 14,
+        "gRPC with signed identity, deadline and trace", 13, color=MUTED, anchor="rm",
+    )  # fmt: skip
+    c.arrow([(right_x, node_y[2][1]), (right_x, node_y[3][0])])
+    c.text(
+        right_x - 10, (node_y[2][1] + node_y[3][0]) / 2,
+        "Trust boundary: agents reach services only through MCP", 13, color=AMBER, anchor="rm",
+    )  # fmt: skip
+    c.arrow([(right_x, node_y[3][1]), (right_x, node_y[4][0])], both=True)
+    c.text(
+        right_x - 10, (node_y[3][1] + node_y[4][0]) / 2,
+        "Each service reaches only its own data, and shares events", 13, color=MUTED, anchor="rm",
+    )  # fmt: skip
+    c.arrow([(left_x, cluster_bottom), (left_x, node_y[5][0])])
+    c.text(
+        left_x + 10, node_y[5][0] - 14,
+        "Trust boundary: named, redacted, audited egress only", 13, color=AMBER,
+    )  # fmt: skip
+
+    y = positions[-1][1] + 22
+    columns = (
+        ("Kubernetes, around layers 2 to 5", CLUSTER_CONTROLS, 40.0, 450.0),
+        ("Delivery, before code reaches main", DELIVERY_CONTROLS, 502.0, 420.0),
+        ("Observability, across every layer", OBSERVABILITY_CONTROLS, 934.0, 426.0),
+    )
+    panel_height = 42 + max(controls_height(c, group, width - 24) for _, group, _, width in columns)
+    for title, group, column_x, width in columns:
+        c.box(column_x, y, column_x + width, y + panel_height, fill=PANEL)
+        c.text(column_x + 14, y + 16, title, 13.5, True, MUTED)
+        draw_controls(c, column_x + 12, y + 30, group, width - 24)
+    y = draw_roadmap(c, y + panel_height + 14) + 28
+    c.text(
+        700, y,
+        "Agents recommend. Deterministic services and authorized humans decide. "
+        "The system never issues turbine commands.",
+        16, True, AMBER, "mm",
+    )  # fmt: skip
+
+    cropped = c.image.crop((0, 0, 1400 * c.s, int(y + 28) * c.s))
+    ASSETS.mkdir(parents=True, exist_ok=True)
+    cropped.save(ASSETS / "security-layers.png", optimize=True)
 
 
 # --------------------------------------------------------------- orchestration
@@ -807,4 +1150,5 @@ def build_animation() -> None:
 
 if __name__ == "__main__":
     build_architecture()
+    build_security_layers()
     build_animation()

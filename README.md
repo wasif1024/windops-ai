@@ -22,10 +22,32 @@ The animation illustrates the workflow in
 This is the target design from the SRS. To update either visual, edit and run
 `scripts/generate_readme_visuals.py`.
 
+## System and security architecture
+
+[![Layers from the client to external providers, with the security controls at each. The React frontend reaches the API Gateway over HTTPS, and Web BFF calls services over gRPC with a signed identity, deadline and trace. Agents reach services only through MCP tools. Each service reaches only its own data, and shares events through NATS JetStream. Kubernetes surrounds the edge, agents, services and data, and only named paths leave the cluster. Each layer lists its controls, marked as in place today or planned with the module that delivers them. A strip shows the progress of all 14 delivery phases.](docs/assets/security-layers.png)](docs/assets/security-layers.png)
+
+A green dot marks a control that is built and tested in the shared code and templates. No real
+business service runs yet, so these apply once services are built on them. A hollow amber dot marks a
+planned control, with the module that delivers it. Tests fail if a cited module does not exist, or if a
+control is still shown as planned after its modules are finished.
+
+### For architects
+
+| Document | What it covers |
+| --- | --- |
+| [Requirements (SRS v1.1)](docs/srs.md) | Scope, fixed decisions, requirement IDs and acceptance criteria |
+| [Implementation tracker](docs/phases/README.md) | All 14 phases and their modules, with what is finished |
+| [ADR 0001: Local Minikube profile](docs/adr/0001-local-minikube-profile.md) | Running every workload on a 16 GB laptop |
+| [ADR 0002: Trace storage](docs/adr/0002-trace-storage-and-kube-state-metrics.md) | Adding Tempo and kube-state-metrics |
+| [gRPC contracts](docs/grpc-contracts.md) | Versioning, breaking changes and per-call rules |
+| [Observability](docs/observability.md) | Data flow, dashboards and retention by environment |
+| [Coding standards](docs/coding-standards.md) | Merge rules, and what is enforced automatically |
+
 ## Status
 
-The repository structure is in place. No services are implemented yet.
-Development starts with Phase 1 of the delivery plan.
+Phase 1 (platform foundation) is in progress. The shared libraries, service template, CI, local
+cluster, API gateway and observability stack are built and tested. No business services exist yet.
+The [tracker](docs/phases/README.md) shows the current position.
 
 ## Requirements
 
