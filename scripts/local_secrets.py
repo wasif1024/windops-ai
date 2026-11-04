@@ -22,6 +22,11 @@ from provision_postgres import (
     database_name,
     read_passwords,
 )
+from redis_access import ADMIN_USER as REDIS_ADMIN_USER
+from redis_access import HOST as REDIS_HOST
+from redis_access import PORT as REDIS_PORT
+from redis_access import SECRETS_FILE as REDIS_SECRETS_FILE
+from redis_access import acl_file
 
 CONTEXT = "windops"
 REPOSITORY = Path(__file__).resolve().parent.parent
@@ -83,7 +88,7 @@ def apply_secret(name: str, namespace: str, path: Path) -> None:
     )  # fmt: skip
 
 
-def ensure_postgres_passwords(path: Path, keys: list[str]) -> list[str]:
+def ensure_passwords(path: Path, keys: list[str]) -> list[str]:
     """Add a password for each missing key, keeping existing ones. Return the keys added."""
     path.touch(mode=0o600)
     existing = read_passwords(path)
@@ -132,15 +137,52 @@ def secret_manifest(name: str, namespace: str, values: dict[str, str]) -> dict[s
 
 
 def apply_postgres_secrets() -> None:
-    added = ensure_postgres_passwords(SECRETS_FILE, [ADMIN_KEY, *SERVICE_NAMESPACES])
+    added = ensure_passwords(SECRETS_FILE, [ADMIN_KEY, *SERVICE_NAMESPACES])
     print(f"Added {len(added)} passwords to {SECRETS_FILE.name}")
+    apply_manifests(postgres_secrets(read_passwords(SECRETS_FILE)))
+    print(f"Applied PostgreSQL credentials for {len(SERVICE_NAMESPACES)} services")
+
+
+def redis_secrets(passwords: dict[str, str]) -> list[dict[str, object]]:
+    """Return the ACL and admin Secrets, and one Secret per service in its own namespace."""
+    manifests = [
+        secret_manifest("windops-redis-acl", "windops-data", {"users.acl": acl_file(passwords)}),
+        secret_manifest(
+            "windops-redis-admin",
+            "windops-data",
+            {"username": REDIS_ADMIN_USER, "password": passwords[ADMIN_KEY]},
+        ),
+    ]
+    for service, namespace in SERVICE_NAMESPACES.items():
+        manifests.append(
+            secret_manifest(
+                f"windops-{service}-cache",
+                namespace,
+                {
+                    "host": REDIS_HOST,
+                    "port": REDIS_PORT,
+                    "username": database_name(service),
+                    "password": passwords[service],
+                },
+            )
+        )
+    return manifests
+
+
+def apply_manifests(manifests: list[dict[str, object]]) -> None:
     # Sent over stdin, so no password appears in a process listing.
-    for manifest in postgres_secrets(read_passwords(SECRETS_FILE)):
+    for manifest in manifests:
         subprocess.run(
             ["kubectl", "--context", CONTEXT, "apply", "--filename=-"],
             input=json.dumps(manifest), capture_output=True, text=True, check=True,
         )  # fmt: skip
-    print(f"Applied PostgreSQL credentials for {len(SERVICE_NAMESPACES)} services")
+
+
+def apply_redis_secrets() -> None:
+    added = ensure_passwords(REDIS_SECRETS_FILE, [ADMIN_KEY, *SERVICE_NAMESPACES])
+    print(f"Added {len(added)} passwords to {REDIS_SECRETS_FILE.name}")
+    apply_manifests(redis_secrets(read_passwords(REDIS_SECRETS_FILE)))
+    print(f"Applied Redis credentials for {len(SERVICE_NAMESPACES)} services")
 
 
 def main() -> int:
@@ -157,6 +199,7 @@ def main() -> int:
                 apply_secret(item.name, namespace, path)
             print(f"Applied the {item.key} to {', '.join(item.namespaces)}")
         apply_postgres_secrets()
+        apply_redis_secrets()
     except subprocess.CalledProcessError as error:
         # Never print the rendered manifest, because it contains the key.
         print(f"Could not apply a secret: {error.stderr}", file=sys.stderr)
