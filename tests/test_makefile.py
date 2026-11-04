@@ -58,6 +58,7 @@ BUILT_TARGETS = {
     "postgres-provision",
     "postgres-check",
     "redis-check",
+    "qdrant-check",
 }
 PLANNED_TARGETS = SRS_TARGETS - BUILT_TARGETS
 

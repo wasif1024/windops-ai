@@ -57,3 +57,5 @@ These figures replace estimates as workloads are added. See
 | 2026-11-05 | Whole cluster with the stack, gateway, 2 sample services and PostgreSQL | 2.84 GiB of 10 GiB | From `docker stats` |
 | 2026-11-05 | Redis, with an empty cache | 11 MiB | From `kubectl top` |
 | 2026-11-05 | Whole cluster with the stack, gateway, 2 sample services, PostgreSQL and Redis | 2.78 GiB of 10 GiB | From `docker stats` |
+| 2026-11-05 | Qdrant, with no collections | 126 MiB | From `kubectl top` |
+| 2026-11-05 | Whole cluster with the stack, gateway, 2 sample services, PostgreSQL, Redis and Qdrant | 2.77 GiB of 10 GiB | From `docker stats` |

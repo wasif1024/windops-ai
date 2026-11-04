@@ -56,6 +56,13 @@ LOCAL_SECRETS = (
         namespaces=("windops-system",),
     ),
     LocalSecret(
+        name="windops-qdrant-api-key",
+        key="api-key",
+        file_name="secrets.local.qdrant.env",
+        # Knowledge is its only client, and runs in the application namespace (SRS 11.2).
+        namespaces=("windops-data", "windops-application"),
+    ),
+    LocalSecret(
         name="windops-grafana-admin",
         key="admin-password",
         file_name="secrets.local.grafana.env",
