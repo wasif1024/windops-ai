@@ -32,6 +32,9 @@ Development starts with Phase 1 of the delivery plan.
 [docs/srs.md](docs/srs.md) is the repository copy of SRS v1.1, the source of
 truth for scope and architecture. Section 12 sets the delivery order.
 
+[docs/phases/README.md](docs/phases/README.md) tracks progress through the 14
+phases and their modules.
+
 ## Repository layout
 
 | Path | Contents |
