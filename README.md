@@ -7,6 +7,21 @@ authorized humans approve high-impact actions.
 This is a portfolio-grade platform that runs on synthetic data. It is advisory
 only and never issues turbine commands.
 
+## Agent orchestration
+
+![Animated walkthrough of the ten stages of an investigation. A deterministic rule detects a gearbox fault and the Investigation Service opens a case with an immutable evidence snapshot. The Supervisor delegates to five specialist agents, which reach services through MCP tools. The result is validated and checked by the Policy Service, a draft work order waits in pending review, an authorized human decides, and the decision is audited.](docs/assets/agent-orchestration.gif)
+
+Agents recommend and draft. Deterministic services and authorized humans decide.
+The animation illustrates the workflow in
+[SRS section 5.4](docs/srs.md#54-workflow), not a recording of a running system.
+
+## Architecture
+
+[![Architecture diagram. Users reach a React frontend, API Gateway and Web BFF. Agent Runtime runs the Supervisor and five specialist agents, which use MCP servers to call 23 gRPC services in total. Services exchange durable events over NATS JetStream, store data in PostgreSQL, TimescaleDB, Redis and Qdrant, and use external providers including Claude, Tavily and Open-Meteo.](docs/assets/architecture.png)](docs/assets/architecture.png)
+
+This is the target design from the SRS. To update either visual, edit and run
+`scripts/generate_readme_visuals.py`.
+
 ## Status
 
 The repository structure is in place. No services are implemented yet.
