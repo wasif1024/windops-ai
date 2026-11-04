@@ -63,6 +63,7 @@ BUILT_TARGETS = {
     "migrate",
     "migration",
     "migrate-check",
+    "outbox-check",
 }
 PLANNED_TARGETS = SRS_TARGETS - BUILT_TARGETS
 

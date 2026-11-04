@@ -18,7 +18,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -113,6 +113,9 @@ migration: ## Add a migration: make migration PACKAGE=windops_audit MESSAGE="add
 
 migrate-check: ## Prove migration Jobs work on the cluster, using a throwaway service
 	PYTHONPATH=scripts uv run python scripts/verify_migrations.py
+
+outbox-check: ## Prove state and events commit together, against real PostgreSQL and JetStream
+	PYTHONPATH=scripts uv run python scripts/verify_outbox.py
 
 postgres-provision: ## Create each service's PostgreSQL database and login
 	uv run python scripts/provision_postgres.py
