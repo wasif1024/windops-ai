@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 
 import grpc
@@ -183,3 +184,12 @@ def test_a_hung_call_stops_at_the_deadline_and_counts_as_a_failure() -> None:
 def test_invalid_deadline_is_rejected() -> None:
     with pytest.raises(ValueError):
         run(Dependency(), deadline=0)
+
+
+def test_retries_are_logged(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING, logger="windops.resilience"):
+        run(Dependency(UNAVAILABLE))
+    record = next(item for item in caplog.records if item.message == "Retrying a failed call")
+    assert record.__dict__["dependency"] == "telemetry"
+    assert record.__dict__["attempt"] == 1
+    assert record.__dict__["error_type"] == "FakeRpcError"

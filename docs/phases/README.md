@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 14 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 1. Next up is M1.5.
+**Current position:** Phase 1. Next up is M1.6.
 
 ## How to use this tracker
 
@@ -58,11 +58,11 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [x] **M1.2 CI pipeline:** GitHub Actions on every pull request running `make check`, plus dependency, static-analysis and secret scanning (SRS 9.5), pull request status labels with a WIP merge block, and `main` branch protection that requires pull requests and passing checks. Done 2026-11-04, PR #2.
 - [x] **M1.3 Contracts:** Buf lint and breaking-change checks, a sample versioned package, and `docs/grpc-contracts.md` (GRP-001, GRP-002, GRP-007, GRP-008). Done 2026-11-04, PR #3.
 - [x] **M1.4 Resilience library:** `shared/resilience` with the SRS 7.7 breaker defaults, retries and deadlines (RES-001, RES-003, RES-004, RES-006). Done 2026-11-04, PR #4.
-- [ ] **M1.5 Observability library:** JSON logs, OpenTelemetry traces and metrics, including circuit breaker state metrics, with secret redaction (OBS-001, OBS-002, OBS-003, OBS-004).
-- [ ] **M1.6 Service scaffold:** template that creates each service's tests, Dockerfile, health checks, breaker wiring, manifests and README, with image scanning added to CI (SRS 9.5), and gRPC deadlines, trace context, verified identity, health and error mapping (GRP-003, GRP-004, GRP-006, ARC-001, ARC-004, ARC-005, DEP-001, DEP-002, DEP-003, DEP-004, DEP-005).
+- [x] **M1.5 Observability library:** JSON logs, OpenTelemetry traces and metrics, including circuit breaker state metrics, with secret redaction (OBS-001, OBS-002, OBS-003). Done 2026-11-04, PR #6.
+- [ ] **M1.6 Service scaffold:** template that creates each service's tests, Dockerfile, health checks, breaker wiring, manifests and README, with image scanning added to CI (SRS 9.5), gRPC deadlines, trace context, verified identity, health and error mapping, and startup, shutdown and health-change logs (GRP-003, GRP-004, GRP-006, ARC-001, ARC-004, ARC-005, DEP-001, DEP-002, DEP-003, DEP-004, DEP-005).
 - [ ] **M1.7 Minikube and Kustomize:** namespaces, Calico and overlays for `local`, `ci` and a production-style example, with per-workload memory limits and a first recorded memory measurement (DEP-007, K8S-006, K8S-007).
 - [ ] **M1.8 API Gateway:** APISIX as the only ingress, with etcd and upstream health (SRS 7.2).
-- [ ] **M1.9 Observability stack:** OpenTelemetry Collector, Prometheus, Alertmanager, Grafana, Loki and Fluent Bit, with the Platform Health and Microservice Health dashboards (SRS 10.1, 10.3).
+- [ ] **M1.9 Observability stack:** OpenTelemetry Collector, Prometheus, Alertmanager, Grafana, Loki and Fluent Bit, with the Platform Health and Microservice Health dashboards, and log retention, access and rotation per environment (SRS 10.1, 10.3; OBS-004).
 - [ ] **M1.10 Sample services:** two scaffolded services joined by a gRPC call, plus `docs/architecture.md`, `docs/microservices.md`, `docs/observability.md` and `docs/deployment.md`.
 - [ ] **M1.11 Exit gate:** a sample gRPC call is traced through the gateway, and its breaker opens under an injected fault.
 
