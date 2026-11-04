@@ -10,7 +10,7 @@ Set Docker Desktop to at least 6 CPUs and 11 GB of memory, then run:
 ```bash
 make cluster         # start the cluster with Calico and metrics-server
 make secrets         # create namespaces and local secrets, using ignored files
-make infra           # create the namespaces, etcd, PostgreSQL and the observability stack
+make infra           # create the namespaces, etcd, data stores and the observability stack
 make images          # build service images into the cluster
 ```
 
@@ -55,3 +55,5 @@ These figures replace estimates as workloads are added. See
 | 2026-11-04 | Tempo while writing stored traces | Over 320 MiB, so its limit is 512 MiB | Killed at 320 MiB after a restart |
 | 2026-11-05 | PostgreSQL, with 20 empty service databases | 32 MiB | From `kubectl top`, with almost no connections |
 | 2026-11-05 | Whole cluster with the stack, gateway, 2 sample services and PostgreSQL | 2.84 GiB of 10 GiB | From `docker stats` |
+| 2026-11-05 | Redis, with an empty cache | 11 MiB | From `kubectl top` |
+| 2026-11-05 | Whole cluster with the stack, gateway, 2 sample services, PostgreSQL and Redis | 2.78 GiB of 10 GiB | From `docker stats` |

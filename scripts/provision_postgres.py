@@ -69,6 +69,8 @@ def provisioning_sql(passwords: dict[str, str]) -> str:
         "SET log_min_error_statement = 'panic';",
         "REVOKE ALL ON DATABASE postgres FROM PUBLIC;",
         "REVOKE ALL ON DATABASE template1 FROM PUBLIC;",
+        # The image creates a database named after its administrator, open to every login.
+        f"REVOKE ALL ON DATABASE {ADMIN_USER} FROM PUBLIC;",
     ]
     for service, password in passwords.items():
         # SQL cannot take a role or database name as a parameter, so both inputs are validated.

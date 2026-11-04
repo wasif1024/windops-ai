@@ -127,10 +127,11 @@ def check_isolation(passwords: dict[str, str]) -> None:
             f"{service} is denied another service's database",
         )
     name = database_name(services[0])
-    check(
-        "permission denied" in query(name, "postgres", passwords[services[0]], "SELECT 1").stderr,
-        "a service is denied the administrative database",
-    )
+    for shared in ("postgres", "template1", ADMIN_USER):
+        check(
+            "permission denied" in query(name, shared, passwords[services[0]], "SELECT 1").stderr,
+            f"a service is denied the {shared} database",
+        )
     check(
         "authentication failed" in query(name, name, "wrong-password", "SELECT 1").stderr,
         "a wrong password is refused",

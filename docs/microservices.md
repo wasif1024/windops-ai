@@ -21,6 +21,7 @@ Then follow the steps in its README.
 | Health endpoints, metrics and graceful shutdown | `windops-grpc` | GRP-006, DEP-004 |
 | JSON logs, traces and redaction | `windops-observability` | OBS-001, OBS-003 |
 | Breakers, bounded retries and deadlines on outgoing calls | `windops-resilience`, `ServiceClient` | SRS 7.7 |
+| Tenant-scoped Redis cache and rate limits, with TTLs and a breaker | `windops-cache` | SRS 8.1, DAT-004, DAT-007 |
 | Non-root image, and manifests with probes and memory limits | The service template | DEP-001 to DEP-005 |
 
 ## Call another service
