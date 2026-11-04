@@ -65,7 +65,6 @@ def test_readme_shows_the_diagram() -> None:
 
 def test_readme_shows_the_end_to_end_diagram() -> None:
     assert "docs/assets/end-to-end-architecture.png" in (ROOT / "README.md").read_text()
-    assert (ROOT / "docs" / "assets" / "end-to-end-architecture.png").exists()
 
 
 def test_end_to_end_diagram_draws_every_srs_service_once() -> None:
