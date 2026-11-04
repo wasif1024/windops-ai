@@ -1,0 +1,50 @@
+syntax = "proto3";
+package windops.telemetry.v1;
+
+import "google/protobuf/timestamp.proto";
+
+service TelemetryService {
+  rpc StreamTurbineTelemetry(StreamTurbineTelemetryRequest) returns (stream TelemetryPoint);
+  rpc CreateTelemetrySnapshot(CreateTelemetrySnapshotRequest) returns (TelemetrySnapshot);
+}
+
+message StreamTurbineTelemetryRequest {
+  string turbine_id = 1;
+  google.protobuf.Timestamp from_time = 2;
+  google.protobuf.Timestamp to_time = 3;
+  repeated Metric metrics = 4;
+}
+
+message CreateTelemetrySnapshotRequest {
+  string turbine_id = 1;
+  google.protobuf.Timestamp from_time = 2;
+  google.protobuf.Timestamp to_time = 3;
+  string idempotency_key = 4;
+}
+
+message TelemetrySnapshot {
+  string snapshot_id = 1;
+  string content_hash = 2;
+}
+
+message TelemetryPoint {
+  google.protobuf.Timestamp event_time = 1;
+  Metric metric = 2;
+  double value = 3;
+  string unit = 4;
+  Quality quality = 5;
+}
+
+enum Metric {
+  METRIC_UNSPECIFIED = 0;
+  METRIC_GEARBOX_TEMPERATURE = 1;
+  METRIC_BEARING_TEMPERATURE = 2;
+  METRIC_VIBRATION_RMS = 3;
+}
+
+enum Quality {
+  QUALITY_UNSPECIFIED = 0;
+  QUALITY_GOOD = 1;
+  QUALITY_SUSPECT = 2;
+  QUALITY_MISSING = 3;
+}

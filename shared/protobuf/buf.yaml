@@ -1,0 +1,10 @@
+version: v2
+lint:
+  use:
+    - STANDARD
+  except:
+    # SRS section 7.4 returns domain messages, such as TelemetrySnapshot.
+    - RPC_RESPONSE_STANDARD_NAME
+breaking:
+  use:
+    - FILE
