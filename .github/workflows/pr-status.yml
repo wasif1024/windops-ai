@@ -1,0 +1,76 @@
+name: PR status
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, ready_for_review, converted_to_draft, labeled, unlabeled]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  pr-status:
+    name: pr-status
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Update the status label and check the pull request can merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          PR: ${{ github.event.pull_request.number }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REVIEW: ${{ github.event.review.state }}
+        run: |
+          set -euo pipefail
+
+          desired=""
+          if [ "$DRAFT" = "true" ]; then
+            desired="status: wip"
+          elif [ "$EVENT" = "pull_request_review" ]; then
+            case "$REVIEW" in
+              approved) desired="status: approved" ;;
+              changes_requested) desired="status: changes requested" ;;
+            esac
+          else
+            case "$ACTION" in
+              opened|reopened|ready_for_review|synchronize) desired="status: ready for review" ;;
+            esac
+          fi
+
+          # A pull request from a fork gets a read-only token, so it cannot change labels.
+          if [ -n "$desired" ] && [ "$HEAD_REPO" = "$REPO" ]; then
+            for label in "status: wip" "status: ready for review" "status: changes requested" "status: approved"; do
+              if [ "$label" != "$desired" ]; then
+                gh pr edit "$PR" --repo "$REPO" --remove-label "$label" >/dev/null 2>&1 || true
+              fi
+            done
+            gh pr edit "$PR" --repo "$REPO" --add-label "$desired"
+            echo "Status: $desired"
+          fi
+
+          labels="$(gh pr view "$PR" --repo "$REPO" --json labels --jq '.labels[].name')"
+          failed=0
+          if [ "$DRAFT" = "true" ] || grep -qx "status: wip" <<<"$labels"; then
+            echo "::error::This pull request is a work in progress. Mark it ready for review."
+            failed=1
+          fi
+          if grep -qx "status: blocked" <<<"$labels"; then
+            echo "::error::This pull request is blocked. Remove the status: blocked label first."
+            failed=1
+          fi
+          pattern='^(feat|fix|docs|test|refactor|perf|build|ci|chore)(\([a-z0-9-]+\))?: .+$'
+          if ! grep -qE "$pattern" <<<"$TITLE"; then
+            echo "::error::The title must follow docs/coding-standards.md, such as feat(telemetry): add ingestion."
+            failed=1
+          fi
+          if [ "${#TITLE}" -gt 72 ]; then
+            echo "::error::The title must be at most 72 characters."
+            failed=1
+          fi
+          exit "$failed"

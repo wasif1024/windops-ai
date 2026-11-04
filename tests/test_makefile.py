@@ -24,7 +24,7 @@ SRS_TARGETS = {
     "logs",
     "clean",
 }
-BUILT_TARGETS = {"help", "install", "lint", "format", "typecheck", "test", "check"}
+BUILT_TARGETS = {"help", "install", "lint", "format", "typecheck", "test", "audit", "check"}
 PLANNED_TARGETS = SRS_TARGETS - BUILT_TARGETS
 
 
