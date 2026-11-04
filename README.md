@@ -22,6 +22,9 @@ The animation illustrates the workflow in
 This is the target design from the SRS. To update either visual, edit and run
 `scripts/generate_readme_visuals.py`.
 
+[Service map](docs/service-map.md) shows how all 23 services connect, and what happens when a circuit
+breaker opens.
+
 ## System and security architecture
 
 [![Layers from the client to external providers, with the security controls at each. The React frontend reaches the API Gateway over HTTPS, and Web BFF calls services over gRPC with a signed identity, deadline and trace. Agents reach services only through MCP tools. Each service reaches only its own data, and shares events through NATS JetStream. Kubernetes surrounds the edge, agents, services and data, and only named paths leave the cluster. Each layer lists its controls, marked as in place today or planned with the module that delivers them. A strip shows the progress of all 14 delivery phases.](docs/assets/security-layers.png)](docs/assets/security-layers.png)

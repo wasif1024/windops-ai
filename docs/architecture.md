@@ -32,6 +32,7 @@ it. Real requests will reach services through Web BFF, after M3 adds TLS and tok
 
 ## Where to read more
 
+- [Service map](service-map.md): how all 23 services connect, and what happens when one fails
 - [Microservices](microservices.md): how services are built
 - [Deployment](deployment.md): how to run the system
 - [Observability](observability.md): logs, traces, metrics and dashboards
