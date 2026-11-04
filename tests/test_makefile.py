@@ -48,6 +48,9 @@ BUILT_TARGETS = {
     "gateway-routes",
     "gateway-forward",
     "gateway-check",
+    "observability-forward",
+    "observability-check",
+    "logs",
 }
 PLANNED_TARGETS = SRS_TARGETS - BUILT_TARGETS
 

@@ -473,7 +473,7 @@ The groups are for reading only. Each named service still deploys and scales on 
 | Cache and vectors | Redis and Qdrant |
 | Identity | Keycloak with OIDC |
 | External intelligence | Tavily and a structured weather provider |
-| Observability | LangSmith, OpenTelemetry, Prometheus, Grafana, Loki, Fluent Bit and Alertmanager |
+| Observability | LangSmith, OpenTelemetry, Tempo, Prometheus, Grafana, Loki, Fluent Bit and Alertmanager |
 | Containers | Docker and Kubernetes on Minikube |
 
 ### 7.2 Services
@@ -780,6 +780,7 @@ Every request can be followed from the browser through services, agents, models,
 | --- | --- |
 | LangSmith | Agent traces, model and tool calls, experiments, evaluations and feedback |
 | OpenTelemetry | Distributed traces, metrics and context propagation |
+| Tempo | Distributed trace storage |
 | Fluent Bit and Loki | Container log collection, storage and query |
 | Prometheus and Alertmanager | Metrics, alert rules, grouping and routing |
 | Grafana | Dashboards and operational visualization |
@@ -918,7 +919,7 @@ Every service, MCP server, data store and platform component runs as its own con
 | windops-application | windops-asset, windops-telemetry, windops-alarm, windops-fault-detection, windops-investigation, windops-agent-runtime, windops-agent-sandbox-adapter, windops-knowledge, windops-weather, windops-external-intelligence, windops-production-impact, windops-policy, windops-maintenance, windops-inventory, windops-approval, windops-audit, windops-notification, windops-evaluation, windops-simulator |
 | windops-mcp | windops-mcp-tavily, windops-mcp-weather, windops-mcp-core, windops-mcp-documentation; development only: windops-mcp-filesystem, windops-mcp-postgres |
 | windops-data | windops-postgres, windops-redis, windops-qdrant, windops-nats |
-| windops-observability | windops-otel-collector, windops-prometheus, windops-alertmanager, windops-grafana, windops-loki, windops-fluent-bit |
+| windops-observability | windops-otel-collector, windops-prometheus, windops-alertmanager, windops-grafana, windops-loki, windops-fluent-bit, windops-tempo, windops-kube-state-metrics |
 
 ### 11.3 Kubernetes behavior
 

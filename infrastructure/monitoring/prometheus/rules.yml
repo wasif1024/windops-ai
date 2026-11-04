@@ -1,0 +1,18 @@
+# SRS 10.3 alerts arrive in M13.7. These first rules prove the alert path works.
+groups:
+  - name: windops-platform
+    rules:
+      - alert: WindopsTargetDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.workload }} in {{ $labels.namespace }} cannot be scraped"
+      - alert: WindopsCircuitBreakerOpen
+        expr: max by (workload, dependency) (windops_circuit_breaker_state) == 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.workload }} has an open breaker for {{ $labels.dependency }}"

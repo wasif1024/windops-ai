@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - grafana.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: windops-grafana-datasources
+    files:
+      - datasources.yaml
+  - name: windops-grafana-dashboard-provider
+    files:
+      - dashboard-provider.yaml
+  - name: windops-grafana-dashboards
+    files:
+      - dashboards/platform-health.json
+      - dashboards/microservice-health.json

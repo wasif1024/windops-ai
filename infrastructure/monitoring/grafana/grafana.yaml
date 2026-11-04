@@ -1,0 +1,147 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: windops-grafana
+  labels:
+    app.kubernetes.io/name: windops-grafana
+    app.kubernetes.io/part-of: windops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: windops-grafana
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: windops-grafana
+        app.kubernetes.io/part-of: windops
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: /metrics
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        runAsGroup: 472
+        fsGroup: 472
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: grafana
+          image: grafana/grafana:13.3.0@sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: windops-grafana-admin
+                  key: admin-password
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+            - name: GF_ANALYTICS_REPORTING_ENABLED
+              value: "false"
+            - name: GF_ANALYTICS_CHECK_FOR_UPDATES
+              value: "false"
+            # Grafana otherwise downloads extra plugins at every start.
+            - name: GF_PLUGINS_PREINSTALL_DISABLED
+              value: "true"
+            - name: GOMEMLIMIT
+              value: 400MiB
+            - name: GF_PATHS_DATA
+              value: /var/lib/grafana/data
+            - name: GF_PATHS_LOGS
+              value: /var/lib/grafana/logs
+            - name: GF_PATHS_PLUGINS
+              value: /var/lib/grafana/plugins
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+          # Starting values. Replace them with measured figures (SRS 11).
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: state
+              mountPath: /var/lib/grafana/data
+            - name: logs
+              mountPath: /var/lib/grafana/logs
+            - name: plugins
+              mountPath: /var/lib/grafana/plugins
+            - name: tmp
+              mountPath: /tmp
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+              readOnly: true
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+              readOnly: true
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+              readOnly: true
+      volumes:
+        - name: state
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: logs
+          emptyDir:
+            sizeLimit: 32Mi
+        - name: plugins
+          emptyDir:
+            sizeLimit: 64Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi
+        - name: datasources
+          configMap:
+            name: windops-grafana-datasources
+        - name: dashboard-provider
+          configMap:
+            name: windops-grafana-dashboard-provider
+        - name: dashboards
+          configMap:
+            name: windops-grafana-dashboards
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: windops-grafana
+  labels:
+    app.kubernetes.io/name: windops-grafana
+    app.kubernetes.io/part-of: windops
+spec:
+  selector:
+    app.kubernetes.io/name: windops-grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

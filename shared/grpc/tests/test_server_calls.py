@@ -1,6 +1,7 @@
 """Exercise the interceptor through real gRPC calls."""
 
 import asyncio
+import json
 import logging
 
 import grpc
@@ -168,6 +169,21 @@ def test_rejected_call_is_still_traced_as_an_error() -> None:
     asyncio.run(scenario())
     span = next(item for item in EXPORTER.get_finished_spans() if item.name.endswith("/Echo"))
     assert span.status.status_code is trace.StatusCode.ERROR
+    assert span.attributes is not None
+    assert span.attributes["rpc.grpc.status"] == "UNAUTHENTICATED"
+
+
+def test_successful_call_records_its_status_on_the_span() -> None:
+    EXPORTER.clear()
+
+    async def scenario() -> None:
+        async with running_service() as harness:
+            await harness.method("Echo")(b"hi", timeout=5, metadata=GOOD)
+
+    asyncio.run(scenario())
+    span = next(item for item in EXPORTER.get_finished_spans() if item.name.endswith("/Echo"))
+    assert span.attributes is not None
+    assert span.attributes["rpc.grpc.status"] == "OK"
 
 
 def test_a_service_principal_needs_no_user() -> None:
@@ -181,3 +197,64 @@ def test_a_service_principal_needs_no_user() -> None:
             )
 
     asyncio.run(scenario())
+
+
+def call_log_entries(capsys: pytest.CaptureFixture[str]) -> list[dict[str, object]]:
+    lines = capsys.readouterr().out.splitlines()
+    entries = [json.loads(line) for line in lines if line.startswith("{")]
+    return [entry for entry in entries if entry["logger"] == "windops.grpc"]
+
+
+def test_finished_call_is_logged_with_trace_request_and_tenant(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    trace_id = "1af7651916cd43dd8448eb211c80319c"
+    metadata = (
+        *GOOD,
+        ("traceparent", f"00-{trace_id}-b7ad6b7169203331-01"),
+        ("x-windops-request-id", "req-42"),
+    )
+
+    async def scenario() -> None:
+        async with running_service() as harness:
+            await harness.method("Echo")(b"hi", timeout=5, metadata=metadata)
+
+    asyncio.run(scenario())
+    entry = next(item for item in call_log_entries(capsys) if item["message"] == "Call finished")
+    assert entry["trace_id"] == trace_id
+    assert entry["request_id"] == "req-42"
+    assert entry["tenant_id"] == "tenant-a"
+    assert entry["rpc_status"] == "OK"
+
+
+def test_rejected_call_log_keeps_its_trace(capsys: pytest.CaptureFixture[str]) -> None:
+    trace_id = "2af7651916cd43dd8448eb211c80319c"
+    metadata = (("traceparent", f"00-{trace_id}-b7ad6b7169203331-01"),)
+
+    async def scenario() -> None:
+        async with running_service() as harness:
+            with pytest.raises(grpc.aio.AioRpcError):
+                await harness.method("Echo")(b"hi", timeout=5, metadata=metadata)
+
+    asyncio.run(scenario())
+    rejected = next(
+        item for item in call_log_entries(capsys) if item["message"] == "Rejected a call"
+    )
+    assert rejected["trace_id"] == trace_id
+    assert "tenant_id" not in rejected
+
+
+def test_a_stale_tenant_does_not_leak_into_the_next_call(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def scenario() -> None:
+        async with running_service() as harness:
+            await harness.method("Echo")(b"hi", timeout=5, metadata=GOOD)
+            with pytest.raises(grpc.aio.AioRpcError):
+                await harness.method("Echo")(b"hi", timeout=5)
+
+    asyncio.run(scenario())
+    rejected = next(
+        item for item in call_log_entries(capsys) if item["message"] == "Rejected a call"
+    )
+    assert "tenant_id" not in rejected

@@ -20,6 +20,10 @@ spec:
       labels:
         app.kubernetes.io/name: {{workload}}
         app.kubernetes.io/part-of: windops
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
     spec:
       automountServiceAccountToken: false
       # Longer than WINDOPS_SHUTDOWN_GRACE_SECONDS, so calls can finish first.

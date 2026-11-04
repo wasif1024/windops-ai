@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: windops-etcd
     app.kubernetes.io/part-of: windops
 spec:
-  clusterIP: None
+  # A stable address, so clients reconnect quickly when the pod restarts with a new IP.
   selector:
     app.kubernetes.io/name: windops-etcd
   ports:

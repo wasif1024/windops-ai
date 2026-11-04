@@ -38,6 +38,12 @@ LOCAL_SECRETS = (
         file_name="secrets.local.gateway.env",
         namespaces=("windops-system",),
     ),
+    LocalSecret(
+        name="windops-grafana-admin",
+        key="admin-password",
+        file_name="secrets.local.grafana.env",
+        namespaces=("windops-observability",),
+    ),
 )
 
 
