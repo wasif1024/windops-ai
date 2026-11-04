@@ -81,10 +81,10 @@ def test_default_login_is_off() -> None:
     assert acl_file(PASSWORDS).splitlines()[0] == "user default off resetchannels -@all"
 
 
-def test_acl_file_holds_no_plain_password() -> None:
-    text = acl_file(PASSWORDS)
-    for password in PASSWORDS.values():
-        assert password not in text
+@pytest.mark.parametrize("password", ["a b", "a\nuser x on", "a~*", "", "a>b"])
+def test_password_that_could_change_the_rules_is_refused(password: str) -> None:
+    with pytest.raises(ValueError, match="unsupported characters"):
+        acl_file({**PASSWORDS, "audit": password})
 
 
 def test_each_login_reaches_only_its_own_keys() -> None:
