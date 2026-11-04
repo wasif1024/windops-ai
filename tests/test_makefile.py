@@ -44,6 +44,10 @@ BUILT_TARGETS = {
     "infra",
     "secrets",
     "clean",
+    "gateway",
+    "gateway-routes",
+    "gateway-forward",
+    "gateway-check",
 }
 PLANNED_TARGETS = SRS_TARGETS - BUILT_TARGETS
 

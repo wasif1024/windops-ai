@@ -9,12 +9,12 @@ Set Docker Desktop to at least 6 CPUs and 11 GB of memory, then run:
 
 ```bash
 make cluster         # start the cluster with Calico and metrics-server
-make infra           # create the namespaces
-make secrets         # create local secrets from an ignored file
+make secrets         # create namespaces and local secrets, using ignored files
+make infra           # create the namespaces and etcd
 make images          # build service images into the cluster
 ```
 
-`make secrets` generates `secrets.local.env` once. Git ignores it, so never commit it.
+`make secrets` generates `secrets.local.*` files once. Git ignores them, so never commit them.
 
 ## Day to day
 
@@ -23,6 +23,7 @@ make images          # build service images into the cluster
 | `make cluster-stop` | Stops the cluster and frees its memory, and keeps its data |
 | `make cluster` | Starts it again |
 | `make cluster-check` | Deploys a throwaway service to prove the manifests work |
+| `make gateway-check` | Proves the API gateway works, using a throwaway service |
 | `make clean` | Removes WindOps workloads and namespaces, and keeps the cluster |
 | `make cluster-delete` | Deletes the cluster and all its data |
 
@@ -43,3 +44,6 @@ These figures replace estimates as workloads are added. See
 | --- | --- | --- | --- |
 | 2026-11-04 | Idle cluster: Kubernetes, Calico and metrics-server | 1.4 GiB of 10 GiB | From `docker stats` |
 | 2026-11-04 | One generated service, running with no real work | 48 MiB | From `kubectl top` |
+| 2026-11-04 | APISIX gateway, with no real traffic | 50 MiB | From `kubectl top` |
+| 2026-11-04 | etcd, with no real traffic | 27 MiB | From `kubectl top` |
+| 2026-11-04 | Whole cluster with the gateway and etcd | 1.68 GiB of 10 GiB | From `docker stats` |

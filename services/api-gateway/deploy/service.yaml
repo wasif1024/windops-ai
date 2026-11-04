@@ -1,0 +1,15 @@
+# Exposes only the proxy port. The Admin, status and control ports stay inside the pod.
+apiVersion: v1
+kind: Service
+metadata:
+  name: windops-gateway
+  labels:
+    app.kubernetes.io/name: windops-gateway
+    app.kubernetes.io/part-of: windops
+spec:
+  selector:
+    app.kubernetes.io/name: windops-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
