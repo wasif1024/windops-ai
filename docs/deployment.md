@@ -30,6 +30,7 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make sample-check` | Two services work together, through the gateway |
 | `make postgres-check` | Services are isolated in PostgreSQL, and data survives a restart and a restore |
 | `make redis-check` | Services are isolated in Redis, nothing survives a restart, and an outage is handled safely |
+| `make qdrant-check` | Qdrant needs a key, and vectors survive a restart and a restore |
 | `make phase-1-gate` | A call is traced through the gateway, and its breaker opens under a fault |
 
 ## Data
@@ -38,6 +39,9 @@ modules. `make help` lists what each one does, and which module delivers it.
 reset, back up and restore them.
 
 [Redis](../infrastructure/data/redis/README.md) describes the cache, and what happens when it is down.
+
+[Qdrant](../infrastructure/data/qdrant/README.md) describes vector storage, and how to reset, back up and
+restore it.
 
 ## Environments
 

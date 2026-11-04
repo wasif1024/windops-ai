@@ -1,0 +1,120 @@
+# Vector retrieval for the Knowledge Service. It is not the authority on document permissions (SRS 8.1).
+apiVersion: v1
+kind: Service
+metadata:
+  name: windops-qdrant
+  labels:
+    app.kubernetes.io/name: windops-qdrant
+    app.kubernetes.io/part-of: windops
+spec:
+  # Reachable only inside the cluster (DEP-007).
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: windops-qdrant
+  ports:
+    - name: http
+      port: 6333
+      targetPort: http
+    - name: grpc
+      port: 6334
+      targetPort: grpc
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: windops-qdrant
+  labels:
+    app.kubernetes.io/name: windops-qdrant
+    app.kubernetes.io/part-of: windops
+spec:
+  serviceName: windops-qdrant
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: windops-qdrant
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: windops-qdrant
+        app.kubernetes.io/part-of: windops
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: qdrant
+          image: qdrant/qdrant:v1.20.0@sha256:9bfc89f9914fc14876a88c05270685921a55b8877b254a98bcc1cc2f0a424cd2
+          env:
+            - name: QDRANT__SERVICE__API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: windops-qdrant-api-key
+                  key: api-key
+            # It would otherwise report usage to an outside server, outside the egress rules (EGR-001).
+            - name: QDRANT__TELEMETRY_DISABLED
+              value: "true"
+            - name: QDRANT__STORAGE__SNAPSHOTS_PATH
+              value: /qdrant/storage/snapshots
+            - name: QDRANT__STORAGE__TEMP_PATH
+              value: /tmp
+            # The default location is inside the read-only image.
+            - name: QDRANT_INIT_FILE_PATH
+              value: /tmp/.qdrant-initialized
+          ports:
+            - name: http
+              containerPort: 6333
+            - name: grpc
+              containerPort: 6334
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          # Starting values. Replace them with measured figures (SRS 11).
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 384Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: data
+              mountPath: /qdrant/storage
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 5Gi

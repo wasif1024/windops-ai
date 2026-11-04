@@ -19,7 +19,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -112,6 +112,9 @@ postgres-check: ## Prove PostgreSQL isolates services and keeps data on the clus
 
 redis-check: ## Prove Redis isolates services and handles an outage on the cluster
 	PYTHONPATH=scripts uv run python scripts/verify_redis.py
+
+qdrant-check: ## Prove Qdrant needs a key and keeps its vectors on the cluster
+	PYTHONPATH=scripts uv run python scripts/verify_qdrant.py
 
 secrets: ## Create local secrets from an ignored file, generating it the first time
 	uv run python scripts/local_secrets.py
