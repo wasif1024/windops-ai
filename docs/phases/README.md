@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 14 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 1. Next up is M1.1.
+**Current position:** Phase 1. Next up is M1.2.
 
 ## How to use this tracker
 
@@ -31,7 +31,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 | Phase | Name | Modules | Status |
 | --- | --- | --- | --- |
 | - | [Prerequisites](#prerequisites) | 3 | Done |
-| 1 | [Platform foundation](#phase-1-platform-foundation) | 11 | Not started |
+| 1 | [Platform foundation](#phase-1-platform-foundation) | 11 | In progress |
 | 2 | [Data and events](#phase-2-data-and-events) | 9 | Not started |
 | 3 | [Identity and tenancy](#phase-3-identity-and-tenancy) | 11 | Not started |
 | 4 | [Assets and telemetry](#phase-4-assets-and-telemetry) | 10 | Not started |
@@ -54,8 +54,8 @@ The SRS defines the requirements, and this file tracks progress against them.
 
 ## Phase 1: Platform foundation
 
-- [ ] **M1.1 Repository tooling:** Python toolchain, pinned dependencies, lint, format and type checks, and a `Makefile` with the SRS 11.4 targets.
-- [ ] **M1.2 CI pipeline:** tests, plus dependency, image, static-analysis and secret scanning (SRS 9.5).
+- [x] **M1.1 Repository tooling:** Python toolchain, pinned dependencies, lint, format and type checks, a `Makefile` with the SRS 11.4 targets, and `docs/coding-standards.md`. Done 2026-11-04, PR #1.
+- [ ] **M1.2 CI pipeline:** GitHub Actions on every pull request running `make check`, plus dependency, image, static-analysis and secret scanning (SRS 9.5), and `main` branch protection that requires pull requests and passing checks.
 - [ ] **M1.3 Contracts:** Buf lint and breaking-change checks, and a sample versioned package (GRP-001, GRP-002, GRP-003, GRP-004, GRP-006, GRP-007, GRP-008).
 - [ ] **M1.4 Resilience library:** `shared/resilience` with the SRS 7.7 breaker defaults, retries and deadlines (RES-001, RES-003, RES-004, RES-006).
 - [ ] **M1.5 Observability library:** JSON logs, OpenTelemetry traces and metrics, with secret redaction (OBS-001, OBS-002, OBS-003, OBS-004).

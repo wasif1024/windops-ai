@@ -35,6 +35,19 @@ truth for scope and architecture. Section 12 sets the delivery order.
 [docs/phases/README.md](docs/phases/README.md) tracks progress through the 14
 phases and their modules.
 
+## Development
+
+Install [uv](https://docs.astral.sh/uv/) and Make, then run:
+
+```bash
+make install   # install the locked development tools
+make check     # run lint, formatting, type checks and tests
+make help      # list every command
+```
+
+Follow the [coding standards](docs/coding-standards.md) for naming, commit messages,
+pull requests and merge rules.
+
 ## Repository layout
 
 | Path | Contents |
