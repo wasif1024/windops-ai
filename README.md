@@ -51,6 +51,17 @@ Follow the [coding standards](docs/coding-standards.md) for naming, commit messa
 pull requests and merge rules. To run on a local cluster, see
 [infrastructure/minikube](infrastructure/minikube/README.md).
 
+### Provider keys
+
+No keys are needed yet. When a module needs one, copy the template and add your keys:
+
+```bash
+cp .env.example .env
+```
+
+Git ignores `.env`, and images never receive it. Never paste a real key into an issue, a pull
+request, a chat or `.env.example`. [.env.example](.env.example) shows which module needs each key.
+
 ## Repository layout
 
 | Path | Contents |
