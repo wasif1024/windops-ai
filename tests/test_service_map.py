@@ -71,13 +71,7 @@ def test_every_service_that_sends_audit_events_has_a_database() -> None:
 
 def test_every_defined_fallback_matches_the_srs() -> None:
     srs_table = section(SRS, "| Dependency down |", "- **RES-001:**")
-    map_table = section(MAP, "### Defined by SRS 7.7", "### Proposed")
+    map_table = section(MAP, "### Defined by SRS 7.7", "## Where to read more")
     assert [line for line in srs_table.splitlines() if line.startswith("| ")] == [
         line for line in map_table.splitlines() if line.startswith("| ")
     ]
-
-
-def test_proposed_fallbacks_do_not_repeat_a_defined_one() -> None:
-    defined = set(first_column(section(MAP, "### Defined by SRS 7.7", "### Proposed")))
-    proposed = first_column(section(MAP, "### Proposed", "## Where to read more"))
-    assert not (defined - {"Dependency down"}) & set(proposed)
