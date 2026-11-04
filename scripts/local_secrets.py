@@ -12,6 +12,10 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from nats_access import ADMIN_USER as NATS_ADMIN_USER
+from nats_access import EVENT_SERVICES, configuration
+from nats_access import SECRETS_FILE as NATS_SECRETS_FILE
+from nats_access import URL as NATS_URL
 from provision_postgres import (
     ADMIN_KEY,
     ADMIN_USER,
@@ -185,6 +189,40 @@ def apply_manifests(manifests: list[dict[str, object]]) -> None:
         )  # fmt: skip
 
 
+def nats_secrets(passwords: dict[str, str]) -> list[dict[str, object]]:
+    """Return the server's configuration, and one Secret per service in its own namespace."""
+    manifests = [
+        secret_manifest(
+            "windops-nats-config", "windops-data", {"nats.conf": configuration(passwords)}
+        ),
+        secret_manifest(
+            "windops-nats-admin",
+            "windops-data",
+            {"username": NATS_ADMIN_USER, "password": passwords[ADMIN_KEY]},
+        ),
+    ]
+    for service, namespace in EVENT_SERVICES.items():
+        manifests.append(
+            secret_manifest(
+                f"windops-{service}-events",
+                namespace,
+                {
+                    "url": NATS_URL,
+                    "username": database_name(service),
+                    "password": passwords[service],
+                },
+            )
+        )
+    return manifests
+
+
+def apply_nats_secrets() -> None:
+    added = ensure_passwords(NATS_SECRETS_FILE, [ADMIN_KEY, *EVENT_SERVICES])
+    print(f"Added {len(added)} passwords to {NATS_SECRETS_FILE.name}")
+    apply_manifests(nats_secrets(read_passwords(NATS_SECRETS_FILE)))
+    print(f"Applied NATS credentials for {len(EVENT_SERVICES)} services")
+
+
 def apply_redis_secrets() -> None:
     added = ensure_passwords(REDIS_SECRETS_FILE, [ADMIN_KEY, *SERVICE_NAMESPACES])
     print(f"Added {len(added)} passwords to {REDIS_SECRETS_FILE.name}")
@@ -207,6 +245,7 @@ def main() -> int:
             print(f"Applied the {item.key} to {', '.join(item.namespaces)}")
         apply_postgres_secrets()
         apply_redis_secrets()
+        apply_nats_secrets()
     except subprocess.CalledProcessError as error:
         # Never print the rendered manifest, because it contains the key.
         print(f"Could not apply a secret: {error.stderr}", file=sys.stderr)
