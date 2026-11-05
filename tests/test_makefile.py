@@ -64,6 +64,8 @@ BUILT_TARGETS = {
     "authorization-seed",
     "authorization-check",
     "identity-service-check",
+    "tenant-seed",
+    "tenant-check",
     "postgres-provision",
     "postgres-check",
     "redis-check",

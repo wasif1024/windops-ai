@@ -21,6 +21,11 @@ service IdentityService {
   rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
   rpc RevokeSessions(RevokeSessionsRequest) returns (RevokeSessionsResponse);
   rpc GetMfaStatus(GetMfaStatusRequest) returns (GetMfaStatusResponse);
+
+  // A tenant's Keycloak organization, for the Tenant Service. Both need tenant.manage and a recent
+  // second factor. A disabled organization's users get no tenant_id, so the gateway refuses them.
+  rpc CreateOrganization(CreateOrganizationRequest) returns (CreateOrganizationResponse);
+  rpc SetOrganizationEnabled(SetOrganizationEnabledRequest) returns (SetOrganizationEnabledResponse);
 }
 
 message User {
@@ -130,4 +135,28 @@ message GetMfaStatusResponse {
   bool recovery_codes_configured = 2;
   // True while Keycloak will ask the user to set up a second factor at their next login.
   bool setup_required = 3;
+}
+
+// Creating an existing organization with the same name returns it, so a retry is safe.
+message CreateOrganizationRequest {
+  // The tenant ID, which becomes the organization's alias and every token's tenant_id.
+  string target_tenant_id = 1;
+  string name = 2;
+  string idempotency_key = 3;
+}
+
+message CreateOrganizationResponse {
+  string organization_id = 1;
+  // False when it already existed.
+  bool created = 2;
+}
+
+message SetOrganizationEnabledRequest {
+  string target_tenant_id = 1;
+  bool enabled = 2;
+  string idempotency_key = 3;
+}
+
+message SetOrganizationEnabledResponse {
+  bool enabled = 1;
 }

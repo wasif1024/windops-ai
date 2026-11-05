@@ -394,3 +394,61 @@ def test_a_keycloak_outage_refuses_the_change() -> None:
         assert code is grpc.StatusCode.UNAVAILABLE
 
     with_service(scenario)
+
+
+def test_platform_staff_create_and_suspend_a_tenants_organization() -> None:
+    async def scenario(world: World) -> None:
+        platform = as_user("u-platform", "windops-platform")
+        created = await world.stub.CreateOrganization(
+            identity_pb2.CreateOrganizationRequest(
+                target_tenant_id="gale-force", name="Gale Force"
+            ),
+            metadata=platform,
+            timeout=5,
+        )
+        assert created.created
+        assert world.authorizer.asked[-1] == ("tenant.manage", "gale-force")
+        again = await world.stub.CreateOrganization(
+            identity_pb2.CreateOrganizationRequest(
+                target_tenant_id="gale-force", name="Gale Force"
+            ),
+            metadata=platform,
+            timeout=5,
+        )
+        assert again.organization_id == created.organization_id and not again.created
+        await world.stub.SetOrganizationEnabled(
+            identity_pb2.SetOrganizationEnabledRequest(
+                target_tenant_id="gale-force", enabled=False
+            ),
+            metadata=platform,
+            timeout=5,
+        )
+        assert "gale-force" in world.keycloak.disabled
+        actions = {a for _, a in await audit_actions(world.engine)}
+        assert {"identity.organization.created", "identity.organization.disabled"} <= actions
+
+    with_service(scenario)
+
+
+def test_a_different_name_for_an_existing_tenant_is_a_conflict() -> None:
+    async def scenario(world: World) -> None:
+        request = identity_pb2.CreateOrganizationRequest(target_tenant_id=OTHER, name="Not Atlas")
+        code = await code_of(
+            world.stub.CreateOrganization(
+                request, metadata=as_user("u-p", "windops-platform"), timeout=5
+            )
+        )
+        assert code is grpc.StatusCode.FAILED_PRECONDITION
+
+    with_service(scenario)
+
+
+def test_nobody_suspends_their_own_tenant() -> None:
+    async def scenario(world: World) -> None:
+        request = identity_pb2.SetOrganizationEnabledRequest(enabled=False)
+        code = await code_of(
+            world.stub.SetOrganizationEnabled(request, metadata=as_user(), timeout=5)
+        )
+        assert code is grpc.StatusCode.INVALID_ARGUMENT
+
+    with_service(scenario)

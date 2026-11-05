@@ -19,6 +19,7 @@ members = [
     "windops-resilience",
     "windops-sample-caller",
     "windops-sample-responder",
+    "windops-tenant",
 ]
 
 [[package]]
@@ -1344,6 +1345,7 @@ dev = [
     { name = "windops-resilience" },
     { name = "windops-sample-caller" },
     { name = "windops-sample-responder" },
+    { name = "windops-tenant" },
 ]
 
 [package.metadata]
@@ -1378,6 +1380,7 @@ dev = [
     { name = "windops-resilience", editable = "shared/resilience" },
     { name = "windops-sample-caller", editable = "services/sample-caller-service" },
     { name = "windops-sample-responder", editable = "services/sample-responder-service" },
+    { name = "windops-tenant", editable = "services/tenant-service" },
 ]
 
 [[package]]
@@ -1638,4 +1641,31 @@ dependencies = [
 requires-dist = [
     { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-grpc", editable = "shared/grpc" },
+]
+
+[[package]]
+name = "windops-tenant"
+version = "0.1.0"
+source = { editable = "services/tenant-service" }
+dependencies = [
+    { name = "windops-auth" },
+    { name = "windops-contracts" },
+    { name = "windops-events" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-observability" },
+    { name = "windops-outbox" },
+    { name = "windops-resilience" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-events", editable = "shared/events" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-observability", editable = "shared/observability" },
+    { name = "windops-outbox", editable = "shared/outbox" },
+    { name = "windops-resilience", editable = "shared/resilience" },
 ]

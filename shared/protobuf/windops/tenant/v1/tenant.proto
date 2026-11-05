@@ -1,0 +1,217 @@
+syntax = "proto3";
+package windops.tenant.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Tenants, their lifecycle, branding and settings (FR-TEN-001, FR-TEN-002).
+//
+// Anyone in a tenant, including a service acting for it, may read its tenant, branding, logo and
+// email templates. Reading another tenant's needs tenant.manage. Changing branding needs
+// branding.manage, and changing a tenant's lifecycle needs tenant.manage. Every change needs a
+// recent second factor (SEC-003).
+//
+// For target_tenant_id below: empty means the caller's own tenant, from their verified identity
+// (GRP-004). Every change ends in the same state however often it runs, so a retry with the same
+// idempotency_key is safe (GRP-007).
+service TenantService {
+  // Also creates the tenant's Keycloak organization, through the Identity Service.
+  rpc CreateTenant(CreateTenantRequest) returns (CreateTenantResponse);
+  rpc GetTenant(GetTenantRequest) returns (GetTenantResponse);
+  rpc ListTenants(ListTenantsRequest) returns (ListTenantsResponse);
+  // Disables the tenant's organization, so its users' new tokens carry no tenant.
+  rpc SuspendTenant(SuspendTenantRequest) returns (SuspendTenantResponse);
+  rpc ReactivateTenant(ReactivateTenantRequest) returns (ReactivateTenantResponse);
+
+  rpc GetBranding(GetBrandingRequest) returns (GetBrandingResponse);
+  rpc UpdateBranding(UpdateBrandingRequest) returns (UpdateBrandingResponse);
+  // PNG or JPEG only, up to 256 KiB. SVG is refused, because it can carry scripts.
+  rpc SetLogo(SetLogoRequest) returns (SetLogoResponse);
+  rpc GetLogo(GetLogoRequest) returns (GetLogoResponse);
+
+  // Plain text, with only the placeholders each template allows.
+  rpc SetEmailTemplate(SetEmailTemplateRequest) returns (SetEmailTemplateResponse);
+  rpc ListEmailTemplates(ListEmailTemplatesRequest) returns (ListEmailTemplatesResponse);
+
+  // One domain per tenant, recorded as metadata with a token to prove it later.
+  rpc SetCustomDomain(SetCustomDomainRequest) returns (SetCustomDomainResponse);
+  rpc RemoveCustomDomain(RemoveCustomDomainRequest) returns (RemoveCustomDomainResponse);
+}
+
+message Tenant {
+  string tenant_id = 1;
+  string name = 2;
+  // "active" or "suspended".
+  string status = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message Branding {
+  string tenant_id = 1;
+  string display_name = 2;
+  // Lowercase hex, such as "#0b5394". White text on it must have a contrast of at least 4.5.
+  string primary_color = 3;
+  string accent_color = 4;
+  string login_title = 5;
+  string login_message = 6;
+  // An IANA time zone, such as "Europe/Oslo", and a language tag, such as "en-GB".
+  string time_zone = 7;
+  string locale = 8;
+  bool has_logo = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message EmailTemplate {
+  // "invitation", "password_reset" or "approval_request".
+  string template = 1;
+  string subject = 2;
+  string body = 3;
+  // False while it is the platform's default text.
+  bool customized = 4;
+  // The placeholders it may use, such as "{{user_name}}".
+  repeated string placeholders = 5;
+}
+
+message CustomDomain {
+  string domain = 1;
+  // "pending" until it is proven, which a later module adds.
+  string status = 2;
+  // To publish in a DNS TXT record, as proof of control.
+  string verification_token = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message CreateTenantRequest {
+  string target_tenant_id = 1;
+  string name = 2;
+  string idempotency_key = 3;
+}
+
+message CreateTenantResponse {
+  Tenant tenant = 1;
+  // False when it already existed with this name.
+  bool created = 2;
+}
+
+message GetTenantRequest {
+  string target_tenant_id = 1;
+}
+
+message GetTenantResponse {
+  Tenant tenant = 1;
+}
+
+message ListTenantsRequest {
+  // From 1 to 200. Zero means 50.
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListTenantsResponse {
+  repeated Tenant tenants = 1;
+  string next_page_token = 2;
+}
+
+message SuspendTenantRequest {
+  string target_tenant_id = 1;
+  // At least 10 characters, kept with the tenant.
+  string reason = 2;
+  string idempotency_key = 3;
+}
+
+message SuspendTenantResponse {
+  Tenant tenant = 1;
+}
+
+message ReactivateTenantRequest {
+  string target_tenant_id = 1;
+  string idempotency_key = 2;
+}
+
+message ReactivateTenantResponse {
+  Tenant tenant = 1;
+}
+
+message GetBrandingRequest {
+  string target_tenant_id = 1;
+}
+
+message GetBrandingResponse {
+  Branding branding = 1;
+  // Unset when the tenant has none.
+  CustomDomain custom_domain = 2;
+}
+
+// Replaces every field, so send the ones that stay the same too.
+message UpdateBrandingRequest {
+  string target_tenant_id = 1;
+  string display_name = 2;
+  string primary_color = 3;
+  string accent_color = 4;
+  string login_title = 5;
+  string login_message = 6;
+  string time_zone = 7;
+  string locale = 8;
+  string idempotency_key = 9;
+}
+
+message UpdateBrandingResponse {
+  Branding branding = 1;
+}
+
+message SetLogoRequest {
+  string target_tenant_id = 1;
+  bytes image = 2;
+  // "image/png" or "image/jpeg", which must match the image itself.
+  string content_type = 3;
+  string idempotency_key = 4;
+}
+
+message SetLogoResponse {
+  Branding branding = 1;
+}
+
+message GetLogoRequest {
+  string target_tenant_id = 1;
+}
+
+message GetLogoResponse {
+  bytes image = 1;
+  string content_type = 2;
+}
+
+message SetEmailTemplateRequest {
+  string target_tenant_id = 1;
+  string template = 2;
+  string subject = 3;
+  string body = 4;
+  string idempotency_key = 5;
+}
+
+message SetEmailTemplateResponse {
+  EmailTemplate template = 1;
+}
+
+message ListEmailTemplatesRequest {
+  string target_tenant_id = 1;
+}
+
+message ListEmailTemplatesResponse {
+  repeated EmailTemplate templates = 1;
+}
+
+message SetCustomDomainRequest {
+  string target_tenant_id = 1;
+  string domain = 2;
+  string idempotency_key = 3;
+}
+
+message SetCustomDomainResponse {
+  CustomDomain custom_domain = 1;
+}
+
+message RemoveCustomDomainRequest {
+  string target_tenant_id = 1;
+  string idempotency_key = 2;
+}
+
+message RemoveCustomDomainResponse {}

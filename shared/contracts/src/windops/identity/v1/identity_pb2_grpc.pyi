@@ -50,6 +50,11 @@ class IdentityServiceStub:
     ListSessions: _grpc.UnaryUnaryMultiCallable[_identity_pb2.ListSessionsRequest, _identity_pb2.ListSessionsResponse]
     RevokeSessions: _grpc.UnaryUnaryMultiCallable[_identity_pb2.RevokeSessionsRequest, _identity_pb2.RevokeSessionsResponse]
     GetMfaStatus: _grpc.UnaryUnaryMultiCallable[_identity_pb2.GetMfaStatusRequest, _identity_pb2.GetMfaStatusResponse]
+    CreateOrganization: _grpc.UnaryUnaryMultiCallable[_identity_pb2.CreateOrganizationRequest, _identity_pb2.CreateOrganizationResponse]
+    """A tenant's Keycloak organization, for the Tenant Service. Both need tenant.manage and a recent
+    second factor. A disabled organization's users get no tenant_id, so the gateway refuses them.
+    """
+    SetOrganizationEnabled: _grpc.UnaryUnaryMultiCallable[_identity_pb2.SetOrganizationEnabledRequest, _identity_pb2.SetOrganizationEnabledResponse]
 
 @_typing.type_check_only
 class IdentityServiceAsyncStub(IdentityServiceStub):
@@ -73,6 +78,11 @@ class IdentityServiceAsyncStub(IdentityServiceStub):
     ListSessions: _aio.UnaryUnaryMultiCallable[_identity_pb2.ListSessionsRequest, _identity_pb2.ListSessionsResponse]  # type: ignore[assignment]
     RevokeSessions: _aio.UnaryUnaryMultiCallable[_identity_pb2.RevokeSessionsRequest, _identity_pb2.RevokeSessionsResponse]  # type: ignore[assignment]
     GetMfaStatus: _aio.UnaryUnaryMultiCallable[_identity_pb2.GetMfaStatusRequest, _identity_pb2.GetMfaStatusResponse]  # type: ignore[assignment]
+    CreateOrganization: _aio.UnaryUnaryMultiCallable[_identity_pb2.CreateOrganizationRequest, _identity_pb2.CreateOrganizationResponse]  # type: ignore[assignment]
+    """A tenant's Keycloak organization, for the Tenant Service. Both need tenant.manage and a recent
+    second factor. A disabled organization's users get no tenant_id, so the gateway refuses them.
+    """
+    SetOrganizationEnabled: _aio.UnaryUnaryMultiCallable[_identity_pb2.SetOrganizationEnabledRequest, _identity_pb2.SetOrganizationEnabledResponse]  # type: ignore[assignment]
 
 class IdentityServiceServicer(metaclass=_abc_1.ABCMeta):
     """Manages a tenant's users in Keycloak, which holds their credentials and sessions (SEC-006).
@@ -141,5 +151,22 @@ class IdentityServiceServicer(metaclass=_abc_1.ABCMeta):
         request: _identity_pb2.GetMfaStatusRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_identity_pb2.GetMfaStatusResponse, _abc.Awaitable[_identity_pb2.GetMfaStatusResponse]]: ...
+
+    @_abc_1.abstractmethod
+    def CreateOrganization(
+        self,
+        request: _identity_pb2.CreateOrganizationRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_identity_pb2.CreateOrganizationResponse, _abc.Awaitable[_identity_pb2.CreateOrganizationResponse]]:
+        """A tenant's Keycloak organization, for the Tenant Service. Both need tenant.manage and a recent
+        second factor. A disabled organization's users get no tenant_id, so the gateway refuses them.
+        """
+
+    @_abc_1.abstractmethod
+    def SetOrganizationEnabled(
+        self,
+        request: _identity_pb2.SetOrganizationEnabledRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_identity_pb2.SetOrganizationEnabledResponse, _abc.Awaitable[_identity_pb2.SetOrganizationEnabledResponse]]: ...
 
 def add_IdentityServiceServicer_to_server(servicer: IdentityServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

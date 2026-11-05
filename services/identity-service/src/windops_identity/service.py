@@ -29,6 +29,8 @@ from windops_identity.store import KeyReusedError, audit, created_before, record
 
 logger = logging.getLogger("windops.service")
 PERMISSION = "users.manage"
+TENANT_PERMISSION = "tenant.manage"
+_MAXIMUM_TENANT_NAME = 200
 STEP_UP = "This operation needs a recent second factor"
 DEADLINE_SECONDS = 3.0
 _TENANT = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
@@ -108,7 +110,9 @@ class IdentityService(identity_pb2_grpc.IdentityServiceServicer):
         self._keycloak = keycloak
         self._authorizer = authorizer
 
-    async def _allow(self, target_tenant_id: str, *, step_up: bool) -> tuple[VerifiedIdentity, str]:
+    async def _allow(
+        self, target_tenant_id: str, *, step_up: bool, permission: str = PERMISSION
+    ) -> tuple[VerifiedIdentity, str]:
         """Return the caller and the tenant they act in, or refuse."""
         identity = current_identity()
         tenant = target_tenant_id or identity.tenant_id
@@ -118,7 +122,7 @@ class IdentityService(identity_pb2_grpc.IdentityServiceServicer):
             raise PermissionDeniedError("Only a user can do this")
         # Authorization audits a denial, so it is not recorded twice here.
         target = "" if tenant == identity.tenant_id else tenant
-        if not await self._authorizer.allowed(PERMISSION, target):
+        if not await self._authorizer.allowed(permission, target):
             raise PermissionDeniedError("You do not have permission to do this")
         if step_up:
             try:
@@ -353,5 +357,67 @@ class IdentityService(identity_pb2_grpc.IdentityServiceServicer):
                 recovery_codes_configured="recovery-authn-codes" in kinds,
                 setup_required=bool(actions & {"CONFIGURE_TOTP", "CONFIGURE_RECOVERY_AUTHN_CODES"}),
             )
+
+        return await self._guarded(work())
+
+    async def CreateOrganization(  # noqa: N802  # The name comes from the contract.
+        self, request: identity_pb2.CreateOrganizationRequest, context: Any
+    ) -> identity_pb2.CreateOrganizationResponse:
+        identity, tenant = await self._allow(
+            request.target_tenant_id, step_up=True, permission=TENANT_PERMISSION
+        )
+        name = request.name.strip()
+        if not name or len(name) > _MAXIMUM_TENANT_NAME:
+            raise InvalidRequestError("A tenant name is required")
+
+        async def work() -> identity_pb2.CreateOrganizationResponse:
+            existing = await self._keycloak.organization(tenant)
+            if existing is not None:
+                if existing.get("name") != name:
+                    raise ConflictError("A tenant with this ID already exists")
+                return identity_pb2.CreateOrganizationResponse(
+                    organization_id=str(existing["id"]), created=False
+                )
+            organization = await self._keycloak.create_organization(tenant, name)
+            async with self._engine.begin() as connection:
+                await audit(
+                    connection,
+                    tenant_id=tenant,
+                    action="identity.organization.created",
+                    actor_id=identity.user_id or "",
+                    member_id=organization,
+                )
+            return identity_pb2.CreateOrganizationResponse(
+                organization_id=organization, created=True
+            )
+
+        return await self._guarded(work())
+
+    async def SetOrganizationEnabled(  # noqa: N802  # The name comes from the contract.
+        self, request: identity_pb2.SetOrganizationEnabledRequest, context: Any
+    ) -> identity_pb2.SetOrganizationEnabledResponse:
+        identity, tenant = await self._allow(
+            request.target_tenant_id, step_up=True, permission=TENANT_PERMISSION
+        )
+        if tenant == identity.tenant_id and not request.enabled:
+            raise InvalidRequestError("You cannot suspend your own tenant")
+
+        async def work() -> identity_pb2.SetOrganizationEnabledResponse:
+            current = await self._keycloak.organization(tenant)
+            if current is None:
+                raise NotFoundError("No such tenant")
+            if bool(current.get("enabled")) != request.enabled:
+                await self._keycloak.set_organization_enabled(current, request.enabled)
+                async with self._engine.begin() as connection:
+                    await audit(
+                        connection,
+                        tenant_id=tenant,
+                        action=(
+                            f"identity.organization.{'enabled' if request.enabled else 'disabled'}"
+                        ),
+                        actor_id=identity.user_id or "",
+                        member_id=str(current["id"]),
+                    )
+            return identity_pb2.SetOrganizationEnabledResponse(enabled=request.enabled)
 
         return await self._guarded(work())
