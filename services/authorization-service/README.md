@@ -59,5 +59,7 @@ make authorization-check   # on the cluster
   they cannot sign in to use them.
 - **No break-glass reason in the audit chain.** The break-glass reason is stored here, not in the audit chain, whose
   record has no field for it. The audit record names the grant.
+- **No row-level security on `idempotency_keys`.** The table is keyed by user, not tenant, and a stored answer is
+  replayed only after the caller is authorized again. Every table with a tenant has row-level security.
 - **Decisions are not cached.** Each one reads the database, which is fine at this size, and keeps a revoked role
   from working a moment longer.
