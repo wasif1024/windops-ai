@@ -13,6 +13,7 @@ package = false
 members = [
     "services/audit-service",
     "services/authorization-service",
+    "services/identity-service",
     "services/sample-caller-service",
     "services/sample-responder-service",
     "shared/auth",
@@ -40,6 +41,7 @@ windops-sample-caller = { workspace = true }
 windops-sample-responder = { workspace = true }
 windops-audit = { workspace = true }
 windops-authorization = { workspace = true }
+windops-identity = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -64,6 +66,8 @@ files = [
     "services/audit-service/tests",
     "services/authorization-service/src",
     "services/authorization-service/tests",
+    "services/identity-service/src",
+    "services/identity-service/tests",
     "services/sample-caller-service/src",
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
@@ -93,6 +97,8 @@ mypy_path = [
     "services/audit-service/tests",
     "services/authorization-service/src",
     "services/authorization-service/tests",
+    "services/identity-service/src",
+    "services/identity-service/tests",
     "services/sample-caller-service/src",
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
@@ -139,7 +145,7 @@ testpaths = [
     "shared/resilience/tests",
 ]
 addopts = "-ra --strict-markers --import-mode=importlib"
-pythonpath = ["shared/grpc/tests", "shared/resilience/tests"]
+pythonpath = ["shared/grpc/tests", "shared/resilience/tests", "services/identity-service/tests"]
 
 [dependency-groups]
 dev = [
@@ -164,6 +170,7 @@ dev = [
     "windops-contracts",
     "windops-events",
     "windops-grpc",
+    "windops-identity",
     "windops-migrations",
     "windops-observability",
     "windops-outbox",

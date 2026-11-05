@@ -143,6 +143,77 @@ def admin_client_settings() -> dict[str, Any]:
     return settings
 
 
+IDENTITY_CLIENT_ID = "windops-identity-service"
+IDENTITY_CLIENT_RESOURCE = "windops-identity-keycloak"
+# Keycloak lets nothing less than manage-realm read or change an organization's members. The
+# service limits itself to a fixed list of calls, in its keycloak.py.
+IDENTITY_ROLES = ("view-users", "query-users", "manage-users", "manage-realm")
+KEYCLOAK_URL = f"http://{SERVICE.split('/')[-1]}.{NAMESPACE}.svc.cluster.local:8080"
+
+
+def identity_client_settings() -> dict[str, Any]:
+    """A machine client with no browser login, only its own service account."""
+    return {
+        "clientId": IDENTITY_CLIENT_ID,
+        "enabled": True,
+        "publicClient": False,
+        "standardFlowEnabled": False,
+        "implicitFlowEnabled": False,
+        "directAccessGrantsEnabled": False,
+        "serviceAccountsEnabled": True,
+        "fullScopeAllowed": False,
+        "protocolMappers": [],
+    }
+
+
+def ensure_identity_client(api: httpx.Client) -> str:
+    """Create the Identity Service's client and roles, and return its secret."""
+    ensure_client(api, identity_client_settings())
+    client = api.get(f"/{REALM}/clients", params={"clientId": IDENTITY_CLIENT_ID})
+    client.raise_for_status()
+    client_id = client.json()[0]["id"]
+    account = api.get(f"/{REALM}/clients/{client_id}/service-account-user")
+    account.raise_for_status()
+    management = api.get(f"/{REALM}/clients", params={"clientId": "realm-management"})
+    management.raise_for_status()
+    management_id = management.json()[0]["id"]
+    roles = api.get(f"/{REALM}/clients/{management_id}/roles")
+    roles.raise_for_status()
+    wanted = [role for role in roles.json() if role["name"] in IDENTITY_ROLES]
+    if len(wanted) != len(IDENTITY_ROLES):
+        raise RuntimeError("Keycloak is missing a realm-management role")
+    api.post(
+        f"/{REALM}/users/{account.json()['id']}/role-mappings/clients/{management_id}",
+        json=wanted,
+    ).raise_for_status()
+    # The client does not carry every role into its tokens, so name the ones it may carry.
+    api.post(
+        f"/{REALM}/clients/{client_id}/scope-mappings/clients/{management_id}", json=wanted
+    ).raise_for_status()
+    secret = api.get(f"/{REALM}/clients/{client_id}/client-secret")
+    secret.raise_for_status()
+    return str(secret.json()["value"])
+
+
+def store_identity_client(secret: str) -> None:
+    """Give the secret only to the Identity Service's namespace, sent over stdin."""
+    manifest = {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": {"name": IDENTITY_CLIENT_RESOURCE, "namespace": NAMESPACE},
+        "type": "Opaque",
+        "stringData": {
+            "url": KEYCLOAK_URL,
+            "client-id": IDENTITY_CLIENT_ID,
+            "client-secret": secret,
+        },
+    }
+    subprocess.run(
+        ["kubectl", "--context", CONTEXT, "apply", "--filename=-"],
+        input=json.dumps(manifest), capture_output=True, text=True, check=True,
+    )  # fmt: skip
+
+
 def demo_admin_email(alias: str) -> str:
     return f"admin@{alias}.example"
 
@@ -412,6 +483,7 @@ def seed(
             required_actions=ADMIN_REQUIRED_ACTIONS,
         )
         ensure_member(api, platform_id, platform_admin)
+        store_identity_client(ensure_identity_client(api))
 
 
 def missing_demo_passwords(existing: dict[str, str]) -> dict[str, str]:

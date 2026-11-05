@@ -43,6 +43,7 @@ flowchart LR
     BFF --> Audit
     BFF --> Notification
     Identity --> Keycloak[("Keycloak")]
+    Identity --> Authorization
 ```
 
 ### 2. From a fault to a recommendation
@@ -133,7 +134,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | --- | --- | --- | --- |
 | API Gateway | Web BFF and the Telemetry device route, over HTTP | None | None |
 | Web BFF | The services behind each screen in SRS 4.11 | None | `case.updated`, for live progress |
-| Identity | Keycloak, over its admin API | Audit events | None |
+| Identity | Keycloak, over its admin API, and Authorization | Audit events | None |
 | Authorization | None | Audit events | None |
 | Tenant | None | Audit events | None |
 | Asset | None | `evidence.changed`, audit events | None |

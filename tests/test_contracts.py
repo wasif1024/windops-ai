@@ -18,7 +18,7 @@ PROTO_FILES = sorted(MODULE.rglob("*.proto"))
 
 STATE_CHANGING = re.compile(
     r"^(Create|Update|Delete|Set|Add|Remove|Submit|Approve|Reject|Cancel|Acknowledge|Reserve|Complete"
-    r"|Grant|Revoke|Start|End)"
+    r"|Grant|Revoke|Start|End|Disable|Reactivate)"
 )
 UNVERIFIED_IDENTITY_FIELDS = {"tenant_id", "user_id"}
 
