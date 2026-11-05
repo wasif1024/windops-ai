@@ -17,3 +17,7 @@ spec:
     - name: http
       port: 8080
       targetPort: http
+    # The API, over TLS. The gateway checks its certificate.
+    - name: https
+      port: 8443
+      targetPort: https

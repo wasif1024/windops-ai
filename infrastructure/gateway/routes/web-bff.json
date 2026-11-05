@@ -5,21 +5,77 @@
       "sampler": {
         "name": "always_on"
       }
+    },
+    "cors": {
+      "allow_origins": "http://localhost:5173",
+      "allow_methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+      "allow_headers": "Authorization,Content-Type,Idempotency-Key",
+      "expose_headers": "RateLimit-Limit,RateLimit-Remaining,RateLimit-Reset,Retry-After,WWW-Authenticate",
+      "max_age": 600,
+      "allow_credential": false
+    },
+    "limit-count": {
+      "count": 600,
+      "time_window": 60,
+      "key_type": "var",
+      "key": "remote_addr",
+      "rejected_code": 429,
+      "policy": "local",
+      "show_limit_quota_header": true
+    },
+    "openid-connect": {
+      "client_id": "windops-api",
+      "discovery": "https://windops-keycloak.windops-system.svc.cluster.local:8443/auth/realms/windops/.well-known/openid-configuration",
+      "bearer_only": true,
+      "use_jwks": true,
+      "ssl_verify": true,
+      "token_signing_alg_values_expected": "RS256",
+      "claim_validator": {
+        "issuer": {
+          "valid_issuers": [
+            "https://localhost:9443/auth/realms/windops"
+          ]
+        },
+        "audience": {
+          "claim": "aud",
+          "required": true,
+          "match_with_client_id": true
+        }
+      },
+      "claim_schema": {
+        "type": "object",
+        "required": [
+          "sub",
+          "tenant_id"
+        ],
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
     }
   },
   "upstream": {
     "type": "roundrobin",
+    "scheme": "https",
+    "pass_host": "node",
+    "tls": {
+      "verify": true
+    },
     "timeout": {
       "connect": 2,
       "send": 10,
       "read": 15
     },
     "nodes": {
-      "windops-web-bff.windops-system.svc.cluster.local:8080": 1
+      "windops-web-bff.windops-system.svc.cluster.local:8443": 1
     },
     "checks": {
       "active": {
-        "type": "http",
+        "type": "https",
+        "https_verify_certificate": true,
         "http_path": "/health/ready",
         "healthy": {
           "interval": 2,

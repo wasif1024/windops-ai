@@ -231,13 +231,17 @@ def keycloak_admin() -> Iterator[str]:
 
 
 @contextlib.contextmanager
-def keycloak_public() -> Iterator[str]:
-    """Yield Keycloak's public address, through the gateway, as a browser reaches it.
+def keycloak_public(*, through_gateway: bool = True) -> Iterator[str]:
+    """Yield Keycloak's public address, as a browser reaches it, through the gateway.
 
-    Its pages and redirects name this exact address, so the local port must be 9443.
+    Its pages and redirects name this exact address, so the local port must be 9443. Checks that
+    sign in many times a minute pass `through_gateway=False`, and reach Keycloak itself at the
+    same address, because the gateway allows 5 sign-ins a minute from one address (SRS 7.5).
+    Keycloak's own certificate is valid for localhost, so nothing else differs.
     """
     trust_cluster_ca()
-    with port_forward(GATEWAY, NAMESPACE, 443, local_port=PUBLIC_PORT):
+    target, port = (GATEWAY, 443) if through_gateway else (SERVICE, ADMIN_PORT)
+    with port_forward(target, NAMESPACE, port, local_port=PUBLIC_PORT):
         yield PUBLIC_URL
 
 

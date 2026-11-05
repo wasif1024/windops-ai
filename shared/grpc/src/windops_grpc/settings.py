@@ -29,6 +29,8 @@ class Settings:
     identity_secret: str = field(repr=False)
     grpc_port: int = 50051
     http_port: int = 8080
+    # Only used by a service that serves its HTTP API over TLS, such as Web BFF.
+    https_port: int = 8443
     log_level: str = "INFO"
     otlp_endpoint: str | None = None
     shutdown_grace_seconds: int = 20
@@ -57,6 +59,7 @@ class Settings:
             identity_secret=secret,
             grpc_port=_integer(env, "WINDOPS_GRPC_PORT", 50051),
             http_port=_integer(env, "WINDOPS_HTTP_PORT", 8080),
+            https_port=_integer(env, "WINDOPS_HTTPS_PORT", 8443),
             log_level=level,
             otlp_endpoint=env.get("WINDOPS_OTLP_ENDPOINT") or None,
             shutdown_grace_seconds=_integer(env, "WINDOPS_SHUTDOWN_GRACE_SECONDS", 20),

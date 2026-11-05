@@ -44,6 +44,8 @@ spec:
               containerPort: 50051
             - name: http
               containerPort: 8080
+            - name: https
+              containerPort: 8443
           envFrom:
             - configMapRef:
                 name: windops-web-bff-config

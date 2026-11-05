@@ -34,8 +34,24 @@ make gateway-forward  # reach it at http://127.0.0.1:9080
 
 `make gateway-check` proves it on the real cluster, using a throwaway service.
 
+## Policy
+
+| Route | What it checks |
+| --- | --- |
+| `/api/*`, to Web BFF | The Keycloak token: RS256, the fixed issuer, the `windops-api` audience, and exactly one `tenant_id` (SEC-005). CORS for the frontend's origin only, and 600 requests a minute from one address |
+| `/api/v1/public/*`, to Web BFF | No token, because sign-in pages need it first. CORS, and 60 requests a minute from one address |
+| `/auth/realms/windops/login-actions/*`, to Keycloak | 5 sign-in attempts a minute from one address (SRS 7.5) |
+| `/auth/realms/*`, to Keycloak | Only the sign-in pages. The admin API and the master realm are not routed |
+
+Web BFF checks tokens and applies per-user limits again, so neither layer depends on the other. `make
+gateway-policy-check` proves the policy on the cluster.
+
 ## Limits
 
-- It serves plain HTTP. M3.7 adds TLS, CORS and rate limits, and M3.1 adds OIDC checks.
+- **Per-address limits share one address in local checks.** They count by the address the gateway sees, so
+  checks arriving through a port-forward share `127.0.0.1`. Behind a cloud load balancer, the real client address
+  must be read from its forwarded header, set up in Phase 15.
+- **Limits are counted in each gateway pod.** They are kept in the pod's memory, so with two replicas a client could
+  get up to twice its limit. That is fine for one replica.
 - The root filesystem is writable, because APISIX generates its nginx configuration at startup.
 - etcd has no authentication. M13.3 limits who can reach it with NetworkPolicies.

@@ -28,9 +28,12 @@ data:
         # The CA that upstreams with HTTPS, such as Keycloak, must be signed by.
         ssl_trusted_certificate: /var/run/windops/trust/ca.crt
         ssl_protocols: TLSv1.2 TLSv1.3
-    # Only what routes use. M3.1 and M3.7 add token checks, CORS and rate limits.
+    # Only what routes use.
     plugins:
       - opentelemetry
+      - cors
+      - limit-count
+      - openid-connect
     stream_plugins: []
     nginx_config:
       worker_processes: 1

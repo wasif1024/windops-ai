@@ -60,8 +60,10 @@ make bff-check   # on the cluster, with real logins through the gateway
 
 ## Limits
 
-- **Plain HTTP from the gateway.** The gateway reaches Web BFF over plain HTTP inside the cluster. The next pull
-  request adds gateway policy, and TLS on this hop.
+- **The gateway is not authenticated to the BFF.** The gateway reaches Web BFF over HTTPS on port 8443, and checks
+  its certificate, but Web BFF does not ask the gateway for one. Another pod could call it directly and skip the
+  gateway's CORS and per-address limits, though never its token checks, which Web BFF repeats. M13.3's network
+  policies allow only the gateway to reach it.
 - **Clients are trusted to report their own class.** The limit class comes from the client a user signed in
   through, not from their roles. The administrators' client requires a second factor, so only administrators can
   get the higher limit.
@@ -69,5 +71,5 @@ make bff-check   # on the cluster, with real logins through the gateway
 - **No field-level validation messages yet.** A 400 says only that the request is not valid, not which field. The
   fix is gRPC's structured error reasons (`ErrorInfo`), mapped to messages here, with the administrator console
   (M3.9).
-- **No limits on public pages yet.** The public branding routes have no per-user limit. The gateway's per-address
-  limits come in the next pull request.
+- **Public pages have only per-address limits.** The public branding routes have no per-user limit. The gateway
+  allows 60 requests a minute from one address.

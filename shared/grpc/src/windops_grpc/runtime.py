@@ -49,6 +49,7 @@ class ServiceRuntime:
         readiness_checks: Sequence[ReadinessCheck] = (),
         http_router: APIRouter | None = None,
         http_exception_handlers: Mapping[type[Exception], ExceptionHandler] | None = None,
+        api_over_https: bool = False,
         install_global_telemetry: bool = True,
     ) -> None:
         self.name = name
@@ -57,6 +58,11 @@ class ServiceRuntime:
         self._readiness_checks = readiness_checks
         self._http_router = http_router
         self._http_exception_handlers = dict(http_exception_handlers or {})
+        # The API only over TLS, and plain HTTP only for probes and Prometheus, which carry no data.
+        self._api_over_https = api_over_https and settings.tls_dir is not None
+        self._https: _HttpServer | None = None
+        self._https_task: asyncio.Task[None] | None = None
+        self.https_port = settings.https_port
         self._install_global = install_global_telemetry
         self._health = health.aio.HealthServicer()
         self._serving = False
@@ -67,7 +73,7 @@ class ServiceRuntime:
         self.grpc_port = settings.grpc_port
         self.http_port = settings.http_port
 
-    def _http_app(self) -> FastAPI:
+    def _http_app(self, *, with_api: bool = True) -> FastAPI:
         app = FastAPI(title=self.name, docs_url=None, redoc_url=None, openapi_url=None)
 
         @app.get("/health/live")
@@ -84,11 +90,22 @@ class ServiceRuntime:
         async def metrics() -> Response:
             return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
-        if self._http_router is not None:
+        if with_api and self._http_router is not None:
             app.include_router(self._http_router)
         for kind, handler in self._http_exception_handlers.items():
             app.add_exception_handler(kind, handler)
         return app
+
+    @staticmethod
+    async def _serve(config: uvicorn.Config) -> tuple["_HttpServer", "asyncio.Task[None]"]:
+        server = _HttpServer(config)
+        task = asyncio.create_task(server.serve())
+        while not server.started:
+            if task.done():
+                task.result()
+                raise RuntimeError("The HTTP server stopped during startup")
+            await asyncio.sleep(0.01)
+        return server, task
 
     async def is_ready(self) -> bool:
         if not self._serving:
@@ -146,19 +163,25 @@ class ServiceRuntime:
         self._grpc = server
 
         config = uvicorn.Config(
-            self._http_app(),
+            self._http_app(with_api=not self._api_over_https),
             host="0.0.0.0",  # noqa: S104  # Kubernetes probes and Prometheus reach the pod address.
             port=settings.http_port,
             log_config=None,
             access_log=False,
         )
-        self._http = _HttpServer(config)
-        self._http_task = asyncio.create_task(self._http.serve())
-        while not self._http.started:
-            if self._http_task.done():
-                self._http_task.result()
-                raise RuntimeError("The HTTP server stopped during startup")
-            await asyncio.sleep(0.01)
+        self._http, self._http_task = await self._serve(config)
+        if self._api_over_https and settings.tls_dir is not None:
+            secure = uvicorn.Config(
+                self._http_app(),
+                host="0.0.0.0",  # noqa: S104  # The gateway reaches the pod address.
+                port=settings.https_port,
+                log_config=None,
+                access_log=False,
+                ssl_certfile=str(settings.tls_dir / "tls.crt"),
+                ssl_keyfile=str(settings.tls_dir / "tls.key"),
+            )
+            self._https, self._https_task = await self._serve(secure)
+            self.https_port = self._https.servers[0].sockets[0].getsockname()[1]
         self.http_port = self._http.servers[0].sockets[0].getsockname()[1]
 
         await self._set_serving(True)
@@ -171,6 +194,9 @@ class ServiceRuntime:
         if self._grpc is not None:
             await self._health.enter_graceful_shutdown()
             await self._grpc.stop(self._settings.shutdown_grace_seconds)
+        if self._https is not None and self._https_task is not None:
+            self._https.should_exit = True
+            await self._https_task
         if self._http is not None and self._http_task is not None:
             self._http.should_exit = True
             await self._http_task
@@ -186,6 +212,7 @@ async def run_service(
     readiness_checks: Sequence[ReadinessCheck] = (),
     http_router: APIRouter | None = None,
     http_exception_handlers: Mapping[type[Exception], ExceptionHandler] | None = None,
+    api_over_https: bool = False,
     background: Sequence[Background] = (),
 ) -> None:
     """Run a service until SIGTERM or SIGINT, then shut it down gracefully.
@@ -200,6 +227,7 @@ async def run_service(
         readiness_checks=readiness_checks,
         http_router=http_router,
         http_exception_handlers=http_exception_handlers,
+        api_over_https=api_over_https,
     )
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
