@@ -160,6 +160,31 @@ def test_platform_health_has_the_srs_indicators_available_so_far() -> None:
         assert indicator in titles
 
 
+def test_pod_health_table_comes_first_and_skips_finished_jobs() -> None:
+    """A finished migration Job's pod is never ready, which must not look like a problem."""
+    board = json.loads((DASHBOARDS / "platform-health.json").read_text())
+    table = board["panels"][0]
+    assert (table["title"], table["type"]) == ("Pod health", "table")
+    assert (table["gridPos"]["x"], table["gridPos"]["y"]) == (0, 0)
+    assert 'phase="Running"' in table["targets"][0]["expr"]
+    not_ready = next(panel for panel in board["panels"] if panel["title"] == "Pods not ready")
+    assert 'phase="Running"' in not_ready["targets"][0]["expr"]
+
+
+def test_pod_health_panels_do_not_overlap() -> None:
+    board = json.loads((DASHBOARDS / "platform-health.json").read_text())
+    cells: set[tuple[int, int]] = set()
+    for panel in board["panels"]:
+        grid = panel["gridPos"]
+        area = {
+            (x, y)
+            for x in range(grid["x"], grid["x"] + grid["w"])
+            for y in range(grid["y"], grid["y"] + grid["h"])
+        }
+        assert not cells & area, panel["title"]
+        cells |= area
+
+
 def test_platform_health_shows_every_data_store() -> None:
     """SRS 10.3."""
     titles = panel_titles("platform-health.json")
