@@ -36,6 +36,7 @@ def write(tmp_path: Path, body: str, phase: str = "expand", annotation: str = ":
         'op.alter_column("items", "note", nullable=True)',
         'op.execute("CREATE INDEX items_note ON items (note)")',
         "op.execute(\"UPDATE items SET note = 'dropped' WHERE note IS NULL\")",
+        'op.execute("CREATE TRIGGER t BEFORE TRUNCATE ON items EXECUTE FUNCTION f()")',
     ],
 )
 def test_safe_changes_pass_as_expand(tmp_path: Path, body: str) -> None:

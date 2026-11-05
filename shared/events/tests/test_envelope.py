@@ -6,6 +6,7 @@ from windops_events import (
     STREAMS,
     SUBJECTS,
     InvalidEventError,
+    audit_request_subject,
     build_envelope,
     parse_event,
 )
@@ -38,12 +39,14 @@ def test_every_srs_subject_has_a_message() -> None:
     }
     assert set(SUBJECTS) == expected
     fields = events_pb2.EventEnvelope.DESCRIPTOR.oneofs_by_name["payload"].fields
-    assert {field.name for field in fields} == set(SUBJECTS.values())
+    assert {field.name for field in fields} == {*SUBJECTS.values(), "audit_requested"}
 
 
 def test_every_subject_is_in_exactly_one_stream() -> None:
     stored = [subject for spec in STREAMS for subject in spec.subjects if "." in subject]
-    domain = [subject for subject in stored if not subject.startswith("deadletter")]
+    domain = [
+        subject for subject in stored if not subject.startswith(("deadletter", "audit.requested"))
+    ]
     assert sorted(domain) == sorted(SUBJECTS)
 
 
@@ -141,3 +144,41 @@ def test_a_consumer_refuses_bytes_that_are_not_an_event() -> None:
 def test_a_consumer_refuses_an_unknown_subject() -> None:
     with pytest.raises(InvalidEventError, match="Unknown"):
         parse_event("alarm.deleted", envelope_bytes())
+
+
+AUDIT = events_pb2.AuditRequested(action="role.changed", actor_id="u-1", outcome="succeeded")
+
+
+def test_an_audit_request_uses_its_services_own_subject() -> None:
+    subject = audit_request_subject("alarm")
+    envelope = build_envelope(subject, tenant_id="tenant-a", payload=AUDIT, producer="alarm")
+    event = parse_event(subject, envelope.SerializeToString())
+    assert subject == "audit.requested.alarm"
+    assert event.payload == AUDIT
+    assert event.producer == "alarm"
+
+
+def test_a_service_cannot_build_an_audit_request_in_anothers_name() -> None:
+    with pytest.raises(ValueError, match="cannot ask"):
+        build_envelope(
+            "audit.requested.approval", tenant_id="tenant-a", payload=AUDIT, producer="alarm"
+        )
+
+
+def test_a_consumer_refuses_a_request_whose_producer_differs_from_its_subject() -> None:
+    envelope = build_envelope(
+        "audit.requested.alarm", tenant_id="tenant-a", payload=AUDIT, producer="alarm"
+    )
+    with pytest.raises(InvalidEventError, match="producer"):
+        parse_event("audit.requested.approval", envelope.SerializeToString())
+
+
+@pytest.mark.parametrize("subject", ["audit.requested.", "audit.requested.a.b"])
+def test_a_malformed_audit_subject_is_refused(subject: str) -> None:
+    with pytest.raises(ValueError, match=r"Unknown|cannot ask"):
+        build_envelope(subject, tenant_id="tenant-a", payload=AUDIT, producer="alarm")
+
+
+def test_audit_requests_have_their_own_stream() -> None:
+    by_subject = {subject: spec for spec in STREAMS for subject in spec.subjects}
+    assert by_subject["audit.requested.*"].name == "WINDOPS_AUDIT"

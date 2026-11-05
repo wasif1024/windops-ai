@@ -61,3 +61,5 @@ These figures replace estimates as workloads are added. See
 | 2026-11-05 | Whole cluster with the stack, gateway, 2 sample services, PostgreSQL, Redis and Qdrant | 2.77 GiB of 10 GiB | From `docker stats` |
 | 2026-11-05 | NATS JetStream, with empty streams | 8 MiB | From `kubectl top` |
 | 2026-11-05 | Whole cluster with the stack, gateway, 2 sample services and all four data stores | 2.93 GiB of 10 GiB | From `docker stats` |
+| 2026-11-05 | Audit Service, with almost no work | 82 MiB | From `kubectl top` |
+| 2026-11-05 | Whole cluster with the stack, gateway, 3 services and all four data stores | 2.97 GiB of 10 GiB | From `docker stats` |

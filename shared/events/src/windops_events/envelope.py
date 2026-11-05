@@ -8,13 +8,27 @@ from datetime import UTC, datetime
 from google.protobuf.message import DecodeError, Message
 from windops.events.v1 import events_pb2
 
-from windops_events.streams import SUBJECTS
+from windops_events.streams import AUDIT_REQUEST_FIELD, AUDIT_REQUEST_PREFIX, SUBJECTS
 
 _TENANT = re.compile(r"[A-Za-z0-9_-]+")
 
 
 class InvalidEventError(ValueError):
     """An event is malformed, or breaks a rule, so a retry cannot help."""
+
+
+def _payload_field(subject: str) -> str | None:
+    """Return the envelope field that holds a subject's message, or None if it is unknown."""
+    if subject.startswith(f"{AUDIT_REQUEST_PREFIX}."):
+        return AUDIT_REQUEST_FIELD if subject.count(".") == 2 else None
+    return SUBJECTS.get(subject)
+
+
+def _producer_matches(subject: str, producer: str) -> bool:
+    """An audit request's subject names its service, which NATS permissions enforce."""
+    if not subject.startswith(f"{AUDIT_REQUEST_PREFIX}."):
+        return True
+    return subject.rpartition(".")[2] == producer
 
 
 @dataclass(frozen=True)
@@ -40,13 +54,15 @@ def build_envelope(
     request_id: str = "",
 ) -> events_pb2.EventEnvelope:
     """Return an envelope, refusing a missing tenant or the wrong message for the subject."""
-    field = SUBJECTS.get(subject)
+    field = _payload_field(subject)
     if field is None:
         raise ValueError(f"Unknown event subject: {subject!r}")
     if not _TENANT.fullmatch(tenant_id):
         raise ValueError("An event needs a valid tenant identifier (DAT-007)")
     if not producer:
         raise ValueError("An event needs its producer")
+    if not _producer_matches(subject, producer):
+        raise ValueError(f"{producer} cannot ask for an audit record on {subject}")
     expected = events_pb2.EventEnvelope.DESCRIPTOR.fields_by_name[field].message_type
     if expected is None or expected != payload.DESCRIPTOR:
         name = expected.name if expected else "another message"
@@ -65,7 +81,7 @@ def build_envelope(
 
 def parse_event(subject: str, data: bytes) -> Event:
     """Return the event in a message, or raise InvalidEventError (DAT-007)."""
-    field = SUBJECTS.get(subject)
+    field = _payload_field(subject)
     if field is None:
         raise InvalidEventError(f"Unknown event subject: {subject!r}")
     envelope = events_pb2.EventEnvelope()
@@ -79,6 +95,8 @@ def parse_event(subject: str, data: bytes) -> Event:
         raise InvalidEventError("The event has no identifier")
     if not envelope.producer:
         raise InvalidEventError("The event has no producer")
+    if not _producer_matches(subject, envelope.producer):
+        raise InvalidEventError("The event's producer does not match its subject")
     if envelope.WhichOneof("payload") != field:
         raise InvalidEventError(f"The event's message does not match {subject}")
     return Event(

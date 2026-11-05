@@ -5,6 +5,7 @@ requires-python = "==3.13.*"
 [manifest]
 members = [
     "windops-ai",
+    "windops-audit",
     "windops-cache",
     "windops-contracts",
     "windops-events",
@@ -1241,6 +1242,7 @@ dev = [
     { name = "ruff" },
     { name = "types-grpcio" },
     { name = "types-pyyaml" },
+    { name = "windops-audit" },
     { name = "windops-cache" },
     { name = "windops-contracts" },
     { name = "windops-events" },
@@ -1270,6 +1272,7 @@ dev = [
     { name = "ruff", specifier = ">=0.17.3" },
     { name = "types-grpcio", specifier = ">=1.85.0.20261028" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20261103" },
+    { name = "windops-audit", editable = "services/audit-service" },
     { name = "windops-cache", editable = "shared/cache" },
     { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-events", editable = "shared/events" },
@@ -1280,6 +1283,27 @@ dev = [
     { name = "windops-resilience", editable = "shared/resilience" },
     { name = "windops-sample-caller", editable = "services/sample-caller-service" },
     { name = "windops-sample-responder", editable = "services/sample-responder-service" },
+]
+
+[[package]]
+name = "windops-audit"
+version = "0.1.0"
+source = { editable = "services/audit-service" }
+dependencies = [
+    { name = "windops-contracts" },
+    { name = "windops-events" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-outbox" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-events", editable = "shared/events" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-outbox", editable = "shared/outbox" },
 ]
 
 [[package]]

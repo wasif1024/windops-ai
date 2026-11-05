@@ -1,0 +1,48 @@
+syntax = "proto3";
+package windops.audit.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Read-only. Records arrive only as events, so nothing can change one through this service.
+service AuditService {
+  rpc ListAuditRecords(ListAuditRecordsRequest) returns (ListAuditRecordsResponse);
+  rpc VerifyAuditChain(VerifyAuditChainRequest) returns (AuditChainVerification);
+}
+
+// The tenant comes from the caller's verified identity (GRP-004).
+message ListAuditRecordsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListAuditRecordsResponse {
+  repeated AuditRecord records = 1;
+  string next_page_token = 2;
+}
+
+message VerifyAuditChainRequest {}
+
+message AuditChainVerification {
+  bool valid = 1;
+  int64 records_checked = 2;
+  // The first record that does not match, when `valid` is false.
+  int64 first_invalid_sequence = 3;
+}
+
+message AuditRecord {
+  int64 sequence = 1;
+  string event_id = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+  google.protobuf.Timestamp recorded_at = 4;
+  string producer = 5;
+  string action = 6;
+  string actor_type = 7;
+  string actor_id = 8;
+  string on_behalf_of = 9;
+  string resource_type = 10;
+  string resource_id = 11;
+  string outcome = 12;
+  string correlation_id = 13;
+  string previous_hash = 14;
+  string record_hash = 15;
+}

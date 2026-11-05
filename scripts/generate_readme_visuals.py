@@ -532,7 +532,7 @@ SECURITY_LAYERS = (
         (
             Control("Each service has its own database and credentials"),
             Control("Tenant isolation in the database, with row-level security", "M3.6"),
-            Control("Audit records are append-only and tamper-evident", "M2.7"),
+            Control("Audit records are append-only and tamper-evident"),
         ),
     ),
     Layer(
@@ -675,7 +675,7 @@ def build_security_layers() -> None:
     c.text(
         40, 92,
         "In place means built and tested in the shared code and templates. "
-        "No real business service runs yet.",
+        "Only the Audit Service and sample services run so far.",
         14.5, color=MUTED,
     )  # fmt: skip
     draw_control_marker(c, 1048, 36, False)
@@ -832,7 +832,7 @@ HOP_CONTROLS = (
             Control("Each service has its own database and credentials"),
             Control("Databases are not reachable from outside the cluster"),
             Control("Tenant isolation in the database, with row-level security", "M3.6"),
-            Control("Audit records are append-only and tamper-evident", "M2.7"),
+            Control("Audit records are append-only and tamper-evident"),
         ),
     ),
 )
@@ -1240,7 +1240,7 @@ def build_end_to_end() -> None:
     c.text(
         40,
         66,
-        "Target design from SRS v1.1. Only the platform and sample services run today.",
+        "Target design from SRS v1.1. Only the platform, Audit and sample services run today.",
         16,
         color=MUTED,
     )

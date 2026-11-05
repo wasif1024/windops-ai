@@ -23,6 +23,8 @@ logger = logging.getLogger("windops.service")
 
 ReadinessCheck = Callable[[], Awaitable[bool]]
 Register = Callable[[grpc.aio.Server], None]
+# Work that runs beside the servers, such as an event consumer. It returns once `stop` is set.
+Background = Callable[[asyncio.Event], Awaitable[None]]
 
 
 class _HttpServer(uvicorn.Server):
@@ -172,8 +174,12 @@ async def run_service(
     *,
     readiness_checks: Sequence[ReadinessCheck] = (),
     http_router: APIRouter | None = None,
+    background: Sequence[Background] = (),
 ) -> None:
-    """Run a service until SIGTERM or SIGINT, then shut it down gracefully."""
+    """Run a service until SIGTERM or SIGINT, then shut it down gracefully.
+
+    If background work fails, the service stops and raises, so Kubernetes restarts it.
+    """
     runtime = ServiceRuntime(
         name,
         Settings.from_env(os.environ),
@@ -186,5 +192,16 @@ async def run_service(
     for signal_number in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(signal_number, stop.set)
     await runtime.start()
-    await stop.wait()
+    tasks = [asyncio.create_task(_await(item(stop))) for item in background]
+    stopping = asyncio.create_task(stop.wait())
+    await asyncio.wait([stopping, *tasks], return_when=asyncio.FIRST_COMPLETED)
+    stop.set()
     await runtime.stop()
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result
+
+
+async def _await(work: Awaitable[None]) -> None:
+    await work

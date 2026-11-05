@@ -19,8 +19,18 @@ SUBJECTS = {
     "workorder.completed": "work_order_completed",
     "audit.recorded": "audit_recorded",
 }
+# Each service asks for records on its own subject, such as audit.requested.alarm, and may publish
+# only there. So the subject proves which service is asking.
+AUDIT_REQUEST_PREFIX = "audit.requested"
+AUDIT_REQUEST_FIELD = "audit_requested"
+AUDIT_REQUEST_SUBJECTS = f"{AUDIT_REQUEST_PREFIX}.*"
 DEAD_LETTER_STREAM = "WINDOPS_DEAD_LETTER"
 DEAD_LETTER_PREFIX = "deadletter"
+
+
+def audit_request_subject(service: str) -> str:
+    """Return the only subject a service may use to ask for an audit record."""
+    return f"{AUDIT_REQUEST_PREFIX}.{service}"
 
 
 @dataclass(frozen=True)
@@ -42,5 +52,7 @@ STREAMS = (
         7 * DAY_SECONDS,
         512 * MEBIBYTE,
     ),
+    # Separate and long-lived, because these must reach the authoritative record (EVT-004).
+    StreamSpec("WINDOPS_AUDIT", (AUDIT_REQUEST_SUBJECTS,), 30 * DAY_SECONDS, 256 * MEBIBYTE),
     StreamSpec(DEAD_LETTER_STREAM, (f"{DEAD_LETTER_PREFIX}.>",), 30 * DAY_SECONDS, 128 * MEBIBYTE),
 )

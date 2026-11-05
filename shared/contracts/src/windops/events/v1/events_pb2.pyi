@@ -79,6 +79,7 @@ class EventEnvelope(_message.Message):
     APPROVAL_DECIDED_FIELD_NUMBER: _builtins.int
     WORK_ORDER_COMPLETED_FIELD_NUMBER: _builtins.int
     AUDIT_RECORDED_FIELD_NUMBER: _builtins.int
+    AUDIT_REQUESTED_FIELD_NUMBER: _builtins.int
     event_id: _builtins.str
     """Stable across retries, so consumers and JetStream can recognize a duplicate (EVT-003)."""
     tenant_id: _builtins.str
@@ -109,6 +110,8 @@ class EventEnvelope(_message.Message):
     def work_order_completed(self) -> Global___WorkOrderCompleted: ...
     @_builtins.property
     def audit_recorded(self) -> Global___AuditRecorded: ...
+    @_builtins.property
+    def audit_requested(self) -> Global___AuditRequested: ...
     def __init__(
         self,
         *,
@@ -128,12 +131,13 @@ class EventEnvelope(_message.Message):
         approval_decided: Global___ApprovalDecided | None = ...,
         work_order_completed: Global___WorkOrderCompleted | None = ...,
         audit_recorded: Global___AuditRecorded | None = ...,
+        audit_requested: Global___AuditRequested | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["alarm_changed", b"alarm_changed", "approval_decided", b"approval_decided", "audit_recorded", b"audit_recorded", "case_updated", b"case_updated", "evidence_changed", b"evidence_changed", "fault_detected", b"fault_detected", "occurred_at", b"occurred_at", "payload", b"payload", "telemetry_quality", b"telemetry_quality", "telemetry_received", b"telemetry_received", "work_order_completed", b"work_order_completed", "work_order_submitted", b"work_order_submitted"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["alarm_changed", b"alarm_changed", "approval_decided", b"approval_decided", "audit_recorded", b"audit_recorded", "audit_requested", b"audit_requested", "case_updated", b"case_updated", "evidence_changed", b"evidence_changed", "fault_detected", b"fault_detected", "occurred_at", b"occurred_at", "payload", b"payload", "telemetry_quality", b"telemetry_quality", "telemetry_received", b"telemetry_received", "work_order_completed", b"work_order_completed", "work_order_submitted", b"work_order_submitted"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["alarm_changed", b"alarm_changed", "approval_decided", b"approval_decided", "audit_recorded", b"audit_recorded", "case_updated", b"case_updated", "event_id", b"event_id", "evidence_changed", b"evidence_changed", "fault_detected", b"fault_detected", "occurred_at", b"occurred_at", "payload", b"payload", "producer", b"producer", "request_id", b"request_id", "telemetry_quality", b"telemetry_quality", "telemetry_received", b"telemetry_received", "tenant_id", b"tenant_id", "trace_parent", b"trace_parent", "work_order_completed", b"work_order_completed", "work_order_submitted", b"work_order_submitted"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["alarm_changed", b"alarm_changed", "approval_decided", b"approval_decided", "audit_recorded", b"audit_recorded", "audit_requested", b"audit_requested", "case_updated", b"case_updated", "event_id", b"event_id", "evidence_changed", b"evidence_changed", "fault_detected", b"fault_detected", "occurred_at", b"occurred_at", "payload", b"payload", "producer", b"producer", "request_id", b"request_id", "telemetry_quality", b"telemetry_quality", "telemetry_received", b"telemetry_received", "tenant_id", b"tenant_id", "trace_parent", b"trace_parent", "work_order_completed", b"work_order_completed", "work_order_submitted", b"work_order_submitted"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    _WhichOneofReturnType_payload: _TypeAlias = _typing.Literal["telemetry_received", "telemetry_quality", "alarm_changed", "fault_detected", "case_updated", "evidence_changed", "work_order_submitted", "approval_decided", "work_order_completed", "audit_recorded"]  # noqa: Y015
+    _WhichOneofReturnType_payload: _TypeAlias = _typing.Literal["telemetry_received", "telemetry_quality", "alarm_changed", "fault_detected", "case_updated", "evidence_changed", "work_order_submitted", "approval_decided", "work_order_completed", "audit_recorded", "audit_requested"]  # noqa: Y015
     _WhichOneofArgType_payload: _TypeAlias = _typing.Literal["payload", b"payload"]  # noqa: Y015
     def WhichOneof(self, oneof_group: _WhichOneofArgType_payload) -> _WhichOneofReturnType_payload | None: ...
 
@@ -368,6 +372,54 @@ class WorkOrderCompleted(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___WorkOrderCompleted: _TypeAlias = WorkOrderCompleted  # noqa: Y015
+
+@_typing.final
+class AuditRequested(_message.Message):
+    """Asks the Audit Service to record something (FR-AUD-001). Sent on `audit.requested.<service>`, so a
+    service cannot file a request in another's name.
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    ACTION_FIELD_NUMBER: _builtins.int
+    ACTOR_TYPE_FIELD_NUMBER: _builtins.int
+    ACTOR_ID_FIELD_NUMBER: _builtins.int
+    ON_BEHALF_OF_FIELD_NUMBER: _builtins.int
+    RESOURCE_TYPE_FIELD_NUMBER: _builtins.int
+    RESOURCE_ID_FIELD_NUMBER: _builtins.int
+    OUTCOME_FIELD_NUMBER: _builtins.int
+    CORRELATION_ID_FIELD_NUMBER: _builtins.int
+    action: _builtins.str
+    actor_type: _builtins.str
+    """For example "user", "agent" or "service"."""
+    actor_id: _builtins.str
+    on_behalf_of: _builtins.str
+    """The user or service principal behind an agent (SEC-010)."""
+    resource_type: _builtins.str
+    resource_id: _builtins.str
+    outcome: _builtins.str
+    """For example "succeeded", "denied" or "failed"."""
+    correlation_id: _builtins.str
+    """Shared with LangSmith traces (OBS-008)."""
+    def __init__(
+        self,
+        *,
+        action: _builtins.str = ...,
+        actor_type: _builtins.str = ...,
+        actor_id: _builtins.str = ...,
+        on_behalf_of: _builtins.str = ...,
+        resource_type: _builtins.str = ...,
+        resource_id: _builtins.str = ...,
+        outcome: _builtins.str = ...,
+        correlation_id: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "actor_id", b"actor_id", "actor_type", b"actor_type", "correlation_id", b"correlation_id", "on_behalf_of", b"on_behalf_of", "outcome", b"outcome", "resource_id", b"resource_id", "resource_type", b"resource_type"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___AuditRequested: _TypeAlias = AuditRequested  # noqa: Y015
 
 @_typing.final
 class AuditRecorded(_message.Message):

@@ -5,7 +5,7 @@ This page shows how all 23 services connect, and what happens when one of them f
 **How far to trust it:** the SRS defines the MCP calls, the workflow, who owns what and the failure
 behaviors below. It does not list every service-to-service call, so the links here are a design
 worked out from it. A module that builds a link confirms or corrects that link here, in its own pull
-request. Today only the sample services and PostgreSQL run.
+request. Today only the platform, the data stores, the Audit Service and the sample services run.
 
 ## How services connect
 
@@ -151,7 +151,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | Maintenance | Asset, Policy, Inventory | `workorder.submitted`, `workorder.completed`, audit events | `approval.decided` |
 | Inventory | None | `evidence.changed`, audit events | None |
 | Approval | Maintenance, Investigation, Policy | `approval.decided`, audit events | `workorder.submitted` |
-| Audit | None | `audit.recorded` | Audit events from every service |
+| Audit | None | `audit.recorded` | `audit.requested.*`, the audit events from every service |
 | Notification | Email provider | Audit events | `case.updated`, `workorder.submitted`, `approval.decided` |
 | Evaluation | Agent Runtime, LangSmith | Audit events | None |
 

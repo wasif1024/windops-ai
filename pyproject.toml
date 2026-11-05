@@ -11,6 +11,7 @@ package = false
 
 [tool.uv.workspace]
 members = [
+    "services/audit-service",
     "services/sample-caller-service",
     "services/sample-responder-service",
     "shared/cache",
@@ -34,6 +35,7 @@ windops-grpc = { workspace = true }
 windops-contracts = { workspace = true }
 windops-sample-caller = { workspace = true }
 windops-sample-responder = { workspace = true }
+windops-audit = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -54,6 +56,8 @@ python_version = "3.13"
 strict = true
 files = [
     "scripts",
+    "services/audit-service/src",
+    "services/audit-service/tests",
     "services/sample-caller-service/src",
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
@@ -77,13 +81,15 @@ files = [
 explicit_package_bases = true
 mypy_path = [
     "scripts",
-    "shared/contracts/src",
+    "services/audit-service/src",
+    "services/audit-service/tests",
     "services/sample-caller-service/src",
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
     "services/sample-responder-service/tests",
     "shared/cache/src",
     "shared/cache/tests",
+    "shared/contracts/src",
     "shared/events/src",
     "shared/events/tests",
     "shared/grpc/src",
@@ -137,6 +143,7 @@ dev = [
     "ruff>=0.17.3",
     "types-grpcio>=1.85.0.20261028",
     "types-pyyaml>=6.0.12.20261103",
+    "windops-audit",
     "windops-cache",
     "windops-contracts",
     "windops-events",

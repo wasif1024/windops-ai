@@ -9,6 +9,7 @@ the cluster. Services use [windops-events](../../../shared/events/README.md).
 | --- | --- | --- | --- |
 | `WINDOPS_TELEMETRY` | `telemetry.received`, `telemetry.quality` | 1 day | 512 MiB |
 | `WINDOPS_EVENTS` | The other 8 subjects in SRS 7.6 | 7 days | 512 MiB |
+| `WINDOPS_AUDIT` | `audit.requested.<service>` | 30 days | 256 MiB |
 | `WINDOPS_DEAD_LETTER` | `deadletter.<consumer>` | 30 days | 128 MiB |
 
 Telemetry has its own stream, so its volume cannot push an approval out of storage. When a stream reaches
@@ -21,6 +22,7 @@ Each service has a login, in the Secret `windops-<service>-events` in its namesp
 
 - A service can publish only the subjects it owns, as listed in `PUBLISHERS` in `scripts/nats_access.py`.
   Only Approval can publish `approval.decided`, for example.
+- A service that stores data can ask for audit records only on `audit.requested.<its own name>`.
 - Any service can create consumers and read events, because events hold identifiers, not evidence.
 - Only the `windops_admin` login can create, change or delete a stream.
 
@@ -70,7 +72,6 @@ their events held in the outbox until it returns, once M2.6 builds that (SRS 7.7
   its metrics (EVT-003).
 - Any login can subscribe to `_INBOX.>`, the reply subjects, so a service could read replies meant for
   another. Events hold identifiers, not evidence.
-- The audit events services send, and the queued agent runs, have no subjects yet. M2.7 and M8.2 add them
-  as they build those flows, because SRS 7.6 lists only the initial subjects.
+- Queued agent runs have no subject yet. M8.2 adds one, because SRS 7.6 lists only the initial subjects.
 - One server means no failover. A production deployment would run three (ADR 0003 has the same reasoning
   for PostgreSQL).

@@ -9,7 +9,7 @@ import pytest
 from fastapi import APIRouter
 from grpc_harness import running_service, settings, token
 from grpc_health.v1 import health_pb2, health_pb2_grpc
-from windops_grpc import ServiceRuntime
+from windops_grpc import ServiceRuntime, run_service
 
 GOOD = (("x-windops-identity", token()),)
 SERVING = health_pb2.HealthCheckResponse.SERVING
@@ -170,3 +170,35 @@ def test_a_service_can_add_http_routes() -> None:
             root.setLevel(saved_level)
 
     asyncio.run(scenario())
+
+
+@pytest.fixture
+def service_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("WINDOPS_ENVIRONMENT", "test")
+    monkeypatch.setenv("WINDOPS_VERSION", "test")
+    monkeypatch.setenv("WINDOPS_IDENTITY_SECRET", "x" * 32)
+    monkeypatch.setenv("WINDOPS_GRPC_PORT", "0")
+    monkeypatch.setenv("WINDOPS_HTTP_PORT", "0")
+
+
+@pytest.mark.usefixtures("service_env")
+def test_background_work_finishes_before_the_service_exits() -> None:
+    finished = False
+
+    async def work(stop: asyncio.Event) -> None:
+        nonlocal finished
+        stop.set()
+        await asyncio.sleep(0)
+        finished = True
+
+    asyncio.run(run_service("background-check", lambda server: None, background=[work]))
+    assert finished
+
+
+@pytest.mark.usefixtures("service_env")
+def test_failed_background_work_stops_the_service_with_its_error() -> None:
+    async def work(stop: asyncio.Event) -> None:
+        raise LookupError("broken")
+
+    with pytest.raises(LookupError, match="broken"):
+        asyncio.run(run_service("background-check", lambda server: None, background=[work]))

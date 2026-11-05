@@ -26,6 +26,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from windops.events.v1 import events_pb2
 from windops_events import EventsUnavailableError, PublishedEvent, build_envelope
@@ -191,7 +192,15 @@ class OutboxRelay:
     async def run_forever(self, stop: asyncio.Event) -> None:
         """Keep sending until told to stop, waiting longer while JetStream is down."""
         while not stop.is_set():
-            result = await self.run_once()
+            try:
+                result = await self.run_once()
+            except SQLAlchemyError as error:
+                # A database outage must not restart the service (RES-006).
+                logger.warning(
+                    "The outbox relay cannot reach the database, and will retry",
+                    extra={"error_type": type(error).__name__},
+                )
+                result = RelayResult(0, 0, unavailable=True)
             if result.unavailable:
                 delay = UNAVAILABLE_SECONDS
             elif result.published or result.failed:

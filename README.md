@@ -36,8 +36,8 @@ breakers respond to a failure. Select it to see it full size.
 
 [![Layers from the client to external providers, with the security controls at each. The React frontend reaches the API Gateway over HTTPS, and Web BFF calls services over gRPC with a signed identity, deadline and trace. Agents reach services only through MCP tools. Each service reaches only its own data, and shares events through NATS JetStream. Kubernetes surrounds the edge, agents, services and data, and only named paths leave the cluster. Each layer lists its controls, marked as in place today or planned with the module that delivers them. A strip shows the progress of all 14 delivery phases.](docs/assets/security-layers.png)](docs/assets/security-layers.png)
 
-A green dot marks a control that is built and tested in the shared code and templates. No real
-business service runs yet, so these apply once services are built on them. A hollow amber dot marks a
+A green dot marks a control that is built and tested in the shared code and templates. Only the Audit
+Service and sample services run so far, so most apply once services are built on them. A hollow amber dot marks a
 planned control, with the module that delivers it. Tests fail if a cited module does not exist, or if a
 control is still shown as planned after its modules are finished.
 
