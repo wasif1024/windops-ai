@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from sqlalchemy import Column, Integer, MetaData, Table, insert, select, update
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import StaticPool
 from windops.events.v1 import events_pb2
@@ -18,6 +18,7 @@ from windops_migrations import find_violations
 from windops_outbox import (
     OUTBOX_TABLE,
     OutboxRelay,
+    RelayResult,
     add_event,
     create_outbox_table,
     outbox_status,
@@ -305,3 +306,26 @@ def test_the_table_migration_is_an_expand_step(tmp_path: Path) -> None:
         "    create_outbox_table(op.get_bind())\n"
     )
     assert find_violations(path) == []
+
+
+def test_a_database_outage_does_not_stop_the_relay(monkeypatch: pytest.MonkeyPatch) -> None:
+    """RES-006: the service must not restart because its database is down."""
+
+    async def scenario() -> None:
+        engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+        relay = OutboxRelay(engine, FakePublisher())
+        calls = 0
+        stop = asyncio.Event()
+
+        async def fail() -> RelayResult:
+            nonlocal calls
+            calls += 1
+            stop.set()
+            raise OperationalError("SELECT 1", {}, Exception("down"))
+
+        monkeypatch.setattr(relay, "run_once", fail)
+        await asyncio.wait_for(relay.run_forever(stop), timeout=5)
+        assert calls == 1
+        await engine.dispose()
+
+    asyncio.run(scenario())

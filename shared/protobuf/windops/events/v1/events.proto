@@ -26,6 +26,7 @@ message EventEnvelope {
     ApprovalDecided approval_decided = 17;
     WorkOrderCompleted work_order_completed = 18;
     AuditRecorded audit_recorded = 19;
+    AuditRequested audit_requested = 20;
   }
 }
 
@@ -97,6 +98,23 @@ enum ApprovalDecision {
 message WorkOrderCompleted {
   string work_order_id = 1;
   google.protobuf.Timestamp completed_at = 2;
+}
+
+// Asks the Audit Service to record something (FR-AUD-001). Sent on `audit.requested.<service>`, so a
+// service cannot file a request in another's name.
+message AuditRequested {
+  string action = 1;
+  // For example "user", "agent" or "service".
+  string actor_type = 2;
+  string actor_id = 3;
+  // The user or service principal behind an agent (SEC-010).
+  string on_behalf_of = 4;
+  string resource_type = 5;
+  string resource_id = 6;
+  // For example "succeeded", "denied" or "failed".
+  string outcome = 7;
+  // Shared with LangSmith traces (OBS-008).
+  string correlation_id = 8;
 }
 
 message AuditRecorded {

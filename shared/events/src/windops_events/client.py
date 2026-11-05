@@ -31,6 +31,10 @@ PUBLISH_TIMEOUT_SECONDS = 2.0
 Handler = Callable[[Event], Awaitable[None]]
 
 
+class RetryLaterError(Exception):
+    """A handler's own dependency is down. The event is fine, so this never dead-letters it."""
+
+
 class EventsUnavailableError(ConnectionError):
     """JetStream cannot take the event. A ConnectionError, so it counts against the breaker."""
 
@@ -200,6 +204,17 @@ class EventConsumer:
             await self._handler(event)
         except asyncio.CancelledError:
             raise
+        except InvalidEventError as error:
+            # The handler found what parsing could not, and a retry cannot help.
+            await self._dead_letter(message, "invalid", error)
+            return
+        except RetryLaterError as error:
+            logger.warning(
+                "Event handler's dependency is down, so the event will wait",
+                extra={"event_id": event.event_id, "error_type": type(error).__name__},
+            )
+            await message.nak(delay=self._retry_delay)
+            return
         except Exception as error:
             if message.metadata.num_delivered >= self._max_attempts:
                 await self._dead_letter(message, "failed", error)

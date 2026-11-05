@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 from provision_postgres import ADMIN_KEY, SERVICE_NAMESPACES, database_name
+from windops_events import audit_request_subject
 
 NAMESPACE = "windops-data"
 ADMIN_USER = "windops_admin"
@@ -52,6 +53,8 @@ def _service_user(service: str, password: str) -> dict[str, object]:
             "publish": {
                 "allow": [
                     *PUBLISHERS.get(service, ()),
+                    # Its own subject only, and only with an outbox to send it from (EVT-004).
+                    *([audit_request_subject(service)] if service in SERVICE_NAMESPACES else []),
                     "deadletter.>",
                     "$JS.API.>",
                     "$JS.ACK.>",

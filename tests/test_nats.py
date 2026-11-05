@@ -14,7 +14,7 @@ from windops_events import SUBJECTS
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from local_secrets import nats_secrets
 from nats_access import EVENT_SERVICES, PUBLISHERS, configuration
-from provision_postgres import ADMIN_KEY, database_name
+from provision_postgres import ADMIN_KEY, SERVICE_NAMESPACES, database_name
 
 ROOT = Path(__file__).resolve().parent.parent
 STACK = ROOT / "infrastructure" / "kubernetes" / "base" / "data"
@@ -116,6 +116,18 @@ def test_a_service_can_publish_only_the_subjects_it_owns(service: str) -> None:
     domain = {subject for subject in allowed if subject in SUBJECTS}
     assert domain == set(PUBLISHERS.get(service, ()))
     assert ">" not in allowed
+
+
+@pytest.mark.parametrize("service", sorted(SERVICE_NAMESPACES))
+def test_a_service_can_ask_for_audit_records_only_in_its_own_name(service: str) -> None:
+    allowed = users()[database_name(service)]["permissions"]["publish"]["allow"]
+    requests = [subject for subject in allowed if subject.startswith("audit.requested")]
+    assert requests == [f"audit.requested.{service}"]
+
+
+def test_a_service_with_no_database_cannot_ask_for_audit_records() -> None:
+    allowed = users()[database_name("web-bff")]["permissions"]["publish"]["allow"]
+    assert not [subject for subject in allowed if subject.startswith("audit.requested")]
 
 
 def test_only_approval_can_publish_a_decision() -> None:

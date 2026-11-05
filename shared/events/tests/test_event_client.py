@@ -19,6 +19,8 @@ from windops_events import (
     EventConsumer,
     EventPublisher,
     EventsUnavailableError,
+    InvalidEventError,
+    RetryLaterError,
     StreamSpec,
     build_envelope,
     ensure_streams,
@@ -328,3 +330,30 @@ async def test_an_existing_stream_is_updated_to_match() -> None:
     admin = FakeStreamAdmin(exists=True)
     await ensure_streams(cast(JetStreamContext, admin), SPEC)
     assert [action for action, _ in admin.calls] == ["add", "update"]
+
+
+@run_async
+async def test_a_dependency_outage_never_dead_letters_an_event() -> None:
+    """The event is fine, so however long the outage lasts, it must wait."""
+    fake = FakeJetStream()
+
+    async def handler(event: Event) -> None:
+        raise RetryLaterError("database down")
+
+    message = FakeMessage(valid_event(), delivered=500)
+    await consumer_for(fake, handler).handle(as_msg(message))
+    assert message.outcomes == ["nak"]
+    assert fake.published == []
+
+
+@run_async
+async def test_a_handler_can_reject_an_event_as_invalid_at_once() -> None:
+    fake = FakeJetStream()
+
+    async def handler(event: Event) -> None:
+        raise InvalidEventError("missing a required field")
+
+    message = FakeMessage(valid_event(), delivered=1)
+    await consumer_for(fake, handler).handle(as_msg(message))
+    assert message.outcomes == ["term"]
+    assert fake.published[0][2]["Windops-Reason"] == "invalid"

@@ -5,20 +5,24 @@ from windops_events.client import (
     EventPublisher,
     EventsUnavailableError,
     PublishedEvent,
+    RetryLaterError,
     connect,
     ensure_streams,
     events_breaker,
 )
 from windops_events.envelope import Event, InvalidEventError, build_envelope, parse_event
 from windops_events.streams import (
+    AUDIT_REQUEST_SUBJECTS,
     DEAD_LETTER_PREFIX,
     DEAD_LETTER_STREAM,
     STREAMS,
     SUBJECTS,
     StreamSpec,
+    audit_request_subject,
 )
 
 __all__ = [
+    "AUDIT_REQUEST_SUBJECTS",
     "DEAD_LETTER_PREFIX",
     "DEAD_LETTER_STREAM",
     "STREAMS",
@@ -29,7 +33,9 @@ __all__ = [
     "EventsUnavailableError",
     "InvalidEventError",
     "PublishedEvent",
+    "RetryLaterError",
     "StreamSpec",
+    "audit_request_subject",
     "build_envelope",
     "connect",
     "ensure_streams",

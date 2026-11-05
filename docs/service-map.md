@@ -151,7 +151,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | Maintenance | Asset, Policy, Inventory | `workorder.submitted`, `workorder.completed`, audit events | `approval.decided` |
 | Inventory | None | `evidence.changed`, audit events | None |
 | Approval | Maintenance, Investigation, Policy | `approval.decided`, audit events | `workorder.submitted` |
-| Audit | None | `audit.recorded` | Audit events from every service |
+| Audit | None | `audit.recorded` | `audit.requested.*`, the audit events from every service |
 | Notification | Email provider | Audit events | `case.updated`, `workorder.submitted`, `approval.decided` |
 | Evaluation | Agent Runtime, LangSmith | Audit events | None |
 

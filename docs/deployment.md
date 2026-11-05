@@ -35,6 +35,7 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make nats-check` | Events survive a restart, only a subject's owner can publish it, failures reach the dead-letter stream, and an outage is reported |
 | `make migrate-check` | Migration Jobs apply once, repeat safely, undo a failure, and cannot collide |
 | `make outbox-check` | A state change and its event commit together, wait out a JetStream outage, and are not stored twice |
+| `make audit-check` | A repeated event makes one record, records cannot change, tampering is detected, and outages lose nothing |
 | `make phase-1-gate` | A call is traced through the gateway, and its breaker opens under a fault |
 
 ## Data
