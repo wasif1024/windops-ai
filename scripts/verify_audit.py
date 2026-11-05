@@ -23,6 +23,7 @@ from provision_postgres import ADMIN_KEY, CONTEXT, POD, database_name, read_pass
 from provision_postgres import ADMIN_USER as POSTGRES_ADMIN
 from provision_postgres import NAMESPACE as DATA
 from run_migrations import job_manifests, run_job
+from tls_client import async_channel, client_bundle
 from verify_cluster import minikube_docker_env
 from windops.audit.v1 import audit_pb2, audit_pb2_grpc
 from windops.events.v1 import events_pb2
@@ -33,6 +34,7 @@ REPOSITORY = Path(__file__).resolve().parent.parent
 APPLICATION = "windops-application"
 DEPLOYMENT = "deployment/windops-audit"
 IMAGE = "windops-audit:local"
+AUDIT_HOST = "windops-audit.windops-application.svc.cluster.local"
 DATABASE = database_name("audit")
 RUN = uuid.uuid4().hex[:8]
 TENANT = f"audit-check-{RUN}"
@@ -110,7 +112,7 @@ def restarts() -> int:
 
 class AuditApi:
     def __init__(self, port: int, secret: str) -> None:
-        self._channel = grpc.aio.insecure_channel(f"127.0.0.1:{port}")
+        self._channel = async_channel(port, AUDIT_HOST, client_bundle())
         self._stub = audit_pb2_grpc.AuditServiceStub(self._channel)
         self._secret = secret
 

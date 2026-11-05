@@ -175,6 +175,7 @@ def test_a_service_can_add_http_routes() -> None:
 @pytest.fixture
 def service_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("WINDOPS_ENVIRONMENT", "test")
+    monkeypatch.setenv("WINDOPS_PLAINTEXT_GRPC", "true")
     monkeypatch.setenv("WINDOPS_VERSION", "test")
     monkeypatch.setenv("WINDOPS_IDENTITY_SECRET", "x" * 32)
     monkeypatch.setenv("WINDOPS_GRPC_PORT", "0")

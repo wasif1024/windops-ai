@@ -11,7 +11,7 @@ SRS 11.4 defines this order:
 make cluster          # start the cluster
 make images           # build service images into the cluster
 make secrets          # create namespaces and local secrets
-make infra            # create etcd, data stores, Keycloak and the observability stack
+make infra            # create cert-manager, etcd, data stores, Keycloak and observability
 make identity-seed    # create the Keycloak realm, tenants and demo users
 make migrate          # run each service's migration Job
 make services         # deploy the gateway and services
@@ -40,6 +40,7 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make events-check` | Real failures appear on the Events dashboard, and their alerts fire |
 | `make identity-check` | Keycloak signs in through OIDC, issues the tenant claim, and enforces its rules |
 | `make mfa-check` | Administrators must use a second factor, step-up works, and recovery codes work. Takes about 7 minutes |
+| `make mtls-check` | Only services with a certificate from our CA can connect, and a renewed certificate is picked up |
 | `make phase-1-gate` | A call is traced through the gateway, and its breaker opens under a fault |
 | `make phase-2-gate` | An event survives a pod restart, and a redelivered audit event creates only one record |
 

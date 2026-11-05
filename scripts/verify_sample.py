@@ -4,7 +4,9 @@
 Run `make cluster` first. The sample services and gateway stay running afterwards.
 """
 
+import json
 import time
+from typing import Any
 
 import httpx
 from gateway_routes import port_forward
@@ -32,6 +34,14 @@ def request_until_ok(url: str) -> httpx.Response:
     raise RuntimeError(f"The request never succeeded: {response}")
 
 
+def crashed(status: dict[str, Any]) -> bool:
+    """A clean exit is how a service picks up a renewed certificate, so only a failure counts."""
+    if status["restartCount"] == 0:
+        return False
+    exit_code = status.get("lastState", {}).get("terminated", {}).get("exitCode")
+    return bool(exit_code != 0)
+
+
 def main() -> int:
     for target in ("images", "secrets", "infra", "services"):
         run("make", target)
@@ -46,14 +56,17 @@ def main() -> int:
     print(f"Gateway, then caller over HTTP, then responder over signed gRPC returned: {body}")
     for workload, namespace in WORKLOADS:
         name = workload.split("/")[1]
-        statuses = kubectl(
-            "get", "pods", f"--namespace={namespace}",
-            f"--selector=app.kubernetes.io/name={name}",
-            "--output=jsonpath={.items[*].status.containerStatuses[0].restartCount}",
-        ).stdout  # fmt: skip
-        if any(count != "0" for count in statuses.split()):
-            raise RuntimeError(f"{name} has restarted: {statuses}")
-    print("No workload has restarted")
+        pods = json.loads(
+            kubectl(
+                "get", "pods", f"--namespace={namespace}",
+                f"--selector=app.kubernetes.io/name={name}", "--output=json",
+            ).stdout
+        )  # fmt: skip
+        for pod in pods["items"]:
+            for status in pod["status"]["containerStatuses"]:
+                if crashed(status):
+                    raise RuntimeError(f"{name} has crashed: {status}")
+    print("No workload has crashed")
     print(
         kubectl(
             "top", "pod", f"--namespace={APPLICATION}", "--no-headers", check=False

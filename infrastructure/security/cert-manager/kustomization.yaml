@@ -1,0 +1,26 @@
+# cert-manager's own release manifest, with images pinned and memory limited (K8S-002, K8S-007).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - cert-manager.yaml
+images:
+  - name: quay.io/jetstack/cert-manager-controller
+    digest: sha256:9f4f96a33c7774cef24466fcd85031997531a03a8d117f151126baa8d1290dcc
+  - name: quay.io/jetstack/cert-manager-webhook
+    digest: sha256:055ac8e9de6a0ba6763794838fe38944acc650f68ebe1b01dd8be079e580f458
+  - name: quay.io/jetstack/cert-manager-cainjector
+    digest: sha256:083d0e906f8eb44e255fe4ff817ae54e49f9ed82e22f1011bb4e9e4f4b8a641f
+patches:
+  - target:
+      kind: Deployment
+      namespace: cert-manager
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 10m
+            memory: 48Mi
+          limits:
+            cpu: 200m
+            memory: 192Mi

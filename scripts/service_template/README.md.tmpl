@@ -16,7 +16,7 @@ docker build -f services/{{directory}}/Dockerfile -t {{workload}}:local .
 
 ## What the scaffold provides
 
-- gRPC server on port 50051, with health, signed identity, deadlines, tracing and error mapping
+- gRPC server on port 50051, using mutual TLS, with health, signed identity, deadlines, tracing and error mapping
 - HTTP on port 8080: `/health/live`, `/health/ready` and `/metrics`
 - JSON logs, OpenTelemetry export and graceful shutdown
 - Kubernetes manifests in `deploy/`, for namespace `{{namespace}}`

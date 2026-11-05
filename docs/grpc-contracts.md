@@ -34,4 +34,4 @@ and the old version keeps working until nothing calls it.
 | Large results use pagination or server streaming | GRP-008 | Review |
 | Calls carry deadlines, cancellation, trace context, request ID and signed identity | GRP-003 | The service scaffold, from M1.6 |
 | Services implement the gRPC health protocol and consistent error mapping | GRP-006 | The service scaffold, from M1.6 |
-| Calls use mTLS and service identities | GRP-005 | M3.3 |
+| Calls use mTLS and service identities | GRP-005 | The service scaffold, and `make mtls-check` |

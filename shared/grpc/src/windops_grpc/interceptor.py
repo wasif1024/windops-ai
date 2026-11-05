@@ -21,6 +21,7 @@ from windops_grpc.identity import (
     identity_scope,
     verify_identity,
 )
+from windops_grpc.tls import peer_service
 
 REQUEST_ID_METADATA_KEY = "x-windops-request-id"
 _HEALTH_PREFIX = "/grpc.health.v1.Health/"
@@ -103,18 +104,26 @@ class ServerContextInterceptor(grpc.aio.ServerInterceptor):
             raise _MissingDeadlineError
         assert token is not None  # verify_identity rejects a missing token.  # noqa: S101
         span.set_attribute("windops.tenant_id", identity.tenant_id)
+        peer = peer_service(context)
+        if peer:
+            span.set_attribute("windops.peer_service", peer)
         with (
-            identity_scope(identity, token),
+            identity_scope(identity, token, peer_service=peer),
             tenant_context(identity.tenant_id),
         ):
             yield
 
-    def _record(self, method: str, code: grpc.StatusCode, started: float) -> None:
+    def _record(self, method: str, code: grpc.StatusCode, started: float, context: Any) -> None:
         duration = time.perf_counter() - started
         self._duration.record(duration, {"rpc_method": method, "rpc_status": code.name})
         logger.info(
             "Call finished",
-            extra={"rpc_method": method, "rpc_status": code.name, "duration_seconds": duration},
+            extra={
+                "rpc_method": method,
+                "rpc_status": code.name,
+                "duration_seconds": duration,
+                "peer_service": peer_service(context),
+            },
         )
 
     async def _fail(
@@ -133,7 +142,7 @@ class ServerContextInterceptor(grpc.aio.ServerInterceptor):
         else:
             logger.exception("Call raised an unexpected error", extra={"rpc_method": method})
         span.set_attribute(_STATUS_ATTRIBUTE, code.name)
-        self._record(method, code, started)
+        self._record(method, code, started, context)
         await context.abort(code, message)
 
     def _wrap_unary(self, behavior: Any, method: str) -> Any:
@@ -144,7 +153,7 @@ class ServerContextInterceptor(grpc.aio.ServerInterceptor):
                     with self._verified_scope(context, span):
                         response = await behavior(request, context)
                         span.set_attribute(_STATUS_ATTRIBUTE, grpc.StatusCode.OK.name)
-                        self._record(method, grpc.StatusCode.OK, started)
+                        self._record(method, grpc.StatusCode.OK, started, context)
                         return response
                 except Exception as error:
                     await self._fail(error, method, context, span, started)
@@ -161,7 +170,7 @@ class ServerContextInterceptor(grpc.aio.ServerInterceptor):
                         async for response in behavior(request, context):
                             yield response
                         span.set_attribute(_STATUS_ATTRIBUTE, grpc.StatusCode.OK.name)
-                        self._record(method, grpc.StatusCode.OK, started)
+                        self._record(method, grpc.StatusCode.OK, started, context)
                 except Exception as error:
                     await self._fail(error, method, context, span, started)
                     raise

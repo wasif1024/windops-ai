@@ -3,6 +3,7 @@
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 
 _MINIMUM_SECRET_LENGTH = 32
 
@@ -31,6 +32,8 @@ class Settings:
     log_level: str = "INFO"
     otlp_endpoint: str | None = None
     shutdown_grace_seconds: int = 20
+    # Where cert-manager's files are mounted. None means plain gRPC, which only from_env decides.
+    tls_dir: Path | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> "Settings":
@@ -39,11 +42,17 @@ class Settings:
             raise SettingsError(
                 f"WINDOPS_IDENTITY_SECRET must be at least {_MINIMUM_SECRET_LENGTH} characters"
             )
+        environment = env.get("WINDOPS_ENVIRONMENT", "local")
+        plaintext = environment == "test" and env.get("WINDOPS_PLAINTEXT_GRPC") == "true"
+        tls_directory = env.get("WINDOPS_TLS_DIR")
+        if not tls_directory and not plaintext:
+            # GRP-005: no environment runs without mutual TLS by accident.
+            raise SettingsError("WINDOPS_TLS_DIR must name this service's certificate directory")
         level = env.get("WINDOPS_LOG_LEVEL", "INFO").upper()
         if not isinstance(logging.getLevelNamesMapping().get(level), int):
             raise SettingsError("WINDOPS_LOG_LEVEL is not a valid level")
         return cls(
-            environment=env.get("WINDOPS_ENVIRONMENT", "local"),
+            environment=environment,
             version=env.get("WINDOPS_VERSION", "unknown"),
             identity_secret=secret,
             grpc_port=_integer(env, "WINDOPS_GRPC_PORT", 50051),
@@ -51,4 +60,5 @@ class Settings:
             log_level=level,
             otlp_endpoint=env.get("WINDOPS_OTLP_ENDPOINT") or None,
             shutdown_grace_seconds=_integer(env, "WINDOPS_SHUTDOWN_GRACE_SECONDS", 20),
+            tls_dir=Path(tls_directory) if tls_directory else None,
         )

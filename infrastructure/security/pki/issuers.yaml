@@ -1,0 +1,38 @@
+# The internal certificate authority that every service's certificate comes from (GRP-005).
+# A self-signed issuer exists only to create the CA, which then issues everything else.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: windops-selfsigned
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-internal-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: windops-internal-ca
+  secretName: windops-internal-ca
+  duration: 8760h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    # Keep the key when this renews. A new key would split services, for up to 23 days, between
+    # those that trust the old CA and those that trust the new one, and their calls would fail.
+    rotationPolicy: Never
+  issuerRef:
+    name: windops-selfsigned
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: windops-internal
+spec:
+  ca:
+    secretName: windops-internal-ca

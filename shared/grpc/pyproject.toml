@@ -11,8 +11,8 @@ dependencies = [
     "opentelemetry-api>=1.45.2",
     "opentelemetry-exporter-prometheus>=0.66b2",
     "prometheus-client>=0.26.0",
-    "pyjwt>=2.15.1",
     "uvicorn>=0.54.0",
+    "windops-auth",
     "windops-observability",
     "windops-resilience",
 ]

@@ -6,6 +6,7 @@ the gateway, so it returns nothing sensitive.
 
 import asyncio
 import os
+from pathlib import Path
 from typing import Annotated, Any
 
 import grpc
@@ -13,7 +14,13 @@ from fastapi import APIRouter, Query, Request, Response
 from opentelemetry import metrics, propagate, trace
 from opentelemetry.trace import SpanKind
 from windops.sample.v1 import sample_pb2, sample_pb2_grpc
-from windops_grpc import ServiceClient, VerifiedIdentity, run_service, sign_identity
+from windops_grpc import (
+    ServiceClient,
+    VerifiedIdentity,
+    create_channel,
+    run_service,
+    sign_identity,
+)
 from windops_observability import breaker_state_metrics
 from windops_resilience import BreakerConfig, BreakerOpenError, CircuitBreaker
 
@@ -32,8 +39,11 @@ def register(server: grpc.aio.Server) -> None:
 class Responder:
     """Calls the responder, creating its channel on the running event loop."""
 
-    def __init__(self, target: str, identity_secret: str) -> None:
+    def __init__(
+        self, target: str, identity_secret: str, tls_directory: Path | None = None
+    ) -> None:
         self._target = target
+        self._tls_directory = tls_directory
         self._secret = identity_secret
         self._stub: Any = None
         self._client: ServiceClient | None = None
@@ -43,7 +53,7 @@ class Responder:
 
     def _connected(self) -> tuple[Any, ServiceClient]:
         if self._stub is None or self._client is None:
-            channel = grpc.aio.insecure_channel(self._target)
+            channel = create_channel(self._target, self._tls_directory)
             self._stub = sample_pb2_grpc.SampleResponderServiceStub(channel)
             breaker = CircuitBreaker(
                 "sample-responder",
@@ -96,6 +106,7 @@ def main() -> None:
     responder = Responder(
         os.environ.get("WINDOPS_SAMPLE_RESPONDER_ADDRESS", DEFAULT_RESPONDER),
         os.environ.get("WINDOPS_IDENTITY_SECRET", ""),
+        Path(os.environ["WINDOPS_TLS_DIR"]) if os.environ.get("WINDOPS_TLS_DIR") else None,
     )
     asyncio.run(run_service(SERVICE_NAME, register, http_router=create_router(responder)))
 

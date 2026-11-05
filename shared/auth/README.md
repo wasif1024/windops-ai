@@ -1,7 +1,8 @@
 # windops-auth
 
-Decides whether a token shows enough authentication. It takes claims that have **already been verified**, and
-does not check signatures itself.
+Holds the signed internal identity that every gRPC call carries (GRP-003, GRP-004), and decides whether a user's
+token shows enough authentication. The MFA checks take claims that have **already been verified**, and do not check
+signatures themselves.
 
 | Check | Use it for | Requirement |
 | --- | --- | --- |

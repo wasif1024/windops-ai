@@ -18,6 +18,7 @@ from typing import Any
 import grpc
 import httpx
 from gateway_routes import port_forward
+from tls_client import blocking_channel, client_bundle
 from verify_cluster import IGNORED, kubectl, minikube_docker_env, run
 from windops_grpc import VerifiedIdentity, sign_identity
 
@@ -26,6 +27,7 @@ OBSERVABILITY = "windops-observability"
 APPLICATION = "windops-application"
 DIRECTORY = "observe-probe-service"
 WORKLOAD = "windops-observe-probe"
+HOST = f"{WORKLOAD}.windops-application.svc.cluster.local"
 PACKAGE = "windops_observe_probe"
 IMAGE = f"{WORKLOAD}:local"
 DASHBOARDS = REPOSITORY / "infrastructure" / "monitoring" / "grafana" / "dashboards"
@@ -95,7 +97,7 @@ def send_call(trace_id: str, request_id: str) -> None:
     token = sign_identity(VerifiedIdentity("svc-observe-check", "tenant-observe"), key)
     deployment = f"deployment/{WORKLOAD}"
     with port_forward(deployment, APPLICATION, 50051) as port:
-        channel = grpc.insecure_channel(f"127.0.0.1:{port}")
+        channel = blocking_channel(port, HOST, client_bundle())
         method: Any = channel.unary_unary("/windops.probe.v1.Probe/Echo")
         result = method(
             b"ping",
@@ -125,7 +127,7 @@ def check_microservice_panels_fill_with_traffic() -> None:
         port_forward(f"deployment/{WORKLOAD}", APPLICATION, 50051) as service_port,
         port_forward("service/windops-prometheus", OBSERVABILITY, 9090) as prometheus_port,
     ):
-        channel = grpc.insecure_channel(f"127.0.0.1:{service_port}")
+        channel = blocking_channel(service_port, HOST, client_bundle())
         method: Any = channel.unary_unary("/windops.probe.v1.Probe/Echo")
         missing = [title for title, _ in required]
         for _ in range(48):
