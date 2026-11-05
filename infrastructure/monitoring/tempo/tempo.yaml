@@ -15,11 +15,17 @@ data:
           protocols:
             grpc:
               endpoint: 0.0.0.0:4317
+    # Tempo's defaults suit far larger systems. Writing a block allocated up to 500 MiB here, while
+    # storing under 10 MiB of traces, so these keep each write small.
+    ingester:
+      max_block_duration: 5m
     compactor:
       compaction:
         block_retention: 24h
     storage:
       trace:
+        block:
+          parquet_row_group_size_bytes: 20971520
         backend: local
         wal:
           path: /var/tempo/wal

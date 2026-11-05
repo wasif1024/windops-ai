@@ -16,6 +16,13 @@ groups:
           severity: warning
         annotations:
           summary: "{{ $labels.workload }} has an open breaker for {{ $labels.dependency }}"
+      # A crash loop is otherwise easy to miss, because Kubernetes keeps restarting the pod.
+      - alert: WindopsPodRestarting
+        expr: sum by (namespace, pod) (increase(kube_pod_container_status_restarts_total{namespace=~"windops-.*"}[6h])) >= 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.pod }} in {{ $labels.namespace }} has restarted repeatedly"
   - name: windops-events
     rules:
       - alert: WindopsDeadLetterMessages

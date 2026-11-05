@@ -198,6 +198,24 @@ def test_events_have_their_alerts(alert: str) -> None:
     assert rule["annotations"]["summary"]
 
 
+def test_tempo_writes_small_blocks() -> None:
+    """Its default buffers exceeded its memory limit, while holding under 10 MiB of traces."""
+    documents = yaml.safe_load_all(
+        (ROOT / "infrastructure" / "monitoring" / "tempo" / "tempo.yaml").read_text()
+    )
+    config = next(item for item in documents if item["kind"] == "ConfigMap")
+    tempo = yaml.safe_load(config["data"]["tempo.yaml"])
+    assert tempo["ingester"]["max_block_duration"] == "5m"
+    assert tempo["storage"]["trace"]["block"]["parquet_row_group_size_bytes"] <= 32 * 1024 * 1024
+
+
+def test_repeated_restarts_raise_an_alert() -> None:
+    """A crash loop went unnoticed through most of Phase 2, because nothing flagged it."""
+    assert (
+        "kube_pod_container_status_restarts_total" in alert_rules()["WindopsPodRestarting"]["expr"]
+    )
+
+
 def test_a_dead_letter_alerts_immediately() -> None:
     """EVT-003: one message means something failed repeatedly, or was malformed."""
     assert "for" not in alert_rules()["WindopsDeadLetterMessages"]
