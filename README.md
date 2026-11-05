@@ -7,6 +7,23 @@ authorized humans approve high-impact actions.
 This is a portfolio-grade platform that runs on synthetic data. It is advisory
 only and never issues turbine commands.
 
+<table>
+  <tr>
+    <td width="33%"><img src="docs/assets/industry/offshore-wind-farm.jpg" alt="An offshore wind farm, with rows of white turbines standing in calm blue water."></td>
+    <td width="33%"><img src="docs/assets/industry/turbine-technician.jpg" alt="A technician in a helmet and safety harness inspecting equipment inside an open turbine nacelle, high above a forested valley."></td>
+    <td width="33%"><img src="docs/assets/industry/control-room.jpg" alt="An operator at a desk in a wind farm control room, with monitoring dashboards on large screens and turbines visible outside at dusk."></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>The assets:</b> turbines and whole wind farms</sub></td>
+    <td align="center"><sub><b>The field work:</b> inspection and maintenance</sub></td>
+    <td align="center"><sub><b>The users:</b> control room operators</sub></td>
+  </tr>
+</table>
+
+<sub>Illustrative images of the industry this project is for. None shows WindOps AI or its output. The
+control room image is a concept illustration: its figures, safety certification label and screens are
+not claims about this project, which holds no certifications.</sub>
+
 ## Agent orchestration
 
 ![Animated walkthrough of the ten stages of an investigation. A deterministic rule detects a gearbox fault and the Investigation Service opens a case with an immutable evidence snapshot. The Supervisor delegates to five specialist agents, which reach services through MCP tools. The result is validated and checked by the Policy Service, a draft work order waits in pending review, an authorized human decides, and the decision is audited.](docs/assets/agent-orchestration.gif)
@@ -16,6 +33,11 @@ The animation illustrates the workflow in
 [SRS section 5.4](docs/srs.md#54-workflow), not a recording of a running system.
 
 ## Architecture
+
+[![Service overview. The React frontend and telemetry simulator enter through the APISIX API Gateway, which checks tokens with Keycloak. Web BFF and Agent Runtime, through MCP servers, call 23 services in total over gRPC. Services publish and consume durable events through NATS JetStream. Each of 20 services has its own database and login, on one PostgreSQL pod, alongside Redis and Qdrant. Every workload sends logs, metrics and traces to the observability stack, and external providers are reached through circuit breakers.](docs/assets/service-overview.png)](docs/assets/service-overview.png)
+
+This overview shows every service, where its data lives and how events move. The next diagram shows the
+agents and how each kind of service relates to them.
 
 [![Architecture diagram. Users reach a React frontend, API Gateway and Web BFF. Agent Runtime runs the Supervisor and five specialist agents, which use MCP servers to call 23 gRPC services in total. Services exchange durable events over NATS JetStream, store data in PostgreSQL, Redis and Qdrant, and use external providers including Claude, Tavily and Open-Meteo.](docs/assets/architecture.png)](docs/assets/architecture.png)
 

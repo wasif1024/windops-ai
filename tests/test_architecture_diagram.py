@@ -9,9 +9,11 @@ from generate_readme_visuals import (
     AGENT_SERVICE,
     APPLICATION_GROUPS,
     ENTRY_SERVICES,
+    OVERVIEW_GROUPS,
     all_controls,
     read_phase_progress,
 )
+from provision_postgres import SERVICE_NAMESPACES
 
 ROOT = Path(__file__).resolve().parent.parent
 TRACKER = (ROOT / "docs" / "phases" / "README.md").read_text()
@@ -75,3 +77,27 @@ def test_end_to_end_diagram_draws_every_srs_service_once() -> None:
     drawn = [*ENTRY_SERVICES, AGENT_SERVICE]
     drawn += [name for _, _, members in APPLICATION_GROUPS for name, _ in members]
     assert sorted(drawn) == expected
+
+
+def test_readme_shows_the_service_overview_and_industry_images() -> None:
+    readme = (ROOT / "README.md").read_text()
+    for image in (
+        "docs/assets/service-overview.png",
+        "docs/assets/industry/offshore-wind-farm.jpg",
+        "docs/assets/industry/turbine-technician.jpg",
+        "docs/assets/industry/control-room.jpg",
+    ):
+        assert image in readme, image
+
+
+def test_readme_does_not_let_the_control_room_image_make_claims() -> None:
+    """It shows an ISO label and uptime figures, which this project cannot claim."""
+    readme = (ROOT / "README.md").read_text()
+    assert "not claims about this project" in readme
+    assert "holds no certifications" in readme
+
+
+def test_service_overview_draws_every_group_and_database() -> None:
+    drawn = [name for _, _, members in OVERVIEW_GROUPS for name, _ in members]
+    assert len(drawn) == 20
+    assert len(SERVICE_NAMESPACES) == 20
