@@ -54,6 +54,13 @@ def events_breaker() -> CircuitBreaker:
     return CircuitBreaker("jetstream", BreakerConfig(slow_call_seconds=SLOW_CALL_SECONDS))
 
 
+def tls_context(ca_file: str) -> ssl.SSLContext:
+    """Return a context that trusts only this CA, and refuses TLS older than 1.2."""
+    context = ssl.create_default_context(cafile=ca_file)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    return context
+
+
 async def connect(
     *, url: str, username: str, password: str, name: str = "windops", ca_file: str | None = None
 ) -> Client:
@@ -68,7 +75,7 @@ async def connect(
 
     return await nats.connect(
         servers=[url],
-        tls=ssl.create_default_context(cafile=ca_file) if ca_file else None,
+        tls=tls_context(ca_file) if ca_file else None,
         user=username,
         password=password,
         name=name,

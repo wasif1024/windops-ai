@@ -15,6 +15,7 @@ import grpc
 import httpx
 from gateway_routes import port_forward
 from tls_client import authority_file
+from windops_events import tls_context
 
 CONTEXT = "windops"
 NAMESPACE = "windops-data"
@@ -57,7 +58,7 @@ def wait_ready() -> None:
 
 
 def tls() -> ssl.SSLContext:
-    return ssl.create_default_context(cafile=authority_file())
+    return tls_context(authority_file())
 
 
 def client(port: int, key: str) -> httpx.Client:

@@ -1,6 +1,7 @@
 """Redis calls behind a circuit breaker, with each outage behavior from SRS 7.7."""
 
 import logging
+import ssl
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -56,6 +57,7 @@ def connect(
         password=password,
         ssl=ca_file is not None,
         ssl_ca_certs=ca_file,
+        ssl_min_version=ssl.TLSVersion.TLSv1_2,
         socket_timeout=SOCKET_TIMEOUT_SECONDS,
         socket_connect_timeout=CONNECT_TIMEOUT_SECONDS,
         # The breaker decides what happens next, so retry layers cannot multiply (RES-003).

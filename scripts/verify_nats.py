@@ -7,7 +7,6 @@ events and consumer positions survive that. Its test events and consumers are re
 
 import asyncio
 import contextlib
-import ssl
 import subprocess
 import sys
 import uuid
@@ -32,6 +31,7 @@ from windops_events import (
     build_envelope,
     connect,
     events_breaker,
+    tls_context,
 )
 from windops_resilience import BreakerConfig, BreakerState, CircuitBreaker
 
@@ -105,7 +105,7 @@ async def refused(url: str, **login: str) -> bool:
         client = await nats.connect(
             servers=[url],
             # With the right CA, so a refusal below is about the login and not the certificate.
-            tls=ssl.create_default_context(cafile=authority_file()),
+            tls=tls_context(authority_file()),
             connect_timeout=2,
             max_reconnect_attempts=0,
             allow_reconnect=False,

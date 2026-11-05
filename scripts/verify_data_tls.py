@@ -32,6 +32,7 @@ from gateway_routes import port_forward
 from tls_client import authority_file
 from windops_cache import connect as redis_connect
 from windops_events import connect as nats_connect
+from windops_events import tls_context as verified_context
 
 CONTEXT = "windops"
 DATA = "windops-data"
@@ -87,7 +88,7 @@ def rogue_authority() -> str:
 
 
 def tls_context() -> ssl.SSLContext:
-    return ssl.create_default_context(cafile=authority_file())
+    return verified_context(authority_file())
 
 
 # Each returns the certificate a client sees, as DER, checked against our CA and this address.
@@ -259,7 +260,7 @@ def check_qdrant_http(port: int) -> None:
     check(refused, "Qdrant's HTTP port refuses plain HTTP, even with the right key")
     refused = False
     try:
-        wrong = ssl.create_default_context(cafile=rogue_authority())
+        wrong = verified_context(rogue_authority())
         httpx.get(f"https://{url}", headers={"api-key": key}, timeout=5, verify=wrong)
     except httpx.ConnectError:
         refused = True
