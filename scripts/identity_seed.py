@@ -39,6 +39,10 @@ LOCAL = Path(__file__).resolve().parent.parent / "infrastructure" / "minikube"
 ADMIN_SECRET_FILE = LOCAL / "secrets.local.keycloak.env"
 # Synthetic tenants (SRS 1). The alias becomes the tenant ID in every token.
 TENANTS = {"north-sea": "North Sea Wind", "atlas-wind": "Atlas Wind"}
+# Platform staff belong to a tenant of their own, so their tokens still carry a tenant (SEC-005).
+PLATFORM_TENANT = "windops-platform"
+PLATFORM_ADMIN_EMAIL = f"platform-admin@{PLATFORM_TENANT}.example"
+PLATFORM_ADMIN_KEY = "platform-admin"
 REDIRECT_URIS = ["http://localhost:5173/*", "http://127.0.0.1:5173/*"]
 
 
@@ -399,11 +403,20 @@ def seed(
                 required_actions=ADMIN_REQUIRED_ACTIONS,
             )
             ensure_member(api, organization_id, admin_id)
+        platform_id = ensure_tenant(api, PLATFORM_TENANT, "WindOps Platform")
+        platform_admin = ensure_user(
+            api,
+            PLATFORM_ADMIN_EMAIL,
+            demo_passwords[PLATFORM_ADMIN_KEY],
+            new_password=PLATFORM_ADMIN_KEY not in stored,
+            required_actions=ADMIN_REQUIRED_ACTIONS,
+        )
+        ensure_member(api, platform_id, platform_admin)
 
 
 def missing_demo_passwords(existing: dict[str, str]) -> dict[str, str]:
     """Return every demo password, adding any that do not exist yet and keeping the rest."""
-    keys = [*TENANTS, *(demo_admin_key(alias) for alias in TENANTS)]
+    keys = [*TENANTS, *(demo_admin_key(alias) for alias in TENANTS), PLATFORM_ADMIN_KEY]
     return {key: existing.get(key) or strong_password() for key in keys}
 
 

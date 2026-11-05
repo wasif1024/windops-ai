@@ -12,6 +12,7 @@ package = false
 [tool.uv.workspace]
 members = [
     "services/audit-service",
+    "services/authorization-service",
     "services/sample-caller-service",
     "services/sample-responder-service",
     "shared/auth",
@@ -38,6 +39,7 @@ windops-contracts = { workspace = true }
 windops-sample-caller = { workspace = true }
 windops-sample-responder = { workspace = true }
 windops-audit = { workspace = true }
+windops-authorization = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -60,6 +62,8 @@ files = [
     "scripts",
     "services/audit-service/src",
     "services/audit-service/tests",
+    "services/authorization-service/src",
+    "services/authorization-service/tests",
     "services/sample-caller-service/src",
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
@@ -87,6 +91,8 @@ mypy_path = [
     "scripts",
     "services/audit-service/src",
     "services/audit-service/tests",
+    "services/authorization-service/src",
+    "services/authorization-service/tests",
     "services/sample-caller-service/src",
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
@@ -153,6 +159,7 @@ dev = [
     "types-pyyaml>=6.0.12.20261103",
     "windops-audit",
     "windops-auth",
+    "windops-authorization",
     "windops-cache",
     "windops-contracts",
     "windops-events",

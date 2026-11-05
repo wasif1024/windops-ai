@@ -7,6 +7,7 @@ members = [
     "windops-ai",
     "windops-audit",
     "windops-auth",
+    "windops-authorization",
     "windops-cache",
     "windops-contracts",
     "windops-events",
@@ -1330,6 +1331,7 @@ dev = [
     { name = "types-pyyaml" },
     { name = "windops-audit" },
     { name = "windops-auth" },
+    { name = "windops-authorization" },
     { name = "windops-cache" },
     { name = "windops-contracts" },
     { name = "windops-events" },
@@ -1362,6 +1364,7 @@ dev = [
     { name = "types-pyyaml", specifier = ">=6.0.12.20261103" },
     { name = "windops-audit", editable = "services/audit-service" },
     { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-authorization", editable = "services/authorization-service" },
     { name = "windops-cache", editable = "shared/cache" },
     { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-events", editable = "shared/events" },
@@ -1405,6 +1408,29 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "pyjwt", specifier = ">=2.15.1" }]
+
+[[package]]
+name = "windops-authorization"
+version = "0.1.0"
+source = { editable = "services/authorization-service" }
+dependencies = [
+    { name = "windops-auth" },
+    { name = "windops-contracts" },
+    { name = "windops-events" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-outbox" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-events", editable = "shared/events" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-outbox", editable = "shared/outbox" },
+]
 
 [[package]]
 name = "windops-cache"

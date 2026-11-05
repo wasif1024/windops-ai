@@ -217,7 +217,8 @@ def test_generated_passwords_always_meet_the_policy(attempt: int) -> None:
 def test_demo_passwords_are_stable_once_made() -> None:
     first = missing_demo_passwords({})
     assert set(TENANTS) <= set(first)
-    assert len(first) == 2 * len(TENANTS)
+    # Each tenant's operator and administrator, and the platform administrator.
+    assert len(first) == 2 * len(TENANTS) + 1
     assert missing_demo_passwords(first) == first
 
 
@@ -225,7 +226,7 @@ def test_only_a_missing_demo_password_is_made() -> None:
     alias = next(iter(TENANTS))
     result = missing_demo_passwords({alias: "kept-value"})
     assert result[alias] == "kept-value"
-    assert len(set(result.values())) == 2 * len(TENANTS)
+    assert len(set(result.values())) == 2 * len(TENANTS) + 1
 
 
 def test_demo_passwords_are_not_written_to_a_file() -> None:

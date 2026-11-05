@@ -6,5 +6,6 @@ commonAnnotations:
 resources:
   - ../../../../services/api-gateway/deploy
   - ../../../../services/audit-service/deploy
+  - ../../../../services/authorization-service/deploy
   - ../../../../services/sample-caller-service/deploy
   - ../../../../services/sample-responder-service/deploy

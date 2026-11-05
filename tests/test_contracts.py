@@ -17,7 +17,8 @@ TELEMETRY = Path("windops/telemetry/v1/telemetry.proto")
 PROTO_FILES = sorted(MODULE.rglob("*.proto"))
 
 STATE_CHANGING = re.compile(
-    r"^(Create|Update|Delete|Set|Add|Remove|Submit|Approve|Reject|Cancel|Acknowledge|Reserve|Complete)"
+    r"^(Create|Update|Delete|Set|Add|Remove|Submit|Approve|Reject|Cancel|Acknowledge|Reserve|Complete"
+    r"|Grant|Revoke|Start|End)"
 )
 UNVERIFIED_IDENTITY_FIELDS = {"tenant_id", "user_id"}
 

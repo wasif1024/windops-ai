@@ -520,7 +520,7 @@ SECURITY_LAYERS = (
             Control("Circuit breakers stop an outage from spreading between services"),
             Control("Internal error details stay in the logs, and never reach the caller"),
             Control("Encrypted calls between services, using mTLS"),
-            Control("Permissions denied by default, and checked on every operation", "M3.5"),
+            Control("Permissions denied by default, decided by the Authorization Service"),
             Control("Nobody can approve their own request", "M10.2"),
         ),
     ),
@@ -815,7 +815,7 @@ HOP_CONTROLS = (
             Control("Every call needs a signed identity and a deadline, or it is rejected"),
             Control("Tenant comes from the verified identity, never from a request field"),
             Control("Encrypted calls between services, using mTLS"),
-            Control("Permissions denied by default, and checked on every operation", "M3.5"),
+            Control("Permissions denied by default, decided by the Authorization Service"),
         ),
     ),
     (
