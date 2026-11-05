@@ -26,9 +26,7 @@ from identity_seed import (
     admin_client,
     demo_admin_email,
     demo_email,
-)
-from identity_seed import (
-    SERVICE as KEYCLOAK,
+    keycloak_admin,
 )
 from provision_postgres import read_passwords
 from tls_client import ClientBundle, blocking_channel, client_bundle
@@ -332,8 +330,8 @@ def run(base: str, password: str) -> None:
 def main() -> int:
     password = read_passwords(ADMIN_SECRET_FILE)["password"]
     try:
-        with port_forward(KEYCLOAK, SYSTEM, 8080) as port:
-            run(f"http://127.0.0.1:{port}", password)
+        with keycloak_admin() as base:
+            run(base, password)
     except (RuntimeError, OSError, grpc.RpcError, httpx.HTTPError) as error:
         print(f"{type(error).__name__}: {error}", file=sys.stderr)
         return 1

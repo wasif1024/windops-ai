@@ -97,7 +97,7 @@ spec:
                   key: password
             - name: WINDOPS_AUTHORIZATION_ADDRESS
               value: windops-authorization.windops-system.svc.cluster.local:50051
-            # Keycloak has no TLS inside the cluster until M3.7, so this crosses the pod network in clear.
+            # Over HTTPS, checked against the internal CA.
             - name: WINDOPS_KEYCLOAK_URL
               valueFrom:
                 secretKeyRef:

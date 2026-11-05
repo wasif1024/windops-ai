@@ -10,7 +10,6 @@ import subprocess
 import sys
 
 import httpx
-from gateway_routes import port_forward
 from identity_seed import (
     ADMIN_SECRET_FILE,
     PLATFORM_ADMIN_EMAIL,
@@ -20,9 +19,8 @@ from identity_seed import (
     admin_client,
     demo_admin_email,
     demo_email,
+    keycloak_admin,
 )
-from identity_seed import NAMESPACE as KEYCLOAK_NAMESPACE
-from identity_seed import SERVICE as KEYCLOAK_SERVICE
 from provision_postgres import read_passwords
 
 CONTEXT = "windops"
@@ -65,8 +63,8 @@ def main() -> int:
     password = read_passwords(ADMIN_SECRET_FILE)["password"]
     try:
         with (
-            port_forward(KEYCLOAK_SERVICE, KEYCLOAK_NAMESPACE, 8080) as port,
-            admin_client(f"http://127.0.0.1:{port}", password) as api,
+            keycloak_admin() as base,
+            admin_client(base, password) as api,
         ):
             wanted = [(t, user_id(api, email), role, email) for t, email, role in demo_roles()]
         for tenant, user, role, email in wanted:

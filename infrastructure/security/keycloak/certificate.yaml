@@ -1,0 +1,32 @@
+# Keycloak's HTTPS certificate. It reloads a renewed one by itself, every hour.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-keycloak-tls
+  labels:
+    app.kubernetes.io/name: windops-keycloak
+    app.kubernetes.io/part-of: windops
+spec:
+  secretName: windops-keycloak-tls
+  commonName: windops-keycloak
+  dnsNames:
+    - windops-keycloak
+    - windops-keycloak.windops-system
+    - windops-keycloak.windops-system.svc
+    - windops-keycloak.windops-system.svc.cluster.local
+    - localhost
+  # For checks that arrive through a port-forward.
+  ipAddresses:
+    - 127.0.0.1
+  duration: 720h
+  renewBefore: 168h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - server auth
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io

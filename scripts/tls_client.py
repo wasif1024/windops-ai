@@ -3,6 +3,7 @@
 import base64
 import functools
 import json
+import os
 import subprocess
 import tempfile
 import time
@@ -85,6 +86,15 @@ def authority_file() -> str:
     with tempfile.NamedTemporaryFile("wb", suffix=".crt", delete=False) as file:
         file.write(base64.b64decode(encoded))
     return file.name
+
+
+def trust_cluster_ca() -> None:
+    """Make every HTTPS client in this process trust the internal CA, and only it.
+
+    httpx reads SSL_CERT_FILE, so checks need not pass a context to each call. verify_cluster.run
+    removes it for the tools a check starts, which must still trust the public internet.
+    """
+    os.environ["SSL_CERT_FILE"] = authority_file()
 
 
 def credentials(bundle: ClientBundle) -> grpc.ChannelCredentials:

@@ -4,6 +4,7 @@
 The Admin API listens inside the pod only, so this reaches it through a port-forward.
 """
 
+import base64
 import contextlib
 import json
 import socket
@@ -64,9 +65,15 @@ def _free_port() -> int:
 
 
 @contextlib.contextmanager
-def port_forward(target: str, namespace: str, remote_port: int) -> Iterator[int]:
-    """Forward a local port to a workload, and return that port once it accepts connections."""
-    local_port = _free_port()
+def port_forward(
+    target: str, namespace: str, remote_port: int, *, local_port: int | None = None
+) -> Iterator[int]:
+    """Forward a local port to a workload, and return that port once it accepts connections.
+
+    Pass `local_port` only when the address matters, such as Keycloak's fixed public one.
+    """
+    if local_port is None:
+        local_port = _free_port()
     process = subprocess.Popen(
         [
             "kubectl", "--context", CONTEXT, "port-forward", f"--namespace={namespace}",
@@ -108,6 +115,45 @@ def apply_route(base_url: str, key: str, route_id: str, route: dict[str, Any]) -
         raise RouteError(f"Route {route_id} failed: {response.status_code} {response.text}")
 
 
+CERTIFICATE_RESOURCE = "windops-gateway-tls"
+# The names a browser or check may use, so APISIX picks this certificate for them.
+SERVER_NAMES = [
+    "localhost",
+    "windops-gateway",
+    "windops-gateway.windops-system.svc.cluster.local",
+]
+
+
+def gateway_certificate() -> dict[str, str]:
+    """Read the gateway's certificate and key from cert-manager's Secret."""
+    result = subprocess.run(
+        [
+            "kubectl", "--context", CONTEXT, "get", "secret", CERTIFICATE_RESOURCE,
+            f"--namespace={NAMESPACE}", "--output=json",
+        ],
+        capture_output=True, text=True, check=False,
+    )  # fmt: skip
+    if result.returncode != 0:
+        raise RouteError(f"No certificate for the gateway yet: {result.stderr.strip()}")
+    data = json.loads(result.stdout)["data"]
+    return {
+        "cert": base64.b64decode(data["tls.crt"]).decode(),
+        "key": base64.b64decode(data["tls.key"]).decode(),
+    }
+
+
+def apply_certificate(base_url: str, key: str) -> None:
+    body = {**gateway_certificate(), "snis": SERVER_NAMES}
+    response = httpx.put(
+        f"{base_url}/apisix/admin/ssls/windops-gateway",
+        headers={"X-API-KEY": key},
+        json=body,
+        timeout=10,
+    )
+    if response.status_code not in (200, 201):
+        raise RouteError(f"The certificate failed: {response.status_code}")
+
+
 def load_plugin_metadata(directory: Path = PLUGIN_METADATA_DIRECTORY) -> dict[str, dict[str, Any]]:
     """Load each plugin's gateway-wide settings. The file name is the plugin's name."""
     return {path.stem: json.loads(path.read_text()) for path in sorted(directory.glob("*.json"))}
@@ -132,6 +178,8 @@ def main() -> int:
             return 0
         key = admin_key()
         with port_forward(DEPLOYMENT, NAMESPACE, ADMIN_PORT) as port:
+            apply_certificate(f"http://127.0.0.1:{port}", key)
+            print("Applied the gateway's HTTPS certificate")
             for plugin, metadata in load_plugin_metadata().items():
                 apply_plugin_metadata(f"http://127.0.0.1:{port}", key, plugin, metadata)
                 print(f"Applied plugin settings for {plugin}")

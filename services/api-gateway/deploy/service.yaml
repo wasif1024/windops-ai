@@ -1,4 +1,4 @@
-# Exposes only the proxy port. The Admin, status and control ports stay inside the pod.
+# Exposes only the HTTPS proxy port (API-001). The Admin, status and control ports stay inside the pod.
 apiVersion: v1
 kind: Service
 metadata:
@@ -10,6 +10,6 @@ spec:
   selector:
     app.kubernetes.io/name: windops-gateway
   ports:
-    - name: http
-      port: 80
-      targetPort: http
+    - name: https
+      port: 443
+      targetPort: https

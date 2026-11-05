@@ -58,7 +58,7 @@ def test_keycloak_is_not_exposed_and_hides_its_management_port(
     """DEP-007."""
     service = next(item for item in documents if item["kind"] == "Service")
     assert service["spec"]["type"] == "ClusterIP"
-    assert [port["port"] for port in service["spec"]["ports"]] == [8080]
+    assert [port["port"] for port in service["spec"]["ports"]] == [8443]
 
 
 def test_the_base_image_is_pinned() -> None:
@@ -237,3 +237,17 @@ def test_demo_passwords_are_not_written_to_a_file() -> None:
 
 def test_demo_addresses_cannot_reach_real_mail() -> None:
     assert all(demo_email(alias).endswith(".example") for alias in TENANTS)
+
+
+def test_keycloak_serves_only_https_at_one_fixed_address(documents: list[dict[str, Any]]) -> None:
+    """The fixed address fixes the issuer in every token."""
+    env = {item["name"]: item.get("value") for item in container(documents)["env"]}
+    assert env["KC_HTTP_ENABLED"] == "false"
+    assert env["KC_HOSTNAME"] == "https://localhost:9443/auth"
+    assert env["KC_HTTPS_CERTIFICATE_FILE"].startswith("/var/run/windops/keycloak-tls/")
+    assert "KC_HOSTNAME_STRICT" not in env
+
+
+def test_the_image_builds_in_the_path_prefix() -> None:
+    """A pre-built image refuses to start if this changes at runtime."""
+    assert "--http-relative-path=/auth" in DOCKERFILE.read_text()

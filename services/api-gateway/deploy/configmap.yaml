@@ -7,7 +7,10 @@ metadata:
 data:
   config.yaml: |
     apisix:
-      node_listen: 9080
+      # Plain HTTP only inside the pod. Everything else uses HTTPS, on 9443 (API-001).
+      node_listen:
+        - ip: 127.0.0.1
+          port: 9080
       enable_ipv6: false
       enable_control: true
       control:
@@ -17,13 +20,25 @@ data:
         ip: 0.0.0.0
         port: 7085
       ssl:
-        enable: false
+        enable: true
+        listen:
+          - port: 9443
+        # Used when a client sends no server name, such as one that connects by IP address.
+        fallback_sni: localhost
+        # The CA that upstreams with HTTPS, such as Keycloak, must be signed by.
+        ssl_trusted_certificate: /var/run/windops/trust/ca.crt
+        ssl_protocols: TLSv1.2 TLSv1.3
     # Only what routes use. M3.1 and M3.7 add token checks, CORS and rate limits.
     plugins:
       - opentelemetry
     stream_plugins: []
     nginx_config:
       worker_processes: 1
+      # Every upstream with HTTPS is checked against the CA. nginx loads the CA only when this is on
+      # in its configuration, so a route's own tls.verify is not enough by itself.
+      http_server_configuration_snippet: |
+        proxy_ssl_verify on;
+        proxy_ssl_verify_depth 2;
       error_log_level: warn
     deployment:
       role: traditional

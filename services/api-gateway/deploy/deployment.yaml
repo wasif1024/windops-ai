@@ -52,8 +52,8 @@ spec:
         - name: apisix
           image: apache/apisix:3.19.0-debian@sha256:9a7e45dc943fbf10ec916d1232bae4cda9302ae28a4696cfb83c2da01d261141
           ports:
-            - name: http
-              containerPort: 9080
+            - name: https
+              containerPort: 9443
             - name: status
               containerPort: 7085
           env:
@@ -92,11 +92,21 @@ spec:
             capabilities:
               drop: [ALL]
           volumeMounts:
+            - name: trust
+              mountPath: /var/run/windops/trust
+              readOnly: true
             - name: config
               mountPath: /usr/local/apisix/conf/config.yaml
               subPath: config.yaml
               readOnly: true
       volumes:
+        - name: trust
+          secret:
+            secretName: windops-trust
+            defaultMode: 0444
+            items:
+              - key: ca.crt
+                path: ca.crt
         - name: config
           configMap:
             name: windops-gateway-config

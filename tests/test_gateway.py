@@ -117,7 +117,8 @@ def test_every_route_in_the_repository_is_valid() -> None:
 def test_service_exposes_only_the_proxy_inside_the_cluster() -> None:
     spec = find(render(GATEWAY), "Service")["spec"]
     assert spec.get("type", "ClusterIP") == "ClusterIP"
-    assert [port["targetPort"] for port in spec["ports"]] == ["http"]
+    # HTTPS only (API-001). Plain HTTP is bound to the pod's loopback address.
+    assert [port["targetPort"] for port in spec["ports"]] == ["https"]
 
 
 def test_admin_api_requires_a_key_and_allows_only_the_pod() -> None:
@@ -183,3 +184,22 @@ def test_local_overlay_includes_the_gateway_with_its_config_unchanged() -> None:
         item for item in documents if item["metadata"]["name"] == "windops-gateway-config"
     )
     assert set(config["data"]) == {"config.yaml"}
+
+
+def test_plain_http_stays_inside_the_gateway_pod() -> None:
+    """API-001: the browser reaches the gateway over HTTPS only."""
+    apisix = gateway_config()["apisix"]
+    assert apisix["node_listen"] == [{"ip": "127.0.0.1", "port": 9080}]
+    assert apisix["ssl"]["enable"] is True
+    assert apisix["ssl"]["listen"] == [{"port": 9443}]
+    assert "TLSv1.1" not in apisix["ssl"]["ssl_protocols"]
+
+
+def test_only_keycloaks_sign_in_pages_are_routed() -> None:
+    """Its admin API and the master realm, which lead to the admin console, stay inside."""
+    route = load_routes()["keycloak"]
+    assert route["uris"] == ["/auth/realms/*", "/auth/resources/*"]
+    assert route["vars"] == [["uri", "!", "~~", "^/auth/realms/master(/|$)"]]
+    upstream = route["upstream"]
+    assert upstream["scheme"] == "https" and upstream["tls"]["verify"] is True
+    assert upstream["checks"]["active"]["https_verify_certificate"] is True

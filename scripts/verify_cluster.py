@@ -59,8 +59,12 @@ def run(
     check: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     print("+", " ".join(command), flush=True)
+    # The internal CA is for this script's own calls to the cluster (trust_cluster_ca). Tools it
+    # runs, such as uv fetching from PyPI, need the usual roots, or they refuse every real server.
+    child = dict(os.environ if env is None else env)
+    child.pop("SSL_CERT_FILE", None)
     result = subprocess.run(
-        command, cwd=cwd, env=env, input=stdin, capture_output=True, text=True, check=False
+        command, cwd=cwd, env=child, input=stdin, capture_output=True, text=True, check=False
     )
     if check and result.returncode != 0:
         raise RuntimeError(f"{command[0]} failed:\n{result.stdout}\n{result.stderr}")

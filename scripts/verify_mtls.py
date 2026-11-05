@@ -21,7 +21,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from gateway_routes import port_forward
-from tls_client import ClientBundle, blocking_channel, client_bundle
+from tls_client import ClientBundle, blocking_channel, client_bundle, trust_cluster_ca
 from windops.sample.v1 import sample_pb2
 from windops_grpc import VerifiedIdentity, sign_identity
 
@@ -187,11 +187,11 @@ def check_connections(port: int, bundle: ClientBundle, key: str) -> None:
 
 def request_through_gateway(attempts: int = 60) -> dict[str, Any]:
     last: Any = None
-    with port_forward("service/windops-gateway", SYSTEM, 80) as port:
+    with port_forward("service/windops-gateway", SYSTEM, 443) as port:
         for _ in range(attempts):
             try:
                 response = httpx.get(
-                    f"http://127.0.0.1:{port}/sample/echo", params={"message": "hello"}, timeout=8
+                    f"https://127.0.0.1:{port}/sample/echo", params={"message": "hello"}, timeout=8
                 )
                 if response.status_code == 200:
                     body: dict[str, Any] = response.json()
@@ -266,6 +266,7 @@ def check_renewal() -> None:
 
 
 def main() -> int:
+    trust_cluster_ca()
     try:
         check_certificates()
         bundle = client_bundle()

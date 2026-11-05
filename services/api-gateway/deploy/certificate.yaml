@@ -1,0 +1,33 @@
+# The browser-facing certificate. make gateway-routes gives it to APISIX, and must run again after
+# a renewal, which is about every 60 days.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-gateway-tls
+  labels:
+    app.kubernetes.io/name: windops-gateway
+    app.kubernetes.io/part-of: windops
+spec:
+  secretName: windops-gateway-tls
+  commonName: windops-gateway
+  dnsNames:
+    - windops-gateway
+    - windops-gateway.windops-system
+    - windops-gateway.windops-system.svc
+    - windops-gateway.windops-system.svc.cluster.local
+    - localhost
+  # For checks that arrive through a port-forward.
+  ipAddresses:
+    - 127.0.0.1
+  duration: 2160h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - server auth
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io

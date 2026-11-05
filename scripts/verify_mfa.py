@@ -18,19 +18,18 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 import jwt
-from gateway_routes import port_forward
 from identity_seed import (
     ADMIN_CLIENT_ID,
     ADMIN_REQUIRED_ACTIONS,
     ADMIN_SECRET_FILE,
     CLIENT_ID,
-    NAMESPACE,
     REALM,
-    SERVICE,
     TENANT_CLAIM,
     TENANTS,
     admin_client,
     demo_email,
+    keycloak_admin,
+    keycloak_public,
     read_demo_passwords,
     strong_password,
 )
@@ -398,8 +397,8 @@ def check_password_cannot_refresh_a_stale_step_up(realm: Realm, email: str, pass
     check(refused, f"So is re-entering a password in that session (acr={claims.get('acr')!r})")
 
 
-def run(base: str, admin_password: str, demo: dict[str, str]) -> None:
-    realm = Realm(base)
+def run(public: str, base: str, admin_password: str, demo: dict[str, str]) -> None:
+    realm = Realm(public)
     with admin_client(base, admin_password) as api:
         password = strong_password()
         user_id = create_user(api, ADMIN_USER_EMAIL, password)
@@ -433,8 +432,8 @@ def main() -> int:
     admin_password = read_passwords(ADMIN_SECRET_FILE)["password"]
     demo = read_demo_passwords()
     try:
-        with port_forward(SERVICE, NAMESPACE, 8080) as port:
-            run(f"http://127.0.0.1:{port}", admin_password, demo)
+        with keycloak_public() as public, keycloak_admin() as base:
+            run(public, base, admin_password, demo)
     except httpx.HTTPStatusError as error:
         # The status and address only, because a request can hold a password.
         print(f"Refused: {error.response.status_code} {error.request.url.path}", file=sys.stderr)
