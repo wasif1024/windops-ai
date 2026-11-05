@@ -61,6 +61,7 @@ def keycloak_settings() -> KeycloakSettings:
         realm=os.environ.get("WINDOPS_KEYCLOAK_REALM", "windops"),
         client_id=os.environ["WINDOPS_KEYCLOAK_CLIENT_ID"],
         client_secret=os.environ["WINDOPS_KEYCLOAK_CLIENT_SECRET"],
+        ca_file=f"{os.environ['WINDOPS_TLS_DIR']}/ca.crt",
     )
 
 

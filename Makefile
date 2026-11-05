@@ -17,7 +17,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -163,6 +163,9 @@ tenant-check: ## Prove tenants, branding and row-level security on the cluster
 cross-tenant-check: ## Attack every data path across tenants, in PostgreSQL and each API
 	PYTHONPATH=scripts uv run python scripts/verify_cross_tenant.py
 
+edge-check: ## Prove the gateway serves only HTTPS, and exposes only Keycloak's sign-in pages
+	PYTHONPATH=scripts uv run python scripts/verify_edge.py
+
 data-tls-check: ## Prove every data store accepts only TLS, including a real renewal
 	PYTHONPATH=scripts uv run python scripts/verify_data_tls.py
 
@@ -212,8 +215,8 @@ gateway: ## Deploy the API gateway
 gateway-routes: ## Apply the gateway's routes
 	uv run python scripts/gateway_routes.py
 
-gateway-forward: ## Reach the gateway at http://127.0.0.1:9080
-	kubectl --context $(CLUSTER) port-forward --namespace=windops-system service/windops-gateway 9080:80
+gateway-forward: ## Reach the gateway at https://localhost:9443, the address Keycloak's pages use
+	kubectl --context $(CLUSTER) port-forward --namespace=windops-system service/windops-gateway 9443:443
 
 gateway-check: ## Prove the gateway works on the cluster, using a throwaway service
 	PYTHONPATH=scripts uv run python scripts/verify_gateway.py

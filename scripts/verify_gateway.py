@@ -11,7 +11,8 @@ import time
 from pathlib import Path
 
 import httpx
-from gateway_routes import apply_route, port_forward, validate_route
+from gateway_routes import apply_certificate, apply_route, port_forward, validate_route
+from tls_client import trust_cluster_ca
 from verify_cluster import IGNORED, kubectl, minikube_docker_env, run
 
 REPOSITORY = Path(__file__).resolve().parent.parent
@@ -89,9 +90,9 @@ def check_service_exposes_only_the_proxy() -> None:
         "get", "service", "windops-gateway", f"--namespace={SYSTEM}",
         "--output=jsonpath={.spec.type} {.spec.ports[*].targetPort}",
     ).stdout.strip()  # fmt: skip
-    if service != "ClusterIP http":
+    if service != "ClusterIP https":
         raise RuntimeError(f"The Service exposes more than the proxy: {service}")
-    print("The Service exposes only the proxy port, inside the cluster")
+    print("The Service exposes only the HTTPS proxy port, inside the cluster")
 
 
 def check_admin_rejects_wrong_key(admin_url: str, key: str) -> None:
@@ -170,8 +171,8 @@ def restart_and_check_route(
     kubectl("delete", "pod", f"--namespace={namespace}", f"--selector={selector}", "--wait=true")
     wait_rollout(kind_name, namespace)
     wait_rollout("deployment/windops-gateway", SYSTEM)
-    with port_forward(port_target, SYSTEM, 9080) as proxy_port:
-        wait_for_status(f"http://127.0.0.1:{proxy_port}/health/live", 200)
+    with port_forward(port_target, SYSTEM, 9443) as proxy_port:
+        wait_for_status(f"https://127.0.0.1:{proxy_port}/health/live", 200)
     print(f"The route survived a restart of {kind_name}")
 
 
@@ -192,12 +193,13 @@ def check_gateway(root: Path, key: str) -> None:
         validate_route(ROUTE_ID, ROUTE)
         with (
             port_forward(gateway, SYSTEM, 9180) as admin_port,
-            port_forward(gateway, SYSTEM, 9080) as proxy_port,
+            port_forward(gateway, SYSTEM, 9443) as proxy_port,
             port_forward(gateway, SYSTEM, 9090) as control_port,
         ):
             admin = f"http://127.0.0.1:{admin_port}"
-            proxy = f"http://127.0.0.1:{proxy_port}"
+            proxy = f"https://127.0.0.1:{proxy_port}"
             check_admin_rejects_wrong_key(admin, key)
+            apply_certificate(admin, key)
             # Routes persist in etcd, so an interrupted run can leave this one behind.
             remove_route(admin, key)
             if httpx.get(f"{proxy}/health/live", timeout=5).status_code != 404:
@@ -236,6 +238,7 @@ def check_gateway(root: Path, key: str) -> None:
 
 
 def main() -> int:
+    trust_cluster_ca()
     run("make", "secrets", cwd=REPOSITORY)
     run("make", "infra", cwd=REPOSITORY)
     wait_rollout("statefulset/windops-etcd", SYSTEM)

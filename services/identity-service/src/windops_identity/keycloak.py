@@ -5,6 +5,7 @@ organization's members, which are our tenants. That role could also change the r
 call goes through `_call`, which refuses anything not in ALLOWED. A test fails if the list grows.
 """
 
+import ssl
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -57,6 +58,8 @@ class KeycloakSettings:
     realm: str
     client_id: str
     client_secret: str
+    # The CA Keycloak's certificate must come from. None only for a test's fake Keycloak.
+    ca_file: str | None = None
 
 
 def keycloak_breaker() -> CircuitBreaker:
@@ -72,8 +75,12 @@ class KeycloakAdmin:
         breaker: CircuitBreaker | None = None,
     ) -> None:
         self._settings = settings
+        verify: ssl.SSLContext | bool = True
+        if settings.ca_file:
+            verify = ssl.create_default_context(cafile=settings.ca_file)
+            verify.minimum_version = ssl.TLSVersion.TLSv1_2
         self._http = httpx.AsyncClient(
-            base_url=settings.url, timeout=TIMEOUT_SECONDS, transport=transport
+            base_url=settings.url, timeout=TIMEOUT_SECONDS, transport=transport, verify=verify
         )
         self._breaker = breaker or keycloak_breaker()
         self._token: str | None = None

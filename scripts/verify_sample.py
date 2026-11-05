@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx
 from gateway_routes import port_forward
+from tls_client import trust_cluster_ca
 from verify_cluster import kubectl, run
 
 SYSTEM = "windops-system"
@@ -43,13 +44,14 @@ def crashed(status: dict[str, Any]) -> bool:
 
 
 def main() -> int:
+    trust_cluster_ca()
     for target in ("images", "secrets", "infra", "services"):
         run("make", target)
     for workload, namespace in WORKLOADS:
         kubectl("rollout", "status", workload, f"--namespace={namespace}", "--timeout=300s")
     run("make", "gateway-routes")
-    with port_forward("service/windops-gateway", SYSTEM, 80) as port:
-        response = request_until_ok(f"http://127.0.0.1:{port}/sample/echo")
+    with port_forward("service/windops-gateway", SYSTEM, 443) as port:
+        response = request_until_ok(f"https://127.0.0.1:{port}/sample/echo")
     body = response.json()
     if body != {"message": "hello", "tenant_id": "sample"}:
         raise RuntimeError(f"Unexpected response: {body}")

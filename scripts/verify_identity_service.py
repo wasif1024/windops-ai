@@ -23,10 +23,9 @@ from identity_seed import (
     admin_client,
     demo_admin_email,
     demo_email,
+    keycloak_admin,
+    keycloak_public,
     read_demo_passwords,
-)
-from identity_seed import (
-    SERVICE as KEYCLOAK,
 )
 from provision_postgres import read_passwords
 from tls_client import ClientBundle, blocking_channel, client_bundle
@@ -264,17 +263,20 @@ def check_audit(bundle: ClientBundle, key: str, admin: str) -> None:
     check(wanted <= found, f"{TENANT}'s audit chain holds all {len(wanted)} kinds of change")
 
 
-def cleanup(api: httpx.Client) -> None:
-    found = api.get(f"/{REALM}/users", params={"email": NEW_EMAIL, "exact": "true"}).json()
-    for user in found:
-        api.delete(f"/{REALM}/users/{user['id']}")
+def cleanup(base: str, password: str) -> None:
+    """Sign in again, because an admin token lasts 60 seconds and the checks take longer."""
+    with admin_client(base, password) as api:
+        found = api.get(f"/{REALM}/users", params={"email": NEW_EMAIL, "exact": "true"})
+        found.raise_for_status()
+        for user in found.json():
+            api.delete(f"/{REALM}/users/{user['id']}").raise_for_status()
 
 
-def run(base: str, password: str) -> None:
+def run(public: str, base: str, password: str) -> None:
     status = kubectl("rollout", "status", DEPLOYMENT, "--timeout=180s")
     check(status.returncode == 0, "The Identity Service is running")
     bundle, key = client_bundle(), signing_key()
-    realm = Realm(base)
+    realm = Realm(public)
     with admin_client(base, password) as api:
         admin, operator = user_id(api, demo_admin_email(TENANT)), user_id(api, demo_email(TENANT))
         try:
@@ -292,14 +294,14 @@ def run(base: str, password: str) -> None:
                 check_authorization_outage(caller, admin)
             check_audit(bundle, key, admin)
         finally:
-            cleanup(api)
+            cleanup(base, password)
 
 
 def main() -> int:
     password = read_passwords(ADMIN_SECRET_FILE)["password"]
     try:
-        with port_forward(KEYCLOAK, SYSTEM, 8080) as port:
-            run(f"http://127.0.0.1:{port}", password)
+        with keycloak_public() as public, keycloak_admin() as base:
+            run(public, base, password)
     except (RuntimeError, OSError, grpc.RpcError, httpx.HTTPError, json.JSONDecodeError) as error:
         print(f"{type(error).__name__}: {error}", file=sys.stderr)
         return 1

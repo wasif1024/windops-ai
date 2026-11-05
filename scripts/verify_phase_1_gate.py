@@ -11,6 +11,7 @@ from typing import Any
 
 import httpx
 from gateway_routes import port_forward
+from tls_client import trust_cluster_ca
 from verify_cluster import kubectl, run
 from verify_observability import prometheus_query, wait_until
 
@@ -72,7 +73,7 @@ def span_id(span: dict[str, Any]) -> str:
 def check_trace_through_gateway(gateway_port: int) -> str:
     trace_id = secrets.token_hex(16)
     response = httpx.get(
-        f"http://127.0.0.1:{gateway_port}/sample/echo",
+        f"https://127.0.0.1:{gateway_port}/sample/echo",
         params={"message": "traced"},
         headers={"traceparent": f"00-{trace_id}-b7ad6b7169203331-01"},
         timeout=15,
@@ -166,7 +167,7 @@ def check_log_has_trace(trace_id: str) -> None:
 def call(gateway_port: int) -> tuple[int, dict[str, Any], float]:
     started = time.monotonic()
     response = httpx.get(
-        f"http://127.0.0.1:{gateway_port}/sample/echo",
+        f"https://127.0.0.1:{gateway_port}/sample/echo",
         params={"message": "fault"},
         timeout=15,
     )
@@ -275,8 +276,9 @@ def check_recovery(gateway_port: int) -> None:
 
 
 def main() -> int:
+    trust_cluster_ca()
     bootstrap()
-    with port_forward("service/windops-gateway", SYSTEM, 80) as gateway_port:
+    with port_forward("service/windops-gateway", SYSTEM, 443) as gateway_port:
         wait_until(
             "The gateway reaches the sample services",
             lambda: call(gateway_port)[0] == 200,

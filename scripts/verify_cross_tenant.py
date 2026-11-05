@@ -19,8 +19,14 @@ from typing import Any
 import grpc
 import httpx
 from gateway_routes import port_forward
-from identity_seed import ADMIN_SECRET_FILE, REALM, admin_client, demo_admin_email, demo_email
-from identity_seed import SERVICE as KEYCLOAK
+from identity_seed import (
+    ADMIN_SECRET_FILE,
+    REALM,
+    admin_client,
+    demo_admin_email,
+    demo_email,
+    keycloak_admin,
+)
 from provision_postgres import read_passwords
 from tls_client import ClientBundle, blocking_channel, client_bundle
 from windops.audit.v1 import audit_pb2, audit_pb2_grpc
@@ -259,8 +265,8 @@ class Attacker:
 def demo_users() -> tuple[str, str]:
     password = read_passwords(ADMIN_SECRET_FILE)["password"]
     with (
-        port_forward(KEYCLOAK, SYSTEM, 8080) as port,
-        admin_client(f"http://127.0.0.1:{port}", password) as api,
+        keycloak_admin() as base,
+        admin_client(base, password) as api,
     ):
         found = []
         for email in (demo_admin_email(TENANT), demo_email(OTHER)):

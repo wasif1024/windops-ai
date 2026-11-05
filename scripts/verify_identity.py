@@ -29,11 +29,12 @@ from identity_seed import (
     NAMESPACE,
     POD_SELECTOR,
     REALM,
-    SERVICE,
     TENANT_CLAIM,
     TENANTS,
     admin_client,
     demo_email,
+    keycloak_admin,
+    keycloak_public,
     read_demo_passwords,
     strong_password,
 )
@@ -171,8 +172,7 @@ def session_cookies(response: httpx.Response) -> dict[str, str]:
 def submit(
     browser: httpx.Client, page: httpx.Response, fields: dict[str, str], cookies: dict[str, str]
 ) -> httpx.Response:
-    """Post a login form. Keycloak's cookies are marked Secure, which browsers accept on localhost
-    but this client does not, so they are sent by hand until M3.7 adds TLS."""
+    """Post a login form, sending the cookies the login pages set, as a browser does."""
     action = re.search(r'action="([^"]+)"', page.text)
     if action is None:
         raise RuntimeError("The login page has no form")
@@ -393,9 +393,9 @@ def check_restart(base_tokens: Tokens, demo: dict[str, str]) -> None:
     )  # fmt: skip
     kubectl("delete", "pod", pod, f"--namespace={NAMESPACE}")
     kubectl("rollout", "status", DEPLOYMENT, f"--namespace={NAMESPACE}", "--timeout=300s")
-    with port_forward(SERVICE, NAMESPACE, 8080) as port:
+    with keycloak_public() as public:
         # A token's issuer holds the address it was issued through, so sign in again here.
-        realm = Realm(f"http://127.0.0.1:{port}")
+        realm = Realm(public)
         alias = next(iter(TENANTS))
         tokens = realm.login(demo_email(alias), demo[alias])
         if tokens is None:
@@ -463,8 +463,8 @@ def delete_user(api: httpx.Client, email: str) -> None:
         api.delete(f"/{REALM}/users/{item['id']}").raise_for_status()
 
 
-def run(base: str, admin_password: str, demo: dict[str, str]) -> Tokens:
-    realm = Realm(base)
+def run(public: str, base: str, admin_password: str, demo: dict[str, str]) -> Tokens:
+    realm = Realm(public)
     with admin_client(base, admin_password) as api:
         try:
             tokens = check_login_and_claims(realm, demo)
@@ -486,8 +486,8 @@ def main() -> int:
     demo = read_demo_passwords()
     try:
         kubectl("rollout", "status", DEPLOYMENT, f"--namespace={NAMESPACE}", "--timeout=300s")
-        with port_forward(SERVICE, NAMESPACE, 8080) as port:
-            tokens = run(f"http://127.0.0.1:{port}", admin_password, demo)
+        with keycloak_public() as public, keycloak_admin() as base:
+            tokens = run(public, base, admin_password, demo)
         check_database()
         check_restart(tokens, demo)
         check_metrics()

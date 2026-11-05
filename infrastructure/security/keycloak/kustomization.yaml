@@ -3,3 +3,4 @@ kind: Kustomization
 namespace: windops-system
 resources:
   - keycloak.yaml
+  - certificate.yaml

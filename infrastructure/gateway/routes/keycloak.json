@@ -1,0 +1,54 @@
+{
+  "uris": [
+    "/auth/realms/*",
+    "/auth/resources/*"
+  ],
+  "vars": [
+    [
+      "uri",
+      "!",
+      "~~",
+      "^/auth/realms/master(/|$)"
+    ]
+  ],
+  "plugins": {
+    "opentelemetry": {
+      "sampler": {
+        "name": "always_on"
+      }
+    }
+  },
+  "upstream": {
+    "type": "roundrobin",
+    "scheme": "https",
+    "pass_host": "node",
+    "tls": {
+      "verify": true
+    },
+    "timeout": {
+      "connect": 2,
+      "send": 10,
+      "read": 15
+    },
+    "nodes": {
+      "windops-keycloak.windops-system.svc.cluster.local:8443": 1
+    },
+    "checks": {
+      "active": {
+        "type": "https",
+        "https_verify_certificate": true,
+        "http_path": "/auth/realms/windops/.well-known/openid-configuration",
+        "healthy": {
+          "interval": 5,
+          "successes": 2
+        },
+        "unhealthy": {
+          "interval": 5,
+          "http_failures": 2,
+          "tcp_failures": 2,
+          "timeouts": 2
+        }
+      }
+    }
+  }
+}

@@ -5,16 +5,19 @@ make identity-seed
 """
 
 import base64
+import contextlib
 import json
 import secrets
 import subprocess
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import httpx
 from gateway_routes import port_forward
 from provision_postgres import read_passwords
+from tls_client import trust_cluster_ca
 from windops_auth import LEVEL_MFA, LEVEL_PASSWORD, MFA_LEVEL_SECONDS
 
 CONTEXT = "windops"
@@ -148,7 +151,12 @@ IDENTITY_CLIENT_RESOURCE = "windops-identity-keycloak"
 # Keycloak lets nothing less than manage-realm read or change an organization's members. The
 # service limits itself to a fixed list of calls, in its keycloak.py.
 IDENTITY_ROLES = ("view-users", "query-users", "manage-users", "manage-realm")
-KEYCLOAK_URL = f"http://{SERVICE.split('/')[-1]}.{NAMESPACE}.svc.cluster.local:8080"
+KEYCLOAK_URL = f"https://{SERVICE.split('/')[-1]}.{NAMESPACE}.svc.cluster.local:8443/auth"
+# The one address browsers, and so token issuers, use. It must be this exact port.
+PUBLIC_PORT = 9443
+PUBLIC_URL = f"https://localhost:{PUBLIC_PORT}/auth"
+ADMIN_PORT = 8443
+GATEWAY = "service/windops-gateway"
 
 
 def identity_client_settings() -> dict[str, Any]:
@@ -212,6 +220,25 @@ def store_identity_client(secret: str) -> None:
         ["kubectl", "--context", CONTEXT, "apply", "--filename=-"],
         input=json.dumps(manifest), capture_output=True, text=True, check=True,
     )  # fmt: skip
+
+
+@contextlib.contextmanager
+def keycloak_admin() -> Iterator[str]:
+    """Yield Keycloak's own address, for its admin API, which the gateway does not route."""
+    trust_cluster_ca()
+    with port_forward(SERVICE, NAMESPACE, ADMIN_PORT) as port:
+        yield f"https://127.0.0.1:{port}/auth"
+
+
+@contextlib.contextmanager
+def keycloak_public() -> Iterator[str]:
+    """Yield Keycloak's public address, through the gateway, as a browser reaches it.
+
+    Its pages and redirects name this exact address, so the local port must be 9443.
+    """
+    trust_cluster_ca()
+    with port_forward(GATEWAY, NAMESPACE, 443, local_port=PUBLIC_PORT):
+        yield PUBLIC_URL
 
 
 def demo_admin_email(alias: str) -> str:
@@ -546,8 +573,8 @@ def main() -> int:
         return 1
     wait_for_keycloak()
     try:
-        with port_forward(SERVICE, NAMESPACE, 8080) as port:
-            seed(f"http://127.0.0.1:{port}", admin_password, demo, stored)
+        with keycloak_admin() as base:
+            seed(base, admin_password, demo, stored)
     except httpx.HTTPStatusError as error:
         # The status and address only, because a request body can hold a password.
         print(

@@ -1,5 +1,5 @@
-# Login, credentials and sessions (SEC-006). Reachable only inside the cluster until M3.7 adds a
-# gateway route with TLS.
+# Login, credentials and sessions (SEC-006). The browser reaches only its sign-in pages, through the
+# gateway at https://localhost:9443/auth. Its admin API is reachable only inside the cluster.
 apiVersion: v1
 kind: Service
 metadata:
@@ -13,9 +13,9 @@ spec:
   selector:
     app.kubernetes.io/name: windops-keycloak
   ports:
-    - name: http
-      port: 8080
-      targetPort: http
+    - name: https
+      port: 8443
+      targetPort: https
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -88,20 +88,34 @@ spec:
                 secretKeyRef:
                   name: windops-keycloak-database
                   key: password
-            # Plain HTTP and a flexible hostname, for port-forwarding. M3.7 adds TLS at the gateway
-            # and a fixed hostname, which then fixes the issuer in every token.
+            # HTTPS only, at one fixed public address, which fixes the issuer in every token.
             - name: KC_HTTP_ENABLED
-              value: "true"
-            - name: KC_HOSTNAME_STRICT
               value: "false"
+            - name: KC_HTTPS_CERTIFICATE_FILE
+              value: /var/run/windops/keycloak-tls/tls.crt
+            - name: KC_HTTPS_CERTIFICATE_KEY_FILE
+              value: /var/run/windops/keycloak-tls/tls.key
+            - name: KC_HOSTNAME
+              value: https://localhost:9443/auth
+            # Services inside the cluster may still use its internal address.
+            - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
+              value: "true"
+            # Only the gateway's forwarded headers are trusted, from inside the pod network.
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            - name: KC_PROXY_TRUSTED_ADDRESSES
+              value: 10.244.0.0/16
+            # Probes and Prometheus keep plain HTTP on the management port, which holds no logins.
+            - name: KC_HTTP_MANAGEMENT_SCHEME
+              value: http
             # One replica locally, so it needs no cluster cache.
             - name: KC_CACHE
               value: local
             - name: JAVA_OPTS_KC_HEAP
               value: -XX:MaxRAMPercentage=60 -XX:InitialRAMPercentage=25
           ports:
-            - name: http
-              containerPort: 8080
+            - name: https
+              containerPort: 8443
             - name: management
               containerPort: 9000
           startupProbe:
@@ -135,6 +149,9 @@ spec:
             capabilities:
               drop: [ALL]
           volumeMounts:
+            - name: keycloak-tls
+              mountPath: /var/run/windops/keycloak-tls
+              readOnly: true
             - name: trust
               mountPath: /var/run/windops/tls
               readOnly: true
@@ -143,6 +160,10 @@ spec:
             - name: data
               mountPath: /opt/keycloak/data
       volumes:
+        - name: keycloak-tls
+          secret:
+            secretName: windops-keycloak-tls
+            defaultMode: 0440
         - name: trust
           secret:
             secretName: windops-trust
