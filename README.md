@@ -76,6 +76,7 @@ control is still shown as planned after its modules are finished.
 | [Service map](docs/service-map.md) | Every service's calls and events, and each failure behavior |
 | [gRPC contracts](docs/grpc-contracts.md) | Versioning, breaking changes and per-call rules |
 | [Observability](docs/observability.md) | Data flow, dashboards and retention by environment |
+| [Events](docs/events.md) | Subjects, failure handling, dashboard and alerts |
 | [Coding standards](docs/coding-standards.md) | Merge rules, and what is enforced automatically |
 
 ## Status

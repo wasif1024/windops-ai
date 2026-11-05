@@ -80,6 +80,20 @@ def test_nats_meets_the_restricted_pod_security_profile(workload: dict[str, Any]
     assert context["capabilities"]["drop"] == ["ALL"]
 
 
+def test_metrics_come_from_a_limited_exporter_that_needs_no_login(workload: dict[str, Any]) -> None:
+    """SRS 10.3: it reads the local monitoring port, so it holds no NATS password."""
+    pod = workload["spec"]["template"]
+    assert pod["metadata"]["annotations"]["prometheus.io/port"] == "7777"
+    exporter = pod["spec"]["containers"][1]
+    assert "@sha256:" in exporter["image"]
+    assert "-jsz=all" in exporter["args"]
+    assert "env" not in exporter
+    assert {"startupProbe", "readinessProbe", "livenessProbe"} <= set(exporter)
+    assert "memory" in exporter["resources"]["limits"]
+    assert exporter["securityContext"]["readOnlyRootFilesystem"] is True
+    assert exporter["securityContext"]["capabilities"]["drop"] == ["ALL"]
+
+
 def test_every_login_needs_a_password() -> None:
     config = json.loads(configuration(PASSWORDS))
     assert "no_auth_user" not in config

@@ -35,6 +35,10 @@ spec:
       labels:
         app.kubernetes.io/name: windops-nats
         app.kubernetes.io/part-of: windops
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "7777"
+        prometheus.io/path: /metrics
     spec:
       automountServiceAccountToken: false
       # Long enough to finish writing streams to disk.
@@ -95,6 +99,39 @@ spec:
               readOnly: true
             - name: data
               mountPath: /data
+        # Turns NATS's monitoring data into Prometheus metrics, including consumer lag (SRS 10.3).
+        - name: exporter
+          image: natsio/prometheus-nats-exporter:0.20.3@sha256:4b8ddc1c86fec360b5cd3d5e1fbc6fb52bdafd5805bba3901cc52926538af255
+          args: [-port=7777, -jsz=all, -varz, http://localhost:8222]
+          ports:
+            - name: metrics
+              containerPort: 7777
+          startupProbe:
+            tcpSocket:
+              port: metrics
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: metrics
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: metrics
+            periodSeconds: 20
+          # Starting values. Replace them with measured figures (SRS 11).
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
       volumes:
         - name: config
           secret:

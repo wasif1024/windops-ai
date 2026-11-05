@@ -13,6 +13,8 @@ from nats.errors import TimeoutError as NatsTimeoutError
 from nats.js import JetStreamContext
 from nats.js.api import StorageType
 from nats.js.errors import BadRequestError, ServiceUnavailableError
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from windops.events.v1 import events_pb2
 from windops_events import (
     Event,
@@ -357,3 +359,23 @@ async def test_a_handler_can_reject_an_event_as_invalid_at_once() -> None:
     await consumer_for(fake, handler).handle(as_msg(message))
     assert message.outcomes == ["term"]
     assert fake.published[0][2]["Windops-Reason"] == "invalid"
+
+
+@run_async
+async def test_a_dead_letter_is_counted_by_consumer_and_reason() -> None:
+    reader = InMemoryMetricReader()
+    consumer = EventConsumer(
+        cast(JetStreamContext, FakeJetStream()),
+        subject="alarm.changed",
+        durable="fault-detection",
+        handler=succeed,
+        meter_provider=MeterProvider(metric_readers=[reader]),
+    )
+    await consumer.handle(as_msg(FakeMessage(b"\xff\xff not protobuf")))
+    data = reader.get_metrics_data()
+    assert data is not None
+    metric = data.resource_metrics[0].scope_metrics[0].metrics[0]
+    point = metric.data.data_points[0]
+    assert metric.name == "windops.events.dead_lettered"
+    assert point.value == 1  # type: ignore[union-attr]
+    assert dict(point.attributes or {}) == {"consumer": "fault-detection", "reason": "invalid"}

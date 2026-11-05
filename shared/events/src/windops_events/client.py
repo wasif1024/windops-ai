@@ -13,6 +13,7 @@ from nats.errors import Error as NatsError
 from nats.js import JetStreamContext
 from nats.js.api import AckPolicy, ConsumerConfig, RetentionPolicy, StorageType, StreamConfig
 from nats.js.errors import APIError, BadRequestError, ServiceUnavailableError
+from opentelemetry import metrics
 from windops.events.v1 import events_pb2
 from windops_resilience import BreakerConfig, BreakerOpenError, CircuitBreaker
 
@@ -157,6 +158,7 @@ class EventConsumer:
         max_attempts: int = 5,
         retry_delay_seconds: float = 5.0,
         ack_wait_seconds: float = 30.0,
+        meter_provider: metrics.MeterProvider | None = None,
     ) -> None:
         if max_attempts < 1:
             raise ValueError("A consumer needs at least one attempt")
@@ -168,6 +170,11 @@ class EventConsumer:
         self._retry_delay = retry_delay_seconds
         self._ack_wait = ack_wait_seconds
         self._subscription: JetStreamContext.PullSubscription | None = None
+        meter = (meter_provider or metrics.get_meter_provider()).get_meter("windops.events")
+        self._dead_lettered = meter.create_counter(
+            "windops.events.dead_lettered",
+            description="Messages moved to the dead-letter stream",
+        )
 
     async def start(self) -> None:
         """Create or join the durable consumer, which remembers its place across restarts."""
@@ -249,6 +256,7 @@ class EventConsumer:
             await message.nak(delay=self._retry_delay)
             return
         await message.term()
+        self._dead_lettered.add(1, {"consumer": self._durable, "reason": reason})
         logger.error(
             "Message moved to the dead-letter stream",
             extra={

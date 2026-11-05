@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from sqlalchemy import Column, Integer, MetaData, Table, insert, select, update
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -323,9 +325,75 @@ def test_a_database_outage_does_not_stop_the_relay(monkeypatch: pytest.MonkeyPat
             stop.set()
             raise OperationalError("SELECT 1", {}, Exception("down"))
 
+        async def no_status() -> None:
+            return None
+
         monkeypatch.setattr(relay, "run_once", fail)
+        monkeypatch.setattr(relay, "report_status", no_status)
         await asyncio.wait_for(relay.run_forever(stop), timeout=5)
         assert calls == 1
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def exported(reader: InMemoryMetricReader) -> dict[str, float]:
+    data = reader.get_metrics_data()
+    assert data is not None
+    return {
+        metric.name: metric.data.data_points[0].value  # type: ignore[union-attr]
+        for resource in data.resource_metrics
+        for scope in resource.scope_metrics
+        for metric in scope.metrics
+    }
+
+
+@with_engine
+async def test_the_backlog_is_exported_as_metrics(engine: AsyncEngine) -> None:
+    await queue(engine, 2)
+    reader = InMemoryMetricReader()
+    relay = OutboxRelay(
+        engine, FakePublisher(), meter_provider=MeterProvider(metric_readers=[reader])
+    )
+    await relay.report_status()
+    values = exported(reader)
+    assert values["windops.outbox.waiting"] == 2
+    assert values["windops.outbox.failed"] == 0
+    assert values["windops.outbox.oldest_waiting_seconds"] >= 0
+
+
+@with_engine
+async def test_the_backlog_is_reported_during_an_outage(engine: AsyncEngine) -> None:
+    """A growing backlog matters most while JetStream is down (SRS 7.7)."""
+    await queue(engine)
+    reader = InMemoryMetricReader()
+    stop = asyncio.Event()
+    relay = OutboxRelay(
+        engine, FakePublisher(fail_on=1), meter_provider=MeterProvider(metric_readers=[reader])
+    )
+    task = asyncio.create_task(relay.run_forever(stop))
+    await asyncio.sleep(0.1)
+    stop.set()
+    await asyncio.wait_for(task, timeout=10)
+    assert exported(reader)["windops.outbox.waiting"] == 1
+
+
+def test_a_database_outage_while_reporting_does_not_stop_the_relay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """RES-006: the status query fails first in an outage, and must be handled the same."""
+
+    async def scenario() -> None:
+        engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+        relay = OutboxRelay(engine, FakePublisher())
+        stop = asyncio.Event()
+
+        async def fail() -> None:
+            stop.set()
+            raise OperationalError("SELECT 1", {}, Exception("down"))
+
+        monkeypatch.setattr(relay, "report_status", fail)
+        await asyncio.wait_for(relay.run_forever(stop), timeout=5)
         await engine.dispose()
 
     asyncio.run(scenario())

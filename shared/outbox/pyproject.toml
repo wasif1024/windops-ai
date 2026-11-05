@@ -5,6 +5,7 @@ description = "Commit a state change and its event together (EVT-002)"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    "opentelemetry-api>=1.45.2",
     "psycopg[binary]>=3.3.8",
     "sqlalchemy[asyncio]>=2.1.8",
     "windops-events",

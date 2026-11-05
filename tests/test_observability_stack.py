@@ -160,6 +160,49 @@ def test_platform_health_has_the_srs_indicators_available_so_far() -> None:
         assert indicator in titles
 
 
+def test_platform_health_shows_every_data_store() -> None:
+    """SRS 10.3."""
+    titles = panel_titles("platform-health.json")
+    for store in ("database", "redis", "qdrant", "jetstream"):
+        assert store in titles
+
+
+def test_events_dashboard_has_the_srs_indicators() -> None:
+    """SRS 10.3."""
+    titles = panel_titles("events.json")
+    for indicator in ("consumer lag", "outbox backlog", "dead-letter"):
+        assert indicator in titles
+
+
+def alert_rules() -> dict[str, dict[str, Any]]:
+    rules = yaml.safe_load(
+        (ROOT / "infrastructure" / "monitoring" / "prometheus" / "rules.yml").read_text()
+    )
+    return {rule["alert"]: rule for group in rules["groups"] for rule in group["rules"]}
+
+
+@pytest.mark.parametrize(
+    "alert",
+    [
+        "WindopsDeadLetterMessages",
+        "WindopsOutboxBacklog",
+        "WindopsOutboxRowsSetAside",
+        "WindopsConsumerLag",
+        "WindopsDataStoreDown",
+    ],
+)
+def test_events_have_their_alerts(alert: str) -> None:
+    """EVT-003 and SRS 7.7."""
+    rule = alert_rules()[alert]
+    assert rule["labels"]["severity"] in {"warning", "critical"}
+    assert rule["annotations"]["summary"]
+
+
+def test_a_dead_letter_alerts_immediately() -> None:
+    """EVT-003: one message means something failed repeatedly, or was malformed."""
+    assert "for" not in alert_rules()["WindopsDeadLetterMessages"]
+
+
 def test_microservice_health_has_the_srs_indicators() -> None:
     titles = panel_titles("microservice-health.json")
     for indicator in ("request rate", "latency", "failures", "circuit breaker"):

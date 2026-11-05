@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from google.protobuf.message import DecodeError, Message
+from opentelemetry import metrics
 from sqlalchemy import (
     BigInteger,
     Column,
@@ -36,6 +37,7 @@ logger = logging.getLogger(__name__)
 BATCH_SIZE = 100
 IDLE_SECONDS = 1.0
 UNAVAILABLE_SECONDS = 5.0
+STATUS_SECONDS = 15.0
 
 _METADATA = MetaData()
 OUTBOX_TABLE = Table(
@@ -143,11 +145,36 @@ class OutboxRelay:
     """Publishes committed events, marking each only once JetStream has stored it."""
 
     def __init__(
-        self, engine: AsyncEngine, publisher: EnvelopePublisher, *, batch: int = BATCH_SIZE
+        self,
+        engine: AsyncEngine,
+        publisher: EnvelopePublisher,
+        *,
+        batch: int = BATCH_SIZE,
+        meter_provider: metrics.MeterProvider | None = None,
     ) -> None:
         self._engine = engine
         self._publisher = publisher
         self._batch = batch
+        meter = (meter_provider or metrics.get_meter_provider()).get_meter("windops.outbox")
+        self._waiting = meter.create_gauge(
+            "windops.outbox.waiting", description="Outbox events waiting to be published"
+        )
+        self._failed = meter.create_gauge(
+            "windops.outbox.failed",
+            description="Outbox rows set aside, because they are unreadable",
+        )
+        self._oldest = meter.create_gauge(
+            "windops.outbox.oldest_waiting_seconds",
+            description="Age of the oldest outbox event waiting to be published",
+        )
+
+    async def report_status(self) -> None:
+        """Export the backlog, for the Events dashboard and its alerts (SRS 7.7)."""
+        async with self._engine.connect() as connection:
+            status = await outbox_status(connection)
+        self._waiting.set(status.waiting)
+        self._failed.set(status.failed)
+        self._oldest.set(status.oldest_waiting_seconds)
 
     async def run_once(self) -> RelayResult:
         """Send one batch, keeping what was sent if a later row cannot go."""
@@ -191,8 +218,14 @@ class OutboxRelay:
 
     async def run_forever(self, stop: asyncio.Event) -> None:
         """Keep sending until told to stop, waiting longer while JetStream is down."""
+        reported_at = 0.0
+        loop = asyncio.get_running_loop()
         while not stop.is_set():
             try:
+                # Before sending, and on a timer, so the backlog still shows during an outage.
+                if loop.time() - reported_at >= STATUS_SECONDS:
+                    await self.report_status()
+                    reported_at = loop.time()
                 result = await self.run_once()
             except SQLAlchemyError as error:
                 # A database outage must not restart the service (RES-006).

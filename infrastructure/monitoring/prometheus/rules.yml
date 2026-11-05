@@ -1,4 +1,4 @@
-# SRS 10.3 alerts arrive in M13.7. These first rules prove the alert path works.
+# The remaining SRS 10.3 alerts arrive in M13.7, with routing by severity and owner.
 groups:
   - name: windops-platform
     rules:
@@ -16,3 +16,40 @@ groups:
           severity: warning
         annotations:
           summary: "{{ $labels.workload }} has an open breaker for {{ $labels.dependency }}"
+  - name: windops-events
+    rules:
+      - alert: WindopsDeadLetterMessages
+        expr: increase(jetstream_stream_total_messages{stream_name="WINDOPS_DEAD_LETTER"}[1h]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "A message reached the dead-letter stream. Run: make dead-letters"
+      - alert: WindopsOutboxBacklog
+        expr: max by (workload) (windops_outbox_oldest_waiting_seconds) > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.workload }} has outbox events waiting for over 5 minutes"
+      - alert: WindopsOutboxRowsSetAside
+        expr: max by (workload) (windops_outbox_failed) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.workload }} has outbox rows it cannot read"
+      - alert: WindopsConsumerLag
+        expr: max by (consumer_name, stream_name) (jetstream_consumer_num_pending) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.consumer_name }} is behind on {{ $labels.stream_name }}"
+      - alert: WindopsDataStoreDown
+        expr: >-
+          kube_statefulset_status_replicas_ready{namespace="windops-data"} == 0
+          or kube_deployment_status_replicas_available{namespace="windops-data"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "A data store in windops-data has no ready replica"
