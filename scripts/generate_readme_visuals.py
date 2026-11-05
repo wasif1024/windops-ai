@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Generate the README architecture diagram and agent orchestration animation.
+"""Generate the README's architecture diagrams and agent orchestration animation.
 
-Both visuals show the target design in docs/srs.md (sections 5, 6, 7 and 8).
+These visuals show the target design in docs/srs.md (sections 5, 6, 7 and 8).
 Update this script when that design changes, then run it from any directory:
 
     uv run python scripts/generate_readme_visuals.py
@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from PIL import Image, ImageDraw, ImageFont
+from provision_postgres import SERVICE_NAMESPACES, database_name
 
 Point = tuple[float, float]
 
@@ -61,9 +62,9 @@ class Canvas:
 
     _fonts: ClassVar[dict[tuple[float, bool], ImageFont.FreeTypeFont]] = {}
 
-    def __init__(self, width: int, height: int, scale: int = 2) -> None:
+    def __init__(self, width: int, height: int, scale: int = 2, background: str = BG) -> None:
         self.width, self.height, self.s = width, height, scale
-        self.image = Image.new("RGB", (width * scale, height * scale), BG)
+        self.image = Image.new("RGB", (width * scale, height * scale), background)
         self.draw = ImageDraw.Draw(self.image)
 
     def font(self, size: float, bold: bool = False) -> ImageFont.FreeTypeFont:
@@ -1278,6 +1279,333 @@ def build_end_to_end() -> None:
     c.image.save(ASSETS / "end-to-end-architecture.png", optimize=True)
 
 
+# ---------------------------------------------------------------- service overview
+
+INK = "#0F172A"
+SOFT_INK = "#475569"
+PAPER = "#FFFFFF"
+CALL_COLOR = "#0F172A"
+EVENT_COLOR = "#7C3AED"
+SIGNAL_COLOR = "#EA580C"
+GATEWAY = ("#15803D", "#DCFCE7")
+SERVICE = ("#1D4ED8", "#DBEAFE")
+DECISION = ("#0F766E", "#CCFBF1")
+HUMAN_CARD = ("#B45309", "#FEF3C7")
+AGENT = ("#7C3AED", "#EDE9FE")
+DATA = ("#475569", "#E2E8F0")
+EXTERNAL = ("#0369A1", "#E0F2FE")
+SIGNAL = ("#EA580C", "#FFEDD5")
+CARD_KINDS = {"service": SERVICE, "rule": DECISION, "human": HUMAN_CARD}
+OVERVIEW_GROUPS = (
+    ("Identity and tenancy", "service", tuple((name, "service") for name in ENTRY_SERVICES[2:])),
+    *APPLICATION_GROUPS,
+)
+STREAM_NAMES = ("WINDOPS_EVENTS", "WINDOPS_TELEMETRY", "WINDOPS_AUDIT", "WINDOPS_DEAD_LETTER")
+
+
+def overview_card(
+    c: Canvas,
+    box: tuple[float, float, float, float],
+    title: str,
+    sub: str | None,
+    colors: tuple[str, str],
+    *,
+    title_size: float = 15,
+    sub_size: float = 12,
+) -> None:
+    accent, fill = colors
+    c.box(*box, fill=fill, outline=accent, width=1.5, radius=10)
+    c.label(*box, title, sub, INK, SOFT_INK, title_size, sub_size)
+
+
+def service_card(c: Canvas, x0: float, y0: float, width: float, name: str, kind: str) -> None:
+    """Draw a service over the shared library it runs with, like a sidecar but in-process."""
+    accent, fill = CARD_KINDS[kind]
+    c.box(x0, y0, x0 + width, y0 + 50, fill=fill, outline=accent, width=1.25, radius=8)
+    c.box(x0, y0, x0 + width, y0 + 28, fill=accent, outline=accent, radius=8)
+    c.text(x0 + width / 2, y0 + 14, name, 11.5, True, PAPER, "mm")
+    c.text(x0 + width / 2, y0 + 39, "breakers, signed identity", 9.5, color=SOFT_INK, anchor="mm")
+
+
+def cylinder(
+    c: Canvas, x0: float, y0: float, x1: float, y1: float, label: str, size: float
+) -> None:
+    """Draw a database, the shape the reference diagram uses for each data store."""
+    s, cap = c.s, 8.0
+    edge, fill = DATA
+    box = (x0 * s, (y0 + cap) * s, x1 * s, (y1 - cap) * s)
+    c.draw.rectangle(box, fill=fill)
+    c.draw.ellipse((x0 * s, (y1 - 2 * cap) * s, x1 * s, y1 * s), fill=fill, outline=edge, width=s)
+    c.draw.rectangle((x0 * s + s, (y0 + cap) * s, x1 * s - s, (y1 - cap) * s), fill=fill)
+    c.draw.line((x0 * s, (y0 + cap) * s, x0 * s, (y1 - cap) * s), fill=edge, width=s)
+    c.draw.line((x1 * s, (y0 + cap) * s, x1 * s, (y1 - cap) * s), fill=edge, width=s)
+    c.draw.ellipse((x0 * s, y0 * s, x1 * s, (y0 + 2 * cap) * s), fill=PAPER, outline=edge, width=s)
+    rows = c.wrap(label, size, x1 - x0 - 6)
+    y = (y0 + y1) / 2 + 4 - (len(rows) - 1) * size * 0.6
+    for row in rows:
+        c.text((x0 + x1) / 2, y, row, size, color=INK, anchor="mm")
+        y += size * 1.2
+
+
+def pattern_line(
+    c: Canvas, points: list[Point], color: str, *, dash: float, gap: float, head: bool = True
+) -> None:
+    """Draw a dashed or dotted line through points, ending in an arrow."""
+    for start, end in itertools.pairwise(points):
+        length = math.dist(start, end)
+        position = 0.0
+        while position < length:
+            stop = min(position + dash, length)
+            c.line(
+                [
+                    (
+                        start[0] + (end[0] - start[0]) * position / length,
+                        start[1] + (end[1] - start[1]) * position / length,
+                    ),
+                    (
+                        start[0] + (end[0] - start[0]) * stop / length,
+                        start[1] + (end[1] - start[1]) * stop / length,
+                    ),
+                ],
+                color,
+                1.75,
+            )
+            position += dash + gap
+    if head:
+        c.head(points[-1], points[-2], color, 8)
+
+
+def dashed_frame(
+    c: Canvas, box: tuple[float, float, float, float], color: str, fill: str | None = None
+) -> None:
+    x0, y0, x1, y1 = box
+    if fill:
+        c.box(x0, y0, x1, y1, fill=fill, outline=fill, radius=12)
+    corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)]
+    pattern_line(c, corners, color, dash=7, gap=5, head=False)
+
+
+def overview_label(c: Canvas, x: float, y: float, value: str, color: str = INK) -> None:
+    width = c.text_width(value, 12)
+    c.box(x - width / 2 - 5, y - 9, x + width / 2 + 5, y + 9, fill=PAPER, outline=PAPER, radius=4)
+    c.text(x, y, value, 12, color=color, anchor="mm")
+
+
+def draw_overview_services(c: Canvas, top: float) -> float:
+    """Draw every service by group, and return the frame's lower edge."""
+    bottom = top + 332
+    dashed_frame(c, (40, top, 1240, bottom), SERVICE[0], "#F8FAFF")
+    c.text(
+        58,
+        top + 18,
+        "Kubernetes: one pod per service, calling each other over gRPC",
+        14,
+        True,
+        SERVICE[0],
+    )
+    width = (1200 - 8 * 8 - 16) / 7
+    x = 56.0
+    for name, _, members in OVERVIEW_GROUPS:
+        c.text(x + width / 2, top + 44, name, 11, True, SOFT_INK, "mm")
+        y = top + 58
+        for service, kind in members:
+            service_card(c, x, y, width, service, kind)
+            y += 54
+        x += width + 8
+    return bottom
+
+
+def draw_overview_data(c: Canvas, top: float) -> float:
+    """Draw where data lives: one server holding a database per service, and the other stores."""
+    bottom = top + 214
+    dashed_frame(c, (40, top, 1012, bottom), DATA[0], "#F8FAFC")
+    c.text(
+        58,
+        top + 18,
+        "One PostgreSQL pod: 20 separate databases, each with its own login",
+        14,
+        True,
+        INK,
+    )
+    names = [database_name(service).removeprefix("windops_") for service in SERVICE_NAMESPACES]
+    per_row = 10
+    width, gap = 88.0, 7.0
+    for index, name in enumerate(names):
+        x0 = 54 + (index % per_row) * (width + gap)
+        y0 = top + 36 + (index // per_row) * 86
+        cylinder(c, x0, y0, x0 + width, y0 + 78, name.replace("_", " "), 10.5)
+    for x0, name, note in (
+        (1032, "Redis", "cache, rate limits"),
+        (1140, "Qdrant", "vector search"),
+    ):
+        cylinder(c, x0, top + 16, x0 + 100, top + 150, name, 13)
+        for index, row in enumerate(c.wrap(note, 11, 100)):
+            c.text(x0 + 50, top + 166 + index * 14, row, 11, color=SOFT_INK, anchor="mm")
+    return bottom
+
+
+def draw_overview_stream(c: Canvas, top: float) -> float:
+    """Draw JetStream as a tube, with its streams as the sections."""
+    edge, fill = "#7C3AED", "#F3E8FF"
+    c.box(40, top, 1240, top + 92, fill=fill, outline=edge, width=1.5, radius=24)
+    c.text(
+        640,
+        top + 19,
+        "NATS JetStream: durable events, through each service's outbox",
+        14,
+        True,
+        EVENT_COLOR,
+        "mm",
+    )
+    width = (1200 - 40 - 3 * 10) / 4
+    x = 60.0
+    for name in STREAM_NAMES:
+        c.box(x, top + 38, x + width, top + 78, fill=PAPER, outline=edge, radius=6)
+        c.text(x + width / 2, top + 58, name, 12, color=EVENT_COLOR, anchor="mm")
+        x += width + 10
+    return top + 92
+
+
+def draw_overview_observability(c: Canvas, top: float) -> float:
+    bottom = top + 122
+    dashed_frame(c, (40, top, 1240, bottom), SIGNAL[0], "#FFF7ED")
+    c.text(58, top + 18, "Observability stack, for every workload", 14, True, SIGNAL[0])
+    tools = (
+        ("Logs", "Fluent Bit, Loki"),
+        ("Metrics", "Prometheus, Alertmanager"),
+        ("Traces", "OpenTelemetry, Tempo"),
+        ("Dashboards", "Grafana"),
+    )
+    width = (1200 - 32 - 3 * 14) / 4
+    x = 56.0
+    for name, note in tools:
+        overview_card(c, (x, top + 38, x + width, top + 106), name, note, SIGNAL)
+        x += width + 14
+    return bottom
+
+
+def draw_overview_legend(c: Canvas, x: float, top: float) -> None:
+    c.box(x, top, 1560, top + 168, fill=PAPER, outline="#CBD5E1", radius=10)
+    c.text((x + 1560) / 2, top + 20, "Legend", 14, True, INK, "mm")
+    rows = (
+        ("call", "Call: the caller waits", "HTTPS or gRPC, with a breaker"),
+        ("event", "Event: the sender does not wait", "JetStream, through an outbox"),
+        ("signal", "Logs, metrics and traces", "From every workload"),
+    )
+    y = top + 50
+    for kind, title, note in rows:
+        start, end = (x + 14, y + 8), (x + 58, y + 8)
+        if kind == "call":
+            c.arrow([start, end], CALL_COLOR, 1.75)
+        elif kind == "event":
+            pattern_line(c, [start, end], EVENT_COLOR, dash=7, gap=5)
+        else:
+            pattern_line(c, [start, end], SIGNAL_COLOR, dash=2, gap=4)
+        c.text(x + 68, y, title, 12, True, INK)
+        c.text(x + 68, y + 17, note, 11, color=SOFT_INK)
+        y += 40
+
+
+def build_service_overview() -> None:
+    """Draw every service, its data, events and signals, on one light page for quick reading."""
+    c = Canvas(1600, 1244, background=PAPER)
+    c.text(40, 32, "WindOps AI: services, data and events", 28, True, INK)
+    c.text(40, 62, "Target design from SRS v1.1, built in phases.", 15, color=SOFT_INK)
+
+    # Coming in
+    overview_card(c, (250, 86, 470, 134), "React frontend", "operators and approvers", HUMAN_CARD)
+    overview_card(c, (810, 86, 1030, 134), "Telemetry simulator", "synthetic SCADA and CMS", DATA)
+    overview_card(
+        c,
+        (40, 172, 1240, 222),
+        "API Gateway (Apache APISIX)",
+        "the only way in: TLS, rate limits and token checks",
+        GATEWAY,
+    )
+    c.arrow([(360, 134), (360, 172)], CALL_COLOR, 1.75)
+    overview_label(c, 402, 153, "HTTPS")
+    c.arrow([(920, 134), (920, 172)], CALL_COLOR, 1.75)
+    overview_label(c, 1000, 153, "device route to Telemetry")
+
+    # Identity, outside the request path
+    overview_card(c, (1290, 172, 1560, 222), "Keycloak", "login, MFA and tokens", EXTERNAL)
+    c.arrow([(1240, 197), (1290, 197)], CALL_COLOR, 1.75)
+    overview_label(c, 1265, 161, "OIDC")
+
+    # Web BFF and agents
+    overview_card(
+        c,
+        (40, 258, 560, 306),
+        "Web BFF",
+        "REST and SSE for the frontend, no business rules",
+        GATEWAY,
+    )
+    overview_card(
+        c, (620, 258, 900, 306), AGENT_SERVICE, "Supervisor and 5 specialist agents", AGENT
+    )
+    overview_card(
+        c, (960, 258, 1240, 306), "MCP servers", "an agent's only route to services", AGENT
+    )
+    c.arrow([(300, 222), (300, 258)], CALL_COLOR, 1.75)
+    c.arrow([(900, 282), (960, 282)], CALL_COLOR, 1.75)
+    c.arrow([(300, 306), (300, 344)], CALL_COLOR, 1.75)
+    overview_label(c, 340, 325, "gRPC")
+    c.arrow([(1100, 306), (1100, 344)], CALL_COLOR, 1.75)
+    overview_label(c, 1140, 325, "gRPC")
+
+    services_bottom = draw_overview_services(c, 344)
+
+    # External providers
+    c.text(1425, 268, "External providers", 14, True, EXTERNAL[0], "mm")
+    providers = (
+        ("Claude API", "Agent Runtime"),
+        ("Tavily", "External Intelligence"),
+        ("Open-Meteo", "Weather"),
+        ("OpenAI", "embeddings, Knowledge"),
+        ("LangSmith", "traces, Sandbox"),
+        ("Email provider", "Notification"),
+    )
+    y = 284.0
+    for name, note in providers:
+        overview_card(c, (1290, y, 1560, y + 54), name, note, EXTERNAL, title_size=13, sub_size=11)
+        y += 62
+    c.arrow([(1240, 510), (1290, 510)], CALL_COLOR, 1.75)
+    overview_label(c, 1265, 492, "egress")
+
+    # Events, then data
+    stream_top = services_bottom + 34
+    stream_bottom = draw_overview_stream(c, stream_top)
+    pattern_line(c, [(500, services_bottom), (500, stream_top)], EVENT_COLOR, dash=7, gap=5)
+    pattern_line(c, [(780, stream_top), (780, services_bottom)], EVENT_COLOR, dash=7, gap=5)
+    overview_label(c, 640, services_bottom + 17, "publish and consume", EVENT_COLOR)
+
+    data_top = stream_bottom + 42
+    data_bottom = draw_overview_data(c, data_top)
+    # Past the stream, because services reach data directly, not through it.
+    c.arrow(
+        [(22, services_bottom - 40), (22, data_top + 40), (40, data_top + 40)], CALL_COLOR, 1.75
+    )
+    c.line([(40, services_bottom - 40), (22, services_bottom - 40)], CALL_COLOR, 1.75)
+    c.arrow(
+        [(1256, services_bottom - 40), (1256, data_top + 90), (1240, data_top + 90)],
+        CALL_COLOR,
+        1.75,
+    )
+    c.line([(1240, services_bottom - 40), (1256, services_bottom - 40)], CALL_COLOR, 1.75)
+    c.text(1268, services_bottom + 60, "A service reaches only", 11.5, color=SOFT_INK)
+    c.text(1268, services_bottom + 76, "its own database and", 11.5, color=SOFT_INK)
+    c.text(1268, services_bottom + 92, "its own Redis keys.", 11.5, color=SOFT_INK)
+
+    observability_top = data_bottom + 38
+    draw_overview_observability(c, observability_top)
+    pattern_line(c, [(640, data_bottom), (640, observability_top)], SIGNAL_COLOR, dash=2, gap=4)
+    overview_label(c, 720, data_bottom + 19, "logs, metrics, traces", SIGNAL_COLOR)
+
+    draw_overview_legend(c, 1290, observability_top - 46)
+    ASSETS.mkdir(parents=True, exist_ok=True)
+    c.image.save(ASSETS / "service-overview.png", optimize=True)
+
+
 # --------------------------------------------------------------- orchestration
 
 W, H = 1000, 640
@@ -1641,4 +1969,5 @@ if __name__ == "__main__":
     build_architecture()
     build_security_layers()
     build_end_to_end()
+    build_service_overview()
     build_animation()
