@@ -63,8 +63,6 @@ make tenant-check   # on the cluster
 - **Row-level security stops mistakes, not attackers.** It stops a query that forgets its tenant, but not code that
   names a tenant on purpose, or the service's own login used by hand.
 - **The outbox has no row-level security.** Only the relay reads it, never a request.
-- **The other services' tables come next.** Row-level security on the Audit, Authorization and Identity services'
-  tables, and cross-tenant tests on every data path, come in the next pull request for M3.6.
 - **Domains are not proven yet.** Custom domains are recorded, not proven or served. Proof by DNS TXT record, and
   serving a tenant at its domain, come with the gateway.
 - **Tenant settings borrow `branding.manage`.** The SRS 3.2 matrix has no permission for tenant settings, so the

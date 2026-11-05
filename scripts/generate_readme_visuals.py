@@ -532,7 +532,7 @@ SECURITY_LAYERS = (
         ),
         (
             Control("Each service has its own database and credentials"),
-            Control("Tenant isolation in the database, with row-level security", "M3.6"),
+            Control("Tenant isolation in the database, with row-level security"),
             Control("Audit records are append-only and tamper-evident"),
         ),
     ),
@@ -832,7 +832,7 @@ HOP_CONTROLS = (
         (
             Control("Each service has its own database and credentials"),
             Control("Databases are not reachable from outside the cluster"),
-            Control("Tenant isolation in the database, with row-level security", "M3.6"),
+            Control("Tenant isolation in the database, with row-level security"),
             Control("Audit records are append-only and tamper-evident"),
         ),
     ),

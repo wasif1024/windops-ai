@@ -37,6 +37,39 @@ To rename a column, for example:
 A test catches a breaking operation in an `expand` revision. It cannot tell whether a `contract` revision
 is safe yet, so a reviewer checks that no running version still uses what it removes.
 
+## Row-level security
+
+Every tenant-owned table needs PostgreSQL row-level security (DAT-005). Turn it on in a migration, and name the
+tenant in every transaction:
+
+```python
+from windops_migrations import enable_tenant_isolation, in_tenant
+
+
+def upgrade() -> None:
+    enable_tenant_isolation(op.get_bind(), "readings")
+
+
+async with engine.begin() as connection:
+    await in_tenant(connection, identity.tenant_id)
+```
+
+The policies are FORCEd, so they bind the service's own login, which owns the tables. A query that forgets
+its `WHERE tenant_id = ...` sees one tenant's rows, and a write that would move a row to another tenant is
+refused. `across_tenants` lets a transaction see every tenant, for the rare platform-wide read. Naming a
+tenant afterwards ends it.
+
+| When | How |
+| --- | --- |
+| A new table | Turn it on in the `expand` revision that creates it, before any code reads it |
+| An existing table | First release code that names the tenant, then turn it on in a later `contract` revision, because code that does not name one sees nothing |
+
+`tests/test_row_level_security.py` fails if a migration creates a table with a `tenant_id` and never turns it
+on. `make cross-tenant-check` asks PostgreSQL the same on the cluster, and attacks each table.
+
+Row-level security stops a query that forgets its tenant. It does not stop code that names a tenant on
+purpose, or the service's own login used by hand.
+
 ## Run migrations
 
 ```bash

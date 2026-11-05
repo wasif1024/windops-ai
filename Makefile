@@ -17,7 +17,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -159,6 +159,9 @@ tenant-seed: ## Record the demo tenants in the Tenant Service, after make identi
 
 tenant-check: ## Prove tenants, branding and row-level security on the cluster
 	PYTHONPATH=scripts uv run python scripts/verify_tenant.py
+
+cross-tenant-check: ## Attack every data path across tenants, in PostgreSQL and each API
+	PYTHONPATH=scripts uv run python scripts/verify_cross_tenant.py
 
 data-tls-check: ## Prove every data store accepts only TLS, including a real renewal
 	PYTHONPATH=scripts uv run python scripts/verify_data_tls.py
