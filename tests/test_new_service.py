@@ -112,6 +112,7 @@ def test_every_required_file_is_created(service: Path) -> None:
         "deploy/deployment.yaml",
         "deploy/service.yaml",
         "deploy/pdb.yaml",
+        "deploy/certificate.yaml",
     ):
         assert (service / relative).is_file(), relative
 
@@ -152,11 +153,36 @@ def test_dockerfile_is_pinned_multi_stage_and_non_root(service: Path) -> None:
     assert any("pip uninstall" in line for line in runtime)
 
 
+def test_a_service_gets_its_own_certificate_for_both_directions(service: Path) -> None:
+    """GRP-005."""
+    certificate = manifests(service)["Certificate"]
+    spec = certificate["spec"]
+    assert spec["commonName"] == "windops-telemetry"
+    assert spec["secretName"] == "windops-telemetry-tls"
+    assert "windops-telemetry.windops-application.svc.cluster.local" in spec["dnsNames"]
+    assert set(spec["usages"]) == {"server auth", "client auth"}
+    assert spec["issuerRef"]["name"] == "windops-internal"
+    assert spec["privateKey"]["rotationPolicy"] == "Always"
+
+
+def test_a_deployment_mounts_its_certificate_read_only(service: Path) -> None:
+    pod = manifests(service)["Deployment"]["spec"]["template"]["spec"]
+    container = pod["containers"][0]
+    env = {item["name"]: item.get("value") for item in container["env"]}
+    assert env["WINDOPS_TLS_DIR"] == "/var/run/windops/tls"
+    mount = next(item for item in container["volumeMounts"] if item["name"] == "tls")
+    assert mount["readOnly"] is True
+    volume = next(item for item in pod["volumes"] if item["name"] == "tls")
+    assert volume["secret"]["secretName"] == "windops-telemetry-tls"
+    assert pod["securityContext"]["fsGroup"] == 10001
+
+
 def test_deployment_meets_the_container_requirements(service: Path) -> None:
     deployment = manifests(service)["Deployment"]
     pod = deployment["spec"]["template"]["spec"]
     container = pod["containers"][0]
-    assert container["startupProbe"]["grpc"]["port"] == 50051
+    # The kubelet has no client certificate, so a gRPC probe could never pass (GRP-005).
+    assert container["startupProbe"]["httpGet"]["path"] == "/health/live"
     assert container["readinessProbe"]["httpGet"]["path"] == "/health/ready"
     assert container["livenessProbe"]["httpGet"]["path"] == "/health/live"
     for section in ("requests", "limits"):

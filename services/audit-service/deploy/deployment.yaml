@@ -32,6 +32,7 @@ spec:
         runAsNonRoot: true
         runAsUser: 10001
         runAsGroup: 10001
+        fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -47,6 +48,8 @@ spec:
             - configMapRef:
                 name: windops-audit-config
           env:
+            - name: WINDOPS_TLS_DIR
+              value: /var/run/windops/tls
             - name: WINDOPS_IDENTITY_SECRET
               valueFrom:
                 secretKeyRef:
@@ -92,9 +95,11 @@ spec:
                 secretKeyRef:
                   name: windops-audit-events
                   key: password
+          # Not a gRPC probe, because the kubelet has no client certificate to present.
           startupProbe:
-            grpc:
-              port: 50051
+            httpGet:
+              path: /health/live
+              port: http
             periodSeconds: 2
             failureThreshold: 30
           readinessProbe:
@@ -121,9 +126,16 @@ spec:
             capabilities:
               drop: [ALL]
           volumeMounts:
+            - name: tls
+              mountPath: /var/run/windops/tls
+              readOnly: true
             - name: tmp
               mountPath: /tmp
       volumes:
+        - name: tls
+          secret:
+            secretName: windops-audit-tls
+            defaultMode: 0440
         - name: tmp
           emptyDir:
             sizeLimit: 16Mi

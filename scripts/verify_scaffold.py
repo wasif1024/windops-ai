@@ -63,7 +63,7 @@ def check_generated_repository(root: Path) -> None:
     # Not `make check`: the copy has no git history for the contract comparison.
     run("make", "lint", "typecheck", "test", cwd=root)
     rendered = run("kubectl", "kustomize", f"services/{DIRECTORY}/deploy", cwd=root)
-    for kind in ("ConfigMap", "Deployment", "Service", "PodDisruptionBudget"):
+    for kind in ("ConfigMap", "Deployment", "Service", "PodDisruptionBudget", "Certificate"):
         if f"kind: {kind}" not in rendered:
             raise RuntimeError(f"The manifests have no {kind}")
 
@@ -92,6 +92,13 @@ def check_container(root: Path) -> None:
     )
     if refused.returncode == 0 or "WINDOPS_IDENTITY_SECRET" not in refused.stderr:
         raise RuntimeError("The service started without its signing key")
+    # So must a missing certificate, outside the test environment (GRP-005).
+    refused = subprocess.run(
+        ["docker", "run", "--rm", "-e", "WINDOPS_IDENTITY_SECRET=" + "x" * 32, IMAGE],
+        capture_output=True, text=True, check=False,
+    )  # fmt: skip
+    if refused.returncode == 0 or "WINDOPS_TLS_DIR" not in refused.stderr:
+        raise RuntimeError("The service started without its certificate")
 
     run(
         "docker", "run", "-d", "--name", CONTAINER,
@@ -99,6 +106,8 @@ def check_container(root: Path) -> None:
         "--cap-drop", "ALL",
         "--security-opt", "no-new-privileges",
         "-e", "WINDOPS_IDENTITY_SECRET=" + "x" * 32,
+        # Outside a cluster there is no certificate, and only this environment allows that.
+        "-e", "WINDOPS_ENVIRONMENT=test", "-e", "WINDOPS_PLAINTEXT_GRPC=true",
         "-p", f"127.0.0.1:{grpc_port}:50051", "-p", f"127.0.0.1:{http_port}:8080",
         IMAGE,
     )  # fmt: skip

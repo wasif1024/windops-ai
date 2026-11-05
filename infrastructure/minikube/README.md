@@ -10,7 +10,7 @@ Set Docker Desktop to at least 6 CPUs and 11 GB of memory, then run:
 ```bash
 make cluster         # start the cluster with Calico and metrics-server
 make secrets         # create namespaces and local secrets, using ignored files
-make infra           # create the namespaces, etcd, data stores, Keycloak and the observability stack
+make infra           # create the namespaces, cert-manager, etcd, data stores, Keycloak and observability
 make images          # build service images into the cluster
 ```
 
@@ -68,5 +68,6 @@ These figures replace estimates as workloads are added. See
 | 2026-11-05 | Whole cluster with the stack, gateway, 3 services, all four data stores and the exporter | 2.49 GiB of 10 GiB | From `docker stats` |
 | 2026-11-05 | Tempo, writing a block every 5 minutes for 37 minutes | Peak 405 MiB of its 512 MiB limit | From Prometheus, with no restart |
 | 2026-11-05 | Whole cluster after every Phase 2 check | 3.07 GiB of 10 GiB | From `docker stats` |
+| 2026-11-05 | cert-manager, with its webhook and cainjector | 71 MiB across 3 pods | From `kubectl top` |
 | 2026-11-05 | Keycloak, with almost no logins | 473 MiB of its 1 GiB limit | From `kubectl top` |
 | 2026-11-05 | Whole cluster with the stack, gateway, 3 services, all four data stores and Keycloak | 3.66 GiB of 10 GiB | From `docker stats` |

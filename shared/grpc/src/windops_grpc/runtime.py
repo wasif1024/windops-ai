@@ -18,6 +18,7 @@ from windops_observability import ServiceInfo, Telemetry, configure_logging, con
 
 from windops_grpc.interceptor import ServerContextInterceptor
 from windops_grpc.settings import Settings
+from windops_grpc.tls import server_credentials, stop_when_certificate_changes
 
 logger = logging.getLogger("windops.service")
 
@@ -130,7 +131,12 @@ class ServiceRuntime:
         health_pb2_grpc.add_HealthServicer_to_server(self._health, server)
         await self._set_serving(False)
         self._register(server)
-        self.grpc_port = server.add_insecure_port(f"[::]:{settings.grpc_port}")
+        address = f"[::]:{settings.grpc_port}"
+        if settings.tls_dir is None:
+            logger.warning("gRPC is running without TLS, which only tests may do")
+            self.grpc_port = server.add_insecure_port(address)
+        else:
+            self.grpc_port = server.add_secure_port(address, server_credentials(settings.tls_dir))
         await server.start()
         self._grpc = server
 
@@ -180,9 +186,10 @@ async def run_service(
 
     If background work fails, the service stops and raises, so Kubernetes restarts it.
     """
+    settings = Settings.from_env(os.environ)
     runtime = ServiceRuntime(
         name,
-        Settings.from_env(os.environ),
+        settings,
         register,
         readiness_checks=readiness_checks,
         http_router=http_router,
@@ -193,6 +200,8 @@ async def run_service(
         loop.add_signal_handler(signal_number, stop.set)
     await runtime.start()
     tasks = [asyncio.create_task(_await(item(stop))) for item in background]
+    if settings.tls_dir is not None:
+        tasks.append(asyncio.create_task(stop_when_certificate_changes(settings.tls_dir, stop)))
     stopping = asyncio.create_task(stop.wait())
     await asyncio.wait([stopping, *tasks], return_when=asyncio.FIRST_COMPLETED)
     stop.set()

@@ -4,5 +4,6 @@ namespace: windops-application
 resources:
   - configmap.yaml
   - deployment.yaml
+  - certificate.yaml
   - service.yaml
   - pdb.yaml

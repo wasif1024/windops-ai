@@ -59,6 +59,7 @@ BUILT_TARGETS = {
     "identity-seed",
     "identity-check",
     "mfa-check",
+    "mtls-check",
     "postgres-provision",
     "postgres-check",
     "redis-check",

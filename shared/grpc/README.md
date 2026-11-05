@@ -41,6 +41,8 @@ identity. An automated run passes its own token through `identity_token`.
 
 ## Limits
 
-- Identity uses one shared signing key, read from `WINDOPS_IDENTITY_SECRET`. M3.3 adds service
-  identities and mTLS, and calls are not encrypted until then.
+- Calls use mutual TLS, from `WINDOPS_TLS_DIR`. [Service certificates](../../infrastructure/security/pki/README.md)
+  explains how. Open a channel with `create_channel`, which uses the service's certificate.
+- Identity tokens use one shared signing key, read from `WINDOPS_IDENTITY_SECRET`, so a compromised service could
+  forge a user's identity.
 - `ServiceClient` makes unary calls only. Streaming clients arrive with M4.7.

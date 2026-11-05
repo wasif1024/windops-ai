@@ -3,10 +3,11 @@ from windops_grpc import Settings
 from windops_grpc.settings import SettingsError
 
 SECRET = "x" * 32
+TLS = {"WINDOPS_TLS_DIR": "/var/run/windops/tls"}
 
 
 def test_defaults() -> None:
-    settings = Settings.from_env({"WINDOPS_IDENTITY_SECRET": SECRET})
+    settings = Settings.from_env({"WINDOPS_IDENTITY_SECRET": SECRET, **TLS})
     assert settings.grpc_port == 50051
     assert settings.http_port == 8080
     assert settings.environment == "local"
@@ -16,6 +17,7 @@ def test_defaults() -> None:
 def test_values_come_from_the_environment() -> None:
     settings = Settings.from_env(
         {
+            **TLS,
             "WINDOPS_IDENTITY_SECRET": SECRET,
             "WINDOPS_ENVIRONMENT": "ci",
             "WINDOPS_VERSION": "1.2.3",
@@ -40,8 +42,8 @@ def test_missing_or_short_secret_stops_startup(env: dict[str, str]) -> None:
 @pytest.mark.parametrize("extra", [{"WINDOPS_GRPC_PORT": "abc"}, {"WINDOPS_LOG_LEVEL": "LOUD"}])
 def test_invalid_values_stop_startup(extra: dict[str, str]) -> None:
     with pytest.raises(SettingsError):
-        Settings.from_env({"WINDOPS_IDENTITY_SECRET": SECRET, **extra})
+        Settings.from_env({"WINDOPS_IDENTITY_SECRET": SECRET, **TLS, **extra})
 
 
 def test_secret_is_hidden_from_repr() -> None:
-    assert SECRET not in repr(Settings.from_env({"WINDOPS_IDENTITY_SECRET": SECRET}))
+    assert SECRET not in repr(Settings.from_env({"WINDOPS_IDENTITY_SECRET": SECRET, **TLS}))
