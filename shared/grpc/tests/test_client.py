@@ -17,13 +17,15 @@ def breaker(minimum_calls: int = 10) -> CircuitBreaker:
 def test_client_sends_identity_and_request_id() -> None:
     async def scenario() -> None:
         async with running_service() as harness:
-            client = ServiceClient(breaker(), identity_token=token)
+            # One token, because two made across a second boundary would differ.
+            sent = token(IDENTITY)
+            client = ServiceClient(breaker(), identity_token=lambda: sent)
             result = await client.call(
                 harness.method("Echo"), b"hi", idempotent=True, deadline_seconds=5
             )
             assert result == b"ok:tenant-a"
             metadata = harness.seen[0]["metadata"]
-            assert metadata["x-windops-identity"] == token(IDENTITY)
+            assert metadata["x-windops-identity"] == sent
             assert metadata["x-windops-request-id"]
 
     asyncio.run(scenario())
@@ -102,9 +104,11 @@ def test_outgoing_metadata_includes_trace_context() -> None:
 def test_outgoing_metadata_forwards_the_incoming_identity() -> None:
     async def scenario() -> None:
         async with running_service() as harness:
-            first = (("x-windops-identity", token()),)
+            # One token, because two made across a second boundary would differ.
+            sent = token()
+            first = (("x-windops-identity", sent),)
             await harness.method("Echo")(b"hi", timeout=5, metadata=first)
-            assert harness.seen[0]["metadata"]["x-windops-identity"] == token()
+            assert harness.seen[0]["metadata"]["x-windops-identity"] == sent
 
     asyncio.run(scenario())
     assert "x-windops-identity" not in dict(outgoing_metadata())
