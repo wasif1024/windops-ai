@@ -176,7 +176,9 @@ class IdentityService(identity_pb2_grpc.IdentityServiceServicer):
             raise InvalidRequestError("The idempotency key is too long")
         async with self._engine.connect() as connection:
             try:
-                existing = await created_before(connection, actor, request.idempotency_key, request)
+                existing = await created_before(
+                    connection, tenant, actor, request.idempotency_key, request
+                )
             except KeyReusedError as error:
                 raise InvalidRequestError(str(error)) from error
         if existing is not None:

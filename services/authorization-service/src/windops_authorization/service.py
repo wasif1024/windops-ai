@@ -17,6 +17,7 @@ from windops_grpc import (
     VerifiedIdentity,
     current_identity,
 )
+from windops_migrations import across_tenants, in_tenant
 
 from windops_authorization import policy
 from windops_authorization.policy import Decision, RuleError, Scope
@@ -271,6 +272,7 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
             )
             if replay is not None:
                 return replay  # type: ignore[no-any-return]
+            await in_tenant(connection, tenant)
             row = (
                 await connection.execute(
                     select(ROLE_GRANTS).where(
@@ -326,6 +328,7 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
         if not request.include_revoked:
             query = query.where(ROLE_GRANTS.c.revoked_at.is_(None))
         async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
             rows = (await connection.execute(query.order_by(ROLE_GRANTS.c.granted_at))).all()
         return authorization_pb2.ListRoleGrantsResponse(grants=[_grant_message(r) for r in rows])
 
@@ -436,6 +439,7 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
                 return replay  # type: ignore[no-any-return]
             if await break_glass_until(connection, target, user, now) is not None:
                 raise ConflictError("You already have break-glass access to this tenant")
+            await in_tenant(connection, target)
             await connection.execute(
                 BREAK_GLASS_GRANTS.insert().values(
                     grant_id=grant_id,
@@ -478,6 +482,8 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
             )
             if replay is not None:
                 return replay  # type: ignore[no-any-return]
+            # The request names only the grant, so find it among the caller's own, in any tenant.
+            await across_tenants(connection)
             row = (
                 await connection.execute(
                     select(BREAK_GLASS_GRANTS).where(
@@ -490,6 +496,8 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
                 raise NotFoundError("No such break-glass grant of yours")
             if row.ended_at is not None or aware(row.expires_at) <= now:
                 raise ConflictError("The grant has already ended")
+            # Back to the one tenant, which also ends the read across tenants.
+            await in_tenant(connection, row.tenant_id)
             await connection.execute(
                 update(BREAK_GLASS_GRANTS)
                 .where(BREAK_GLASS_GRANTS.c.grant_id == row.grant_id)

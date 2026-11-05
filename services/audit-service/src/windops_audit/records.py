@@ -20,6 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.asyncio import AsyncConnection
 from windops.events.v1 import events_pb2
 from windops_events import Event, InvalidEventError
+from windops_migrations import in_tenant
 from windops_outbox import add_event
 
 SERVICE_NAME = "audit"
@@ -89,6 +90,7 @@ def _hashed_fields(row: Any) -> dict[str, Any]:
 
 async def append_record(connection: AsyncConnection, event: Event) -> bool:
     """Append an event's record, in the caller's transaction. Return False for a repeat."""
+    await in_tenant(connection, event.tenant_id)
     existing = await connection.execute(
         select(AUDIT_RECORDS.c.sequence).where(AUDIT_RECORDS.c.event_id == event.event_id)
     )
@@ -145,6 +147,7 @@ async def list_records(
     connection: AsyncConnection, tenant_id: str, *, limit: int, after_sequence: int
 ) -> list[Any]:
     """Return one tenant's records in order, after the given sequence."""
+    await in_tenant(connection, tenant_id)
     result = await connection.execute(
         select(AUDIT_RECORDS)
         .where(AUDIT_RECORDS.c.tenant_id == tenant_id, AUDIT_RECORDS.c.sequence > after_sequence)
@@ -156,6 +159,7 @@ async def list_records(
 
 async def verify_chain(connection: AsyncConnection, tenant_id: str) -> ChainVerification:
     """Recompute a tenant's chain, stopping at the first record that does not match."""
+    await in_tenant(connection, tenant_id)
     expected_previous = FIRST_PREVIOUS_HASH
     checked = 0
     after = 0

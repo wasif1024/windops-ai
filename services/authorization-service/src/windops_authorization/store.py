@@ -21,6 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.asyncio import AsyncConnection
 from windops.events.v1 import events_pb2
 from windops_events import audit_request_subject
+from windops_migrations import in_tenant
 from windops_outbox import add_event
 
 from windops_authorization.policy import (
@@ -151,6 +152,7 @@ def new_id() -> str:
 
 
 async def active_grants(connection: AsyncConnection, tenant_id: str, user_id: str) -> list[Grant]:
+    await in_tenant(connection, tenant_id)
     rows = await connection.execute(
         select(ROLE_GRANTS.c.role, ROLE_GRANTS.c.wind_farm_id, ROLE_GRANTS.c.turbine_id).where(
             ROLE_GRANTS.c.tenant_id == tenant_id,
@@ -165,6 +167,7 @@ async def custom_mapping(
     connection: AsyncConnection, tenant_id: str
 ) -> dict[str, frozenset[str]] | None:
     """Return a tenant's own mapping, or None while it uses the defaults."""
+    await in_tenant(connection, tenant_id)
     customized = await connection.scalar(
         select(CUSTOMIZED_TENANTS.c.tenant_id).where(CUSTOMIZED_TENANTS.c.tenant_id == tenant_id)
     )
@@ -191,6 +194,7 @@ async def replace_role_permissions(
     now: datetime,
 ) -> None:
     """Change one role. The first change copies the defaults, so the other roles stay the same."""
+    await in_tenant(connection, tenant_id)
     if await custom_mapping(connection, tenant_id) is None:
         await connection.execute(
             insert(CUSTOMIZED_TENANTS).values(
@@ -219,6 +223,7 @@ async def replace_role_permissions(
 async def break_glass_until(
     connection: AsyncConnection, tenant_id: str, user_id: str, now: datetime
 ) -> datetime | None:
+    await in_tenant(connection, tenant_id)
     expires = await connection.scalar(
         select(BREAK_GLASS_GRANTS.c.expires_at)
         .where(
@@ -236,6 +241,7 @@ async def break_glass_until(
 async def find_active_grant(
     connection: AsyncConnection, tenant_id: str, user_id: str, role: str, scope: Scope
 ) -> str | None:
+    await in_tenant(connection, tenant_id)
     found: str | None = await connection.scalar(
         select(ROLE_GRANTS.c.grant_id).where(
             ROLE_GRANTS.c.tenant_id == tenant_id,
@@ -259,6 +265,7 @@ async def add_grant(
     actor: str,
     now: datetime,
 ) -> str:
+    await in_tenant(connection, tenant_id)
     grant_id = new_id()
     await connection.execute(
         insert(ROLE_GRANTS).values(
@@ -279,6 +286,7 @@ async def other_whole_tenant_holders(
     connection: AsyncConnection, tenant_id: str, role: str, grant_id: str
 ) -> int:
     """Count the other active, tenant-wide grants of a role, so the last one is not removed."""
+    await in_tenant(connection, tenant_id)
     count = await connection.scalar(
         select(ROLE_GRANTS.c.grant_id)
         .where(
