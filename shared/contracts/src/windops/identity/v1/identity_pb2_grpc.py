@@ -81,6 +81,16 @@ class IdentityServiceStub:
                 request_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.GetMfaStatusRequest.SerializeToString,
                 response_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.GetMfaStatusResponse.FromString,
                 _registered_method=True)
+        self.CreateOrganization = channel.unary_unary(
+                '/windops.identity.v1.IdentityService/CreateOrganization',
+                request_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.CreateOrganizationRequest.SerializeToString,
+                response_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.CreateOrganizationResponse.FromString,
+                _registered_method=True)
+        self.SetOrganizationEnabled = channel.unary_unary(
+                '/windops.identity.v1.IdentityService/SetOrganizationEnabled',
+                request_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.SetOrganizationEnabledRequest.SerializeToString,
+                response_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.SetOrganizationEnabledResponse.FromString,
+                _registered_method=True)
 
 
 class IdentityServiceServicer:
@@ -143,6 +153,20 @@ class IdentityServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CreateOrganization(self, request, context):
+        """A tenant's Keycloak organization, for the Tenant Service. Both need tenant.manage and a recent
+        second factor. A disabled organization's users get no tenant_id, so the gateway refuses them.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetOrganizationEnabled(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_IdentityServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -185,6 +209,16 @@ def add_IdentityServiceServicer_to_server(servicer, server):
                     servicer.GetMfaStatus,
                     request_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.GetMfaStatusRequest.FromString,
                     response_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.GetMfaStatusResponse.SerializeToString,
+            ),
+            'CreateOrganization': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateOrganization,
+                    request_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.CreateOrganizationRequest.FromString,
+                    response_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.CreateOrganizationResponse.SerializeToString,
+            ),
+            'SetOrganizationEnabled': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetOrganizationEnabled,
+                    request_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.SetOrganizationEnabledRequest.FromString,
+                    response_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.SetOrganizationEnabledResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -410,6 +444,60 @@ class IdentityService:
             '/windops.identity.v1.IdentityService/GetMfaStatus',
             windops_dot_identity_dot_v1_dot_identity__pb2.GetMfaStatusRequest.SerializeToString,
             windops_dot_identity_dot_v1_dot_identity__pb2.GetMfaStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateOrganization(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.identity.v1.IdentityService/CreateOrganization',
+            windops_dot_identity_dot_v1_dot_identity__pb2.CreateOrganizationRequest.SerializeToString,
+            windops_dot_identity_dot_v1_dot_identity__pb2.CreateOrganizationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetOrganizationEnabled(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.identity.v1.IdentityService/SetOrganizationEnabled',
+            windops_dot_identity_dot_v1_dot_identity__pb2.SetOrganizationEnabledRequest.SerializeToString,
+            windops_dot_identity_dot_v1_dot_identity__pb2.SetOrganizationEnabledResponse.FromString,
             options,
             channel_credentials,
             insecure,

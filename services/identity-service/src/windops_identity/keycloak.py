@@ -21,6 +21,8 @@ TOKEN_MARGIN_SECONDS = 30
 ALLOWED = frozenset(
     {
         ("GET", "organizations"),
+        ("POST", "organizations"),
+        ("PUT", "organizations/{org}"),
         ("GET", "organizations/{org}/members"),
         ("GET", "organizations/{org}/members/{user}"),
         ("POST", "organizations/{org}/members"),
@@ -151,6 +153,46 @@ class KeycloakAdmin:
             for item in listed.json():
                 self._organizations[str(item["alias"])] = str(item["id"])
         return self._organizations.get(tenant_id)
+
+    async def organization(self, tenant_id: str) -> dict[str, Any] | None:
+        """Return the organization whose alias is the tenant ID, read fresh."""
+        listed = self._ok(
+            await self._call("GET", "organizations", params={"first": 0, "max": 1000}), 200
+        )
+        for item in listed.json():
+            if item["alias"] == tenant_id:
+                self._organizations[tenant_id] = str(item["id"])
+                found: dict[str, Any] = item
+                return found
+        return None
+
+    async def create_organization(self, tenant_id: str, name: str) -> str:
+        response = self._ok(
+            await self._call(
+                "POST", "organizations", json={"name": name, "alias": tenant_id, "enabled": True}
+            ),
+            201,
+        )
+        organization = response.headers["Location"].rsplit("/", 1)[-1]
+        self._organizations[tenant_id] = organization
+        return organization
+
+    async def set_organization_enabled(self, current: dict[str, Any], enabled: bool) -> None:
+        # Keycloak replaces the whole organization, so send what it holds, changing one field.
+        body = {
+            key: current[key]
+            for key in ("name", "alias", "description", "redirectUrl", "domains", "attributes")
+            if key in current
+        }
+        self._ok(
+            await self._call(
+                "PUT",
+                "organizations/{org}",
+                ids={"org": str(current["id"])},
+                json={**body, "enabled": enabled},
+            ),
+            204,
+        )
 
     async def is_member(self, organization: str, user: str) -> bool:
         response = await self._call(

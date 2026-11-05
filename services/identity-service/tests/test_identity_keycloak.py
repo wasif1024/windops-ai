@@ -10,6 +10,8 @@ from windops_identity.keycloak import ALLOWED, KeycloakAdmin, KeycloakSettings, 
 # reviewed as a security change, with the reason in the pull request.
 EXPECTED = {
     ("GET", "organizations"),
+    ("POST", "organizations"),
+    ("PUT", "organizations/{org}"),
     ("GET", "organizations/{org}/members"),
     ("GET", "organizations/{org}/members/{user}"),
     ("POST", "organizations/{org}/members"),

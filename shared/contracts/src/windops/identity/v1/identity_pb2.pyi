@@ -468,3 +468,98 @@ class GetMfaStatusResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___GetMfaStatusResponse: _TypeAlias = GetMfaStatusResponse  # noqa: Y015
+
+@_typing.final
+class CreateOrganizationRequest(_message.Message):
+    """Creating an existing organization with the same name returns it, so a retry is safe."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TARGET_TENANT_ID_FIELD_NUMBER: _builtins.int
+    NAME_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    target_tenant_id: _builtins.str
+    """The tenant ID, which becomes the organization's alias and every token's tenant_id."""
+    name: _builtins.str
+    idempotency_key: _builtins.str
+    def __init__(
+        self,
+        *,
+        target_tenant_id: _builtins.str = ...,
+        name: _builtins.str = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["idempotency_key", b"idempotency_key", "name", b"name", "target_tenant_id", b"target_tenant_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___CreateOrganizationRequest: _TypeAlias = CreateOrganizationRequest  # noqa: Y015
+
+@_typing.final
+class CreateOrganizationResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    ORGANIZATION_ID_FIELD_NUMBER: _builtins.int
+    CREATED_FIELD_NUMBER: _builtins.int
+    organization_id: _builtins.str
+    created: _builtins.bool
+    """False when it already existed."""
+    def __init__(
+        self,
+        *,
+        organization_id: _builtins.str = ...,
+        created: _builtins.bool = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["created", b"created", "organization_id", b"organization_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___CreateOrganizationResponse: _TypeAlias = CreateOrganizationResponse  # noqa: Y015
+
+@_typing.final
+class SetOrganizationEnabledRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TARGET_TENANT_ID_FIELD_NUMBER: _builtins.int
+    ENABLED_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    target_tenant_id: _builtins.str
+    enabled: _builtins.bool
+    idempotency_key: _builtins.str
+    def __init__(
+        self,
+        *,
+        target_tenant_id: _builtins.str = ...,
+        enabled: _builtins.bool = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["enabled", b"enabled", "idempotency_key", b"idempotency_key", "target_tenant_id", b"target_tenant_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SetOrganizationEnabledRequest: _TypeAlias = SetOrganizationEnabledRequest  # noqa: Y015
+
+@_typing.final
+class SetOrganizationEnabledResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    ENABLED_FIELD_NUMBER: _builtins.int
+    enabled: _builtins.bool
+    def __init__(
+        self,
+        *,
+        enabled: _builtins.bool = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["enabled", b"enabled"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SetOrganizationEnabledResponse: _TypeAlias = SetOrganizationEnabledResponse  # noqa: Y015

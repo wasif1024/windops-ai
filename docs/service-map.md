@@ -136,7 +136,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | Web BFF | The services behind each screen in SRS 4.11 | None | `case.updated`, for live progress |
 | Identity | Keycloak, over its admin API, and Authorization | Audit events | None |
 | Authorization | None | Audit events | None |
-| Tenant | None | Audit events | None |
+| Tenant | Authorization, and Identity for each tenant's organization | Audit events | None |
 | Asset | None | `evidence.changed`, audit events | None |
 | Telemetry | None | `telemetry.received`, `telemetry.quality` | None |
 | Alarm | None | `alarm.changed`, audit events | None |

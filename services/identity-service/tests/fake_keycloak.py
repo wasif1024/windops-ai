@@ -22,6 +22,8 @@ class FakeKeycloak:
     calls: list[tuple[str, str]] = field(default_factory=list)
     fail_with: int | None = None
     fail_adding_members: bool = False
+    names: dict[str, str] = field(default_factory=dict)
+    disabled: set[str] = field(default_factory=set)
 
     def add_tenant(self, alias: str) -> str:
         organization = str(uuid.uuid4())
@@ -60,8 +62,32 @@ class FakeKeycloak:
     def _route(self, method: str, route: str, request: httpx.Request) -> httpx.Response:
         if (method, route) == ("GET", "organizations"):
             return httpx.Response(
-                200, json=[{"id": i, "alias": a} for a, i in self.organizations.items()]
+                200,
+                json=[
+                    {
+                        "id": i,
+                        "alias": a,
+                        "name": self.names.get(a, a),
+                        "enabled": a not in self.disabled,
+                    }
+                    for a, i in self.organizations.items()
+                ],
             )
+        if (method, route) == ("POST", "organizations"):
+            body = json.loads(request.content)
+            organization = self.add_tenant(body["alias"])
+            self.names[body["alias"]] = body["name"]
+            return httpx.Response(201, headers={"Location": f"/organizations/{organization}"})
+        if method == "PUT" and (found := re.fullmatch(r"organizations/([^/]+)", route)):
+            body = json.loads(request.content)
+            alias = next(a for a, i in self.organizations.items() if i == found.group(1))
+            if body.get("alias") != alias or body.get("name") != self.names.get(alias, alias):
+                return httpx.Response(400)
+            if body["enabled"]:
+                self.disabled.discard(alias)
+            else:
+                self.disabled.add(alias)
+            return httpx.Response(204)
         if found := re.fullmatch(r"organizations/([^/]+)/members/([^/]+)", route):
             organization, user = found.groups()
             known = user in self.members.get(organization, set())

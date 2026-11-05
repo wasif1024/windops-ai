@@ -40,6 +40,7 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make events-check` | Real failures appear on the Events dashboard, and their alerts fire |
 | `make identity-check` | Keycloak signs in through OIDC, issues the tenant claim, and enforces its rules |
 | `make mfa-check` | Administrators must use a second factor, step-up works, and recovery codes work. Takes about 7 minutes |
+| `make tenant-check` | Tenants, branding and row-level security keep each tenant's data to itself |
 | `make identity-service-check` | Users are created, disabled and signed out in their own tenant only, and refused when Authorization is down |
 | `make authorization-check` | Roles, scoped grants, step-up, break-glass and audited denials work |
 | `make data-tls-check` | Each data store refuses plain connections, and loads a renewed certificate with no restart |

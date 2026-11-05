@@ -9,13 +9,17 @@ from windops_migrations.runner import (
     run_migrations,
     upgrade,
 )
+from windops_migrations.tenancy import across_tenants, enable_tenant_isolation, in_tenant
 
 __all__ = [
     "MigrationViolation",
     "MissingSettingError",
+    "across_tenants",
     "create_revision",
     "database_url",
+    "enable_tenant_isolation",
     "find_violations",
+    "in_tenant",
     "migrations_directory",
     "run_migrations",
     "upgrade",

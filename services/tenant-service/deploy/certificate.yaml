@@ -1,0 +1,29 @@
+# This service's identity for mutual TLS (GRP-005).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-tenant-tls
+  labels:
+    app.kubernetes.io/name: windops-tenant
+    app.kubernetes.io/part-of: windops
+spec:
+  secretName: windops-tenant-tls
+  commonName: windops-tenant
+  dnsNames:
+    - windops-tenant
+    - windops-tenant.windops-system
+    - windops-tenant.windops-system.svc
+    - windops-tenant.windops-system.svc.cluster.local
+  duration: 720h
+  renewBefore: 168h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - client auth
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io

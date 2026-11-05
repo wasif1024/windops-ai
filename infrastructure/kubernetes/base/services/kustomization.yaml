@@ -10,3 +10,4 @@ resources:
   - ../../../../services/identity-service/deploy
   - ../../../../services/sample-caller-service/deploy
   - ../../../../services/sample-responder-service/deploy
+  - ../../../../services/tenant-service/deploy
