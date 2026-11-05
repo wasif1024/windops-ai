@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 2. Next up is M2.8.
+**Current position:** Phase 2. Next up is M2.9.
 
 ## How to use this tracker
 
@@ -85,7 +85,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [x] **M2.5 Alembic Jobs:** per-service expand/contract migrations, run once per release as Jobs (DAT-001, DAT-002, K8S-005). Done 2026-11-05, PR #23.
 - [x] **M2.6 Outbox library:** state changes and events committed together (EVT-002). Done 2026-11-05, PR #24.
 - [x] **M2.7 Audit Service:** append-only, hash-chained records with durable events (FR-AUD-001, FR-AUD-002, EVT-004). Done 2026-11-05, PR #26.
-- [ ] **M2.8 Events visibility:** Events dashboard, data-store health panels and `docs/events.md`.
+- [x] **M2.8 Events visibility:** Events dashboard, data-store health panels and `docs/events.md`. Done 2026-11-05, PR #28.
 - [ ] **M2.9 Exit gate:** an event survives a pod restart, and a redelivered audit event creates only one record.
 
 ## Phase 3: Identity and tenancy

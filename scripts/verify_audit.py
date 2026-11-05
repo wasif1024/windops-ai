@@ -82,10 +82,12 @@ def psql(sql: str) -> subprocess.CompletedProcess[str]:
 
 
 def deploy() -> None:
-    subprocess.run(
+    build = subprocess.run(
         ["docker", "build", "-q", "-f", "services/audit-service/Dockerfile", "-t", IMAGE, "."],
-        cwd=REPOSITORY, env=minikube_docker_env(), capture_output=True, check=True,
+        cwd=REPOSITORY, env=minikube_docker_env(), capture_output=True, text=True, check=False,
     )  # fmt: skip
+    if build.returncode != 0:
+        raise RuntimeError(f"The image did not build:\n{build.stderr[-2000:]}")
     audit_job = next(path for path in job_manifests() if path.parts[-3] == "audit-service")
     run_job(audit_job.read_text())
     check(

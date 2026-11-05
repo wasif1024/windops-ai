@@ -18,7 +18,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -119,6 +119,12 @@ outbox-check: ## Prove state and events commit together, against real PostgreSQL
 
 audit-check: ## Prove the Audit Service keeps a tamper-evident record on the cluster
 	PYTHONPATH=scripts uv run python scripts/verify_audit.py
+
+events-check: ## Prove the event metrics, dashboards and alerts work, using real failures
+	PYTHONPATH=scripts uv run python scripts/verify_events.py
+
+dead-letters: ## List the messages in the dead-letter stream, without their contents
+	PYTHONPATH=scripts uv run python scripts/dead_letters.py
 
 postgres-provision: ## Create each service's PostgreSQL database and login
 	uv run python scripts/provision_postgres.py

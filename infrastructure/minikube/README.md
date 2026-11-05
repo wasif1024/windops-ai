@@ -63,3 +63,6 @@ These figures replace estimates as workloads are added. See
 | 2026-11-05 | Whole cluster with the stack, gateway, 2 sample services and all four data stores | 2.93 GiB of 10 GiB | From `docker stats` |
 | 2026-11-05 | Audit Service, with almost no work | 82 MiB | From `kubectl top` |
 | 2026-11-05 | Whole cluster with the stack, gateway, 3 services and all four data stores | 2.97 GiB of 10 GiB | From `docker stats` |
+| 2026-11-05 | NATS metrics exporter | 7 MiB | From `kubectl top` |
+| 2026-11-05 | Tempo, after a restart with stored traces | 455 MiB of its 512 MiB limit | From `kubectl top`, so it may need a higher limit |
+| 2026-11-05 | Whole cluster with the stack, gateway, 3 services, all four data stores and the exporter | 2.49 GiB of 10 GiB | From `docker stats` |

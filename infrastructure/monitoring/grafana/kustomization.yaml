@@ -15,3 +15,4 @@ configMapGenerator:
     files:
       - dashboards/platform-health.json
       - dashboards/microservice-health.json
+      - dashboards/events.json

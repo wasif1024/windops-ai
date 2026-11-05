@@ -1342,6 +1342,7 @@ version = "0.1.0"
 source = { editable = "shared/events" }
 dependencies = [
     { name = "nats-py" },
+    { name = "opentelemetry-api" },
     { name = "windops-contracts" },
     { name = "windops-resilience" },
 ]
@@ -1349,6 +1350,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "nats-py", specifier = ">=2.16.0" },
+    { name = "opentelemetry-api", specifier = ">=1.45.2" },
     { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-resilience", editable = "shared/resilience" },
 ]
@@ -1423,6 +1425,7 @@ name = "windops-outbox"
 version = "0.1.0"
 source = { editable = "shared/outbox" }
 dependencies = [
+    { name = "opentelemetry-api" },
     { name = "psycopg", extra = ["binary"] },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "windops-events" },
@@ -1430,6 +1433,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "opentelemetry-api", specifier = ">=1.45.2" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.8" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1.8" },
     { name = "windops-events", editable = "shared/events" },

@@ -27,11 +27,11 @@ Sign in as `admin`. The password is in `infrastructure/minikube/secrets.local.gr
 
 | Dashboard | Shows |
 | --- | --- |
-| Platform Health | CPU, memory, restarts, pods not ready, and scrape targets down |
+| Platform Health | CPU, memory, restarts, pods not ready, scrape targets down, and data store readiness, memory and restarts |
 | Microservice Health | Request rate, latency percentiles, gRPC failures and breaker state |
+| [Events](events.md) | Consumer lag, outbox backlog, dead letters and stream storage |
 
-The other SRS 10.3 dashboards arrive with the components they describe. Database, Redis, Qdrant and
-JetStream health join Platform Health in Phase 2. Panels stay empty until something produces the
+The other SRS 10.3 dashboards arrive with the components they describe. Panels stay empty until something produces the
 data, such as a breaker opening.
 
 ## Policies by environment (OBS-004)
@@ -52,7 +52,10 @@ access inside it with NetworkPolicies.
 ## Limits
 
 - The stack keeps data on one node, which suits local work only (SRS 2.4).
-- Only two alert rules exist, and they go nowhere yet. M13.7 adds every SRS 10.3 alert and its routing.
+- Alerts reach Alertmanager, but nothing sends them to a person yet. M13.7 adds the remaining SRS 10.3 alerts
+  and routing.
+- Data store health comes from each store's readiness probe, memory and restarts. Query rates and
+  database-level figures would need an exporter per store, each with its own login, which is not justified yet.
 - Fluent Bit runs as root, because it reads other containers' log files.
 - It does not collect the stack's own logs, to keep a failing store from causing a feedback loop.
 - Tempo and kube-state-metrics are additions to the SRS, recorded in

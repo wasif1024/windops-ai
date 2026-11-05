@@ -271,9 +271,9 @@ def check_grafana() -> None:
         titles = {
             item["title"] for item in httpx.get(f"{base}/api/search", auth=auth, timeout=10).json()
         }
-        if not {"Platform Health", "Microservice Health"} <= titles:
+        if not {"Platform Health", "Microservice Health", "Events"} <= titles:
             raise RuntimeError(f"Dashboards are missing: {titles}")
-        print("Grafana has the Platform Health and Microservice Health dashboards")
+        print("Grafana has the Platform Health, Microservice Health and Events dashboards")
         for uid in ("prometheus", "loki", "tempo"):
             health = httpx.get(
                 f"{base}/api/datasources/uid/{uid}/health", auth=auth, timeout=30

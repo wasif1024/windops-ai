@@ -36,6 +36,7 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make migrate-check` | Migration Jobs apply once, repeat safely, undo a failure, and cannot collide |
 | `make outbox-check` | A state change and its event commit together, wait out a JetStream outage, and are not stored twice |
 | `make audit-check` | A repeated event makes one record, records cannot change, tampering is detected, and outages lose nothing |
+| `make events-check` | Real failures appear on the Events dashboard, and their alerts fire |
 | `make phase-1-gate` | A call is traced through the gateway, and its breaker opens under a fault |
 
 ## Data

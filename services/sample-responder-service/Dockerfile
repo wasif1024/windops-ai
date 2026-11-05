@@ -1,6 +1,6 @@
 # Build from the repository root, because services share the uv workspace:
 #   docker build -f services/sample-responder-service/Dockerfile -t windops-sample-responder:local .
-FROM python:3.13-slim-bookworm@sha256:281d39ff02e3b389401586134ff9e6572954687822a58055ec07a60ded4e0b7f AS build
+FROM python:3.13-slim-bookworm@sha256:413041be39649714885528a06586416279db85744b6dcdf290af0ae557d782f6 AS build
 RUN pip install --no-cache-dir uv==0.12.18
 WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
@@ -8,7 +8,7 @@ COPY shared shared
 COPY services services
 RUN uv sync --locked --no-dev --no-editable --package windops-sample-responder
 
-FROM python:3.13-slim-bookworm@sha256:281d39ff02e3b389401586134ff9e6572954687822a58055ec07a60ded4e0b7f AS runtime
+FROM python:3.13-slim-bookworm@sha256:413041be39649714885528a06586416279db85744b6dcdf290af0ae557d782f6 AS runtime
 # The service never installs packages, so remove the base image's installers and their CVEs.
 RUN python -m pip uninstall --yes --quiet --root-user-action=ignore pip setuptools wheel
 WORKDIR /app
