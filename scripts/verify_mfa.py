@@ -353,9 +353,8 @@ def check_expiry(
     realm: Realm, stepped: dict[str, Any], enrolled: Enrolled, email: str, password: str
 ) -> None:
     """Report what happens once the mfa level's time limit has passed."""
-    wait = MFA_LEVEL_SECONDS + 10
-    print(f"Waiting {wait} seconds for the mfa level to expire", flush=True)
-    time.sleep(wait)
+    print("Waiting for the mfa level to expire", flush=True)
+    time.sleep(MFA_LEVEL_SECONDS + 10)
     refreshed = realm.refresh(stepped["tokens"]["refresh_token"])
     refreshed.raise_for_status()
     claims = realm.claims(refreshed.json()["access_token"])
