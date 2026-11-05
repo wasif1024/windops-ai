@@ -1,5 +1,6 @@
 """Check Keycloak's manifests and seeded settings against SRS section 9."""
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -10,7 +11,9 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from identity_seed import (
+    ADMIN_REQUIRED_ACTIONS,
     TENANTS,
+    admin_client_settings,
     audience_mapper,
     client_settings,
     demo_email,
@@ -21,6 +24,7 @@ from identity_seed import (
 )
 from local_secrets import LOCAL_SECRETS, postgres_secrets
 from provision_postgres import ADMIN_KEY, PLATFORM_DATABASES, SERVICE_NAMESPACES, provisioning_sql
+from windops_auth import LEVEL_MFA, LEVEL_PASSWORD
 
 ROOT = Path(__file__).resolve().parent.parent
 STACK = ROOT / "infrastructure" / "security" / "keycloak"
@@ -161,7 +165,38 @@ def test_the_seed_makes_a_tenant_part_of_every_login() -> None:
     source = (ROOT / "scripts" / "identity_seed.py").read_text()
     assert 'ORGANIZATION_SCOPE = "organization"' in source
     assert "default-client-scopes/" in source
-    assert "ensure_organization_scope(api)" in source
+    assert "ensure_organization_scope(api, " in source
+
+
+def test_the_administrators_client_requires_a_second_factor() -> None:
+    """SEC-002."""
+    assert admin_client_settings()["attributes"]["minimum.acr.value"] == LEVEL_MFA
+    assert admin_client_settings()["clientId"] != client_settings()["clientId"]
+
+
+def test_the_browser_client_does_not_require_it() -> None:
+    assert "minimum.acr.value" not in client_settings()["attributes"]
+
+
+def test_administrators_must_set_up_both_factors() -> None:
+    """SEC-002."""
+    assert set(ADMIN_REQUIRED_ACTIONS) == {"CONFIGURE_TOTP", "CONFIGURE_RECOVERY_AUTHN_CODES"}
+
+
+def test_codes_cannot_be_reused() -> None:
+    assert realm_settings()["otpPolicyCodeReusable"] is False
+
+
+def test_tokens_name_their_level() -> None:
+    """SEC-003: the names services compare against."""
+    levels = json.loads(realm_settings()["attributes"]["acr.loa.map"])
+    assert levels == {LEVEL_PASSWORD: 1, LEVEL_MFA: 2}
+
+
+def test_the_login_flow_keeps_keycloak_and_services_on_one_time_limit() -> None:
+    source = (ROOT / "scripts" / "identity_seed.py").read_text()
+    assert "add_level(api, second, 2, MFA_LEVEL_SECONDS)" in source
+    assert "from windops_auth import" in source
 
 
 def test_tokens_name_their_audience() -> None:
@@ -181,7 +216,8 @@ def test_generated_passwords_always_meet_the_policy(attempt: int) -> None:
 
 def test_demo_passwords_are_stable_once_made() -> None:
     first = missing_demo_passwords({})
-    assert set(first) == set(TENANTS)
+    assert set(TENANTS) <= set(first)
+    assert len(first) == 2 * len(TENANTS)
     assert missing_demo_passwords(first) == first
 
 
@@ -189,7 +225,7 @@ def test_only_a_missing_demo_password_is_made() -> None:
     alias = next(iter(TENANTS))
     result = missing_demo_passwords({alias: "kept-value"})
     assert result[alias] == "kept-value"
-    assert len(set(result.values())) == len(TENANTS)
+    assert len(set(result.values())) == 2 * len(TENANTS)
 
 
 def test_demo_passwords_are_not_written_to_a_file() -> None:

@@ -58,6 +58,7 @@ BUILT_TARGETS = {
     "phase-2-gate",
     "identity-seed",
     "identity-check",
+    "mfa-check",
     "postgres-provision",
     "postgres-check",
     "redis-check",

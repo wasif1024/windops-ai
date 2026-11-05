@@ -475,7 +475,7 @@ SECURITY_LAYERS = (
             ("Operators and approvers", "8 roles, per tenant", "human"),
         ),
         (
-            Control("Login through Keycloak (OIDC), with MFA for administrators", "M3.1, M3.2"),
+            Control("Login through Keycloak (OIDC), with MFA for administrators"),
             Control("The browser reaches only the gateway, never internal services", "M3.7"),
         ),
         inside_cluster=False,
@@ -805,7 +805,7 @@ HOP_CONTROLS = (
         (
             Control("The gateway is the only way in, and nothing else is exposed"),
             Control("Every route needs health checks and timeouts"),
-            Control("Login through Keycloak (OIDC), with MFA for administrators", "M3.1, M3.2"),
+            Control("Login through Keycloak (OIDC), with MFA for administrators"),
             Control("TLS, CORS allowlists, rate limits and token validation", "M3.1, M3.7"),
         ),
     ),

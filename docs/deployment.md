@@ -39,6 +39,7 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make audit-check` | A repeated event makes one record, records cannot change, tampering is detected, and outages lose nothing |
 | `make events-check` | Real failures appear on the Events dashboard, and their alerts fire |
 | `make identity-check` | Keycloak signs in through OIDC, issues the tenant claim, and enforces its rules |
+| `make mfa-check` | Administrators must use a second factor, step-up works, and recovery codes work. Takes about 7 minutes |
 | `make phase-1-gate` | A call is traced through the gateway, and its breaker opens under a fault |
 | `make phase-2-gate` | An event survives a pod restart, and a redelivered audit event creates only one record |
 

@@ -6,6 +6,7 @@ requires-python = "==3.13.*"
 members = [
     "windops-ai",
     "windops-audit",
+    "windops-auth",
     "windops-cache",
     "windops-contracts",
     "windops-events",
@@ -1328,6 +1329,7 @@ dev = [
     { name = "types-grpcio" },
     { name = "types-pyyaml" },
     { name = "windops-audit" },
+    { name = "windops-auth" },
     { name = "windops-cache" },
     { name = "windops-contracts" },
     { name = "windops-events" },
@@ -1359,6 +1361,7 @@ dev = [
     { name = "types-grpcio", specifier = ">=1.85.0.20261028" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20261103" },
     { name = "windops-audit", editable = "services/audit-service" },
+    { name = "windops-auth", editable = "shared/auth" },
     { name = "windops-cache", editable = "shared/cache" },
     { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-events", editable = "shared/events" },
@@ -1391,6 +1394,11 @@ requires-dist = [
     { name = "windops-migrations", editable = "shared/migrations" },
     { name = "windops-outbox", editable = "shared/outbox" },
 ]
+
+[[package]]
+name = "windops-auth"
+version = "0.1.0"
+source = { editable = "shared/auth" }
 
 [[package]]
 name = "windops-cache"

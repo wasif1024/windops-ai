@@ -14,6 +14,7 @@ members = [
     "services/audit-service",
     "services/sample-caller-service",
     "services/sample-responder-service",
+    "shared/auth",
     "shared/cache",
     "shared/contracts",
     "shared/events",
@@ -25,6 +26,7 @@ members = [
 ]
 
 [tool.uv.sources]
+windops-auth = { workspace = true }
 windops-cache = { workspace = true }
 windops-events = { workspace = true }
 windops-migrations = { workspace = true }
@@ -62,6 +64,8 @@ files = [
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
     "services/sample-responder-service/tests",
+    "shared/auth/src",
+    "shared/auth/tests",
     "shared/cache/src",
     "shared/cache/tests",
     "shared/events/src",
@@ -87,6 +91,8 @@ mypy_path = [
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
     "services/sample-responder-service/tests",
+    "shared/auth/src",
+    "shared/auth/tests",
     "shared/cache/src",
     "shared/cache/tests",
     "shared/contracts/src",
@@ -117,6 +123,7 @@ ignore_missing_imports = true
 testpaths = [
     "tests",
     "services/*/tests",
+    "shared/auth/tests",
     "shared/cache/tests",
     "shared/events/tests",
     "shared/grpc/tests",
@@ -145,6 +152,7 @@ dev = [
     "types-grpcio>=1.85.0.20261028",
     "types-pyyaml>=6.0.12.20261103",
     "windops-audit",
+    "windops-auth",
     "windops-cache",
     "windops-contracts",
     "windops-events",

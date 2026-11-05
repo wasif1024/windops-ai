@@ -15,6 +15,7 @@ from typing import Any
 import httpx
 from gateway_routes import port_forward
 from provision_postgres import read_passwords
+from windops_auth import LEVEL_MFA, LEVEL_PASSWORD, MFA_LEVEL_SECONDS
 
 CONTEXT = "windops"
 NAMESPACE = "windops-system"
@@ -28,6 +29,12 @@ CLIENT_ID = "windops-web"
 API_AUDIENCE = "windops-api"
 TENANT_CLAIM = "tenant_id"
 ORGANIZATION_SCOPE = "organization"
+ADMIN_CLIENT_ID = "windops-admin"
+LOGIN_FLOW = "windops-browser"
+# How long a password counts, in seconds. windops-auth holds the mfa level's limit (SEC-003).
+PASSWORD_LEVEL_SECONDS = 36000
+# Everyone who administers must set these up at their next login (SEC-002).
+ADMIN_REQUIRED_ACTIONS = ["CONFIGURE_TOTP", "CONFIGURE_RECOVERY_AUTHN_CODES"]
 LOCAL = Path(__file__).resolve().parent.parent / "infrastructure" / "minikube"
 ADMIN_SECRET_FILE = LOCAL / "secrets.local.keycloak.env"
 # Synthetic tenants (SRS 1). The alias becomes the tenant ID in every token.
@@ -61,6 +68,17 @@ def realm_settings() -> dict[str, Any]:
         "waitIncrementSeconds": 60,
         "maxFailureWaitSeconds": 900,
         "maxDeltaTimeSeconds": 43200,
+        # SEC-002: 6-digit codes that change every 30 seconds, each usable once.
+        "otpPolicyType": "totp",
+        "otpPolicyAlgorithm": "HmacSHA256",
+        "otpPolicyDigits": 6,
+        "otpPolicyPeriod": 30,
+        "otpPolicyLookAheadWindow": 1,
+        "otpPolicyCodeReusable": False,
+        # SEC-003: names the levels that step-up asks for, and tokens report.
+        "attributes": {
+            "acr.loa.map": json.dumps({LEVEL_PASSWORD: 1, LEVEL_MFA: 2}),
+        },
     }
 
 
@@ -113,6 +131,22 @@ def client_settings() -> dict[str, Any]:
     }
 
 
+def admin_client_settings() -> dict[str, Any]:
+    """Return the administrators' client, which never accepts a sign-in without MFA (SEC-002)."""
+    settings = client_settings()
+    settings["clientId"] = ADMIN_CLIENT_ID
+    settings["attributes"] = {**settings["attributes"], "minimum.acr.value": LEVEL_MFA}
+    return settings
+
+
+def demo_admin_email(alias: str) -> str:
+    return f"admin@{alias}.example"
+
+
+def demo_admin_key(alias: str) -> str:
+    return f"admin-{alias}"
+
+
 def demo_email(alias: str) -> str:
     return f"operator@{alias}.example"
 
@@ -149,11 +183,10 @@ def ensure_realm(api: httpx.Client) -> None:
         api.put(f"/{REALM}", json=realm_settings()).raise_for_status()
 
 
-def ensure_client(api: httpx.Client) -> None:
-    found = api.get(f"/{REALM}/clients", params={"clientId": CLIENT_ID})
+def ensure_client(api: httpx.Client, settings: dict[str, Any]) -> None:
+    found = api.get(f"/{REALM}/clients", params={"clientId": settings["clientId"]})
     found.raise_for_status()
     existing = found.json()
-    settings = client_settings()
     if not existing:
         api.post(f"/{REALM}/clients", json=settings).raise_for_status()
         return
@@ -176,9 +209,9 @@ def ensure_client(api: httpx.Client) -> None:
             ).raise_for_status()
 
 
-def ensure_organization_scope(api: httpx.Client) -> None:
+def ensure_organization_scope(api: httpx.Client, client: str) -> None:
     """Keycloak adds a tenant only with this scope, so a login must not be able to omit it."""
-    clients = api.get(f"/{REALM}/clients", params={"clientId": CLIENT_ID})
+    clients = api.get(f"/{REALM}/clients", params={"clientId": client})
     clients.raise_for_status()
     client_id = clients.json()[0]["id"]
     scopes = api.get(f"/{REALM}/client-scopes")
@@ -189,6 +222,85 @@ def ensure_organization_scope(api: httpx.Client) -> None:
     if optional.status_code not in {204, 404}:
         optional.raise_for_status()
     api.put(f"{client_url}/default-client-scopes/{scope_id}").raise_for_status()
+
+
+def add_step(api: httpx.Client, flow: str, provider: str, requirement: str) -> str:
+    """Add an authenticator to a flow, set its requirement, and return its execution ID."""
+    api.post(
+        f"/{REALM}/authentication/flows/{flow}/executions/execution", json={"provider": provider}
+    ).raise_for_status()
+    return set_requirement(api, flow, provider, requirement)
+
+
+def add_subflow(api: httpx.Client, parent: str, alias: str, requirement: str) -> None:
+    api.post(
+        f"/{REALM}/authentication/flows/{parent}/executions/flow",
+        json={"alias": alias, "type": "basic-flow", "provider": "registration-page-form"},
+    ).raise_for_status()
+    set_requirement(api, parent, alias, requirement)
+
+
+def set_requirement(api: httpx.Client, flow: str, name: str, requirement: str) -> str:
+    executions = api.get(f"/{REALM}/authentication/flows/{flow}/executions")
+    executions.raise_for_status()
+    # The newest match, because a flow can hold the same provider in different sub-flows.
+    match = [
+        item
+        for item in executions.json()
+        if name in {item.get("providerId"), item.get("displayName")}
+    ][-1]
+    match["requirement"] = requirement
+    api.put(f"/{REALM}/authentication/flows/{flow}/executions", json=match).raise_for_status()
+    return str(match["id"])
+
+
+def add_level(api: httpx.Client, flow: str, level: int, seconds: int) -> None:
+    """Make a sub-flow apply only to this level of authentication."""
+    execution = add_step(api, flow, "conditional-level-of-authentication", "REQUIRED")
+    api.post(
+        f"/{REALM}/authentication/executions/{execution}/config",
+        json={
+            "alias": f"{flow}-condition",
+            "config": {"loa-condition-level": str(level), "loa-max-age": str(seconds)},
+        },
+    ).raise_for_status()
+
+
+def ensure_login_flow(api: httpx.Client) -> None:
+    """Rebuild the login flow, so the result is the same however often this runs.
+
+    Level 1 asks for a password. Level 2 asks for a code or a recovery code, and only when a client
+    asks for that level. Keycloak's Organization step is left out, because it would add a page and
+    is only needed to redirect a tenant to its own identity provider, which we do not use.
+    """
+    api.put(f"/{REALM}", json={"browserFlow": "browser"}).raise_for_status()
+    flows = api.get(f"/{REALM}/authentication/flows")
+    flows.raise_for_status()
+    for flow in flows.json():
+        if flow["alias"] == LOGIN_FLOW:
+            api.delete(f"/{REALM}/authentication/flows/{flow['id']}").raise_for_status()
+    api.post(
+        f"/{REALM}/authentication/flows",
+        json={
+            "alias": LOGIN_FLOW,
+            "providerId": "basic-flow",
+            "topLevel": True,
+            "builtIn": False,
+            "description": "Password, then a second factor when a client asks for that level",
+        },
+    ).raise_for_status()
+    add_step(api, LOGIN_FLOW, "auth-cookie", "ALTERNATIVE")
+    add_subflow(api, LOGIN_FLOW, f"{LOGIN_FLOW}-forms", "ALTERNATIVE")
+    first = f"{LOGIN_FLOW}-password"
+    second = f"{LOGIN_FLOW}-second-factor"
+    add_subflow(api, f"{LOGIN_FLOW}-forms", first, "CONDITIONAL")
+    add_level(api, first, 1, PASSWORD_LEVEL_SECONDS)
+    add_step(api, first, "auth-username-password-form", "REQUIRED")
+    add_subflow(api, f"{LOGIN_FLOW}-forms", second, "CONDITIONAL")
+    add_level(api, second, 2, MFA_LEVEL_SECONDS)
+    add_step(api, second, "auth-otp-form", "ALTERNATIVE")
+    add_step(api, second, "auth-recovery-authn-code-form", "ALTERNATIVE")
+    api.put(f"/{REALM}", json={"browserFlow": LOGIN_FLOW}).raise_for_status()
 
 
 def ensure_tenant(api: httpx.Client, alias: str, name: str) -> str:
@@ -211,7 +323,14 @@ def ensure_tenant(api: httpx.Client, alias: str, name: str) -> str:
     return str(created.headers["Location"].rsplit("/", 1)[-1])
 
 
-def ensure_user(api: httpx.Client, email: str, password: str, *, new_password: bool) -> str:
+def ensure_user(
+    api: httpx.Client,
+    email: str,
+    password: str,
+    *,
+    new_password: bool,
+    required_actions: list[str] | None = None,
+) -> str:
     """Create a user. An existing one changes password only if its stored one was lost."""
     found = api.get(f"/{REALM}/users", params={"email": email, "exact": "true"})
     found.raise_for_status()
@@ -232,7 +351,7 @@ def ensure_user(api: httpx.Client, email: str, password: str, *, new_password: b
             "enabled": True,
             "firstName": "Demo",
             "lastName": "Operator",
-            "requiredActions": [],
+            "requiredActions": required_actions or [],
         },
     )
     created.raise_for_status()
@@ -260,19 +379,32 @@ def seed(
 ) -> None:
     with admin_client(base, admin_password) as api:
         ensure_realm(api)
-        ensure_client(api)
-        ensure_organization_scope(api)
+        ensure_login_flow(api)
+        for settings in (client_settings(), admin_client_settings()):
+            ensure_client(api, settings)
+            ensure_organization_scope(api, settings["clientId"])
         for alias, name in TENANTS.items():
             organization_id = ensure_tenant(api, alias, name)
             user_id = ensure_user(
                 api, demo_email(alias), demo_passwords[alias], new_password=alias not in stored
             )
             ensure_member(api, organization_id, user_id)
+            key = demo_admin_key(alias)
+            # Only when created, so an administrator who has enrolled is not asked again.
+            admin_id = ensure_user(
+                api,
+                demo_admin_email(alias),
+                demo_passwords[key],
+                new_password=key not in stored,
+                required_actions=ADMIN_REQUIRED_ACTIONS,
+            )
+            ensure_member(api, organization_id, admin_id)
 
 
 def missing_demo_passwords(existing: dict[str, str]) -> dict[str, str]:
     """Return every demo password, adding any that do not exist yet and keeping the rest."""
-    return {alias: existing.get(alias) or strong_password() for alias in TENANTS}
+    keys = [*TENANTS, *(demo_admin_key(alias) for alias in TENANTS)]
+    return {key: existing.get(key) or strong_password() for key in keys}
 
 
 def read_demo_passwords() -> dict[str, str]:
