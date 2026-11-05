@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 3. Next up is M3.2.
+**Current position:** Phase 3. Next up is M3.3.
 
 ## How to use this tracker
 
@@ -91,7 +91,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 ## Phase 3: Identity and tenancy
 
 - [x] **M3.1 Keycloak:** realm, Organizations, OIDC, tenant claim, password policy and `make identity-seed`, and confirm the tenant model vendor check (SEC-001, SEC-004, SEC-005). Done 2026-11-05, PR #31.
-- [ ] **M3.2 MFA and step-up:** TOTP or WebAuthn, recovery codes and step-up authentication (SEC-002, SEC-003).
+- [x] **M3.2 MFA and step-up:** TOTP or WebAuthn, recovery codes and step-up authentication (SEC-002, SEC-003). Done 2026-11-05, PR #32.
 - [ ] **M3.3 Service identity:** cert-manager and mTLS everywhere, with signed internal identity in `shared/auth` (GRP-005, K8S-002).
 - [ ] **M3.4 Identity Service:** user lifecycle, sessions, MFA status and token exchange around Keycloak (SRS 7.2).
 - [ ] **M3.5 Authorization Service:** deny-by-default decisions, the eight roles and the SRS 3.2 matrix, scoped grants and break-glass access (RBAC-001, RBAC-002, RBAC-003, SEC-006).

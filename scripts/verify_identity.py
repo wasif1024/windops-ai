@@ -105,13 +105,12 @@ class Realm:
             )
             page.raise_for_status()
             cookies = session_cookies(page)
-            # With Organizations on, the address comes first, and the password on the next page.
-            answer = submit(browser, page, {"username": email}, cookies)
-            if answer.status_code == 200 and 'name="password"' in answer.text:
-                cookies = {**cookies, **session_cookies(answer)}
-                answer = submit(
-                    browser, answer, {"password": password, "credentialId": ""}, cookies
-                )
+            answer = submit(
+                browser,
+                page,
+                {"username": email, "password": password, "credentialId": ""},
+                cookies,
+            )
             if answer.status_code not in {302, 303}:
                 return None
             query = parse_qs(urlparse(answer.headers["Location"]).query)
