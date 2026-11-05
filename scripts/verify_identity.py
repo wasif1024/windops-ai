@@ -25,7 +25,6 @@ from identity_seed import (
     API_AUDIENCE,
     CLIENT_ID,
     CONTEXT,
-    DEMO_SECRET_FILE,
     DEPLOYMENT,
     NAMESPACE,
     POD_SELECTOR,
@@ -35,6 +34,7 @@ from identity_seed import (
     TENANTS,
     admin_client,
     demo_email,
+    read_demo_passwords,
     strong_password,
 )
 from provision_postgres import ADMIN_USER as POSTGRES_ADMIN
@@ -484,7 +484,7 @@ def run(base: str, admin_password: str, demo: dict[str, str]) -> Tokens:
 
 def main() -> int:
     admin_password = read_passwords(ADMIN_SECRET_FILE)["password"]
-    demo = read_passwords(DEMO_SECRET_FILE)
+    demo = read_demo_passwords()
     try:
         kubectl("rollout", "status", DEPLOYMENT, f"--namespace={NAMESPACE}", "--timeout=300s")
         with port_forward(SERVICE, NAMESPACE, 8080) as port:

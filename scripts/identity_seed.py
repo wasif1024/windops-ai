@@ -4,6 +4,8 @@
 make identity-seed
 """
 
+import base64
+import json
 import secrets
 import subprocess
 import sys
@@ -19,6 +21,7 @@ NAMESPACE = "windops-system"
 DEPLOYMENT = "deployment/windops-keycloak"
 SERVICE = "service/windops-keycloak"
 POD_SELECTOR = "app.kubernetes.io/name=windops-keycloak"
+DEMO_USERS_RESOURCE = "windops-identity-demo-users"
 ADMIN_USER = "windops_admin"
 REALM = "windops"
 CLIENT_ID = "windops-web"
@@ -27,7 +30,6 @@ TENANT_CLAIM = "tenant_id"
 ORGANIZATION_SCOPE = "organization"
 LOCAL = Path(__file__).resolve().parent.parent / "infrastructure" / "minikube"
 ADMIN_SECRET_FILE = LOCAL / "secrets.local.keycloak.env"
-DEMO_SECRET_FILE = LOCAL / "secrets.local.identity.env"
 # Synthetic tenants (SRS 1). The alias becomes the tenant ID in every token.
 TENANTS = {"north-sea": "North Sea Wind", "atlas-wind": "Atlas Wind"}
 REDIRECT_URIS = ["http://localhost:5173/*", "http://127.0.0.1:5173/*"]
@@ -209,11 +211,18 @@ def ensure_tenant(api: httpx.Client, alias: str, name: str) -> str:
     return str(created.headers["Location"].rsplit("/", 1)[-1])
 
 
-def ensure_user(api: httpx.Client, email: str, password: str) -> str:
+def ensure_user(api: httpx.Client, email: str, password: str, *, new_password: bool) -> str:
+    """Create a user. An existing one changes password only if its stored one was lost."""
     found = api.get(f"/{REALM}/users", params={"email": email, "exact": "true"})
     found.raise_for_status()
     if found.json():
-        return str(found.json()[0]["id"])
+        user_id = str(found.json()[0]["id"])
+        if new_password:
+            api.put(
+                f"/{REALM}/users/{user_id}/reset-password",
+                json={"type": "password", "value": password, "temporary": False},
+            ).raise_for_status()
+        return user_id
     created = api.post(
         f"/{REALM}/users",
         json={
@@ -246,26 +255,54 @@ def ensure_member(api: httpx.Client, organization_id: str, user_id: str) -> None
         ).raise_for_status()
 
 
-def seed(base: str, admin_password: str, demo_passwords: dict[str, str]) -> None:
+def seed(
+    base: str, admin_password: str, demo_passwords: dict[str, str], stored: dict[str, str]
+) -> None:
     with admin_client(base, admin_password) as api:
         ensure_realm(api)
         ensure_client(api)
         ensure_organization_scope(api)
         for alias, name in TENANTS.items():
             organization_id = ensure_tenant(api, alias, name)
-            user_id = ensure_user(api, demo_email(alias), demo_passwords[alias])
+            user_id = ensure_user(
+                api, demo_email(alias), demo_passwords[alias], new_password=alias not in stored
+            )
             ensure_member(api, organization_id, user_id)
 
 
-def ensure_demo_passwords(path: Path = DEMO_SECRET_FILE) -> dict[str, str]:
-    """Create any missing demo password, keeping existing ones, readable only by their owner."""
-    path.touch(mode=0o600)
-    existing = read_passwords(path)
-    with path.open("a") as file:
-        for alias in TENANTS:
-            if alias not in existing:
-                file.write(f"{alias}={strong_password()}\n")
-    return read_passwords(path)
+def missing_demo_passwords(existing: dict[str, str]) -> dict[str, str]:
+    """Return every demo password, adding any that do not exist yet and keeping the rest."""
+    return {alias: existing.get(alias) or strong_password() for alias in TENANTS}
+
+
+def read_demo_passwords() -> dict[str, str]:
+    """Read the demo passwords from their Secret, or return nothing if it does not exist yet."""
+    result = subprocess.run(
+        [
+            "kubectl", "--context", CONTEXT, "get", "secret", DEMO_USERS_RESOURCE,
+            f"--namespace={NAMESPACE}", "--output=json", "--ignore-not-found",
+        ],
+        capture_output=True, text=True, check=True,
+    )  # fmt: skip
+    if not result.stdout.strip():
+        return {}
+    data = json.loads(result.stdout).get("data", {})
+    return {key: base64.b64decode(value).decode() for key, value in data.items()}
+
+
+def store_demo_passwords(passwords: dict[str, str]) -> None:
+    """Keep them in the cluster, sent over stdin so no password appears in a process listing."""
+    manifest = {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": {"name": DEMO_USERS_RESOURCE, "namespace": NAMESPACE},
+        "type": "Opaque",
+        "stringData": passwords,
+    }
+    subprocess.run(
+        ["kubectl", "--context", CONTEXT, "apply", "--filename=-"],
+        input=json.dumps(manifest), capture_output=True, text=True, check=True,
+    )  # fmt: skip
 
 
 def wait_for_keycloak() -> None:
@@ -283,11 +320,17 @@ def main() -> int:
         print("No Keycloak password found. Run: make secrets", file=sys.stderr)
         return 1
     admin_password = read_passwords(ADMIN_SECRET_FILE)["password"]
-    demo = ensure_demo_passwords()
+    try:
+        stored = read_demo_passwords()
+        demo = missing_demo_passwords(stored)
+        store_demo_passwords(demo)
+    except subprocess.CalledProcessError as error:
+        print(f"Could not read or store the demo passwords: {error.stderr}", file=sys.stderr)
+        return 1
     wait_for_keycloak()
     try:
         with port_forward(SERVICE, NAMESPACE, 8080) as port:
-            seed(f"http://127.0.0.1:{port}", admin_password, demo)
+            seed(f"http://127.0.0.1:{port}", admin_password, demo, stored)
     except httpx.HTTPStatusError as error:
         # The status and address only, because a request body can hold a password.
         print(

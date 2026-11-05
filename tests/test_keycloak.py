@@ -14,7 +14,7 @@ from identity_seed import (
     audience_mapper,
     client_settings,
     demo_email,
-    ensure_demo_passwords,
+    missing_demo_passwords,
     realm_settings,
     strong_password,
     tenant_mapper,
@@ -179,12 +179,23 @@ def test_generated_passwords_always_meet_the_policy(attempt: int) -> None:
     assert any(not item.isalnum() for item in password)
 
 
-def test_demo_passwords_are_kept_private_and_stable(tmp_path: Path) -> None:
-    path = tmp_path / "secrets.env"
-    first = ensure_demo_passwords(path)
+def test_demo_passwords_are_stable_once_made() -> None:
+    first = missing_demo_passwords({})
     assert set(first) == set(TENANTS)
-    assert ensure_demo_passwords(path) == first
-    assert path.stat().st_mode & 0o077 == 0
+    assert missing_demo_passwords(first) == first
+
+
+def test_only_a_missing_demo_password_is_made() -> None:
+    alias = next(iter(TENANTS))
+    result = missing_demo_passwords({alias: "kept-value"})
+    assert result[alias] == "kept-value"
+    assert len(set(result.values())) == len(TENANTS)
+
+
+def test_demo_passwords_are_not_written_to_a_file() -> None:
+    source = (ROOT / "scripts" / "identity_seed.py").read_text()
+    assert "secrets.local.identity" not in source
+    assert "DEMO_USERS_RESOURCE" in source
 
 
 def test_demo_addresses_cannot_reach_real_mail() -> None:

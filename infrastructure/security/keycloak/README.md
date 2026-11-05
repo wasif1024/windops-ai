@@ -23,7 +23,12 @@ make identity-seed   # creates the realm, tenants, client and demo users
 | Client | `windops-web`: a public client using authorization code with PKCE, and no password grant |
 | Demo users | `operator@north-sea.example` and `operator@atlas-wind.example` |
 
-Demo passwords are generated into `infrastructure/minikube/secrets.local.identity.env`, which Git ignores.
+Demo passwords are generated into the Secret `windops-identity-demo-users`. To read one:
+
+```bash
+kubectl --context windops --namespace windops-system get secret windops-identity-demo-users \
+  --output jsonpath='{.data.north-sea}' | base64 --decode
+```
 
 ## Tokens and rules
 
