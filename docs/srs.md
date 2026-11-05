@@ -11,7 +11,7 @@ SRS v1.1 keeps every v1.0 feature, makes gRPC, microservices, containers and cir
 | Project | WindOps AI: agentic wind farm operations and predictive maintenance platform |
 | Version and status | 1.1, baseline for design and implementation |
 | Supersedes | Software Requirements Specification v1.0, 4 November 2026 |
-| Deployment target | Kubernetes on Minikube for development and demonstration, portable to other clusters |
+| Deployment target | Kubernetes on Minikube for development and demonstration, then Azure Kubernetes Service as the final phase ([ADR 0005](adr/0005-azure-deployment-as-the-final-phase.md)) |
 | Readiness claim | Portfolio-grade platform on synthetic data, not a certified industrial control system |
 | Requirement words | "Shall" is mandatory, "should" is recommended, "may" is optional |
 
@@ -34,7 +34,7 @@ SRS v1.1 keeps every v1.0 feature, makes gRPC, microservices, containers and cir
 | Weather safety input had no qualified source | Structured forecast provider added alongside Tavily | 6 |
 | Simulator had no specification | Simulator and ground-truth requirements | 10 |
 | Incomplete RBAC | Role matrix and added permissions | 3 |
-| Phases omitted frontend and notifications | 14 phases covering every feature | 12 |
+| Phases omitted frontend and notifications | 15 phases covering every feature and a cloud deployment | 12 |
 
 ## 2. Introduction, scope and fixed decisions
 
@@ -1027,11 +1027,11 @@ windops-ai/
 
 ## 12. Delivery phases
 
-Delivery runs through 14 phases, ordered by dependency and gated by tests rather than dates. The frontend, logging, tracing and security tests grow in every phase, so nothing critical waits until the end.
+Delivery runs through 15 phases, ordered by dependency and gated by tests rather than dates. The frontend, logging, tracing and security tests grow in every phase, so nothing critical waits until the end.
 
 ![Delivery roadmap in four stages. Platform base covers phases 1 to 3, deterministic core covers phases 4 to 6, agents and action covers phases 7 to 10, and proof and release covers phases 11 to 14. Each stage has an exit condition that the next stage depends on.](assets/srs/delivery-roadmap.svg)
 
-*Delivery roadmap · 14 phases in 4 stages.*
+*Delivery roadmap · phases 1 to 14 in 4 stages. Phase 15 then deploys the finished system to Azure.*
 
 Agents arrive after the deterministic rules exist, so they never need to invent thresholds or calculations.
 
@@ -1051,6 +1051,7 @@ Agents arrive after the deterministic rules exist, so they never need to invent 
 | 12. Full evaluation | Evaluation Service, all 13 dataset families, 100 to 200 scenarios, judges and CI gates | Every Section 10.7 agent-quality gate passes on held-out scenarios |
 | 13. Resilience and scale | Bulkheads, fallback tests, NetworkPolicies, autoscaling, load tests and measured resource figures | All breaker tests pass, services scale independently, and capacity is documented |
 | 14. Hardening and release | Security review, threat model, image signing, backup and restore tests, runbooks and repeatable demo | No critical findings remain, and a clean `make` bootstrap passes the smoke and end-to-end tests |
+| 15. Azure deployment | Azure Kubernetes Service, Container Registry, Key Vault, WAF, managed PostgreSQL, Bicep and a GitHub Actions delivery pipeline | The pipeline deploys the system from a clean subscription, and the smoke and end-to-end tests pass through the WAF |
 
 Implementation should use a service scaffold, so the required tests, Dockerfile, health checks, breaker wiring and manifests are created the same way for all services. Each phase ends with passing tests, updated documents and a working Minikube deployment.
 

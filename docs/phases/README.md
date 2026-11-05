@@ -1,7 +1,7 @@
 # Implementation tracker
 
 This is the single record of what has been built and what comes next. It breaks
-the 14 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
+the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
 **Current position:** Phase 2. Next up is M2.7.
@@ -48,6 +48,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 | 12 | [Full evaluation](#phase-12-full-evaluation) | 10 | Not started |
 | 13 | [Resilience and scale](#phase-13-resilience-and-scale) | 8 | Not started |
 | 14 | [Hardening and release](#phase-14-hardening-and-release) | 7 | Not started |
+| 15 | [Azure deployment](#phase-15-azure-deployment) | 10 | Not started |
 
 ## Optional decisions
 
@@ -220,3 +221,16 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [ ] **M14.5 Repeatable demo:** `make seed-demo`, `make smoke-test` and the remaining SRS 11.4 targets from a clean machine.
 - [ ] **M14.6 Final acceptance:** confirm every SRS 13.1 criterion and SRS 10.7 gate.
 - [ ] **M14.7 Exit gate:** no critical findings remain, and a clean `make` bootstrap passes the smoke and end-to-end tests.
+
+## Phase 15: Azure deployment
+
+- [ ] **M15.1 Azure decisions:** subscription, region, budget with an alert, domain, and refreshed prices and quota ([ADR 0005](../adr/0005-azure-deployment-as-the-final-phase.md)).
+- [ ] **M15.2 Foundation:** resource group, Container Registry and Key Vault in Bicep, with GitHub OIDC login and no stored Azure password.
+- [ ] **M15.3 Image pipeline:** GitHub Actions builds, scans, signs and pushes every image.
+- [ ] **M15.4 AKS cluster:** Azure Kubernetes Service in Bicep, with network policy enforced, and an `azure` overlay with real image tags and storage classes.
+- [ ] **M15.5 Managed PostgreSQL:** per-service databases and logins, private network access, TLS and backups.
+- [ ] **M15.6 Cloud secrets:** Key Vault replaces the local secret files for every workload.
+- [ ] **M15.7 WAF and TLS:** Application Gateway WAF v2 in front of APISIX, with a domain and public TLS.
+- [ ] **M15.8 Delivery pipeline:** migrations, then a rolling deployment, with a manual approval and a rollback path.
+- [ ] **M15.9 Cost and operations:** stop and start commands, cost record and a cloud runbook.
+- [ ] **M15.10 Exit gate:** the pipeline deploys from a clean subscription, and the smoke and end-to-end tests pass through the WAF.

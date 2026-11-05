@@ -47,7 +47,7 @@ def test_a_control_is_not_shown_as_planned_once_its_modules_are_done() -> None:
 
 def test_roadmap_reads_all_phases_with_the_tracker_totals() -> None:
     phases = read_phase_progress()
-    assert [number for number, _, _, _ in phases] == list(range(1, 15))
+    assert [number for number, _, _, _ in phases] == list(range(1, 16))
     table = dict(re.findall(r"^\| (\d+) \| \[[^\]]+\]\([^)]*\) \| (\d+) \|", TRACKER, re.M))
     for number, _, _, total in phases:
         assert int(table[str(number)]) == total
