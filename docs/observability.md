@@ -27,7 +27,7 @@ Sign in as `admin`. The password is in `infrastructure/minikube/secrets.local.gr
 
 | Dashboard | Shows |
 | --- | --- |
-| Platform Health | CPU, memory, restarts, pods not ready, scrape targets down, and data store readiness, memory and restarts |
+| Platform Health | A health table with each pod's status, restarts, memory and last stop reason, then CPU, memory, restarts, pods not ready, scrape targets down, and data store readiness, memory and restarts |
 | Microservice Health | Request rate, latency percentiles, gRPC failures and breaker state |
 | [Events](events.md) | Consumer lag, outbox backlog, dead letters and stream storage |
 
