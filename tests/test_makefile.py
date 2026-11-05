@@ -61,6 +61,8 @@ BUILT_TARGETS = {
     "mfa-check",
     "mtls-check",
     "data-tls-check",
+    "authorization-seed",
+    "authorization-check",
     "postgres-provision",
     "postgres-check",
     "redis-check",

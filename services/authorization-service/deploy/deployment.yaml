@@ -1,0 +1,141 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: windops-authorization
+  labels:
+    app.kubernetes.io/name: windops-authorization
+    app.kubernetes.io/part-of: windops
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: windops-authorization
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: windops-authorization
+        app.kubernetes.io/part-of: windops
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
+    spec:
+      automountServiceAccountToken: false
+      # Longer than WINDOPS_SHUTDOWN_GRACE_SECONDS, so calls can finish first.
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: authorization
+          image: windops-authorization:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50051
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: windops-authorization-config
+          env:
+            - name: WINDOPS_TLS_DIR
+              value: /var/run/windops/tls
+            - name: WINDOPS_IDENTITY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: windops-internal-identity
+                  key: signing-key
+            - name: WINDOPS_DATABASE_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: windops-authorization-database
+                  key: host
+            - name: WINDOPS_DATABASE_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: windops-authorization-database
+                  key: port
+            - name: WINDOPS_DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: windops-authorization-database
+                  key: database
+            - name: WINDOPS_DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: windops-authorization-database
+                  key: username
+            - name: WINDOPS_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: windops-authorization-database
+                  key: password
+            - name: WINDOPS_EVENTS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: windops-authorization-events
+                  key: url
+            - name: WINDOPS_EVENTS_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: windops-authorization-events
+                  key: username
+            - name: WINDOPS_EVENTS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: windops-authorization-events
+                  key: password
+          # Not a gRPC probe, because the kubelet has no client certificate to present.
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 10
+          # Starting values. Replace them with measured figures (SRS 11).
+          resources:
+            requests:
+              cpu: 25m
+              memory: 96Mi
+            limits:
+              cpu: 250m
+              memory: 192Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tls
+              mountPath: /var/run/windops/tls
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tls
+          secret:
+            secretName: windops-authorization-tls
+            defaultMode: 0440
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi

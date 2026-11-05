@@ -1,0 +1,164 @@
+syntax = "proto3";
+package windops.authorization.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Decides what a user may do, and keeps their roles (SEC-006). Anything not granted is denied.
+// The user and their tenant come from the caller's verified identity, never from a request (RBAC-001).
+service AuthorizationService {
+  // Whether the current user may use a permission, in a scope. Every denial is audited.
+  rpc Check(CheckRequest) returns (CheckResponse);
+
+  // Needs roles.manage and a recent second factor (SEC-003).
+  rpc GrantRole(GrantRoleRequest) returns (GrantRoleResponse);
+  // Needs roles.manage and a recent second factor. A grant is ended, never deleted.
+  rpc RevokeRole(RevokeRoleRequest) returns (RevokeRoleResponse);
+  // Needs roles.manage.
+  rpc ListRoleGrants(ListRoleGrantsRequest) returns (ListRoleGrantsResponse);
+
+  // Needs permissions.manage.
+  rpc GetRolePermissions(GetRolePermissionsRequest) returns (GetRolePermissionsResponse);
+  // Needs permissions.manage and a recent second factor. Replaces the role's permissions in one tenant.
+  rpc SetRolePermissions(SetRolePermissionsRequest) returns (SetRolePermissionsResponse);
+
+  // A Platform Administrator's time-limited, reasoned access to one tenant's data (RBAC-003).
+  rpc StartBreakGlass(StartBreakGlassRequest) returns (StartBreakGlassResponse);
+  rpc EndBreakGlass(EndBreakGlassRequest) returns (EndBreakGlassResponse);
+}
+
+// Where something applies (RBAC-002). Both empty means the whole tenant.
+message Scope {
+  string wind_farm_id = 1;
+  string turbine_id = 2;
+}
+
+message CheckRequest {
+  // For example "alarm.acknowledge", from SRS 3.2.
+  string permission = 1;
+  // The resource's wind farm and turbine. A wind farm grant covers a turbine only when both are given.
+  Scope scope = 2;
+  // The tenant the resource belongs to. Empty for the caller's own, which comes from their verified
+  // identity (GRP-004). Only a Platform Administrator may name another, and that is checked.
+  string target_tenant_id = 3;
+}
+
+message CheckResponse {
+  bool allowed = 1;
+  // Why, in words a log can hold. It never names another user's grants.
+  string reason = 2;
+  // True when only a break-glass grant allowed it, which is also audited (RBAC-003).
+  bool break_glass = 3;
+}
+
+// For target_tenant_id in every request below: empty means the caller's own tenant, from their
+// verified identity. Naming another is allowed only for a Platform Administrator.
+// A retry with the same idempotency_key returns the first answer, and changes nothing (GRP-007).
+message GrantRoleRequest {
+  string target_tenant_id = 1;
+  // The user receiving the role, not the caller.
+  string grantee_id = 2;
+  // For example "control-room-operator".
+  string role = 3;
+  Scope scope = 4;
+  string idempotency_key = 5;
+}
+
+message RevokeRoleRequest {
+  string target_tenant_id = 1;
+  string grant_id = 2;
+  string idempotency_key = 3;
+}
+
+message ListRoleGrantsRequest {
+  string target_tenant_id = 1;
+  // Empty for every user in the tenant.
+  string grantee_id = 2;
+  // Ended grants stay, so an approval can be checked against the roles held at the time (RBAC-005).
+  bool include_revoked = 3;
+}
+
+message ListRoleGrantsResponse {
+  repeated RoleGrant grants = 1;
+}
+
+message RoleGrant {
+  string grant_id = 1;
+  string tenant_id = 2;
+  string user_id = 3;
+  string role = 4;
+  Scope scope = 5;
+  string granted_by = 6;
+  google.protobuf.Timestamp granted_at = 7;
+  // Empty while the grant is active.
+  string revoked_by = 8;
+  google.protobuf.Timestamp revoked_at = 9;
+}
+
+message GetRolePermissionsRequest {
+  string target_tenant_id = 1;
+  string role = 2;
+}
+
+message SetRolePermissionsRequest {
+  string target_tenant_id = 1;
+  string role = 2;
+  repeated string permissions = 3;
+  string idempotency_key = 4;
+}
+
+message RolePermissions {
+  string tenant_id = 1;
+  string role = 2;
+  repeated string permissions = 3;
+  // False while the tenant uses the SRS 3.2 defaults.
+  bool customized = 4;
+}
+
+message StartBreakGlassRequest {
+  string target_tenant_id = 1;
+  // At least 20 characters, and kept in the tenant's audit record.
+  string reason = 2;
+  // From 1 to 240. Zero means 60.
+  uint32 duration_minutes = 3;
+  string idempotency_key = 4;
+}
+
+message EndBreakGlassRequest {
+  string grant_id = 1;
+  string idempotency_key = 2;
+}
+
+message BreakGlassGrant {
+  string grant_id = 1;
+  string tenant_id = 2;
+  string user_id = 3;
+  string reason = 4;
+  google.protobuf.Timestamp started_at = 5;
+  google.protobuf.Timestamp expires_at = 6;
+  // Empty unless it was ended early.
+  google.protobuf.Timestamp ended_at = 7;
+}
+
+message GrantRoleResponse {
+  RoleGrant grant = 1;
+}
+
+message RevokeRoleResponse {
+  RoleGrant grant = 1;
+}
+
+message GetRolePermissionsResponse {
+  RolePermissions role_permissions = 1;
+}
+
+message SetRolePermissionsResponse {
+  RolePermissions role_permissions = 1;
+}
+
+message StartBreakGlassResponse {
+  BreakGlassGrant grant = 1;
+}
+
+message EndBreakGlassResponse {
+  BreakGlassGrant grant = 1;
+}
