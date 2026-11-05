@@ -73,6 +73,7 @@ control is still shown as planned after its modules are finished.
 | [ADR 0002: Trace storage](docs/adr/0002-trace-storage-and-kube-state-metrics.md) | Adding Tempo and kube-state-metrics |
 | [ADR 0003: PostgreSQL without TimescaleDB](docs/adr/0003-postgresql-without-timescaledb.md) | Telemetry storage, and the shared local and production database designs |
 | [ADR 0005: Azure deployment](docs/adr/0005-azure-deployment-as-the-final-phase.md) | The final phase, and the Azure services it uses |
+| [Keycloak](infrastructure/security/keycloak/README.md) | Login, tenants, token rules and the tenant model vendor check |
 | [Service map](docs/service-map.md) | Every service's calls and events, and each failure behavior |
 | [gRPC contracts](docs/grpc-contracts.md) | Versioning, breaking changes and per-call rules |
 | [Observability](docs/observability.md) | Data flow, dashboards and retention by environment |

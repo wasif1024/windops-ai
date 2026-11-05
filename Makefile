@@ -12,13 +12,12 @@ KUBERNETES_DIR := infrastructure/kubernetes
 # Targets a later module delivers, as <target>:<module>. They fail until then, so a
 # command that does nothing yet can never look like it passed.
 PLANNED_TARGETS := \
-	identity-seed:M3.1 \
 	eval:M12.8 \
 	chaos:M13.2 \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate identity-seed identity-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -74,6 +73,11 @@ images: ## Build an image for every service, into the cluster's image store
 		name="windops-$${service%-service}"; \
 		echo "Building $$name:local"; \
 		docker build -q -f "$$dockerfile" -t "$$name:local" . || exit 1; \
+	done; \
+	for dockerfile in infrastructure/docker/*/Dockerfile; do \
+		name="windops-$$(basename "$$(dirname "$$dockerfile")")"; \
+		echo "Building $$name:local"; \
+		docker build -q -t "$$name:local" "$$(dirname "$$dockerfile")" || exit 1; \
 	done
 
 scaffold-check: ## Generate, build and run a throwaway service to prove the template works
@@ -96,13 +100,15 @@ cluster-delete: ## Delete the local cluster and all its data
 cluster-check: ## Deploy a throwaway service to prove the manifests work on the cluster
 	uv run python scripts/verify_cluster.py
 
-infra: ## Create the namespaces, etcd, data stores and the observability stack
+infra: ## Create the namespaces, etcd, data stores, Keycloak and the observability stack
 	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/namespaces
 	kubectl --context $(CLUSTER) apply --kustomize infrastructure/gateway/etcd
 	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/data
 	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/observability
 	uv run python scripts/provision_postgres.py
 	PYTHONPATH=scripts uv run python scripts/provision_nats.py
+	@# After PostgreSQL has Keycloak's database and login.
+	kubectl --context $(CLUSTER) apply --kustomize infrastructure/security/keycloak
 
 migrate: ## Run each service's migration Job, once per release, before make services
 	uv run python scripts/run_migrations.py
@@ -125,6 +131,12 @@ events-check: ## Prove the event metrics, dashboards and alerts work, using real
 
 dead-letters: ## List the messages in the dead-letter stream, without their contents
 	PYTHONPATH=scripts uv run python scripts/dead_letters.py
+
+identity-seed: ## Create the Keycloak realm, tenants, client and demo users
+	PYTHONPATH=scripts uv run python scripts/identity_seed.py
+
+identity-check: ## Prove Keycloak's login, tenant claim and rules on the cluster
+	PYTHONPATH=scripts uv run python scripts/verify_identity.py
 
 postgres-provision: ## Create each service's PostgreSQL database and login
 	uv run python scripts/provision_postgres.py

@@ -20,6 +20,7 @@ from provision_postgres import (
     ADMIN_KEY,
     ADMIN_USER,
     HOST,
+    PLATFORM_DATABASES,
     PORT,
     SECRETS_FILE,
     SERVICE_NAMESPACES,
@@ -65,6 +66,12 @@ LOCAL_SECRETS = (
         file_name="secrets.local.qdrant.env",
         # Knowledge is its only client, and runs in the application namespace (SRS 11.2).
         namespaces=("windops-data", "windops-application"),
+    ),
+    LocalSecret(
+        name="windops-keycloak-admin",
+        key="password",
+        file_name="secrets.local.keycloak.env",
+        namespaces=("windops-system",),
     ),
     LocalSecret(
         name="windops-grafana-admin",
@@ -119,7 +126,7 @@ def postgres_secrets(passwords: dict[str, str]) -> list[dict[str, object]]:
             {"username": ADMIN_USER, "password": passwords[ADMIN_KEY]},
         )
     ]
-    for service, namespace in SERVICE_NAMESPACES.items():
+    for service, namespace in {**SERVICE_NAMESPACES, **PLATFORM_DATABASES}.items():
         name = database_name(service)
         manifests.append(
             secret_manifest(
@@ -148,7 +155,7 @@ def secret_manifest(name: str, namespace: str, values: dict[str, str]) -> dict[s
 
 
 def apply_postgres_secrets() -> None:
-    added = ensure_passwords(SECRETS_FILE, [ADMIN_KEY, *SERVICE_NAMESPACES])
+    added = ensure_passwords(SECRETS_FILE, [ADMIN_KEY, *SERVICE_NAMESPACES, *PLATFORM_DATABASES])
     print(f"Added {len(added)} passwords to {SECRETS_FILE.name}")
     apply_manifests(postgres_secrets(read_passwords(SECRETS_FILE)))
     print(f"Applied PostgreSQL credentials for {len(SERVICE_NAMESPACES)} services")

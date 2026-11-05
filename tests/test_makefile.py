@@ -56,6 +56,8 @@ BUILT_TARGETS = {
     "sample-check",
     "phase-1-gate",
     "phase-2-gate",
+    "identity-seed",
+    "identity-check",
     "postgres-provision",
     "postgres-check",
     "redis-check",

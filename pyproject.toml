@@ -131,6 +131,7 @@ pythonpath = ["shared/grpc/tests", "shared/resilience/tests"]
 [dependency-groups]
 dev = [
     "aiosqlite>=0.22",
+    "cryptography>=46",
     "grpcio>=1.85.1",
     "grpcio-tools>=1.85.1",
     "httpx>=0.28.1",
