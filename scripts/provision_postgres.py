@@ -46,6 +46,8 @@ SERVICE_NAMESPACES = {
     "notification": "windops-application",
     "evaluation": "windops-application",
 }
+# Not services, so they get a database only: no template, cache login or event login.
+PLATFORM_DATABASES = {"keycloak": "windops-system"}
 _SAFE_PASSWORD = re.compile(r"[A-Za-z0-9_-]+")
 _SAFE_SERVICE = re.compile(r"[a-z]+(-[a-z]+)*")
 
@@ -105,12 +107,13 @@ def main() -> int:
         print("No PostgreSQL passwords found. Run: make secrets", file=sys.stderr)
         return 1
     passwords = read_passwords()
-    missing = sorted(set(SERVICE_NAMESPACES) - set(passwords))
+    wanted = [*SERVICE_NAMESPACES, *PLATFORM_DATABASES]
+    missing = sorted(set(wanted) - set(passwords))
     if missing:
         print(f"Missing passwords for {', '.join(missing)}. Run: make secrets", file=sys.stderr)
         return 1
     passwords.pop(ADMIN_KEY, None)
-    services = {service: passwords[service] for service in SERVICE_NAMESPACES}
+    services = {service: passwords[service] for service in wanted}
 
     subprocess.run(
         [
@@ -135,7 +138,7 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    print(f"Provisioned {len(services)} service databases")
+    print(f"Provisioned {len(services)} databases")
     return 0
 
 

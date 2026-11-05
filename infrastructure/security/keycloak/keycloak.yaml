@@ -1,0 +1,145 @@
+# Login, credentials and sessions (SEC-006). Reachable only inside the cluster until M3.7 adds a
+# gateway route with TLS.
+apiVersion: v1
+kind: Service
+metadata:
+  name: windops-keycloak
+  labels:
+    app.kubernetes.io/name: windops-keycloak
+    app.kubernetes.io/part-of: windops
+spec:
+  # The management port stays off this Service.
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: windops-keycloak
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: windops-keycloak
+  labels:
+    app.kubernetes.io/name: windops-keycloak
+    app.kubernetes.io/part-of: windops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: windops-keycloak
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: windops-keycloak
+        app.kubernetes.io/part-of: windops
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9000"
+        prometheus.io/path: /metrics
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: keycloak
+          image: windops-keycloak:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: windops_admin
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: windops-keycloak-admin
+                  key: password
+            - name: KC_DB_URL_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: windops-keycloak-database
+                  key: host
+            - name: KC_DB_URL_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: windops-keycloak-database
+                  key: port
+            - name: KC_DB_URL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: windops-keycloak-database
+                  key: database
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: windops-keycloak-database
+                  key: username
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: windops-keycloak-database
+                  key: password
+            # Plain HTTP and a flexible hostname, for port-forwarding. M3.7 adds TLS at the gateway
+            # and a fixed hostname, which then fixes the issuer in every token.
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            # One replica locally, so it needs no cluster cache.
+            - name: KC_CACHE
+              value: local
+            - name: JAVA_OPTS_KC_HEAP
+              value: -XX:MaxRAMPercentage=60 -XX:InitialRAMPercentage=25
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 9000
+          startupProbe:
+            httpGet:
+              path: /health/started
+              port: management
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: management
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: management
+            periodSeconds: 20
+            timeoutSeconds: 5
+          # Starting values. Replace them with measured figures (SRS 11).
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: data
+              mountPath: /opt/keycloak/data
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+        - name: data
+          emptyDir:
+            sizeLimit: 64Mi

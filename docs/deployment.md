@@ -11,13 +11,14 @@ SRS 11.4 defines this order:
 make cluster          # start the cluster
 make images           # build service images into the cluster
 make secrets          # create namespaces and local secrets
-make infra            # create etcd, data stores and the observability stack
+make infra            # create etcd, data stores, Keycloak and the observability stack
+make identity-seed    # create the Keycloak realm, tenants and demo users
 make migrate          # run each service's migration Job
 make services         # deploy the gateway and services
 make gateway-routes   # apply the gateway's routes
 ```
 
-`make identity-seed`, `make seed-demo` and `make smoke-test` arrive with their
+`make seed-demo` and `make smoke-test` arrive with their
 modules. `make help` lists what each one does, and which module delivers it.
 
 ## Check it
@@ -37,6 +38,7 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make outbox-check` | A state change and its event commit together, wait out a JetStream outage, and are not stored twice |
 | `make audit-check` | A repeated event makes one record, records cannot change, tampering is detected, and outages lose nothing |
 | `make events-check` | Real failures appear on the Events dashboard, and their alerts fire |
+| `make identity-check` | Keycloak signs in through OIDC, issues the tenant claim, and enforces its rules |
 | `make phase-1-gate` | A call is traced through the gateway, and its breaker opens under a fault |
 | `make phase-2-gate` | An event survives a pod restart, and a redelivered audit event creates only one record |
 
@@ -49,6 +51,8 @@ reset, back up and restore them.
 
 [Qdrant](../infrastructure/data/qdrant/README.md) describes vector storage, and how to reset, back up and
 restore it.
+
+[Keycloak](../infrastructure/security/keycloak/README.md) describes login, tenants and token rules.
 
 [NATS JetStream](../infrastructure/data/nats/README.md) describes the event streams, who can publish them,
 and what happens when it is down.
