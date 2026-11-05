@@ -54,7 +54,16 @@ def make_authority(name: str = "test-ca") -> Authority:
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
-    )
+        .add_extension(
+            x509.KeyUsage(
+                digital_signature=True, content_commitment=False, key_encipherment=False,
+                data_encipherment=False, key_agreement=False, key_cert_sign=True, crl_sign=True,
+                encipher_only=False, decipher_only=False,
+            ),
+            critical=True,
+        )
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+    )  # fmt: skip
     return Authority(key, builder.sign(key, hashes.SHA256()))
 
 
@@ -73,6 +82,11 @@ def issue(authority: Authority, common_name: str, directory: Path, *, trusted: A
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .add_extension(x509.SubjectAlternativeName(alternative_names), critical=False)
+        # Python 3.13 checks certificates strictly, as cert-manager's real ones allow.
+        .add_extension(
+            x509.AuthorityKeyIdentifier.from_issuer_public_key(authority.key.public_key()),
+            critical=False,
+        )
     )
     certificate = builder.sign(authority.key, hashes.SHA256())
     directory.mkdir(parents=True, exist_ok=True)
@@ -384,3 +398,54 @@ def test_plain_grpc_is_refused_everywhere_else(environment: str) -> None:
 def test_the_test_environment_alone_does_not_turn_it_off() -> None:
     with pytest.raises(SettingsError, match="WINDOPS_TLS_DIR"):
         Settings.from_env({**BASE_ENV, "WINDOPS_ENVIRONMENT": "test"})
+
+
+def test_an_api_over_https_is_not_also_served_in_plain(
+    tmp_path: Path, authority: Authority
+) -> None:
+    """The API only over TLS. Plain HTTP keeps health and metrics, for probes and Prometheus."""
+    import ssl
+
+    import httpx
+    from fastapi import APIRouter
+
+    router = APIRouter()
+
+    @router.get("/api/v1/hello")
+    async def hello() -> dict[str, str]:
+        return {"hello": "world"}
+
+    async def scenario() -> None:
+        files = issue(authority, SERVER_NAME, tmp_path / "server", trusted=authority)
+        root = logging.getLogger()
+        saved_handlers, saved_level = list(root.handlers), root.level
+        runtime = ServiceRuntime(
+            "https-test",
+            Settings(
+                environment="test", version="test", identity_secret=SECRET, grpc_port=0,
+                http_port=0, https_port=0, shutdown_grace_seconds=1, tls_dir=files,
+            ),
+            lambda server: None,
+            http_router=router,
+            api_over_https=True,
+            install_global_telemetry=False,
+        )  # fmt: skip
+        await runtime.start()
+        try:
+            plain = f"http://127.0.0.1:{runtime.http_port}"
+            secure = f"https://localhost:{runtime.https_port}"
+            trusted = ssl.create_default_context(cafile=str(files / "ca.crt"))
+            async with httpx.AsyncClient(timeout=5) as client:
+                assert (await client.get(f"{plain}/api/v1/hello")).status_code == 404
+                assert (await client.get(f"{plain}/health/live")).status_code == 200
+            async with httpx.AsyncClient(timeout=5, verify=trusted) as client:
+                assert (await client.get(f"{secure}/api/v1/hello")).json() == {"hello": "world"}
+            async with httpx.AsyncClient(timeout=5) as client:
+                with pytest.raises(httpx.ConnectError):
+                    await client.get(f"{secure}/api/v1/hello")
+        finally:
+            await runtime.stop()
+            root.handlers[:] = saved_handlers
+            root.setLevel(saved_level)
+
+    asyncio.run(scenario())

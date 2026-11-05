@@ -300,7 +300,7 @@ def run(public: str, base: str, password: str) -> None:
 def main() -> int:
     password = read_passwords(ADMIN_SECRET_FILE)["password"]
     try:
-        with keycloak_public() as public, keycloak_admin() as base:
+        with keycloak_public(through_gateway=False) as public, keycloak_admin() as base:
             run(public, base, password)
     except (RuntimeError, OSError, grpc.RpcError, httpx.HTTPError, json.JSONDecodeError) as error:
         print(f"{type(error).__name__}: {error}", file=sys.stderr)

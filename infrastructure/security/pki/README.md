@@ -60,8 +60,9 @@ Checks reach a service using `scripts/tls_client.py`, which requests a client ce
   not reach them, or tokens that do not match the caller.
 - Data stores check a password, not a client certificate, so a stolen password still works from inside the
   cluster. M13.3's network policies limit where it can be used from.
-- The API Gateway reaches its backends over plain HTTP until M3.7, and Prometheus scrapes `/metrics` and Kubernetes
-  probes reach `/health/*` over plain HTTP, because those hold no business data.
+- **Plain HTTP for probes and metrics only.** The API Gateway reaches Web BFF and Keycloak over HTTPS, and checks
+  their certificates. Prometheus scrapes `/metrics`, and Kubernetes probes reach `/health/*`, over plain HTTP,
+  because those hold no business data.
 - The CA renews once a year and keeps its key, so services never disagree about whom to trust. That also means
   replacing a leaked CA key is a manual job, which restarts every service.
 - Nothing warns yet if cert-manager stops renewing certificates. Prometheus does not scrape it, so a service's

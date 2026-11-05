@@ -98,7 +98,7 @@ def test_gateway_sends_traces_to_the_collector() -> None:
 
 def test_gateway_enables_only_the_plugins_it_uses() -> None:
     config = gateway_config()
-    assert config["plugins"] == ["opentelemetry"]
+    assert config["plugins"] == ["opentelemetry", "cors", "limit-count", "openid-connect"]
     assert config["stream_plugins"] == []
 
 
@@ -203,3 +203,41 @@ def test_only_keycloaks_sign_in_pages_are_routed() -> None:
     upstream = route["upstream"]
     assert upstream["scheme"] == "https" and upstream["tls"]["verify"] is True
     assert upstream["checks"]["active"]["https_verify_certificate"] is True
+
+
+def test_the_api_route_checks_tokens_at_the_edge() -> None:
+    """SRS 7.2: OIDC validation at the gateway, as well as in Web BFF."""
+    oidc = load_routes()["web-bff"]["plugins"]["openid-connect"]
+    assert oidc["bearer_only"] is True and oidc["use_jwks"] is True and oidc["ssl_verify"] is True
+    assert oidc["claim_validator"]["issuer"]["valid_issuers"] == [
+        "https://localhost:9443/auth/realms/windops"
+    ]
+    assert oidc["claim_validator"]["audience"]["match_with_client_id"] is True
+    assert oidc["client_id"] == "windops-api"
+    assert "tenant_id" in oidc["claim_schema"]["required"]
+    assert "client_secret" not in oidc
+
+
+def test_cors_names_its_origins_and_never_allows_cookies() -> None:
+    """API-005: an explicit allowlist, never a wildcard with credentials."""
+    for name in ("web-bff", "web-bff-public"):
+        cors = load_routes()[name]["plugins"]["cors"]
+        assert "*" not in cors["allow_origins"]
+        assert cors["allow_credential"] is False
+
+
+def test_the_srs_per_address_limits() -> None:
+    """SRS 7.5: anonymous login is 5 a minute for each address."""
+    routes = load_routes()
+    login = routes["keycloak-login"]
+    assert login["uri"] == "/auth/realms/windops/login-actions/*"
+    assert login["plugins"]["limit-count"]["count"] == 5
+    assert login["plugins"]["limit-count"]["key"] == "remote_addr"
+    assert login["priority"] > 0
+
+
+def test_web_bff_is_reached_over_tls_and_its_certificate_checked() -> None:
+    for name in ("web-bff", "web-bff-public"):
+        upstream = load_routes()[name]["upstream"]
+        assert upstream["scheme"] == "https" and upstream["tls"]["verify"] is True
+        assert all(node.endswith(":8443") for node in upstream["nodes"])

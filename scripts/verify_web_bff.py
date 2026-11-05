@@ -46,11 +46,7 @@ def sign_in(realm: Realm, tenant: str) -> str:
 
 def check_tokens(realm: Realm) -> str:
     missing = get("/me")
-    check(
-        missing.status_code == 401
-        and missing.headers["content-type"] == "application/problem+json",
-        "Without a token, the API refuses, with an RFC 9457 problem",
-    )
+    check(missing.status_code == 401, "Without a token, the gateway refuses before the API")
     token = sign_in(realm, TENANT)
     me = get("/me", token)
     body = me.json()

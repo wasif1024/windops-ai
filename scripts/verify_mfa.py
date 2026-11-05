@@ -432,7 +432,7 @@ def main() -> int:
     admin_password = read_passwords(ADMIN_SECRET_FILE)["password"]
     demo = read_demo_passwords()
     try:
-        with keycloak_public() as public, keycloak_admin() as base:
+        with keycloak_public(through_gateway=False) as public, keycloak_admin() as base:
             run(public, base, admin_password, demo)
     except httpx.HTTPStatusError as error:
         # The status and address only, because a request can hold a password.

@@ -393,7 +393,7 @@ def check_restart(base_tokens: Tokens, demo: dict[str, str]) -> None:
     )  # fmt: skip
     kubectl("delete", "pod", pod, f"--namespace={NAMESPACE}")
     kubectl("rollout", "status", DEPLOYMENT, f"--namespace={NAMESPACE}", "--timeout=300s")
-    with keycloak_public() as public:
+    with keycloak_public(through_gateway=False) as public:
         # A token's issuer holds the address it was issued through, so sign in again here.
         realm = Realm(public)
         alias = next(iter(TENANTS))
@@ -486,7 +486,7 @@ def main() -> int:
     demo = read_demo_passwords()
     try:
         kubectl("rollout", "status", DEPLOYMENT, f"--namespace={NAMESPACE}", "--timeout=300s")
-        with keycloak_public() as public, keycloak_admin() as base:
+        with keycloak_public(through_gateway=False) as public, keycloak_admin() as base:
             tokens = run(public, base, admin_password, demo)
         check_database()
         check_restart(tokens, demo)

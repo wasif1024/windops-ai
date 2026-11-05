@@ -70,6 +70,7 @@ BUILT_TARGETS = {
     "edge-check",
     "openapi",
     "bff-check",
+    "gateway-policy-check",
     "postgres-provision",
     "postgres-check",
     "redis-check",

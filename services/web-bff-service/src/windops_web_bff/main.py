@@ -80,7 +80,12 @@ def main() -> None:
     )
     asyncio.run(
         run_service(
-            SERVICE_NAME, register, http_router=router, http_exception_handlers=EXCEPTION_HANDLERS
+            SERVICE_NAME,
+            register,
+            http_router=router,
+            http_exception_handlers=EXCEPTION_HANDLERS,
+            # Only over TLS. Plain HTTP keeps health and metrics, for probes and Prometheus.
+            api_over_https=True,
         )
     )
 
