@@ -8,6 +8,7 @@ from sqlalchemy import Column, DateTime, MetaData, Table, Text, insert, select
 from sqlalchemy.ext.asyncio import AsyncConnection
 from windops.events.v1 import events_pb2
 from windops_events import audit_request_subject
+from windops_migrations import in_tenant
 from windops_outbox import add_event
 
 SERVICE_NAME = "identity"
@@ -34,11 +35,12 @@ def request_hash(request: Message) -> str:
 
 
 async def created_before(
-    connection: AsyncConnection, actor: str, key: str, request: Message
+    connection: AsyncConnection, tenant_id: str, actor: str, key: str, request: Message
 ) -> str | None:
     """Return the user a previous call with this key created, if there was one."""
     if not key:
         return None
+    await in_tenant(connection, tenant_id)
     row = (
         await connection.execute(
             select(CREATED_USERS).where(
@@ -65,6 +67,7 @@ async def record_created(
     now: datetime,
 ) -> None:
     if key:
+        await in_tenant(connection, tenant_id)
         await connection.execute(
             insert(CREATED_USERS).values(
                 actor_id=actor,

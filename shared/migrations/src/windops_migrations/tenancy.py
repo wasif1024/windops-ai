@@ -46,12 +46,15 @@ def enable_tenant_isolation(connection: Connection, table: str, column: str = "t
 
 
 async def in_tenant(connection: AsyncConnection, tenant_id: str) -> None:
-    """Limit the rest of this transaction to one tenant's rows. Other databases ignore it."""
+    """Limit the rest of this transaction to one tenant's rows. Other databases ignore it.
+
+    It also ends any `across_tenants`, so naming a tenant always narrows what is visible.
+    """
     if connection.dialect.name == "postgresql":
-        # The last argument makes it last only until this transaction ends.
+        # The last argument makes each last only until this transaction ends.
         await connection.execute(
-            text("SELECT set_config(:name, :value, true)"),
-            {"name": TENANT_SETTING, "value": tenant_id},
+            text("SELECT set_config(:tenant, :value, true), set_config(:everyone, '', true)"),
+            {"tenant": TENANT_SETTING, "value": tenant_id, "everyone": ALL_TENANTS_SETTING},
         )
 
 
