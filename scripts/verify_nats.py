@@ -7,6 +7,7 @@ events and consumer positions survive that. Its test events and consumers are re
 
 import asyncio
 import contextlib
+import ssl
 import subprocess
 import sys
 import uuid
@@ -19,6 +20,7 @@ from nats.errors import NoServersError
 from nats.js.errors import APIError, NotFoundError
 from nats_access import ADMIN_USER, NAMESPACE, SECRETS_FILE
 from provision_postgres import ADMIN_KEY, CONTEXT, database_name, read_passwords
+from tls_client import authority_file
 from windops.events.v1 import events_pb2
 from windops_events import (
     DEAD_LETTER_STREAM,
@@ -67,7 +69,7 @@ class Run:
     """Connections for one port-forward, and what must be removed afterwards."""
 
     def __init__(self, port: int, passwords: dict[str, str]) -> None:
-        self.url = f"nats://127.0.0.1:{port}"
+        self.url = f"tls://127.0.0.1:{port}"
         self.passwords = passwords
         self.clients: list[Client] = []
 
@@ -77,6 +79,7 @@ class Run:
             username=database_name(service),
             password=self.passwords[service],
             name=f"check-{service}",
+            ca_file=authority_file(),
         )
         self.clients.append(client)
         return client
@@ -87,6 +90,7 @@ class Run:
             username=ADMIN_USER,
             password=self.passwords[ADMIN_KEY],
             name="check-admin",
+            ca_file=authority_file(),
         )
         self.clients.append(client)
         return client
@@ -100,6 +104,8 @@ async def refused(url: str, **login: str) -> bool:
     try:
         client = await nats.connect(
             servers=[url],
+            # With the right CA, so a refusal below is about the login and not the certificate.
+            tls=ssl.create_default_context(cafile=authority_file()),
             connect_timeout=2,
             max_reconnect_attempts=0,
             allow_reconnect=False,

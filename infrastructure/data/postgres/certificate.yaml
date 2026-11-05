@@ -1,0 +1,32 @@
+# This store's identity, which every client checks (GRP-005).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-postgres-tls
+  labels:
+    app.kubernetes.io/name: windops-postgres
+    app.kubernetes.io/part-of: windops
+spec:
+  secretName: windops-postgres-tls
+  commonName: windops-postgres
+  dnsNames:
+    - windops-postgres
+    - windops-postgres.windops-data
+    - windops-postgres.windops-data.svc
+    - windops-postgres.windops-data.svc.cluster.local
+    # For probes inside the pod, and for checks that arrive through a port-forward.
+    - localhost
+  ipAddresses:
+    - 127.0.0.1
+  duration: 720h
+  renewBefore: 168h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - server auth
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io

@@ -14,6 +14,7 @@ from gateway_routes import port_forward
 from provision_postgres import CONTEXT, database_name, read_passwords
 from redis.exceptions import AuthenticationError, NoPermissionError, ResponseError
 from redis_access import ADMIN_USER, NAMESPACE, SECRETS_FILE
+from tls_client import authority_file
 from windops_cache import RateLimiter, RateLimitUnavailableError, TenantCache, connect
 from windops_resilience import BreakerConfig, BreakerState, CircuitBreaker
 
@@ -46,7 +47,11 @@ def wait_for_redis() -> None:
 
 def client_for(port: int, passwords: dict[str, str], service: str) -> "redis.Redis":
     return connect(
-        host="127.0.0.1", port=port, username=database_name(service), password=passwords[service]
+        host="127.0.0.1",
+        port=port,
+        username=database_name(service),
+        password=passwords[service],
+        ca_file=authority_file(),
     )
 
 
@@ -90,7 +95,14 @@ async def check_isolation(port: int, passwords: dict[str, str], client: "redis.R
         (None, None, "the default login is off"),
         (database_name(SERVICE), "wrong-password", "a wrong password is refused"),
     ):
-        stranger = redis.Redis(host="127.0.0.1", port=port, username=username, password=password)
+        stranger = redis.Redis(
+            host="127.0.0.1",
+            port=port,
+            username=username,
+            password=password,
+            ssl=True,
+            ssl_ca_certs=authority_file(),
+        )
         refused = False
         try:
             await stranger.get(f"{SERVICE}:{TENANT}:value")
@@ -102,7 +114,13 @@ async def check_isolation(port: int, passwords: dict[str, str], client: "redis.R
 
 
 async def check_no_persistence(port: int, passwords: dict[str, str]) -> None:
-    admin = connect(host="127.0.0.1", port=port, username=ADMIN_USER, password=passwords["admin"])
+    admin = connect(
+        host="127.0.0.1",
+        port=port,
+        username=ADMIN_USER,
+        password=passwords["admin"],
+        ca_file=authority_file(),
+    )
     settings = {
         **await admin.config_get("save"),
         **await admin.config_get("appendonly"),

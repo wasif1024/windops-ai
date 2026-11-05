@@ -58,5 +58,6 @@ The Knowledge Service pauses evidence retrieval, and no uncited procedure claims
 
 ## Limits
 
-- Connections are not encrypted until M3.3 adds mTLS.
+- Connections use TLS, and clients check the server's certificate, but a client proves who it is with a
+  password and not a certificate. See [Service certificates](../../security/pki/README.md).
 - One key reads and writes every collection, so tenant separation relies on the Knowledge Service.

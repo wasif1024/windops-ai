@@ -126,6 +126,7 @@ async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
                 username=os.environ["WINDOPS_EVENTS_USERNAME"],
                 password=os.environ["WINDOPS_EVENTS_PASSWORD"],
                 name=SERVICE_NAME,
+                ca_file=f"{os.environ['WINDOPS_TLS_DIR']}/ca.crt",
             )
         except (NatsError, APIError, TimeoutError, OSError) as error:
             logger.warning("Cannot reach JetStream yet", extra={"error_type": type(error).__name__})

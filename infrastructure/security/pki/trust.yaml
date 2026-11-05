@@ -1,0 +1,68 @@
+# Gives workloads in windops-system that are not services a copy of the CA, in ca.crt, to check a
+# data store with. They mount only that file, and this certificate cannot log in anywhere.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-trust
+  namespace: windops-system
+spec:
+  secretName: windops-trust
+  commonName: windops-trust
+  duration: 8760h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  # Not client auth, so a service refuses it.
+  usages:
+    - email protection
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+# Gives workloads in windops-application that are not services a copy of the CA, in ca.crt, to check a
+# data store with. They mount only that file, and this certificate cannot log in anywhere.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-trust
+  namespace: windops-application
+spec:
+  secretName: windops-trust
+  commonName: windops-trust
+  duration: 8760h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  # Not client auth, so a service refuses it.
+  usages:
+    - email protection
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+# Gives workloads in windops-mcp that are not services a copy of the CA, in ca.crt, to check a
+# data store with. They mount only that file, and this certificate cannot log in anywhere.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-trust
+  namespace: windops-mcp
+spec:
+  secretName: windops-trust
+  commonName: windops-trust
+  duration: 8760h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  # Not client auth, so a service refuses it.
+  usages:
+    - email protection
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io

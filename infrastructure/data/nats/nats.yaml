@@ -53,7 +53,22 @@ spec:
       containers:
         - name: nats
           image: nats:2.15.2-alpine@sha256:823e7f1d6d8ffe3b30dbd73d4a06bbb939acf94929f7fdf224404da7a05bafb5
-          command: [nats-server, --config, /etc/nats/nats.conf]
+          command:
+            - sh
+            - -c
+            - |
+              # Load a renewed certificate without a restart, so connections stay open.
+              seen=$(cksum < /var/run/windops/tls/tls.crt)
+              (
+                while sleep 30; do
+                  now=$(cksum < /var/run/windops/tls/tls.crt) || continue
+                  if [ "$now" != "$seen" ]; then
+                    seen="$now"
+                    kill -HUP 1
+                  fi
+                done
+              ) &
+              exec nats-server --config /etc/nats/nats.conf
           env:
             # Keeps the Go runtime inside the memory limit below.
             - name: GOMEMLIMIT
@@ -94,6 +109,9 @@ spec:
             capabilities:
               drop: [ALL]
           volumeMounts:
+            - name: tls
+              mountPath: /var/run/windops/tls
+              readOnly: true
             - name: config
               mountPath: /etc/nats
               readOnly: true
@@ -133,6 +151,10 @@ spec:
             capabilities:
               drop: [ALL]
       volumes:
+        - name: tls
+          secret:
+            secretName: windops-nats-tls
+            defaultMode: 0440
         - name: config
           secret:
             secretName: windops-nats-config

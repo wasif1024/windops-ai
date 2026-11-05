@@ -75,6 +75,9 @@ spec:
                 secretKeyRef:
                   name: windops-keycloak-database
                   key: database
+            # Checks the database's certificate and name, so nothing can pose as it (GRP-005).
+            - name: KC_DB_URL_PROPERTIES
+              value: "?sslmode=verify-full&sslrootcert=/var/run/windops/tls/ca.crt"
             - name: KC_DB_USERNAME
               valueFrom:
                 secretKeyRef:
@@ -132,11 +135,21 @@ spec:
             capabilities:
               drop: [ALL]
           volumeMounts:
+            - name: trust
+              mountPath: /var/run/windops/tls
+              readOnly: true
             - name: tmp
               mountPath: /tmp
             - name: data
               mountPath: /opt/keycloak/data
       volumes:
+        - name: trust
+          secret:
+            secretName: windops-trust
+            defaultMode: 0444
+            items:
+              - key: ca.crt
+                path: ca.crt
         - name: tmp
           emptyDir:
             sizeLimit: 64Mi
