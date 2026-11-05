@@ -11,3 +11,4 @@ resources:
   - ../../../../services/sample-caller-service/deploy
   - ../../../../services/sample-responder-service/deploy
   - ../../../../services/tenant-service/deploy
+  - ../../../../services/web-bff-service/deploy

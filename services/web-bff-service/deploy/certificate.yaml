@@ -1,0 +1,29 @@
+# This service's identity for mutual TLS (GRP-005).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-web-bff-tls
+  labels:
+    app.kubernetes.io/name: windops-web-bff
+    app.kubernetes.io/part-of: windops
+spec:
+  secretName: windops-web-bff-tls
+  commonName: windops-web-bff
+  dnsNames:
+    - windops-web-bff
+    - windops-web-bff.windops-system
+    - windops-web-bff.windops-system.svc
+    - windops-web-bff.windops-system.svc.cluster.local
+  duration: 720h
+  renewBefore: 168h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - client auth
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io

@@ -17,6 +17,7 @@ members = [
     "services/sample-caller-service",
     "services/sample-responder-service",
     "services/tenant-service",
+    "services/web-bff-service",
     "shared/auth",
     "shared/cache",
     "shared/contracts",
@@ -44,6 +45,7 @@ windops-audit = { workspace = true }
 windops-authorization = { workspace = true }
 windops-identity = { workspace = true }
 windops-tenant = { workspace = true }
+windops-web-bff = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -76,6 +78,8 @@ files = [
     "services/sample-responder-service/tests",
     "services/tenant-service/src",
     "services/tenant-service/tests",
+    "services/web-bff-service/src",
+    "services/web-bff-service/tests",
     "shared/auth/src",
     "shared/auth/tests",
     "shared/cache/src",
@@ -109,6 +113,8 @@ mypy_path = [
     "services/sample-responder-service/tests",
     "services/tenant-service/src",
     "services/tenant-service/tests",
+    "services/web-bff-service/src",
+    "services/web-bff-service/tests",
     "shared/auth/src",
     "shared/auth/tests",
     "shared/cache/src",
@@ -151,7 +157,7 @@ testpaths = [
     "shared/resilience/tests",
 ]
 addopts = "-ra --strict-markers --import-mode=importlib"
-pythonpath = ["shared/grpc/tests", "shared/resilience/tests", "services/identity-service/tests", "services/tenant-service/tests"]
+pythonpath = ["shared/grpc/tests", "shared/resilience/tests", "services/identity-service/tests", "services/tenant-service/tests", "services/web-bff-service/tests"]
 
 [dependency-groups]
 dev = [
@@ -184,4 +190,5 @@ dev = [
     "windops-sample-caller",
     "windops-sample-responder",
     "windops-tenant",
+    "windops-web-bff",
 ]

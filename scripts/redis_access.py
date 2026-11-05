@@ -33,13 +33,17 @@ def _password_rule(password: str) -> str:
     return f">{password}"
 
 
+# Web BFF stores nothing, but counts each user's requests here (SRS 7.5).
+CACHE_SERVICES = {**SERVICE_NAMESPACES, "web-bff": "windops-system"}
+
+
 def acl_file(passwords: dict[str, str]) -> str:
     """Return the ACL file. The default login is off, so every connection needs a password."""
     lines = [
         "user default off resetchannels -@all",
         f"user {ADMIN_USER} on {_password_rule(passwords[ADMIN_KEY])} ~* &* +@all",
     ]
-    for service in SERVICE_NAMESPACES:
+    for service in CACHE_SERVICES:
         lines.append(
             f"user {database_name(service)} on {_password_rule(passwords[service])} "
             f"~{service}:* resetchannels {SERVICE_COMMANDS}"

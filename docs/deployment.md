@@ -40,6 +40,8 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make events-check` | Real failures appear on the Events dashboard, and their alerts fire |
 | `make identity-check` | Keycloak signs in through OIDC, issues the tenant claim, and enforces its rules |
 | `make mfa-check` | Administrators must use a second factor, step-up works, and recovery codes work. Takes about 7 minutes |
+| `make edge-check` | The gateway serves only HTTPS, and exposes only Keycloak's sign-in pages |
+| `make bff-check` | Real logins reach Web BFF through the gateway, bad tokens are refused, and limits fail closed |
 | `make cross-tenant-check` | Every tenant table forces row-level security, and every API refuses another tenant's data (DAT-008) |
 | `make tenant-check` | Tenants, branding and row-level security keep each tenant's data to itself |
 | `make identity-service-check` | Users are created, disabled and signed out in their own tenant only, and refused when Authorization is down |

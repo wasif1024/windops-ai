@@ -8,7 +8,12 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from windops.authorization.v1 import authorization_pb2, authorization_pb2_grpc
-from windops_auth import MfaRequiredError, authentication_claims, require_recent_mfa
+from windops_auth import (
+    STEP_UP_MESSAGE,
+    MfaRequiredError,
+    authentication_claims,
+    require_recent_mfa,
+)
 from windops_grpc import (
     ConflictError,
     InvalidRequestError,
@@ -43,7 +48,7 @@ from windops_authorization.store import (
 _TENANT = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 _MAXIMUM_ID = 255
 _MAXIMUM_KEY = 128
-STEP_UP = "This operation needs a recent second factor"
+STEP_UP = STEP_UP_MESSAGE
 
 
 def _now() -> datetime:

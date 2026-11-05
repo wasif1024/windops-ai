@@ -68,6 +68,8 @@ BUILT_TARGETS = {
     "tenant-check",
     "cross-tenant-check",
     "edge-check",
+    "openapi",
+    "bff-check",
     "postgres-provision",
     "postgres-check",
     "redis-check",

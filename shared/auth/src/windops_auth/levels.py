@@ -12,6 +12,8 @@ LEVEL_PASSWORD = "password"  # noqa: S105  # A level's name, not a password.
 LEVEL_MFA = "mfa"
 # How long a step-up lasts (SEC-003). Keycloak's login flow uses the same limit.
 MFA_LEVEL_SECONDS = 300
+# A service's refusal when a recent second factor is missing. Web BFF turns it into a step-up.
+STEP_UP_MESSAGE = "This operation needs a recent second factor"
 # Allowed difference between this machine's clock and Keycloak's.
 _CLOCK_SKEW_SECONDS = 5
 
