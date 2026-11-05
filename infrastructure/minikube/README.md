@@ -66,3 +66,5 @@ These figures replace estimates as workloads are added. See
 | 2026-11-05 | NATS metrics exporter | 7 MiB | From `kubectl top` |
 | 2026-11-05 | Tempo, after a restart with stored traces | 455 MiB of its 512 MiB limit | From `kubectl top`, so it may need a higher limit |
 | 2026-11-05 | Whole cluster with the stack, gateway, 3 services, all four data stores and the exporter | 2.49 GiB of 10 GiB | From `docker stats` |
+| 2026-11-05 | Tempo, writing a block every 5 minutes for 37 minutes | Peak 405 MiB of its 512 MiB limit | From Prometheus, with no restart |
+| 2026-11-05 | Whole cluster after every Phase 2 check | 3.07 GiB of 10 GiB | From `docker stats` |

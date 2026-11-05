@@ -55,6 +55,7 @@ BUILT_TARGETS = {
     "contracts-gen",
     "sample-check",
     "phase-1-gate",
+    "phase-2-gate",
     "postgres-provision",
     "postgres-check",
     "redis-check",

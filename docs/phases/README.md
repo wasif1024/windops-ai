@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 2. Next up is M2.9.
+**Current position:** Phase 3. Next up is M3.1.
 
 ## How to use this tracker
 
@@ -35,7 +35,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 | --- | --- | --- | --- |
 | - | [Prerequisites](#prerequisites) | 3 | Done |
 | 1 | [Platform foundation](#phase-1-platform-foundation) | 11 | Done |
-| 2 | [Data and events](#phase-2-data-and-events) | 9 | In progress |
+| 2 | [Data and events](#phase-2-data-and-events) | 9 | Done |
 | 3 | [Identity and tenancy](#phase-3-identity-and-tenancy) | 11 | Not started |
 | 4 | [Assets and telemetry](#phase-4-assets-and-telemetry) | 10 | Not started |
 | 5 | [Alarms, detection and cases](#phase-5-alarms-detection-and-cases) | 7 | Not started |
@@ -86,7 +86,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [x] **M2.6 Outbox library:** state changes and events committed together (EVT-002). Done 2026-11-05, PR #24.
 - [x] **M2.7 Audit Service:** append-only, hash-chained records with durable events (FR-AUD-001, FR-AUD-002, EVT-004). Done 2026-11-05, PR #26.
 - [x] **M2.8 Events visibility:** Events dashboard, data-store health panels and `docs/events.md`. Done 2026-11-05, PR #28.
-- [ ] **M2.9 Exit gate:** an event survives a pod restart, and a redelivered audit event creates only one record.
+- [x] **M2.9 Exit gate:** an event survives a pod restart, and a redelivered audit event creates only one record. Done 2026-11-05, PR #29, [evidence](phase-02-exit-gate.md).
 
 ## Phase 3: Identity and tenancy
 
