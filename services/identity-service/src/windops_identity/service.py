@@ -11,7 +11,12 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from sqlalchemy.ext.asyncio import AsyncEngine
 from windops.authorization.v1 import authorization_pb2
 from windops.identity.v1 import identity_pb2, identity_pb2_grpc
-from windops_auth import MfaRequiredError, authentication_claims, require_recent_mfa
+from windops_auth import (
+    STEP_UP_MESSAGE,
+    MfaRequiredError,
+    authentication_claims,
+    require_recent_mfa,
+)
 from windops_grpc import (
     ConflictError,
     InvalidRequestError,
@@ -31,7 +36,7 @@ logger = logging.getLogger("windops.service")
 PERMISSION = "users.manage"
 TENANT_PERMISSION = "tenant.manage"
 _MAXIMUM_TENANT_NAME = 200
-STEP_UP = "This operation needs a recent second factor"
+STEP_UP = STEP_UP_MESSAGE
 DEADLINE_SECONDS = 3.0
 _TENANT = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 # Deliberately simple: Keycloak and the user's first login do the real check.

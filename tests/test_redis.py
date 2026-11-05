@@ -12,11 +12,11 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from local_secrets import redis_secrets
 from provision_postgres import ADMIN_KEY, SERVICE_NAMESPACES, database_name
-from redis_access import acl_file
+from redis_access import CACHE_SERVICES, acl_file
 
 ROOT = Path(__file__).resolve().parent.parent
 STACK = ROOT / "infrastructure" / "kubernetes" / "base" / "data"
-PASSWORDS = {ADMIN_KEY: "admin-value", **{key: f"value-{key}" for key in SERVICE_NAMESPACES}}
+PASSWORDS = {ADMIN_KEY: "admin-value", **{key: f"value-{key}" for key in CACHE_SERVICES}}
 
 
 @pytest.fixture(scope="module")

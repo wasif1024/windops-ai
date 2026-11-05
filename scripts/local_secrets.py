@@ -28,10 +28,10 @@ from provision_postgres import (
     read_passwords,
 )
 from redis_access import ADMIN_USER as REDIS_ADMIN_USER
+from redis_access import CACHE_SERVICES, acl_file
 from redis_access import HOST as REDIS_HOST
 from redis_access import PORT as REDIS_PORT
 from redis_access import SECRETS_FILE as REDIS_SECRETS_FILE
-from redis_access import acl_file
 
 CONTEXT = "windops"
 REPOSITORY = Path(__file__).resolve().parent.parent
@@ -171,7 +171,7 @@ def redis_secrets(passwords: dict[str, str]) -> list[dict[str, object]]:
             {"username": REDIS_ADMIN_USER, "password": passwords[ADMIN_KEY]},
         ),
     ]
-    for service, namespace in SERVICE_NAMESPACES.items():
+    for service, namespace in CACHE_SERVICES.items():
         manifests.append(
             secret_manifest(
                 f"windops-{service}-cache",
@@ -231,10 +231,10 @@ def apply_nats_secrets() -> None:
 
 
 def apply_redis_secrets() -> None:
-    added = ensure_passwords(REDIS_SECRETS_FILE, [ADMIN_KEY, *SERVICE_NAMESPACES])
+    added = ensure_passwords(REDIS_SECRETS_FILE, [ADMIN_KEY, *CACHE_SERVICES])
     print(f"Added {len(added)} passwords to {REDIS_SECRETS_FILE.name}")
     apply_manifests(redis_secrets(read_passwords(REDIS_SECRETS_FILE)))
-    print(f"Applied Redis credentials for {len(SERVICE_NAMESPACES)} services")
+    print(f"Applied Redis credentials for {len(CACHE_SERVICES)} services")
 
 
 def main() -> int:

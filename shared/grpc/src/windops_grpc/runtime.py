@@ -4,7 +4,7 @@ import asyncio
 import logging
 import os
 import signal
-from collections.abc import Awaitable, Callable, Iterator, Sequence
+from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Any
 
@@ -24,6 +24,7 @@ logger = logging.getLogger("windops.service")
 
 ReadinessCheck = Callable[[], Awaitable[bool]]
 Register = Callable[[grpc.aio.Server], None]
+ExceptionHandler = Callable[[Any, Exception], Awaitable[Any]]
 # Work that runs beside the servers, such as an event consumer. It returns once `stop` is set.
 Background = Callable[[asyncio.Event], Awaitable[None]]
 
@@ -47,6 +48,7 @@ class ServiceRuntime:
         *,
         readiness_checks: Sequence[ReadinessCheck] = (),
         http_router: APIRouter | None = None,
+        http_exception_handlers: Mapping[type[Exception], ExceptionHandler] | None = None,
         install_global_telemetry: bool = True,
     ) -> None:
         self.name = name
@@ -54,6 +56,7 @@ class ServiceRuntime:
         self._register = register
         self._readiness_checks = readiness_checks
         self._http_router = http_router
+        self._http_exception_handlers = dict(http_exception_handlers or {})
         self._install_global = install_global_telemetry
         self._health = health.aio.HealthServicer()
         self._serving = False
@@ -83,6 +86,8 @@ class ServiceRuntime:
 
         if self._http_router is not None:
             app.include_router(self._http_router)
+        for kind, handler in self._http_exception_handlers.items():
+            app.add_exception_handler(kind, handler)
         return app
 
     async def is_ready(self) -> bool:
@@ -180,6 +185,7 @@ async def run_service(
     *,
     readiness_checks: Sequence[ReadinessCheck] = (),
     http_router: APIRouter | None = None,
+    http_exception_handlers: Mapping[type[Exception], ExceptionHandler] | None = None,
     background: Sequence[Background] = (),
 ) -> None:
     """Run a service until SIGTERM or SIGINT, then shut it down gracefully.
@@ -193,6 +199,7 @@ async def run_service(
         register,
         readiness_checks=readiness_checks,
         http_router=http_router,
+        http_exception_handlers=http_exception_handlers,
     )
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

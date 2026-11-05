@@ -13,7 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from windops.authorization.v1 import authorization_pb2
 from windops.identity.v1 import identity_pb2
 from windops.tenant.v1 import tenant_pb2, tenant_pb2_grpc
-from windops_auth import MfaRequiredError, authentication_claims, require_recent_mfa
+from windops_auth import (
+    STEP_UP_MESSAGE,
+    MfaRequiredError,
+    authentication_claims,
+    require_recent_mfa,
+)
 from windops_grpc import (
     ConflictError,
     DomainError,
@@ -33,7 +38,7 @@ from windops_tenant.branding import BrandingError, BrandingFields
 from windops_tenant.store import BRANDING, CUSTOM_DOMAINS, EMAIL_TEMPLATES, TENANTS, audit
 
 logger = logging.getLogger("windops.service")
-STEP_UP = "This operation needs a recent second factor"
+STEP_UP = STEP_UP_MESSAGE
 DEADLINE_SECONDS = 3.0
 _DEFAULT_PAGE, _MAXIMUM_PAGE = 50, 200
 _MAXIMUM_NAME = 200
