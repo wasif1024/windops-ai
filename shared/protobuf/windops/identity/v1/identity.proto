@@ -1,0 +1,133 @@
+syntax = "proto3";
+package windops.identity.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Manages a tenant's users in Keycloak, which holds their credentials and sessions (SEC-006).
+// Every call needs users.manage from the Authorization Service, and every change a recent second
+// factor (SEC-003). The caller's tenant comes from their verified identity (GRP-004).
+//
+// For target_tenant_id below: empty means the caller's own tenant. Only a Platform Administrator
+// may name another. A member_id is always checked against that tenant, so another tenant's users
+// look exactly like users who do not exist.
+service IdentityService {
+  // Returns a temporary password once, which the user must change at their first login.
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  // Also ends every session the user has.
+  rpc DisableUser(DisableUserRequest) returns (DisableUserResponse);
+  rpc ReactivateUser(ReactivateUserRequest) returns (ReactivateUserResponse);
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc RevokeSessions(RevokeSessionsRequest) returns (RevokeSessionsResponse);
+  rpc GetMfaStatus(GetMfaStatusRequest) returns (GetMfaStatusResponse);
+}
+
+message User {
+  string member_id = 1;
+  string email = 2;
+  string first_name = 3;
+  string last_name = 4;
+  bool enabled = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message Session {
+  string session_id = 1;
+  string ip_address = 2;
+  google.protobuf.Timestamp started_at = 3;
+  google.protobuf.Timestamp last_access_at = 4;
+  // The Keycloak clients the session signed in to, such as "windops-web".
+  repeated string clients = 5;
+}
+
+message CreateUserRequest {
+  string target_tenant_id = 1;
+  string email = 2;
+  string first_name = 3;
+  string last_name = 4;
+  // A retry returns the same user, but never the password again (GRP-007).
+  string idempotency_key = 5;
+}
+
+message CreateUserResponse {
+  User user = 1;
+  // Only in the first answer. It is never stored or logged.
+  string temporary_password = 2;
+  // True when this answers a retry, so there is no password to show.
+  bool already_created = 3;
+}
+
+message GetUserRequest {
+  string target_tenant_id = 1;
+  string member_id = 2;
+}
+
+message GetUserResponse {
+  User user = 1;
+}
+
+message ListUsersRequest {
+  string target_tenant_id = 1;
+  // From 1 to 200. Zero means 50.
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+  string next_page_token = 2;
+}
+
+// Disabling, reactivating and revoking sessions end in the same state however often they run, so a
+// retry is safe. The key is accepted for that reason, and a repeat is not audited again (GRP-007).
+message DisableUserRequest {
+  string target_tenant_id = 1;
+  string member_id = 2;
+  string idempotency_key = 3;
+}
+
+message DisableUserResponse {
+  User user = 1;
+}
+
+message ReactivateUserRequest {
+  string target_tenant_id = 1;
+  string member_id = 2;
+  string idempotency_key = 3;
+}
+
+message ReactivateUserResponse {
+  User user = 1;
+}
+
+message ListSessionsRequest {
+  string target_tenant_id = 1;
+  string member_id = 2;
+}
+
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+message RevokeSessionsRequest {
+  string target_tenant_id = 1;
+  string member_id = 2;
+  string idempotency_key = 3;
+}
+
+message RevokeSessionsResponse {
+  int32 sessions_ended = 1;
+}
+
+message GetMfaStatusRequest {
+  string target_tenant_id = 1;
+  string member_id = 2;
+}
+
+message GetMfaStatusResponse {
+  bool otp_configured = 1;
+  bool recovery_codes_configured = 2;
+  // True while Keycloak will ask the user to set up a second factor at their next login.
+  bool setup_required = 3;
+}

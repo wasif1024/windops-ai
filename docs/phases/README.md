@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 3. Next up is M3.4. M3.5 came first, because Identity asks Authorization before every administrative action.
+**Current position:** Phase 3. Next up is M3.6. M3.5 came before M3.4, because Identity asks Authorization before every administrative action.
 
 ## How to use this tracker
 
@@ -94,9 +94,9 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [x] **M3.2 MFA and step-up:** TOTP or WebAuthn, recovery codes and step-up authentication (SEC-002, SEC-003). Done 2026-11-05, PR #32.
 - [x] **M3.3 Service identity:** cert-manager and mTLS everywhere, with signed internal identity in `shared/auth` (GRP-005, K8S-002).
 - [x] **M3.5 Authorization Service:** deny-by-default decisions, the eight roles and the SRS 3.2 matrix, scoped grants and break-glass access (RBAC-001, RBAC-002, RBAC-003, SEC-006).
-- [ ] **M3.4 Identity Service:** user lifecycle, sessions, MFA status and token exchange around Keycloak (SRS 7.2).
+- [x] **M3.4 Identity Service:** user lifecycle, sessions and MFA status around Keycloak (SRS 7.2). Token exchange moved to M3.7, where Keycloak gets its fixed address.
 - [ ] **M3.6 Tenant Service:** tenant lifecycle and branding, with row-level security and cross-tenant tests (FR-TEN-001, FR-TEN-002, DAT-005, DAT-008, SEC-007).
-- [ ] **M3.7 Web BFF and edge policy:** REST, OpenAPI, gateway TLS, CORS allowlists and the SRS 7.5 rate limits (API-001, API-002, API-005).
+- [ ] **M3.7 Web BFF and edge policy:** REST, OpenAPI, gateway TLS, CORS allowlists and the SRS 7.5 rate limits, plus Keycloak's fixed address and token exchange (API-001, API-002, API-005, SEC-008).
 - [ ] **M3.8 Frontend shell:** React and TypeScript in its own image, with login, role-aware navigation and tenant branding (SRS 4.11).
 - [ ] **M3.9 Base administrator console:** users, roles, permissions, MFA status, sessions and access denials (SRS 9.4).
 - [ ] **M3.10 Security visibility:** Security dashboard, plus `docs/security.md` and `docs/rbac.md`.

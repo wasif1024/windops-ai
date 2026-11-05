@@ -49,13 +49,14 @@ make authorization-check   # on the cluster
 
 ## Limits
 
-- **No caller uses it yet.** Services call `Check` as they are built, starting with the Identity Service in M3.4.
-  Until a service does, its own operations are not protected by these rules.
+- **Callers arrive one by one.** The Identity Service calls `Check` before every operation. Other services call it as
+  they are built, and until one does, its own operations are not protected by these rules.
 - **A step-up claim from Web BFF.** The second-factor check reads `acr` and `auth_time` from the signed internal
   identity. Web BFF copies them from the user's verified Keycloak token in M3.7, and until then only checks sign
   them.
 - **Unchecked user IDs.** A grant names a user ID that is not checked against Keycloak, because this service must
-  not depend on the Identity Service. The Identity Service ends a user's grants when it disables them (M3.4).
+  not depend on the Identity Service. A disabled user keeps their grants, so reactivating them restores their access, but
+  they cannot sign in to use them.
 - **No break-glass reason in the audit chain.** The break-glass reason is stored here, not in the audit chain, whose
   record has no field for it. The audit record names the grant.
 - **Decisions are not cached.** Each one reads the database, which is fine at this size, and keeps a revoked role
