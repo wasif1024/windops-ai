@@ -645,7 +645,8 @@ def draw_roadmap(c: Canvas, y: float) -> float:
             x0, y0, x0 + width, y0 + height,
             f"{number}. {name}", f"{done} of {count} modules, {state}", TEXT, MUTED, 12.5, 11.5,
         )  # fmt: skip
-    return y + 2 * height + gap
+    rows = math.ceil(len(phases) / per_row)
+    return y + rows * height + (rows - 1) * gap
 
 
 def build_security_layers() -> None:

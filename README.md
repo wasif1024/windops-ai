@@ -46,10 +46,11 @@ control is still shown as planned after its modules are finished.
 | Document | What it covers |
 | --- | --- |
 | [Requirements (SRS v1.1)](docs/srs.md) | Scope, fixed decisions, requirement IDs and acceptance criteria |
-| [Implementation tracker](docs/phases/README.md) | All 14 phases and their modules, with what is finished |
+| [Implementation tracker](docs/phases/README.md) | All 15 phases and their modules, with what is finished |
 | [ADR 0001: Local Minikube profile](docs/adr/0001-local-minikube-profile.md) | Running every workload on a 16 GB laptop |
 | [ADR 0002: Trace storage](docs/adr/0002-trace-storage-and-kube-state-metrics.md) | Adding Tempo and kube-state-metrics |
 | [ADR 0003: PostgreSQL without TimescaleDB](docs/adr/0003-postgresql-without-timescaledb.md) | Telemetry storage, and the shared local and production database designs |
+| [ADR 0005: Azure deployment](docs/adr/0005-azure-deployment-as-the-final-phase.md) | The final phase, and the Azure services it uses |
 | [Service map](docs/service-map.md) | Every service's calls and events, and each failure behavior |
 | [gRPC contracts](docs/grpc-contracts.md) | Versioning, breaking changes and per-call rules |
 | [Observability](docs/observability.md) | Data flow, dashboards and retention by environment |
