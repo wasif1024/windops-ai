@@ -54,7 +54,8 @@ def test_a_service_that_stores_data_gets_migrations(service: Path) -> None:
 @pytest.mark.parametrize("short", sorted(SERVICE_NAMESPACES))
 def test_every_service_with_a_database_gets_a_job(short: str, tmp_path: Path) -> None:
     created = create_service(f"{short}-service", tmp_path)
-    secret = job(created)["spec"]["template"]["spec"]["containers"][0]["env"][0]
+    env = job(created)["spec"]["template"]["spec"]["containers"][0]["env"]
+    secret = next(item for item in env if "valueFrom" in item)
     assert secret["valueFrom"]["secretKeyRef"]["name"] == f"windops-{short}-database"
     assert job(created)["metadata"]["namespace"] == SERVICE_NAMESPACES[short]
 
@@ -118,7 +119,11 @@ def test_the_job_meets_pod_security_and_has_limits(service: Path) -> None:
 
 def test_the_job_reads_its_password_from_a_secret(service: Path) -> None:
     env = job(service)["spec"]["template"]["spec"]["containers"][0]["env"]
-    assert all("secretKeyRef" in item["valueFrom"] for item in env)
+    # The certificate directory is a path, and every setting the Job reads is from a Secret.
+    settings = [item for item in env if item["name"] != "WINDOPS_TLS_DIR"]
+    assert all("secretKeyRef" in item["valueFrom"] for item in settings)
+    password = next(item for item in env if item["name"] == "WINDOPS_DATABASE_PASSWORD")
+    assert "value" not in password
 
 
 def test_jobs_are_found_in_a_fixed_order(tmp_path: Path) -> None:

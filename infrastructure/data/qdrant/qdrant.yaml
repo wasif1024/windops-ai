@@ -50,12 +50,39 @@ spec:
       containers:
         - name: qdrant
           image: qdrant/qdrant:v1.20.0@sha256:9bfc89f9914fc14876a88c05270685921a55b8877b254a98bcc1cc2f0a424cd2
+          command:
+            - sh
+            - -c
+            - |
+              # Qdrant's gRPC port cannot reload a certificate (its log says "TTL not supported"),
+              # so stop cleanly on renewal, and Kubernetes restarts it with the new one.
+              seen=$(cksum < /var/run/windops/tls/tls.crt)
+              (
+                while sleep 30; do
+                  now=$(cksum < /var/run/windops/tls/tls.crt) || continue
+                  if [ "$now" != "$seen" ]; then
+                    kill -TERM 1
+                    break
+                  fi
+                done
+              ) &
+              # Not the image's entrypoint.sh, which exits on SIGTERM before Qdrant has finished stopping.
+              exec ./qdrant
           env:
             - name: QDRANT__SERVICE__API_KEY
               valueFrom:
                 secretKeyRef:
                   name: windops-qdrant-api-key
                   key: api-key
+            # Both the HTTP and gRPC ports use TLS.
+            - name: QDRANT__SERVICE__ENABLE_TLS
+              value: "true"
+            - name: QDRANT__TLS__CERT
+              value: /var/run/windops/tls/tls.crt
+            - name: QDRANT__TLS__KEY
+              value: /var/run/windops/tls/tls.key
+            - name: QDRANT__TLS__CA_CERT
+              value: /var/run/windops/tls/ca.crt
             # It would otherwise report usage to an outside server, outside the egress rules (EGR-001).
             - name: QDRANT__TELEMETRY_DISABLED
               value: "true"
@@ -75,17 +102,20 @@ spec:
             httpGet:
               path: /readyz
               port: http
+              scheme: HTTPS
             periodSeconds: 2
             failureThreshold: 60
           readinessProbe:
             httpGet:
               path: /readyz
               port: http
+              scheme: HTTPS
             periodSeconds: 5
           livenessProbe:
             httpGet:
               path: /livez
               port: http
+              scheme: HTTPS
             periodSeconds: 10
             timeoutSeconds: 5
           # Starting values. Replace them with measured figures (SRS 11).
@@ -102,11 +132,18 @@ spec:
             capabilities:
               drop: [ALL]
           volumeMounts:
+            - name: tls
+              mountPath: /var/run/windops/tls
+              readOnly: true
             - name: data
               mountPath: /qdrant/storage
             - name: tmp
               mountPath: /tmp
       volumes:
+        - name: tls
+          secret:
+            secretName: windops-qdrant-tls
+            defaultMode: 0440
         - name: tmp
           emptyDir:
             sizeLimit: 256Mi

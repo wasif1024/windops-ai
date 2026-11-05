@@ -49,7 +49,37 @@ spec:
           image: redis:8.8.4-alpine3.23@sha256:ab669f1420eaa05360a417b24f3bd210c9272e2c79a4bb35d3e50b4bfd50dbee
           # Skip the image's entrypoint, which would try to change file owners.
           command:
-            - redis-server
+            - sh
+            - -c
+            - |
+              # Load a renewed certificate without a restart, so connections stay open.
+              seen=$(cksum < /var/run/windops/tls/tls.crt)
+              (
+                while sleep 30; do
+                  now=$(cksum < /var/run/windops/tls/tls.crt) || continue
+                  if [ "$now" != "$seen" ]; then
+                    seen="$now"
+                    redis-cli --tls --cacert /var/run/windops/tls/ca.crt --user windops_admin --no-auth-warning CONFIG SET tls-cert-file /var/run/windops/tls/tls.crt tls-key-file /var/run/windops/tls/tls.key tls-ca-cert-file /var/run/windops/tls/ca.crt
+                  fi
+                done
+              ) &
+              exec redis-server "$@"
+            - redis
+          args:
+            # The plain port is off, so every connection uses TLS.
+            - --port
+            - "0"
+            - --tls-port
+            - "6379"
+            - --tls-cert-file
+            - /var/run/windops/tls/tls.crt
+            - --tls-key-file
+            - /var/run/windops/tls/tls.key
+            - --tls-ca-cert-file
+            - /var/run/windops/tls/ca.crt
+            # Clients prove who they are with a password, as they do on every other store.
+            - --tls-auth-clients
+            - "no"
             - --aclfile
             - /etc/redis/acl/users.acl
             - --save
@@ -73,7 +103,7 @@ spec:
               containerPort: 6379
           startupProbe:
             exec:
-              command: &ping [sh, -c, "redis-cli --user windops_admin --no-auth-warning ping | grep -q PONG"]
+              command: &ping [sh, -c, "redis-cli --tls --cacert /var/run/windops/tls/ca.crt --user windops_admin --no-auth-warning ping | grep -q PONG"]
             periodSeconds: 2
             failureThreshold: 30
           readinessProbe:
@@ -99,12 +129,19 @@ spec:
             capabilities:
               drop: [ALL]
           volumeMounts:
+            - name: tls
+              mountPath: /var/run/windops/tls
+              readOnly: true
             - name: acl
               mountPath: /etc/redis/acl
               readOnly: true
             - name: data
               mountPath: /data
       volumes:
+        - name: tls
+          secret:
+            secretName: windops-redis-tls
+            defaultMode: 0440
         - name: acl
           secret:
             secretName: windops-redis-acl

@@ -55,7 +55,8 @@ keeps it.
 
 ## Limits
 
-- Connections are not encrypted until M3.3 adds mTLS.
+- Connections use TLS, and clients check the server's certificate, but a client proves who it is with a
+  password and not a certificate. See [Service certificates](../../security/pki/README.md).
 - Any pod in the cluster can reach the port, though it still needs a password, until M13.3 adds
   network policies.
 - A service's login owns its tables, so row-level security needs `FORCE ROW LEVEL SECURITY` when M3.6

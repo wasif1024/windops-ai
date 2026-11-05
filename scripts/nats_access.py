@@ -12,7 +12,7 @@ from windops_events import audit_request_subject
 
 NAMESPACE = "windops-data"
 ADMIN_USER = "windops_admin"
-URL = f"nats://windops-nats.{NAMESPACE}.svc.cluster.local:4222"
+URL = f"tls://windops-nats.{NAMESPACE}.svc.cluster.local:4222"
 SECRETS_FILE = (
     Path(__file__).resolve().parent.parent
     / "infrastructure"
@@ -76,6 +76,11 @@ def configuration(passwords: dict[str, str]) -> str:
             "server_name": "windops-nats-0",
             "port": 4222,
             "http_port": 8222,
+            # With this, a client must use TLS. The monitoring port holds no logins or messages.
+            "tls": {
+                "cert_file": "/var/run/windops/tls/tls.crt",
+                "key_file": "/var/run/windops/tls/tls.key",
+            },
             "jetstream": {
                 "store_dir": "/data",
                 "max_memory_store": 16 * 1024 * 1024,

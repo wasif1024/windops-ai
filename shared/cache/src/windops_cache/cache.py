@@ -1,6 +1,7 @@
 """Redis calls behind a circuit breaker, with each outage behavior from SRS 7.7."""
 
 import logging
+import ssl
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -19,6 +20,8 @@ logger = logging.getLogger(__name__)
 # A cache that is slower than this is not saving the caller any time.
 SLOW_CALL_SECONDS = 0.25
 SOCKET_TIMEOUT_SECONDS = 0.5
+# Also limits closing a connection, and closing TLS took about 0.5 seconds when measured.
+CONNECT_TIMEOUT_SECONDS = 2.0
 
 
 class CacheUnavailableError(ConnectionError):
@@ -40,15 +43,23 @@ def cache_breaker() -> CircuitBreaker:
     return CircuitBreaker("redis", BreakerConfig(slow_call_seconds=SLOW_CALL_SECONDS))
 
 
-def connect(*, host: str, port: int, username: str, password: str) -> "redis.Redis":
-    """Return a client that fails fast, leaving retries and outages to the breaker."""
+def connect(
+    *, host: str, port: int, username: str, password: str, ca_file: str | None = None
+) -> "redis.Redis":
+    """Return a client that fails fast, leaving retries and outages to the breaker.
+
+    Redis accepts only TLS, so `ca_file` must name the CA unless this is a test's own server.
+    """
     return redis.Redis(
         host=host,
         port=port,
         username=username,
         password=password,
+        ssl=ca_file is not None,
+        ssl_ca_certs=ca_file,
+        ssl_min_version=ssl.TLSVersion.TLSv1_2,
         socket_timeout=SOCKET_TIMEOUT_SECONDS,
-        socket_connect_timeout=SOCKET_TIMEOUT_SECONDS,
+        socket_connect_timeout=CONNECT_TIMEOUT_SECONDS,
         # The breaker decides what happens next, so retry layers cannot multiply (RES-003).
         retry=Retry(NoBackoff(), 0),
     )

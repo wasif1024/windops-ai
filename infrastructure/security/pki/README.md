@@ -34,6 +34,20 @@ A service refuses to start without its certificate. Only the `test` environment 
 A service watches its certificate files, and exits cleanly when they change, so Kubernetes restarts it with the new
 ones. Its clients' breakers cover the moment it is away. This happens about every 23 days per service.
 
+## Data stores
+
+PostgreSQL, Redis, Qdrant and NATS each have a certificate from the same CA, and accept only TLS.
+
+| Item | How it works |
+| --- | --- |
+| Encryption | A plain connection is refused, even with the right password |
+| The client checks the store | Against the CA and the store's name, so nothing can pose as it |
+| The store checks the client | With its existing login, so it is TLS and a password, not mutual TLS |
+| Renewal | PostgreSQL, Redis and NATS load the new certificate within a minute, with no restart. Qdrant restarts cleanly, because its gRPC port cannot reload one |
+
+Migration Jobs and Keycloak are not gRPC services, so they mount only the CA, from the `windops-trust` Secret.
+`make data-tls-check` proves all of this on the cluster.
+
 ## From your machine
 
 Checks reach a service using `scripts/tls_client.py`, which requests a client certificate named
@@ -44,6 +58,8 @@ Checks reach a service using `scripts/tls_client.py`, which requests a client ce
 - All services share one signing key for internal identity tokens, so a compromised service could forge a user's
   identity for its calls. mTLS proves which service is calling, but services do not yet refuse callers that should
   not reach them, or tokens that do not match the caller.
+- Data stores check a password, not a client certificate, so a stolen password still works from inside the
+  cluster. M13.3's network policies limit where it can be used from.
 - The API Gateway reaches its backends over plain HTTP until M3.7, and Prometheus scrapes `/metrics` and Kubernetes
   probes reach `/health/*` over plain HTTP, because those hold no business data.
 - The CA renews once a year and keeps its key, so services never disagree about whom to trust. That also means

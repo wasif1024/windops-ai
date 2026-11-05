@@ -11,6 +11,7 @@ from gateway_routes import port_forward
 from nats.errors import Error as NatsError
 from nats_access import ADMIN_USER, NAMESPACE, SECRETS_FILE
 from provision_postgres import ADMIN_KEY, read_passwords
+from tls_client import authority_file
 from windops_events import DEAD_LETTER_PREFIX, DEAD_LETTER_STREAM, connect
 
 POD = "windops-nats-0"
@@ -29,7 +30,11 @@ def describe(headers: dict[str, str], stored_at: object) -> str:
 
 async def list_letters(port: int, password: str) -> int:
     client = await connect(
-        url=f"nats://127.0.0.1:{port}", username=ADMIN_USER, password=password, name="dead-letters"
+        url=f"tls://127.0.0.1:{port}",
+        username=ADMIN_USER,
+        password=password,
+        name="dead-letters",
+        ca_file=authority_file(),
     )
     count = 0
     try:

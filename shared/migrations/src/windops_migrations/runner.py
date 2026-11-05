@@ -36,6 +36,10 @@ def database_url() -> URL:
     missing = [_SETTINGS[key] for key, value in values.items() if not value]
     if missing:
         raise MissingSettingError(f"Missing database settings: {', '.join(missing)}")
+    certificates = os.environ.get("WINDOPS_TLS_DIR", "")
+    if not certificates:
+        # Without this, a driver could settle for TLS it has not checked (GRP-005).
+        raise MissingSettingError("Missing database settings: WINDOPS_TLS_DIR")
     return URL.create(
         "postgresql+psycopg",
         host=values["host"],
@@ -43,6 +47,7 @@ def database_url() -> URL:
         database=values["database"],
         username=values["username"],
         password=values["password"],
+        query={"sslmode": "verify-full", "sslrootcert": f"{certificates}/ca.crt"},
     )
 
 

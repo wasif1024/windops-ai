@@ -23,7 +23,7 @@ from provision_postgres import ADMIN_KEY, CONTEXT, POD, database_name, read_pass
 from provision_postgres import ADMIN_USER as POSTGRES_ADMIN
 from provision_postgres import NAMESPACE as DATA
 from run_migrations import job_manifests, run_job
-from tls_client import async_channel, client_bundle
+from tls_client import async_channel, authority_file, client_bundle
 from verify_cluster import minikube_docker_env
 from windops.audit.v1 import audit_pb2, audit_pb2_grpc
 from windops.events.v1 import events_pb2
@@ -171,7 +171,8 @@ async def request_record(
 
 async def nats_client(port: int, passwords: dict[str, str], service: str | None) -> Client:
     return await connect(
-        url=f"nats://127.0.0.1:{port}",
+        url=f"tls://127.0.0.1:{port}",
+        ca_file=authority_file(),
         username=database_name(service) if service else NATS_ADMIN,
         password=passwords[service or ADMIN_KEY],
         name="audit-check",

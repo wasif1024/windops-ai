@@ -5,6 +5,7 @@ Run `make secrets` and `make infra` first. This restarts Qdrant once, and remove
 collection afterwards.
 """
 
+import ssl
 import subprocess
 import sys
 import time
@@ -13,6 +14,8 @@ from pathlib import Path
 import grpc
 import httpx
 from gateway_routes import port_forward
+from tls_client import authority_file
+from windops_events import tls_context
 
 CONTEXT = "windops"
 NAMESPACE = "windops-data"
@@ -54,8 +57,17 @@ def wait_ready() -> None:
     kubectl("wait", f"pod/{POD}", "--for=condition=Ready", "--timeout=180s")
 
 
+def tls() -> ssl.SSLContext:
+    return tls_context(authority_file())
+
+
 def client(port: int, key: str) -> httpx.Client:
-    return httpx.Client(base_url=f"http://127.0.0.1:{port}", headers={"api-key": key}, timeout=30)
+    return httpx.Client(
+        base_url=f"https://127.0.0.1:{port}",
+        headers={"api-key": key},
+        timeout=30,
+        verify=tls(),
+    )
 
 
 def search_tenant(api: httpx.Client, tenant: str) -> list[int]:
@@ -73,9 +85,10 @@ def search_tenant(api: httpx.Client, tenant: str) -> list[int]:
 
 
 def check_access(port: int) -> None:
-    url = f"http://127.0.0.1:{port}/collections"
-    check(httpx.get(url, timeout=10).status_code == 401, "a request with no API key is refused")
-    wrong = httpx.get(url, headers={"api-key": "wrong-key"}, timeout=10)
+    url = f"https://127.0.0.1:{port}/collections"
+    missing = httpx.get(url, timeout=10, verify=tls())
+    check(missing.status_code == 401, "a request with no API key is refused")
+    wrong = httpx.get(url, headers={"api-key": "wrong-key"}, timeout=10, verify=tls())
     check(wrong.status_code == 401, "a wrong API key is refused")
 
 
@@ -84,7 +97,10 @@ def check_grpc_access() -> None:
     code = None
     with (
         port_forward(f"pod/{POD}", NAMESPACE, 6334) as port,
-        grpc.insecure_channel(f"127.0.0.1:{port}") as channel,
+        grpc.secure_channel(
+            f"127.0.0.1:{port}",
+            grpc.ssl_channel_credentials(Path(authority_file()).read_bytes()),
+        ) as channel,
     ):
         call: grpc.UnaryUnaryMultiCallable[bytes, bytes] = channel.unary_unary(
             "/qdrant.Collections/List"

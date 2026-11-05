@@ -1,5 +1,18 @@
 # One server with a separate database and login per service (ARC-003, ADR 0003).
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: windops-postgres-access
+  labels:
+    app.kubernetes.io/name: windops-postgres
+    app.kubernetes.io/part-of: windops
+data:
+  # Network logins must use TLS and a password. The socket inside the pod is for provisioning.
+  pg_hba.conf: |
+    local all all trust
+    hostssl all all all scram-sha-256
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: windops-postgres
@@ -48,7 +61,32 @@ spec:
       containers:
         - name: postgres
           image: postgres:18.6-alpine3.24@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+          command:
+            - sh
+            - -c
+            - |
+              # Load a renewed certificate without a restart, so connections stay open.
+              seen=$(cksum < /var/run/windops/tls/tls.crt)
+              (
+                while sleep 30; do
+                  now=$(cksum < /var/run/windops/tls/tls.crt) || continue
+                  if [ "$now" != "$seen" ]; then
+                    seen="$now"
+                    kill -HUP 1
+                  fi
+                done
+              ) &
+              exec docker-entrypoint.sh postgres "$@"
+            - postgres
           args:
+            - -c
+            - ssl=on
+            - -c
+            - ssl_cert_file=/var/run/windops/tls/tls.crt
+            - -c
+            - ssl_key_file=/var/run/windops/tls/tls.key
+            - -c
+            - hba_file=/etc/postgres/pg_hba.conf
             - -c
             - max_connections=100
             - -c
@@ -107,11 +145,24 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql
+            - name: tls
+              mountPath: /var/run/windops/tls
+              readOnly: true
+            - name: access
+              mountPath: /etc/postgres
+              readOnly: true
             - name: run
               mountPath: /var/run/postgresql
             - name: tmp
               mountPath: /tmp
       volumes:
+        - name: tls
+          secret:
+            secretName: windops-postgres-tls
+            defaultMode: 0440
+        - name: access
+          configMap:
+            name: windops-postgres-access
         - name: run
           emptyDir:
             sizeLimit: 8Mi

@@ -10,6 +10,7 @@ from nats.errors import Error as NatsError
 from nats.js.errors import APIError
 from nats_access import ADMIN_USER, NAMESPACE, SECRETS_FILE
 from provision_postgres import ADMIN_KEY, CONTEXT, read_passwords
+from tls_client import authority_file
 from windops_events import STREAMS, connect, ensure_streams
 
 STATEFULSET = "statefulset/windops-nats"
@@ -17,7 +18,11 @@ STATEFULSET = "statefulset/windops-nats"
 
 async def provision(port: int, password: str) -> None:
     client = await connect(
-        url=f"nats://127.0.0.1:{port}", username=ADMIN_USER, password=password, name="provisioning"
+        url=f"tls://127.0.0.1:{port}",
+        username=ADMIN_USER,
+        password=password,
+        name="provisioning",
+        ca_file=authority_file(),
     )
     try:
         await ensure_streams(client.jetstream())

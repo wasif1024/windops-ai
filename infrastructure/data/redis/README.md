@@ -34,7 +34,8 @@ requests on protected routes, because they cannot be checked (SRS 7.7).
 
 ## Limits
 
-- Connections are not encrypted until M3.3 adds mTLS.
+- Connections use TLS, and clients check the server's certificate, but a client proves who it is with a
+  password and not a certificate. See [Service certificates](../../security/pki/README.md).
 - A login is limited by service, not tenant. `windops-cache` adds the tenant to each key, so a tenant
   boundary relies on that library.
 - At the 64 MB limit, the least recently used entries are removed first.

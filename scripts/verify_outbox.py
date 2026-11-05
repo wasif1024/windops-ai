@@ -30,6 +30,7 @@ from provision_postgres import (
 from sqlalchemy import URL, Column, Integer, MetaData, Table, insert, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from tls_client import authority_file
 from windops.events.v1 import events_pb2
 from windops_events import (
     EventPublisher,
@@ -100,13 +101,15 @@ def engine_for(port: int, password: str) -> AsyncEngine:
             database=DATABASE,
             username=DATABASE,
             password=password,
+            query={"sslmode": "verify-full", "sslrootcert": authority_file()},
         )
     )
 
 
 async def nats_login(port: int, passwords: dict[str, str], service: str = "alarm") -> Client:
     return await connect(
-        url=f"nats://127.0.0.1:{port}",
+        url=f"tls://127.0.0.1:{port}",
+        ca_file=authority_file(),
         username=database_name(service),
         password=passwords[service],
         name="outbox-check",
@@ -267,7 +270,8 @@ async def deliver_after_outage(engine: AsyncEngine, publisher: EventPublisher) -
 
 async def clean_up_events(port: int, passwords: dict[str, str]) -> None:
     client = await connect(
-        url=f"nats://127.0.0.1:{port}",
+        url=f"tls://127.0.0.1:{port}",
+        ca_file=authority_file(),
         username=NATS_ADMIN,
         password=passwords[ADMIN_KEY],
         name="outbox-check-clean",

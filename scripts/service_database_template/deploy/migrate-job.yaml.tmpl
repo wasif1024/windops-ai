@@ -32,6 +32,8 @@ spec:
           imagePullPolicy: IfNotPresent
           command: [python, -m, windops_migrations, upgrade, {{package}}]
           env:
+            - name: WINDOPS_TLS_DIR
+              value: /var/run/windops/tls
             - name: WINDOPS_DATABASE_HOST
               valueFrom:
                 secretKeyRef:
@@ -71,9 +73,19 @@ spec:
             capabilities:
               drop: [ALL]
           volumeMounts:
+            - name: trust
+              mountPath: /var/run/windops/tls
+              readOnly: true
             - name: tmp
               mountPath: /tmp
       volumes:
+        - name: trust
+          secret:
+            secretName: windops-trust
+            defaultMode: 0444
+            items:
+              - key: ca.crt
+                path: ca.crt
         - name: tmp
           emptyDir:
             sizeLimit: 16Mi

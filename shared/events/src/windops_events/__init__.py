@@ -9,6 +9,7 @@ from windops_events.client import (
     connect,
     ensure_streams,
     events_breaker,
+    tls_context,
 )
 from windops_events.envelope import Event, InvalidEventError, build_envelope, parse_event
 from windops_events.streams import (
@@ -41,4 +42,5 @@ __all__ = [
     "ensure_streams",
     "events_breaker",
     "parse_event",
+    "tls_context",
 ]

@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import ssl
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
@@ -53,8 +54,20 @@ def events_breaker() -> CircuitBreaker:
     return CircuitBreaker("jetstream", BreakerConfig(slow_call_seconds=SLOW_CALL_SECONDS))
 
 
-async def connect(*, url: str, username: str, password: str, name: str = "windops") -> Client:
-    """Return a connection that keeps reconnecting, so a restart of NATS is not fatal."""
+def tls_context(ca_file: str) -> ssl.SSLContext:
+    """Return a context that trusts only this CA, and refuses TLS older than 1.2."""
+    context = ssl.create_default_context(cafile=ca_file)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    return context
+
+
+async def connect(
+    *, url: str, username: str, password: str, name: str = "windops", ca_file: str | None = None
+) -> Client:
+    """Return a connection that keeps reconnecting, so a restart of NATS is not fatal.
+
+    NATS accepts only TLS, so `ca_file` must name the CA unless this is a test's own server.
+    """
 
     async def log_error(error: Exception) -> None:
         # A refused permission arrives here, not at the call that caused it.
@@ -62,6 +75,7 @@ async def connect(*, url: str, username: str, password: str, name: str = "windop
 
     return await nats.connect(
         servers=[url],
+        tls=tls_context(ca_file) if ca_file else None,
         user=username,
         password=password,
         name=name,

@@ -67,7 +67,8 @@ their events held in the outbox until it returns, once M2.6 builds that (SRS 7.7
 
 ## Limits
 
-- Connections are not encrypted until M3.3 adds mTLS.
+- Connections use TLS, and clients check the server's certificate, but a client proves who it is with a
+  password and not a certificate. See [Service certificates](../../security/pki/README.md).
 - Any login can subscribe to `_INBOX.>`, the reply subjects, so a service could read replies meant for
   another. Events hold identifiers, not evidence.
 - Queued agent runs have no subject yet. M8.2 adds one, because SRS 7.6 lists only the initial subjects.

@@ -1,8 +1,10 @@
 """Reach a service's gRPC port from this machine, with a client certificate from the cluster."""
 
 import base64
+import functools
 import json
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass
 
@@ -69,6 +71,20 @@ def client_bundle() -> ClientBundle:
             )
         time.sleep(2)
     raise RuntimeError("The check's certificate never appeared")
+
+
+@functools.lru_cache(maxsize=1)
+def authority_file() -> str:
+    """Write the internal CA's public certificate to a file, to check a data store with."""
+    encoded = _kubectl(
+        "get", "secret", "windops-internal-ca", "--namespace=cert-manager",
+        "--output=jsonpath={.data.ca\\.crt}",
+    )  # fmt: skip
+    if not encoded:
+        raise RuntimeError("The internal CA has no certificate yet")
+    with tempfile.NamedTemporaryFile("wb", suffix=".crt", delete=False) as file:
+        file.write(base64.b64decode(encoded))
+    return file.name
 
 
 def credentials(bundle: ClientBundle) -> grpc.ChannelCredentials:

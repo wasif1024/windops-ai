@@ -19,6 +19,7 @@ SETTINGS = {
     "WINDOPS_DATABASE_NAME": "windops_audit",
     "WINDOPS_DATABASE_USERNAME": "windops_audit",
     "WINDOPS_DATABASE_PASSWORD": "p@ss/word:1",
+    "WINDOPS_TLS_DIR": "/var/run/windops/tls",
 }
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -108,3 +109,18 @@ def test_command_line_adds_a_revision(
 def test_command_line_needs_a_known_command() -> None:
     with pytest.raises(SystemExit):
         main(["destroy", "windops_audit"])
+
+
+@pytest.mark.usefixtures("settings")
+def test_the_address_checks_the_servers_certificate_and_name() -> None:
+    """Weaker modes would accept any certificate, or none (GRP-005)."""
+    query = database_url().query
+    assert query["sslmode"] == "verify-full"
+    assert query["sslrootcert"] == "/var/run/windops/tls/ca.crt"
+
+
+@pytest.mark.usefixtures("settings")
+def test_the_address_needs_the_certificate_directory(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("WINDOPS_TLS_DIR")
+    with pytest.raises(MissingSettingError, match="WINDOPS_TLS_DIR"):
+        database_url()

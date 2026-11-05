@@ -50,14 +50,15 @@ def test_redis_is_in_the_data_namespace_and_not_exposed() -> None:
 def test_redis_keeps_nothing_across_a_restart(workload: dict[str, Any]) -> None:
     """EVT-005: nothing durable can come to rely on Redis."""
     assert "volumeClaimTemplates" not in workload["spec"]
-    command = workload["spec"]["template"]["spec"]["containers"][0]["command"]
+    # The settings are arguments, after the script that reloads its certificate.
+    command = workload["spec"]["template"]["spec"]["containers"][0]["args"]
     assert command[command.index("--save") + 1] == ""
     assert command[command.index("--appendonly") + 1] == "no"
 
 
 def test_redis_memory_is_bounded(workload: dict[str, Any]) -> None:
     container = workload["spec"]["template"]["spec"]["containers"][0]
-    assert "--maxmemory" in container["command"]
+    assert "--maxmemory" in container["args"]
     assert "memory" in container["resources"]["limits"]
 
 
