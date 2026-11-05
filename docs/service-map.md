@@ -5,7 +5,7 @@ This page shows how all 23 services connect, and what happens when one of them f
 **How far to trust it:** the SRS defines the MCP calls, the workflow, who owns what and the failure
 behaviors below. It does not list every service-to-service call, so the links here are a design
 worked out from it. A module that builds a link confirms or corrects that link here, in its own pull
-request. Today only the sample services and PostgreSQL run.
+request. Today only the platform, the data stores, the Audit Service and the sample services run.
 
 ## How services connect
 
