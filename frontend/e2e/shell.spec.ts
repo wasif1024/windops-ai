@@ -27,8 +27,8 @@ test("a control room operator signs in to a branded, role-aware shell", async ({
   await page.locator("#password").fill(password);
   await page.locator("#kc-login").click();
 
-  await expect(page.locator("header .user")).toHaveText(email);
-  await expect(page.locator("header .tenant")).toHaveText(publicBranding.display_name);
+  await expect(page.getByTestId("user-email")).toHaveText(email);
+  await expect(page.getByTestId("tenant-name")).toHaveText(publicBranding.display_name);
   const navigation = page.getByRole("navigation", { name: "Screens" });
   await expect(navigation.getByRole("link", { name: "Alarm console" })).toBeVisible();
   await expect(navigation.getByRole("link", { name: "Administration" })).toHaveCount(0);

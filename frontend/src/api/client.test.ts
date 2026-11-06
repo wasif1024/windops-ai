@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ApiError, getJson } from "./api";
+import { ApiError, getJson } from "./client";
 
 function answering(status: number, body: unknown, type = "application/problem+json"): typeof fetch {
   return async () => new Response(JSON.stringify(body), { status, headers: { "Content-Type": type } });
