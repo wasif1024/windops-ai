@@ -28,6 +28,7 @@ members = [
     "shared/observability",
     "shared/outbox",
     "shared/resilience",
+    "simulator",
 ]
 
 [tool.uv.sources]
@@ -46,6 +47,7 @@ windops-audit = { workspace = true }
 windops-authorization = { workspace = true }
 windops-identity = { workspace = true }
 windops-tenant = { workspace = true }
+windops-simulator = { workspace = true }
 windops-web-bff = { workspace = true }
 windops-asset = { workspace = true }
 
@@ -61,6 +63,7 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "S", "SIM", "RUF"]
 "tests/**" = ["S101", "S603", "S607"]
 "shared/*/tests/**" = ["S101", "S105", "S106"]
 "services/*/tests/**" = ["S101", "S105", "S106"]
+"simulator/tests/**" = ["S101"]
 "scripts/**" = ["S603", "S607"]
 
 [tool.mypy]
@@ -100,10 +103,13 @@ files = [
     "shared/outbox/tests",
     "shared/resilience/src",
     "shared/resilience/tests",
+    "simulator/src",
+    "simulator/tests",
     "tests",
 ]
 explicit_package_bases = true
 mypy_path = [
+    "simulator/src",
     "services/asset-service/src",
     "services/asset-service/tests",
     "services/audit-service/src",
@@ -160,6 +166,7 @@ testpaths = [
     "shared/observability/tests",
     "shared/outbox/tests",
     "shared/resilience/tests",
+    "simulator/tests",
 ]
 addopts = "-ra --strict-markers --import-mode=importlib"
 pythonpath = [".", "shared/grpc/tests", "shared/resilience/tests", "services/identity-service/tests", "services/tenant-service/tests", "services/web-bff-service/tests"]
@@ -195,6 +202,7 @@ dev = [
     "windops-resilience",
     "windops-sample-caller",
     "windops-sample-responder",
+    "windops-simulator",
     "windops-tenant",
     "windops-web-bff",
 ]
