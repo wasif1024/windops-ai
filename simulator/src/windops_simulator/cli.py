@@ -2,8 +2,11 @@
 
     uv run python -m windops_simulator --seed 1001 --minutes 10 --turbine dogger-east-t01
     uv run python -m windops_simulator --seed 1001 --minutes 60 --every 600 --format table
+    uv run python -m windops_simulator --scenario gearbox-temp-001 --ground-truth truth.json
 
-The same seed, start and turbines always print the same samples (SIM-001).
+The same seed, start and turbines always print the same samples (SIM-001). A scenario prints what
+its devices send, with faults and data problems, in the order they are sent. Its ground truth goes
+only to the file named, never to the output (SIM-005).
 """
 
 import argparse
@@ -11,6 +14,7 @@ import json
 import sys
 from datetime import datetime
 
+from windops_simulator import scenarios
 from windops_simulator.fleet import DEMO_TURBINES
 from windops_simulator.models import MODEL_VERSION
 from windops_simulator.simulator import Simulator
@@ -35,11 +39,38 @@ def parse(arguments: list[str]) -> argparse.Namespace:
     parser.add_argument("--turbine", action="append", help="a turbine ID; repeat for more")
     parser.add_argument("--tenant", help="only this tenant's turbines")
     parser.add_argument("--format", choices=("jsonl", "table"), default="jsonl")
+    parser.add_argument("--scenario", choices=sorted(scenarios.SCENARIOS), help="run a scenario")
+    parser.add_argument("--ground-truth", help="the file for a scenario's ground truth")
+    parser.add_argument("--list-scenarios", action="store_true")
     return parser.parse_args(arguments)
+
+
+def run_scenario(name: str, ground_truth: str) -> int:
+    deliveries, truth = scenarios.run(scenarios.SCENARIOS[name])
+    for delivery in deliveries:
+        print(delivery.as_line())
+    truth.write(ground_truth)
+    counts = truth.as_dict()["data_problems"]["counts"]
+    print(
+        f"Ground truth in {ground_truth}: injected {counts or 'no data problems'}", file=sys.stderr
+    )
+    return 0
 
 
 def main(arguments: list[str] | None = None) -> int:
     options = parse(sys.argv[1:] if arguments is None else arguments)
+    if options.list_scenarios:
+        for name, scenario in sorted(scenarios.SCENARIOS.items()):
+            print(f"{name:<20} {scenario.description}")
+        return 0
+    if options.scenario:
+        if not options.ground_truth:
+            print(
+                "A scenario needs --ground-truth FILE, which keeps it apart from the data",
+                file=sys.stderr,
+            )
+            return 2
+        return run_scenario(options.scenario, options.ground_truth)
     turbines = [
         spec
         for spec in DEMO_TURBINES

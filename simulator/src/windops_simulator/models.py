@@ -8,7 +8,7 @@ manufacturer's: the data is synthetic (SIM-006).
 import math
 from dataclasses import dataclass
 
-MODEL_VERSION = "1.0.0"
+MODEL_VERSION = "1.1.0"
 
 AIR_DENSITY = 1.225  # kg/m³, at 15 °C and sea level
 POWER_COEFFICIENT = 0.45  # aerodynamic Cp below rated, under the Betz limit of 0.593
