@@ -1,0 +1,1 @@
+"""WindOps asset service."""
