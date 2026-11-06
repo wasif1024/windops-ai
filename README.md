@@ -110,6 +110,36 @@ make service NAME=telemetry-service   # create a service from the template
 make help      # list every command
 ```
 
+### Run it and see it
+
+One command runs the backend and the frontend together, so you can watch the screens as they are built:
+
+```bash
+make dev                    # or scripts/dev.sh
+scripts/dev.sh --rebuild    # after pulling backend changes
+scripts/dev.sh --trust-ca   # macOS, once: trust the cluster's local CA, so the browser shows no warning
+```
+
+It needs Docker Desktop, Minikube, kubectl, uv, Node.js 24 and Make, and says how to install any that are missing.
+Then it:
+
+1. installs the locked Python packages (`uv sync`) and the frontend's `node_modules` (`npm ci`), when they are
+   missing or out of date,
+2. starts the Minikube cluster if it is stopped,
+3. the first time, deploys everything and seeds the demo tenants and users, which takes a while,
+4. runs the gateway at https://localhost:9443 and the Vite dev server at http://localhost:5173, and prints the URLs
+   and the demo sign-ins.
+
+| Open | What it is |
+| --- | --- |
+| http://localhost:5173/?tenant=north-sea | The frontend with live reload: a saved change shows at once |
+| https://localhost:9443/?tenant=north-sea | The frontend as deployed in the cluster |
+
+Sign-in goes to Keycloak at https://localhost:9443, whose certificate comes from your cluster's own CA. Without
+`--trust-ca`, the browser warns once: choose Advanced, then Proceed to localhost. Administrators set up an
+authenticator app at their first sign-in. Ctrl+C stops both, and the cluster keeps running: `make cluster-stop`
+frees its memory.
+
 Follow the [coding standards](docs/coding-standards.md) for naming, commit messages,
 pull requests and merge rules. To run on a local cluster, see
 [infrastructure/minikube](infrastructure/minikube/README.md).

@@ -12,6 +12,12 @@ describe("sign-in settings", () => {
     expect(value.redirect_uri).toBe("https://localhost:9443/callback");
   });
 
+  it("can find Keycloak at the gateway while the page is on the dev server", () => {
+    const dev = settings("http://localhost:5173", "https://localhost:9443");
+    expect(dev.authority).toBe("https://localhost:9443/auth/realms/windops");
+    expect(dev.redirect_uri).toBe("http://localhost:5173/callback");
+  });
+
   it("keeps tokens in memory only", () => {
     expect((value.userStore as unknown as { _store: unknown })._store).toBeInstanceOf(InMemoryWebStorage);
   });
