@@ -144,16 +144,35 @@ Follow the [coding standards](docs/coding-standards.md) for naming, commit messa
 pull requests and merge rules. To run on a local cluster, see
 [infrastructure/minikube](infrastructure/minikube/README.md).
 
-### Provider keys
+### Settings and provider keys
 
-No keys are needed yet. When a module needs one, copy the template and add your keys:
+Every value that differs between environments is a setting in `.env`, so a change needs no code change.
+[.env.example](.env.example) lists them all, with the local defaults. `make dev` copies it to `.env` the first
+time, and later adds any new settings while keeping your values. Git ignores `.env`, and images never receive it.
 
-```bash
-cp .env.example .env
-```
+| Setting | What it is |
+| --- | --- |
+| `WINDOPS_PUBLIC_URL` | The gateway's public address. Keycloak's pages, every token's issuer and the browser use it |
+| `WINDOPS_ALLOWED_ORIGINS` | Other browser origins allowed to call the API and sign in, such as the dev server |
+| `WINDOPS_KEYCLOAK_REALM`, `WINDOPS_OIDC_AUDIENCE`, `WINDOPS_WEB_CLIENT_ID` | The Keycloak realm, the API's token audience, and the browser's client |
+| `WINDOPS_ENVIRONMENT`, `WINDOPS_VERSION`, `WINDOPS_LOG_LEVEL` | The release, as logs and traces report it |
+| `WINDOPS_*_ADDRESS`, `WINDOPS_OTLP_ENDPOINT`, `WINDOPS_KEYCLOAK_INTERNAL_URL` | Addresses inside the cluster |
+| `WINDOPS_KUBE_CONTEXT`, `WINDOPS_DEV_PORT` | This machine only: the kubectl context, and the dev server's port |
 
-Git ignores `.env`, and images never receive it. Never paste a real key into an issue, a pull
-request, a chat or `.env.example`. [.env.example](.env.example) shows which module needs each key.
+After changing a setting, run `make config`. It puts the `WINDOPS_` settings into the `windops-settings`
+ConfigMap, which every service, Keycloak and the gateway read, and restarts what reads it. A change to the public
+address or origins also needs `make gateway-routes` and `make identity-seed`, which `make dev` runs too.
+
+Settings are read from the process environment first, then `.env`, then `.env.example`. So CI, and later the Azure
+pipeline, set the same names as pipeline variables, with secrets from Key Vault, and nothing in the code changes.
+
+A setting is never a secret, because a ConfigMap is not secret: `make config` refuses names ending in `_KEY`,
+`_SECRET`, `_PASSWORD` or `_TOKEN`. Generated passwords stay in Kubernetes Secrets (`make secrets`). Security
+rules, such as TLS verification, the Content Security Policy and the SRS rate limits, are not settings, so no
+value can turn them off.
+
+Provider keys are blank until a module needs one: add yours to `.env`. Never paste a real key into an issue, a pull
+request, a chat or `.env.example`, which shows which module needs each key.
 
 ## Repository layout
 

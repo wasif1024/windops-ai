@@ -1,5 +1,5 @@
 # Login, credentials and sessions (SEC-006). The browser reaches only its sign-in pages, through the
-# gateway at https://localhost:9443/auth. Its admin API is reachable only inside the cluster.
+# gateway at $WINDOPS_PUBLIC_URL/auth, https://localhost:9443/auth locally. Its admin API is reachable only inside the cluster.
 apiVersion: v1
 kind: Service
 metadata:
@@ -52,6 +52,10 @@ spec:
         - name: keycloak
           image: windops-keycloak:local
           imagePullPolicy: IfNotPresent
+          # Settings for every workload, from .env through make config.
+          envFrom:
+            - configMapRef:
+                name: windops-settings
           env:
             - name: KC_BOOTSTRAP_ADMIN_USERNAME
               value: windops_admin
@@ -95,8 +99,9 @@ spec:
               value: /var/run/windops/keycloak-tls/tls.crt
             - name: KC_HTTPS_CERTIFICATE_KEY_FILE
               value: /var/run/windops/keycloak-tls/tls.key
+            # The public address from the settings, which Kubernetes fills in.
             - name: KC_HOSTNAME
-              value: https://localhost:9443/auth
+              value: $(WINDOPS_PUBLIC_URL)/auth
             # Services inside the cluster may still use its internal address.
             - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
               value: "true"

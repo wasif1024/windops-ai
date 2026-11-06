@@ -243,7 +243,10 @@ def test_keycloak_serves_only_https_at_one_fixed_address(documents: list[dict[st
     """The fixed address fixes the issuer in every token."""
     env = {item["name"]: item.get("value") for item in container(documents)["env"]}
     assert env["KC_HTTP_ENABLED"] == "false"
-    assert env["KC_HOSTNAME"] == "https://localhost:9443/auth"
+    # The public address from windops-settings, which Kubernetes fills in.
+    assert env["KC_HOSTNAME"] == "$(WINDOPS_PUBLIC_URL)/auth"
+    sources = container(documents)["envFrom"]
+    assert {"configMapRef": {"name": "windops-settings"}} in sources
     assert env["KC_HTTPS_CERTIFICATE_FILE"].startswith("/var/run/windops/keycloak-tls/")
     assert "KC_HOSTNAME_STRICT" not in env
 

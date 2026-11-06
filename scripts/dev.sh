@@ -11,9 +11,6 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-CLUSTER=windops
-GATEWAY_PORT=9443
-FRONTEND_PORT=5173
 LOG_DIR="${TMPDIR:-/tmp}/windops-dev"
 REBUILD=0
 TRUST_CA=0
@@ -59,6 +56,16 @@ node_major="$(node -p 'process.versions.node.split(".")[0]')"
 [ "$node_major" -ge 24 ] || fail "Node.js 24 or later is needed, and this is $(node --version)."
 docker info >/dev/null 2>&1 || fail "Docker is not running. Start Docker Desktop, then run this again."
 echo "All present."
+
+step "Settings"
+command -v python3 >/dev/null 2>&1 || fail "python3 is not installed. It comes with the Xcode command line tools."
+# Your .env, made from .env.example the first time. New settings are added, and your values kept.
+python3 scripts/settings.py --ensure-env
+setting() { python3 "$ROOT/scripts/settings.py" "$1"; }
+CLUSTER="$(setting WINDOPS_KUBE_CONTEXT)"
+PUBLIC_URL="$(setting WINDOPS_PUBLIC_URL)"
+FRONTEND_PORT="$(setting WINDOPS_DEV_PORT)"
+GATEWAY_PORT="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.urlparse(sys.argv[1]).port or 443)' "$PUBLIC_URL")"
 
 step "Python packages"
 # Exact versions from uv.lock. Quick when nothing changed.
@@ -116,6 +123,8 @@ for namespace in windops-system windops-application; do
       fail "$deployment in $namespace is not ready. See: kubectl --context $CLUSTER -n $namespace describe $deployment"
   done
 done
+# The settings from .env, which restarts what reads them if any changed.
+make --no-print-directory config
 # Also re-sends the gateway's certificate, which changes when cert-manager renews it.
 make --no-print-directory gateway-routes >/dev/null
 if [ "$REBUILD" -eq 1 ]; then seed; fi
@@ -134,7 +143,7 @@ if [ "$TRUST_CA" -eq 1 ]; then
   if [ "$(uname)" != "Darwin" ]; then
     echo "Only on macOS. Elsewhere, add $CA_FILE to your browser's trusted authorities yourself."
   else
-    echo "This adds WindOps' local CA to your login keychain, so Chrome and Safari trust https://localhost:9443."
+    echo "This adds WindOps' local CA to your login keychain, so Chrome and Safari trust $PUBLIC_URL."
     echo "It is made by your own cluster. Remove it in Keychain Access, under 'windops', when you no longer need it."
     printf 'Trust it? [y/N] '
     read -r answer
@@ -156,17 +165,20 @@ stop() {
   trap - EXIT INT TERM
   printf '\nStopping...\n'
   for pid in $VITE_PID $FORWARD_PID; do
-    pkill -P "$pid" 2>/dev/null || true
     kill "$pid" 2>/dev/null || true
+    pkill -P "$pid" 2>/dev/null || true
   done
+  # Whatever else forwards the gateway's port for this script, such as one the loop just restarted.
+  pkill -f "port-forward --namespace=windops-system service/windops-gateway $GATEWAY_PORT:443" 2>/dev/null || true
   wait 2>/dev/null || true
   echo "Stopped. The cluster keeps running: make cluster-stop frees its memory."
 }
 trap stop EXIT INT TERM
 
-step "Starting the gateway at https://localhost:$GATEWAY_PORT"
+step "Starting the gateway at $PUBLIC_URL"
 # A forward ends when its pod restarts, so it starts again by itself.
 (
+  trap 'exit 0' INT TERM
   while true; do
     kube port-forward --namespace=windops-system service/windops-gateway "$GATEWAY_PORT:443" >>"$GATEWAY_LOG" 2>&1 || true
     sleep 1
@@ -174,20 +186,21 @@ step "Starting the gateway at https://localhost:$GATEWAY_PORT"
 ) &
 FORWARD_PID=$!
 for _ in $(seq 1 30); do
-  if curl --silent --fail --cacert "$CA_FILE" "https://localhost:$GATEWAY_PORT/api/v1/public/branding/north-sea" >/dev/null 2>&1; then
+  if curl --silent --fail --cacert "$CA_FILE" "$PUBLIC_URL/api/v1/public/branding/north-sea" >/dev/null 2>&1; then
     break
   fi
   sleep 1
 done
-curl --silent --fail --cacert "$CA_FILE" "https://localhost:$GATEWAY_PORT/api/v1/public/branding/north-sea" >/dev/null ||
+curl --silent --fail --cacert "$CA_FILE" "$PUBLIC_URL/api/v1/public/branding/north-sea" >/dev/null ||
   fail "The gateway does not answer. See $GATEWAY_LOG"
 
 step "Starting the frontend at http://localhost:$FRONTEND_PORT"
 (
   cd frontend
   # Node trusts the cluster's CA for the API proxy, and the app finds Keycloak at the gateway.
-  NODE_EXTRA_CA_CERTS="$CA_FILE" VITE_AUTH_ORIGIN="https://localhost:$GATEWAY_PORT" \
-    exec npm run dev -- --clearScreen false
+  NODE_EXTRA_CA_CERTS="$CA_FILE" VITE_AUTH_ORIGIN="$PUBLIC_URL" VITE_API_TARGET="$PUBLIC_URL" \
+    VITE_KEYCLOAK_REALM="$(setting WINDOPS_KEYCLOAK_REALM)" VITE_WEB_CLIENT_ID="$(setting WINDOPS_WEB_CLIENT_ID)" \
+    exec npm run dev -- --clearScreen false --port "$FRONTEND_PORT"
 ) &
 VITE_PID=$!
 
@@ -197,14 +210,14 @@ cat <<EOF
 $(printf '\033[1m')WindOps is running.$(printf '\033[0m')
 
   Frontend, live reload   http://localhost:$FRONTEND_PORT/?tenant=north-sea
-  As deployed             https://localhost:$GATEWAY_PORT/?tenant=north-sea
+  As deployed             $PUBLIC_URL/?tenant=north-sea
   Grafana                 make observability-forward, then http://127.0.0.1:3000
 
 Demo users (local only). See their passwords with: make demo-logins
 Administrators set up an authenticator app at their first sign-in.
 $(PYTHONPATH=scripts uv run --quiet python scripts/dev_info.py logins)
 
-Sign-in goes to Keycloak at https://localhost:$GATEWAY_PORT. Unless you ran with --trust-ca, the
+Sign-in goes to Keycloak at $PUBLIC_URL. Unless you ran with --trust-ca, the
 browser warns about its certificate once: choose Advanced, then Proceed to localhost.
 
 Frontend changes show at once. After backend changes: scripts/dev.sh --rebuild

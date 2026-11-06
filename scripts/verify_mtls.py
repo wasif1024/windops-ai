@@ -21,11 +21,12 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from gateway_routes import port_forward
+from settings import KUBE_CONTEXT
 from tls_client import ClientBundle, blocking_channel, client_bundle, trust_cluster_ca
 from windops.sample.v1 import sample_pb2
 from windops_grpc import VerifiedIdentity, sign_identity
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 APPLICATION = "windops-application"
 SYSTEM = "windops-system"
 RESPONDER = "windops-sample-responder"

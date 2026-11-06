@@ -28,6 +28,7 @@ from identity_seed import (
     keycloak_admin,
 )
 from provision_postgres import read_passwords
+from settings import KUBE_CONTEXT
 from tls_client import ClientBundle, blocking_channel, client_bundle
 from windops.audit.v1 import audit_pb2, audit_pb2_grpc
 from windops.authorization.v1 import authorization_pb2 as authz
@@ -38,7 +39,7 @@ from windops.tenant.v1 import tenant_pb2_grpc
 from windops_auth import LEVEL_MFA
 from windops_grpc import VerifiedIdentity, sign_identity
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 SYSTEM, APPLICATION, DATA = "windops-system", "windops-application", "windops-data"
 TENANT, OTHER = "north-sea", "atlas-wind"
 # Every service that stores data so far. A new one must be added here.

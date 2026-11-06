@@ -22,6 +22,7 @@ from identity_seed import (
     keycloak_public,
     read_demo_passwords,
 )
+from settings import KUBE_CONTEXT
 from tls_client import blocking_channel, client_bundle
 from verify_identity import Realm
 from windops.identity.v1 import identity_pb2 as pb
@@ -44,7 +45,7 @@ def check(condition: bool, message: str) -> None:
 def signing_key() -> str:
     encoded = subprocess.run(
         [
-            "kubectl", "--context", "windops", "get", "secret", "windops-internal-identity",
+            "kubectl", "--context", KUBE_CONTEXT, "get", "secret", "windops-internal-identity",
             f"--namespace={SYSTEM}", "--output=jsonpath={.data.signing-key}",
         ],
         capture_output=True, text=True, check=True,

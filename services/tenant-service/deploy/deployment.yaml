@@ -47,6 +47,9 @@ spec:
           envFrom:
             - configMapRef:
                 name: windops-tenant-config
+            # Settings for every workload, from .env through make config. Last, so they win.
+            - configMapRef:
+                name: windops-settings
           env:
             - name: WINDOPS_TLS_DIR
               value: /var/run/windops/tls
@@ -95,10 +98,6 @@ spec:
                 secretKeyRef:
                   name: windops-tenant-events
                   key: password
-            - name: WINDOPS_AUTHORIZATION_ADDRESS
-              value: windops-authorization.windops-system.svc.cluster.local:50051
-            - name: WINDOPS_IDENTITY_ADDRESS
-              value: windops-identity.windops-system.svc.cluster.local:50051
           # Not a gRPC probe, because the kubelet has no client certificate to present.
           startupProbe:
             httpGet:

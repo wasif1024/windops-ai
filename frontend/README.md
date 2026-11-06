@@ -1,7 +1,7 @@
 # windops-frontend
 
 The browser's application (SRS 4.11): React and TypeScript, in its own image and workload (DEP-001). The gateway
-serves it at `https://localhost:9443/`, on the same address as the API and Keycloak's sign-in pages.
+serves it at `WINDOPS_PUBLIC_URL`, `https://localhost:9443/` locally, on the same address as the API and Keycloak's sign-in pages.
 
 ## What the shell does
 
@@ -100,7 +100,7 @@ nginx sends these on every page, from one file, so no location can lose them:
 ```bash
 cd frontend
 npm ci
-NODE_EXTRA_CA_CERTS=<the cluster CA> VITE_AUTH_ORIGIN=https://localhost:9443 npm run dev
+NODE_EXTRA_CA_CERTS=<the cluster CA> VITE_AUTH_ORIGIN=https://localhost:9443 VITE_API_TARGET=https://localhost:9443 npm run dev
 npm run lint
 npm run typecheck
 npm test

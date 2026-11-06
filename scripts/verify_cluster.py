@@ -14,8 +14,10 @@ import tempfile
 import time
 from pathlib import Path
 
+from settings import KUBE_CONTEXT
+
 REPOSITORY = Path(__file__).resolve().parent.parent
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 DIRECTORY = "cluster-probe-service"
 WORKLOAD = "windops-cluster-probe"
 NAMESPACE = "windops-application"

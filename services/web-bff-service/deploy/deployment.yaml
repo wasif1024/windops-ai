@@ -49,6 +49,9 @@ spec:
           envFrom:
             - configMapRef:
                 name: windops-web-bff-config
+            # Settings for every workload, from .env through make config. Last, so they win.
+            - configMapRef:
+                name: windops-settings
           env:
             - name: WINDOPS_TLS_DIR
               value: /var/run/windops/tls
@@ -57,22 +60,13 @@ spec:
                 secretKeyRef:
                   name: windops-internal-identity
                   key: signing-key
-            # Tokens must come from this issuer, the fixed public address, for this audience.
+            # Tokens must come from this issuer, the public address, for the audience in the settings.
+            # Kubernetes fills in each $(NAME) from windops-settings.
             - name: WINDOPS_OIDC_ISSUER
-              value: https://localhost:9443/auth/realms/windops
-            - name: WINDOPS_OIDC_AUDIENCE
-              value: windops-api
+              value: $(WINDOPS_PUBLIC_URL)/auth/realms/$(WINDOPS_KEYCLOAK_REALM)
             # The keys are read from Keycloak inside the cluster, over HTTPS.
             - name: WINDOPS_OIDC_JWKS_URL
-              value: https://windops-keycloak.windops-system.svc.cluster.local:8443/auth/realms/windops/protocol/openid-connect/certs
-            - name: WINDOPS_TENANT_ADDRESS
-              value: windops-tenant.windops-system.svc.cluster.local:50051
-            - name: WINDOPS_AUTHORIZATION_ADDRESS
-              value: windops-authorization.windops-system.svc.cluster.local:50051
-            - name: WINDOPS_IDENTITY_ADDRESS
-              value: windops-identity.windops-system.svc.cluster.local:50051
-            - name: WINDOPS_AUDIT_ADDRESS
-              value: windops-audit.windops-application.svc.cluster.local:50051
+              value: $(WINDOPS_KEYCLOAK_INTERNAL_URL)/realms/$(WINDOPS_KEYCLOAK_REALM)/protocol/openid-connect/certs
             - name: WINDOPS_CACHE_HOST
               valueFrom:
                 secretKeyRef:

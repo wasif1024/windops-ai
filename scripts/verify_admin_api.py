@@ -31,9 +31,10 @@ from identity_seed import (
     strong_password,
 )
 from provision_postgres import read_passwords
+from settings import KUBE_CONTEXT
 from verify_identity import Realm, create_user, delete_user
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 SYSTEM = "windops-system"
 API = PUBLIC_URL.removesuffix("/auth") + "/api/v1"
 TENANT = "north-sea"

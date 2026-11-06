@@ -22,8 +22,9 @@ from identity_seed import (
     keycloak_admin,
 )
 from provision_postgres import read_passwords
+from settings import KUBE_CONTEXT
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 NAMESPACE = "windops-system"
 DEPLOYMENT = "deployment/windops-authorization"
 

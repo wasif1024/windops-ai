@@ -2,7 +2,7 @@
 """Prove the gateway serves only HTTPS, and exposes only Keycloak's sign-in pages (API-001).
 
 Run `make gateway`, `make gateway-routes` and `make identity-seed` first. It needs local port 9443
-free, because Keycloak's pages and redirects name https://localhost:9443.
+free, because Keycloak's pages and redirects name WINDOPS_PUBLIC_URL.
 """
 
 import ssl
@@ -14,9 +14,10 @@ import warnings
 import httpx
 from gateway_routes import admin_key, apply_route, load_routes, port_forward
 from identity_seed import PUBLIC_URL, REALM, keycloak_public
+from settings import KUBE_CONTEXT
 from tls_client import authority_file
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 SYSTEM = "windops-system"
 GATEWAY_DEPLOYMENT = "deployment/windops-gateway"
 DISCOVERY = "/auth/realms/windops/.well-known/openid-configuration"

@@ -6,7 +6,9 @@ import sys
 import time
 from pathlib import Path
 
-CONTEXT = "windops"
+from settings import KUBE_CONTEXT
+
+CONTEXT = KUBE_CONTEXT
 NAMESPACE = "cert-manager"
 SECURITY = Path(__file__).resolve().parent.parent / "infrastructure" / "security"
 WORKLOADS = ("cert-manager", "cert-manager-webhook", "cert-manager-cainjector")

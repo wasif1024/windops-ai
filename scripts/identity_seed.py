@@ -15,21 +15,22 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import settings
 from gateway_routes import port_forward
 from provision_postgres import read_passwords
 from tls_client import trust_cluster_ca
 from windops_auth import LEVEL_MFA, LEVEL_PASSWORD, MFA_LEVEL_SECONDS
 
-CONTEXT = "windops"
+CONTEXT = settings.KUBE_CONTEXT
 NAMESPACE = "windops-system"
 DEPLOYMENT = "deployment/windops-keycloak"
 SERVICE = "service/windops-keycloak"
 POD_SELECTOR = "app.kubernetes.io/name=windops-keycloak"
 DEMO_USERS_RESOURCE = "windops-identity-demo-users"
 ADMIN_USER = "windops_admin"
-REALM = "windops"
-CLIENT_ID = "windops-web"
-API_AUDIENCE = "windops-api"
+REALM = settings.REALM
+CLIENT_ID = settings.WEB_CLIENT_ID
+API_AUDIENCE = settings.API_AUDIENCE
 TENANT_CLAIM = "tenant_id"
 ORGANIZATION_SCOPE = "organization"
 ADMIN_CLIENT_ID = "windops-admin"
@@ -46,8 +47,8 @@ TENANTS = {"north-sea": "North Sea Wind", "atlas-wind": "Atlas Wind"}
 PLATFORM_TENANT = "windops-platform"
 PLATFORM_ADMIN_EMAIL = f"platform-admin@{PLATFORM_TENANT}.example"
 PLATFORM_ADMIN_KEY = "platform-admin"
-# The frontend behind the gateway, and Vite's development server.
-REDIRECT_URIS = ["https://localhost:9443/*", "http://localhost:5173/*", "http://127.0.0.1:5173/*"]
+# The frontend behind the gateway, and the other origins in the settings, such as Vite's.
+REDIRECT_URIS = [f"{settings.PUBLIC_URL}/*", *(f"{origin}/*" for origin in settings.origins())]
 
 
 def realm_settings() -> dict[str, Any]:
@@ -155,10 +156,11 @@ IDENTITY_CLIENT_RESOURCE = "windops-identity-keycloak"
 # Keycloak lets nothing less than manage-realm read or change an organization's members. The
 # service limits itself to a fixed list of calls, in its keycloak.py.
 IDENTITY_ROLES = ("view-users", "query-users", "manage-users", "manage-realm")
-KEYCLOAK_URL = f"https://{SERVICE.split('/')[-1]}.{NAMESPACE}.svc.cluster.local:8443/auth"
-# The one address browsers, and so token issuers, use. It must be this exact port.
-PUBLIC_PORT = 9443
-PUBLIC_URL = f"https://localhost:{PUBLIC_PORT}/auth"
+KEYCLOAK_URL = settings.KEYCLOAK_INTERNAL_URL
+# The one address browsers, and so token issuers, use, from the settings. Locally, the checks
+# forward this exact port to the gateway.
+PUBLIC_PORT = settings.PUBLIC_PORT
+PUBLIC_URL = f"{settings.PUBLIC_URL}/auth"
 ADMIN_PORT = 8443
 GATEWAY = "service/windops-gateway"
 

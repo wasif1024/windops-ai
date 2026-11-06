@@ -39,6 +39,7 @@ from identity_seed import (
     strong_password,
 )
 from provision_postgres import read_passwords
+from settings import KUBE_CONTEXT
 from tls_client import authority_file
 from verify_identity import Realm, delete_user
 from verify_mfa import Browser, enroll
@@ -66,7 +67,7 @@ def gateway_spki() -> str:
 def make_tenant_administrator(user_id: str) -> None:
     subprocess.run(
         [
-            "kubectl", "--context", "windops", "--namespace=windops-system", "exec",
+            "kubectl", "--context", KUBE_CONTEXT, "--namespace=windops-system", "exec",
             "deployment/windops-authorization", "--", "python", "-m",
             "windops_authorization.bootstrap",
             "--tenant", TENANT, "--user", user_id, "--role", "tenant-administrator",
@@ -109,7 +110,7 @@ def run_browser(password: str, keys: dict[str, str], operator_token: str) -> int
             raise RuntimeError(f"The operator was not refused: {refused.status_code}")
         env = {
             **{k: v for k, v in os.environ.items() if k != "SSL_CERT_FILE"},
-            "BASE_URL": "https://localhost:9443",
+            "BASE_URL": PUBLIC_URL.removesuffix("/auth"),
             "GATEWAY_SPKI": gateway_spki(),
             "OPERATOR_EMAIL": demo_email(TENANT),
             "OPERATOR_PASSWORD": read_demo_passwords()[TENANT],

@@ -29,12 +29,13 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from gateway_routes import port_forward
+from settings import KUBE_CONTEXT
 from tls_client import authority_file
 from windops_cache import connect as redis_connect
 from windops_events import connect as nats_connect
 from windops_events import tls_context as verified_context
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 DATA = "windops-data"
 HOST = "127.0.0.1"
 ADMIN = "windops_admin"

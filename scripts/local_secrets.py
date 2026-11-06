@@ -32,8 +32,9 @@ from redis_access import CACHE_SERVICES, acl_file
 from redis_access import HOST as REDIS_HOST
 from redis_access import PORT as REDIS_PORT
 from redis_access import SECRETS_FILE as REDIS_SECRETS_FILE
+from settings import KUBE_CONTEXT
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 REPOSITORY = Path(__file__).resolve().parent.parent
 LOCAL_DIRECTORY = REPOSITORY / "infrastructure" / "minikube"
 NAMESPACES_MANIFEST = REPOSITORY / "infrastructure" / "kubernetes" / "base" / "namespaces"

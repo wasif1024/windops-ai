@@ -10,8 +10,9 @@ import time
 from dataclasses import dataclass
 
 import grpc
+from settings import KUBE_CONTEXT
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 NAMESPACE = "windops-application"
 CERTIFICATE = "windops-check-client"
 _MANIFEST = {

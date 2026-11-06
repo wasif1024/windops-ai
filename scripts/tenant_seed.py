@@ -8,8 +8,9 @@ import subprocess
 import sys
 
 from identity_seed import PLATFORM_TENANT, TENANTS
+from settings import KUBE_CONTEXT
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 NAMESPACE = "windops-system"
 DEPLOYMENT = "deployment/windops-tenant"
 

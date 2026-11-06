@@ -42,8 +42,9 @@ from provision_postgres import ADMIN_USER as POSTGRES_ADMIN
 from provision_postgres import NAMESPACE as DATA
 from provision_postgres import POD as POSTGRES_POD
 from provision_postgres import read_passwords
+from settings import origins
 
-REDIRECT_URI = "http://localhost:5173/callback"
+REDIRECT_URI = f"{origins()[0]}/callback"
 ACCESS_TOKEN_SECONDS = 300
 FAILED_LOGINS_BEFORE_LOCKOUT = 5
 NO_TENANT_USER = "no-tenant-check@windops-check.example"

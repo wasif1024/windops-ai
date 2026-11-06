@@ -47,6 +47,9 @@ spec:
           envFrom:
             - configMapRef:
                 name: windops-sample-responder-config
+            # Settings for every workload, from .env through make config. Last, so they win.
+            - configMapRef:
+                name: windops-settings
           env:
             - name: WINDOPS_TLS_DIR
               value: /var/run/windops/tls

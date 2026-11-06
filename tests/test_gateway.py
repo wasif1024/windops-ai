@@ -249,3 +249,32 @@ def test_the_frontend_never_answers_for_keycloak_or_the_api() -> None:
     assert route["uri"] == "/*" and route["priority"] < 0
     assert route["vars"] == [["uri", "!", "~~", "^/(auth|api)(/|$)"]]
     assert route["methods"] == ["GET", "HEAD"]
+
+
+def test_a_routes_addresses_come_from_the_settings() -> None:
+    """A cloud deployment changes its addresses in its settings, not in the route files."""
+    from settings import load
+
+    settings = {
+        **load(),
+        "WINDOPS_PUBLIC_URL": "https://windops.example.com",
+        "WINDOPS_ALLOWED_ORIGINS": "https://staff.example.com",
+    }
+    routes = load_routes(settings=settings)
+    oidc = routes["web-bff"]["plugins"]["openid-connect"]
+    assert oidc["claim_validator"]["issuer"]["valid_issuers"] == [
+        "https://windops.example.com/auth/realms/windops"
+    ]
+    assert routes["web-bff"]["plugins"]["cors"]["allow_origins"] == "https://staff.example.com"
+
+
+def test_a_missing_or_unsafe_setting_is_refused(tmp_path: Path) -> None:
+    route = (ROOT / "infrastructure" / "gateway" / "routes" / "web-bff.json").read_text()
+    (tmp_path / "web-bff.json").write_text(route)
+    with pytest.raises(RouteError, match="is not set"):
+        load_routes(tmp_path, settings={})
+    unsafe = dict.fromkeys(("WINDOPS_OIDC_AUDIENCE", "WINDOPS_KEYCLOAK_INTERNAL_URL"), "x")
+    unsafe |= {"WINDOPS_KEYCLOAK_REALM": "windops", "WINDOPS_ALLOWED_ORIGINS": "x"}
+    unsafe["WINDOPS_PUBLIC_URL"] = 'https://x", "evil": "'
+    with pytest.raises(RouteError, match="quote"):
+        load_routes(tmp_path, settings=unsafe)

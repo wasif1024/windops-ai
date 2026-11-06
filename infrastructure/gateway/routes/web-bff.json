@@ -7,7 +7,7 @@
       }
     },
     "cors": {
-      "allow_origins": "http://localhost:5173",
+      "allow_origins": "${WINDOPS_ALLOWED_ORIGINS}",
       "allow_methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
       "allow_headers": "Authorization,Content-Type,Idempotency-Key",
       "expose_headers": "RateLimit-Limit,RateLimit-Remaining,RateLimit-Reset,Retry-After,WWW-Authenticate",
@@ -24,8 +24,8 @@
       "show_limit_quota_header": true
     },
     "openid-connect": {
-      "client_id": "windops-api",
-      "discovery": "https://windops-keycloak.windops-system.svc.cluster.local:8443/auth/realms/windops/.well-known/openid-configuration",
+      "client_id": "${WINDOPS_OIDC_AUDIENCE}",
+      "discovery": "${WINDOPS_KEYCLOAK_INTERNAL_URL}/realms/${WINDOPS_KEYCLOAK_REALM}/.well-known/openid-configuration",
       "bearer_only": true,
       "use_jwks": true,
       "ssl_verify": true,
@@ -33,7 +33,7 @@
       "claim_validator": {
         "issuer": {
           "valid_issuers": [
-            "https://localhost:9443/auth/realms/windops"
+            "${WINDOPS_PUBLIC_URL}/auth/realms/${WINDOPS_KEYCLOAK_REALM}"
           ]
         },
         "audience": {
