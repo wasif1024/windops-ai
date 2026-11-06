@@ -356,6 +356,15 @@ class TenantService(tenant_pb2_grpc.TenantServiceServicer):
         self, request: tenant_pb2.GetBrandingRequest, context: Any
     ) -> tenant_pb2.GetBrandingResponse:
         tenant = await self._read(request.target_tenant_id)
+        if request.include_verification_token:
+            # Only those who manage the domain see its proof. Asked only when wanted, as each
+            # refusal is recorded as an access denial.
+            identity = current_identity()
+            target = "" if tenant == identity.tenant_id else tenant
+            if not identity.user_id or not await self._authorizer.allowed(
+                "branding.manage", target
+            ):
+                raise PermissionDeniedError("You do not have permission to do this")
         async with self._engine.begin() as connection:
             await in_tenant(connection, tenant)
             row = await self._one(
@@ -366,9 +375,10 @@ class TenantService(tenant_pb2_grpc.TenantServiceServicer):
                     select(CUSTOM_DOMAINS).where(CUSTOM_DOMAINS.c.tenant_id == tenant)
                 )
             ).one_or_none()
-        return tenant_pb2.GetBrandingResponse(
-            branding=_branding(row), custom_domain=_domain(domain) if domain else None
-        )
+        shown = _domain(domain) if domain else None
+        if shown is not None and not request.include_verification_token:
+            shown.verification_token = ""
+        return tenant_pb2.GetBrandingResponse(branding=_branding(row), custom_domain=shown)
 
     async def UpdateBranding(  # noqa: N802  # The name comes from the contract.
         self, request: tenant_pb2.UpdateBrandingRequest, context: Any

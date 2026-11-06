@@ -133,6 +133,9 @@ message ReactivateTenantResponse {
 
 message GetBrandingRequest {
   string target_tenant_id = 1;
+  // Also return the custom domain's proof token, which needs branding.manage. Without it, the
+  // domain comes back with no token, so every member of the tenant may read the rest.
+  bool include_verification_token = 2;
 }
 
 message GetBrandingResponse {

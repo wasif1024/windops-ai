@@ -246,17 +246,26 @@ def check_audit(bundle: ClientBundle, key: str, admin: str) -> None:
         "identity.sessions.revoked",
     }
     identity = VerifiedIdentity(admin, TENANT, admin)
-    metadata = (("x-windops-identity", sign_identity(identity, key, ttl_seconds=60)),)
     found: set[str] = set()
     for _ in range(30):
-        with (
-            port_forward("deployment/windops-audit", APPLICATION, 50051) as port,
-            blocking_channel(port, AUDIT_HOST, bundle) as channel,
-        ):
-            stub: Any = audit_pb2_grpc.AuditServiceStub(channel)
-            records = stub.ListAuditRecords(
-                audit_pb2.ListAuditRecordsRequest(page_size=500), metadata=metadata, timeout=10
-            ).records
+        # Signed each time, as one lasts 60 seconds and this may wait longer.
+        metadata = (("x-windops-identity", sign_identity(identity, key, ttl_seconds=60)),)
+        try:
+            with (
+                port_forward("deployment/windops-audit", APPLICATION, 50051) as port,
+                blocking_channel(port, AUDIT_HOST, bundle) as channel,
+            ):
+                stub: Any = audit_pb2_grpc.AuditServiceStub(channel)
+                records = stub.ListAuditRecords(
+                    audit_pb2.ListAuditRecordsRequest(page_size=500), metadata=metadata, timeout=10
+                ).records
+        except grpc.RpcError as error:
+            # Audit asks Authorization before every read, and refuses while it cannot, as just
+            # after the outage above. A client waits and asks again.
+            if error.code() is not grpc.StatusCode.UNAVAILABLE:
+                raise
+            time.sleep(2)
+            continue
         found = {r.action for r in records if r.producer == "identity" and r.actor_id == admin}
         if wanted <= found:
             break
