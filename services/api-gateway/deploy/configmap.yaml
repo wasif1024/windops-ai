@@ -31,10 +31,18 @@ data:
     # Only what routes use.
     plugins:
       - opentelemetry
+      # Counts every answer by route and status, such as the 429s of limit-count (SRS 10.3).
+      - prometheus
       - cors
       - limit-count
       - openid-connect
     stream_plugins: []
+    plugin_attr:
+      prometheus:
+        # Plain HTTP inside the pod network, for Prometheus only. It holds counts, never requests.
+        export_addr:
+          ip: 0.0.0.0
+          port: 9091
     nginx_config:
       worker_processes: 1
       # Every upstream with HTTPS is checked against the CA. nginx loads the CA only when this is on

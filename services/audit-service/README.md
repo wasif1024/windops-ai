@@ -40,6 +40,13 @@ Tenant Administrators and Auditors. If Authorization cannot answer, nothing is r
 `ListAuditRecords` takes an optional `action`, such as `authorization.denied`, which the administrator console's
 access denials use.
 
+## Metrics
+
+`windops_audit_records_total` counts each record as it is stored, by producer, action and outcome, and never a
+repeat. The Security dashboard and its alerts read it (SRS 10.3). It names no tenant or user, so the series stay few:
+who and where are in the record. What the alerts watch, such as `authorization.denied`, starts at 0, so the first one
+is seen.
+
 ## Run the tests
 
 ```bash

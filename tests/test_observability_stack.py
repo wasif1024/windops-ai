@@ -145,6 +145,8 @@ def test_dashboards_are_valid_with_stable_ids(path: Path) -> None:
     ids = [panel["id"] for panel in board["panels"]]
     assert len(ids) == len(set(ids))
     for panel in board["panels"]:
+        if panel["type"] == "text":
+            continue
         assert panel["targets"][0]["expr"]
         assert panel["datasource"]["uid"] == "prometheus"
 
@@ -197,6 +199,64 @@ def test_events_dashboard_has_the_srs_indicators() -> None:
     titles = panel_titles("events.json")
     for indicator in ("consumer lag", "outbox backlog", "dead-letter"):
         assert indicator in titles
+
+
+def test_security_dashboard_has_the_srs_indicators() -> None:
+    """SRS 10.3: failed logins, MFA failures, access denials, rate limits and tool calls."""
+    titles = panel_titles("security.json")
+    for indicator in (
+        "failed sign-ins",
+        "mfa failures",
+        "access denials",
+        "rate-limited",
+    ):
+        assert indicator in titles
+    assert "suspicious tool calls" in titles
+    exprs = " ".join(
+        target["expr"]
+        for panel in json.loads((DASHBOARDS / "security.json").read_text())["panels"]
+        for target in panel.get("targets", [])
+    )
+    for metric in (
+        "keycloak_user_events_total",
+        "keycloak_credentials_password_hashing_validations_total",
+        "windops_audit_records_total",
+        "apisix_http_status",
+        "windops_web_bff_rate_limited_total",
+    ):
+        assert metric in exprs
+
+
+def test_security_dashboard_panels_do_not_overlap() -> None:
+    board = json.loads((DASHBOARDS / "security.json").read_text())
+    cells: set[tuple[int, int]] = set()
+    for panel in board["panels"]:
+        grid = panel["gridPos"]
+        assert grid["x"] + grid["w"] <= 24
+        mine = {
+            (x, y)
+            for x in range(grid["x"], grid["x"] + grid["w"])
+            for y in range(grid["y"], grid["y"] + grid["h"])
+        }
+        assert not cells & mine, panel["title"]
+        cells |= mine
+
+
+@pytest.mark.parametrize(
+    "alert",
+    [
+        "WindopsManyFailedSignIns",
+        "WindopsManyAccessDenials",
+        "WindopsSustainedRateLimiting",
+        "WindopsBreakGlassStarted",
+        "WindopsAdministratorRoleGranted",
+    ],
+)
+def test_security_events_have_their_alerts(alert: str) -> None:
+    """SRS 10.3: suspicious authorization failures and security-relevant administrator events."""
+    rule = alert_rules()[alert]
+    assert rule["labels"]["category"] == "security"
+    assert rule["labels"]["severity"] in ("info", "warning")
 
 
 def alert_rules() -> dict[str, dict[str, Any]]:

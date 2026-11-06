@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
+from opentelemetry import metrics
 from pydantic import BaseModel
 from windops.authorization.v1 import authorization_pb2
 from windops.tenant.v1 import tenant_pb2
@@ -23,8 +24,9 @@ from windops_resilience import BreakerOpenError
 from windops_web_bff.admin import add_admin_routes
 from windops_web_bff.branding import add_branding_routes
 from windops_web_bff.errors import from_grpc, problem
-from windops_web_bff.limits import LimitUnavailableError, RateLimiter
+from windops_web_bff.limits import LimitUnavailableError, RateLimiter, traffic_class
 from windops_web_bff.platform import add_platform_routes
+from windops_web_bff.security_metrics import SecurityCounters
 from windops_web_bff.tokens import REASONS, Caller, TokenError, TokenVerifier, bearer
 
 API_VERSION = "1.0.0"
@@ -94,6 +96,10 @@ class Dependencies:
     authorization: Callable[..., Awaitable[Any]]
     identity: Callable[..., Awaitable[Any]]
     audit: Callable[..., Awaitable[Any]]
+    # For the Security dashboard. main.py starts them as the service starts.
+    counters: SecurityCounters | None = None
+    # Only for tests, when there are no counters: the global provider when unset.
+    meter_provider: metrics.MeterProvider | None = None
 
 
 class ApiError(Exception):
@@ -141,12 +147,14 @@ def _branding(message: Any) -> Branding:
 
 def create_router(deps: Dependencies) -> APIRouter:
     router = APIRouter(prefix=PREFIX)
+    counters = deps.counters or SecurityCounters(deps.meter_provider)
 
     async def caller(request: Request, response: Response) -> Caller:
         try:
             verified = await deps.verifier.verify(bearer(request.headers.get("authorization")))
         except TokenError as error:
             code, title = REASONS[error.reason]
+            counters.token_refused(error.reason)
             raise ApiError(problem(401, title, code, **{"WWW-Authenticate": "Bearer"})) from error
         try:
             limit = await deps.limiter.check(verified.tenant_id, verified.user_id, verified.client)
@@ -158,6 +166,7 @@ def create_router(deps: Dependencies) -> APIRouter:
             "RateLimit-Reset": str(limit.reset_seconds),
         }
         if not limit.allowed:
+            counters.rate_limited(traffic_class(verified.client))
             raise ApiError(
                 problem(
                     429, "Too many requests", **headers, **{"Retry-After": str(limit.reset_seconds)}

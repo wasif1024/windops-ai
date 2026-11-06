@@ -1,6 +1,6 @@
 {
   "uri": "/sample/*",
-  "plugins": {"opentelemetry": {"sampler": {"name": "always_on"}}},
+  "plugins": {"opentelemetry": {"sampler": {"name": "always_on"}}, "prometheus": {}},
   "upstream": {
     "type": "roundrobin",
     "timeout": {"connect": 2, "send": 10, "read": 10},

@@ -17,6 +17,10 @@ spec:
       app.kubernetes.io/name: windops-gateway
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+        prometheus.io/path: /apisix/prometheus/metrics
       labels:
         app.kubernetes.io/name: windops-gateway
         app.kubernetes.io/part-of: windops

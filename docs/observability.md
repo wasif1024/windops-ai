@@ -30,6 +30,7 @@ Sign in as `admin`. The password is in `infrastructure/minikube/secrets.local.gr
 | Platform Health | A health table with each pod's status, restarts, memory and last stop reason, then CPU, memory, restarts, pods not ready, scrape targets down, and data store readiness, memory and restarts |
 | Microservice Health | Request rate, latency percentiles, gRPC failures and breaker state |
 | [Events](events.md) | Consumer lag, outbox backlog, dead letters and stream storage |
+| [Security](security.md#seeing-it-the-security-dashboard) | Failed sign-ins, wrong passwords, MFA failures, access denials, rate limiting, refused tokens and administrator changes |
 
 The other SRS 10.3 dashboards arrive with the components they describe. Panels stay empty until something produces the
 data, such as a breaker opening.

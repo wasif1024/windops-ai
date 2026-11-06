@@ -36,9 +36,11 @@ class RouteError(Exception):
 
 
 def validate_route(name: str, route: dict[str, Any]) -> None:
-    """Require tracing, health checks and timeouts on every route."""
+    """Require tracing, counting, health checks and timeouts on every route."""
     if "opentelemetry" not in route.get("plugins", {}):
         raise RouteError(f"{name}: a route needs the opentelemetry plugin, so it can be traced")
+    if "prometheus" not in route.get("plugins", {}):
+        raise RouteError(f"{name}: a route needs the prometheus plugin, so its answers are counted")
     if "uri" not in route and "uris" not in route:
         raise RouteError(f"{name}: a route needs a uri")
     upstream = route.get("upstream")
