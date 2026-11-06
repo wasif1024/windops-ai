@@ -14,10 +14,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from windops_simulator import models
+from windops_simulator.faults import ActiveFault, FaultSpec
 from windops_simulator.fleet import TurbineSpec
 
 SOURCE = "windops-simulator"
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 # Typical site conditions: offshore wind is stronger and smoother than onshore.
 MEAN_WIND_MPS = {True: 9.5, False: 7.0}
 TURBULENCE_INTENSITY = {True: 0.08, False: 0.14}
@@ -27,7 +28,7 @@ ROTOR_LAG_SECONDS = 6.0  # the rotor's inertia smooths the wind it turns into po
 PREVAILING_DIRECTION_DEG = 240.0  # south-westerly, as in north-west Europe
 
 
-def _stream(seed: int, name: str) -> random.Random:
+def random_stream(seed: int, name: str) -> random.Random:
     """A random stream for one farm or turbine, the same for a seed on every machine."""
     digest = hashlib.sha256(f"{seed}:{name}".encode()).digest()
     # Reproducible on purpose: this simulates weather and wear, and protects nothing.
@@ -67,6 +68,8 @@ class _TurbineState:
     gust: float = 0.0
     rotor_wind: float = 0.0
     temperatures: dict[str, float] = field(default_factory=dict)
+    faults: list[ActiveFault] = field(default_factory=list)
+    sequence: int = 0
 
 
 @dataclass(frozen=True)
@@ -75,19 +78,22 @@ class Sample:
 
     tenant_id: str
     turbine_id: str
+    # Counts up by one for each sample a turbine makes, as a device numbers its messages.
+    sequence: int
     event_time: datetime
-    wind_speed_mps: float
+    # A reading is None while its sensor sends nothing.
+    wind_speed_mps: float | None
     wind_direction_deg: float
     rotor_speed_rpm: float
     generator_speed_rpm: float
     power_kw: float
     pitch_angle_deg: float
     ambient_temp_c: float
-    gearbox_oil_temp_c: float
-    gearbox_bearing_temp_c: float
-    main_bearing_temp_c: float
-    generator_bearing_temp_c: float
-    nacelle_vibration_mm_s: float
+    gearbox_oil_temp_c: float | None
+    gearbox_bearing_temp_c: float | None
+    main_bearing_temp_c: float | None
+    generator_bearing_temp_c: float | None
+    nacelle_vibration_mm_s: float | None
     # "producing", "idle_low_wind", "stopped_high_wind", or the Asset status that holds it still.
     operating_state: str
     available: bool
@@ -115,16 +121,25 @@ _THERMALS = {
 class Simulator:
     """A fleet of turbines, stepped forward in time from a seed."""
 
-    def __init__(self, seed: int, turbines: Sequence[TurbineSpec], start: datetime) -> None:
+    def __init__(
+        self,
+        seed: int,
+        turbines: Sequence[TurbineSpec],
+        start: datetime,
+        faults: Sequence[FaultSpec] = (),
+    ) -> None:
         if start.tzinfo is None:
             raise ValueError("start needs a time zone, as event times are compared across sites")
+        unknown = {fault.turbine_id for fault in faults} - {spec.turbine_id for spec in turbines}
+        if unknown:
+            raise ValueError(f"A fault names a turbine that is not simulated: {sorted(unknown)}")
         self.seed = seed
         self.now = start
         self._winds: dict[str, _FarmWind] = {}
         self._turbines: list[_TurbineState] = []
         for spec in turbines:
             if spec.wind_farm_id not in self._winds:
-                stream = _stream(seed, f"farm:{spec.tenant_id}:{spec.wind_farm_id}")
+                stream = random_stream(seed, f"farm:{spec.tenant_id}:{spec.wind_farm_id}")
                 site = MEAN_WIND_MPS[spec.offshore]
                 self._winds[spec.wind_farm_id] = _FarmWind(
                     random=stream,
@@ -134,7 +149,7 @@ class Simulator:
                 )
             design = models.Design(spec.rated_power_kw, spec.rotor_diameter_m)
             state = _TurbineState(
-                spec, design, _stream(seed, f"turbine:{spec.tenant_id}:{spec.turbine_id}")
+                spec, design, random_stream(seed, f"turbine:{spec.tenant_id}:{spec.turbine_id}")
             )
             state.rotor_wind = self._winds[spec.wind_farm_id].mean
             # Start at the temperatures the current load would settle at, not cold.
@@ -143,6 +158,15 @@ class Simulator:
             state.temperatures = {
                 name: model.target_c(ambient, load) for name, model in _THERMALS.items()
             }
+            state.faults = [
+                ActiveFault(
+                    fault,
+                    start + fault.onset_after,
+                    random_stream(seed, f"fault:{number}:{spec.tenant_id}:{spec.turbine_id}"),
+                )
+                for number, fault in enumerate(faults)
+                if fault.turbine_id == spec.turbine_id
+            ]
             self._turbines.append(state)
 
     def _ambient(self, spec: TurbineSpec) -> float:
@@ -171,6 +195,10 @@ class Simulator:
             state.gust, 0.0, sigma, GUST_SECONDS, dt, state.random.gauss(0, 1)
         )
         hub_wind = max(0.0, wind.mean + state.gust)
+        # The false positive: a sustained strong wind at this turbine, with its own gusts.
+        floor = max((fault.wind_floor_mps(self.now) for fault in state.faults), default=0.0)
+        if floor:
+            hub_wind = max(hub_wind, floor + state.gust)
         lag = math.exp(-dt / ROTOR_LAG_SECONDS)
         state.rotor_wind = hub_wind + (state.rotor_wind - hub_wind) * lag
 
@@ -189,16 +217,31 @@ class Simulator:
         ambient = self._ambient(spec)
         load = power / spec.rated_power_kw
         for name, model in _THERMALS.items():
+            extra = sum(fault.extra_heat_c(name, self.now, load) for fault in state.faults)
             state.temperatures[name] = model.step(
-                state.temperatures[name], model.target_c(ambient, load), dt
+                state.temperatures[name], model.target_c(ambient, load) + extra, dt
             )
         noise = state.random.gauss
+        rpm_fraction = rpm / design.maximum_rotor_rpm
         vibration = max(0.0, models.vibration_mm_s(design, rpm) * (1 + noise(0, 0.05)))
+        vibration += sum(
+            fault.extra_vibration_mm_s(self.now, rpm_fraction) for fault in state.faults
+        )
+        state.sequence += 1
+
+        def reported(channel: str, true_value: float, digits: int) -> float | None:
+            """What the sensor sends, which a sensor fault may change or leave out."""
+            value: float | None = round(true_value, digits)
+            for fault in state.faults:
+                value = None if value is None else fault.report(channel, value, self.now)
+            return None if value is None else round(value, digits)
+
         return Sample(
             tenant_id=spec.tenant_id,
             turbine_id=spec.turbine_id,
+            sequence=state.sequence,
             event_time=self.now,
-            wind_speed_mps=round(hub_wind, 2),
+            wind_speed_mps=reported("wind_speed_mps", hub_wind, 2),
             wind_direction_deg=round((wind.direction + noise(0, 2)) % 360, 1),
             rotor_speed_rpm=round(rpm, 2),
             generator_speed_rpm=round(rpm * models.GEARBOX_RATIO, 1),
@@ -206,13 +249,21 @@ class Simulator:
             pitch_angle_deg=round(pitch, 2),
             ambient_temp_c=round(ambient, 2),
             # Sensors read to a tenth of a degree, with a little noise.
-            gearbox_oil_temp_c=round(state.temperatures["gearbox_oil"] + noise(0, 0.1), 1),
-            gearbox_bearing_temp_c=round(state.temperatures["gearbox_bearing"] + noise(0, 0.1), 1),
-            main_bearing_temp_c=round(state.temperatures["main_bearing"] + noise(0, 0.1), 1),
-            generator_bearing_temp_c=round(
-                state.temperatures["generator_bearing"] + noise(0, 0.1), 1
+            gearbox_oil_temp_c=reported(
+                "gearbox_oil_temp_c", state.temperatures["gearbox_oil"] + noise(0, 0.1), 1
             ),
-            nacelle_vibration_mm_s=round(vibration, 3),
+            gearbox_bearing_temp_c=reported(
+                "gearbox_bearing_temp_c", state.temperatures["gearbox_bearing"] + noise(0, 0.1), 1
+            ),
+            main_bearing_temp_c=reported(
+                "main_bearing_temp_c", state.temperatures["main_bearing"] + noise(0, 0.1), 1
+            ),
+            generator_bearing_temp_c=reported(
+                "generator_bearing_temp_c",
+                state.temperatures["generator_bearing"] + noise(0, 0.1),
+                1,
+            ),
+            nacelle_vibration_mm_s=reported("nacelle_vibration_mm_s", vibration, 3),
             operating_state=state_name,
             available=spec.status == "operating",
             seed=self.seed,

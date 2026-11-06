@@ -99,6 +99,11 @@ def test_a_day_of_fleet_data_stays_in_plausible_ranges() -> None:
     seen = set()
     for _ in range(24 * 3600 // 10):
         for sample in simulator.step(10):
+            # A healthy fleet on a perfect link sends every reading.
+            assert sample.wind_speed_mps is not None
+            assert sample.gearbox_oil_temp_c is not None
+            assert sample.main_bearing_temp_c is not None
+            assert sample.nacelle_vibration_mm_s is not None
             assert 0 <= sample.wind_speed_mps < 40
             assert 0 <= sample.power_kw <= rated[sample.turbine_id] * 1.02
             assert 0 <= sample.rotor_speed_rpm <= 12
