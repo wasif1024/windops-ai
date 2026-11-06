@@ -100,7 +100,6 @@ files = [
 ]
 explicit_package_bases = true
 mypy_path = [
-    "scripts",
     "services/audit-service/src",
     "services/audit-service/tests",
     "services/authorization-service/src",
@@ -157,7 +156,7 @@ testpaths = [
     "shared/resilience/tests",
 ]
 addopts = "-ra --strict-markers --import-mode=importlib"
-pythonpath = ["shared/grpc/tests", "shared/resilience/tests", "services/identity-service/tests", "services/tenant-service/tests", "services/web-bff-service/tests"]
+pythonpath = [".", "shared/grpc/tests", "shared/resilience/tests", "services/identity-service/tests", "services/tenant-service/tests", "services/web-bff-service/tests"]
 
 [dependency-groups]
 dev = [

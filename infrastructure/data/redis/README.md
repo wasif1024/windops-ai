@@ -16,7 +16,7 @@ every key.
 
 ## Add a service
 
-1. Add it to `SERVICE_NAMESPACES` in `scripts/provision_postgres.py`.
+1. Add it to `SERVICE_NAMESPACES` in `scripts/setup/provision_postgres.py`.
 2. Run `make secrets`.
 3. Run `kubectl --context windops --namespace windops-data rollout restart deployment/windops-redis`, so
    Redis loads the new login. This empties the cache, which is safe.

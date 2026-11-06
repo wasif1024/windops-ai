@@ -22,7 +22,7 @@ The SRS defines the requirements, and this file tracks progress against them.
   be ticked only when the gate passes on a working Minikube deployment, with the
   evidence linked. Phases run in order, and the next one starts after that.
 - **Architecture diagram:** after finishing a module, run
-  `uv run python scripts/generate_readme_visuals.py` to update the README's progress strip. A test
+  `uv run python -m scripts.generate.readme_visuals` to update the README's progress strip. A test
   fails when a security control it shows as planned has finished, until the control is updated.
 - **Plan changes:** add, split or reorder modules here when needed. A change to
   the design also updates the SRS and adds a record in [docs/adr/](../adr/).

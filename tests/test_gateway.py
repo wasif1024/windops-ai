@@ -2,15 +2,18 @@
 
 import json
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from gateway_routes import RouteError, load_plugin_metadata, load_routes, validate_route
+from scripts.setup.gateway_routes import (
+    RouteError,
+    load_plugin_metadata,
+    load_routes,
+    validate_route,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 GATEWAY = ROOT / "services" / "api-gateway" / "deploy"
@@ -267,7 +270,7 @@ def test_a_route_without_counting_is_refused() -> None:
 
 def test_a_routes_addresses_come_from_the_settings() -> None:
     """A cloud deployment changes its addresses in its settings, not in the route files."""
-    from settings import load
+    from scripts.lib.settings import load
 
     settings = {
         **load(),

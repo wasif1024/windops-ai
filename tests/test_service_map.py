@@ -1,13 +1,11 @@
 """Keep the service map complete against the SRS, so it cannot quietly miss a service."""
 
 import re
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from provision_postgres import SERVICE_NAMESPACES
+from scripts.setup.provision_postgres import SERVICE_NAMESPACES
 
 ROOT = Path(__file__).resolve().parent.parent
 SRS = (ROOT / "docs" / "srs.md").read_text()

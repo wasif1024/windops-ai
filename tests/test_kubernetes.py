@@ -2,15 +2,13 @@
 
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from new_service import add_service_to_kustomization, create_service
+from scripts.dev.new_service import add_service_to_kustomization, create_service
 
 ROOT = Path(__file__).resolve().parent.parent
 BASE = ROOT / "infrastructure" / "kubernetes" / "base"

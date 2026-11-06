@@ -3,13 +3,11 @@
 import re
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from generate_contracts import generate
+from scripts.generate.contracts import generate
 
 ROOT = Path(__file__).resolve().parent.parent
 MODULE = ROOT / "shared" / "protobuf"

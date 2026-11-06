@@ -1,11 +1,9 @@
 """Keep the security diagram true to the tracker, so it cannot quietly go stale."""
 
 import re
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from generate_readme_visuals import (
+from scripts.generate.readme_visuals import (
     AGENT_SERVICE,
     APPLICATION_GROUPS,
     ENTRY_SERVICES,
@@ -13,7 +11,7 @@ from generate_readme_visuals import (
     all_controls,
     read_phase_progress,
 )
-from provision_postgres import SERVICE_NAMESPACES
+from scripts.setup.provision_postgres import SERVICE_NAMESPACES
 
 ROOT = Path(__file__).resolve().parent.parent
 TRACKER = (ROOT / "docs" / "phases" / "README.md").read_text()
