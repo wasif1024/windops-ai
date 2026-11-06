@@ -392,15 +392,21 @@ class GetBrandingRequest(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
     TARGET_TENANT_ID_FIELD_NUMBER: _builtins.int
+    INCLUDE_VERIFICATION_TOKEN_FIELD_NUMBER: _builtins.int
     target_tenant_id: _builtins.str
+    include_verification_token: _builtins.bool
+    """Also return the custom domain's proof token, which needs branding.manage. Without it, the
+    domain comes back with no token, so every member of the tenant may read the rest.
+    """
     def __init__(
         self,
         *,
         target_tenant_id: _builtins.str = ...,
+        include_verification_token: _builtins.bool = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["target_tenant_id", b"target_tenant_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["include_verification_token", b"include_verification_token", "target_tenant_id", b"target_tenant_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

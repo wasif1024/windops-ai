@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 3. Next up is M3.12, the exit gate. M3.5 came before M3.4, because Identity asks Authorization before every administrative action.
+**Current position:** Phase 3 is done. Next up is Phase 4, starting with M4.1.
 
 ## How to use this tracker
 
@@ -36,7 +36,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 | - | [Prerequisites](#prerequisites) | 3 | Done |
 | 1 | [Platform foundation](#phase-1-platform-foundation) | 11 | Done |
 | 2 | [Data and events](#phase-2-data-and-events) | 9 | Done |
-| 3 | [Identity and tenancy](#phase-3-identity-and-tenancy) | 12 | In progress |
+| 3 | [Identity and tenancy](#phase-3-identity-and-tenancy) | 12 | Done |
 | 4 | [Assets and telemetry](#phase-4-assets-and-telemetry) | 10 | Not started |
 | 5 | [Alarms, detection and cases](#phase-5-alarms-detection-and-cases) | 7 | Not started |
 | 6 | [Deterministic decisions](#phase-6-deterministic-decisions) | 5 | Not started |
@@ -101,7 +101,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [x] **M3.9 Base administrator console:** users, roles, permissions, MFA status, sessions and access denials (SRS 9.4). Done 2026-11-06, PRs #47, #48 and this one.
 - [x] **M3.10 Platform console:** the Platform Administrator's screens across tenants: list, create and suspend tenants, their branding and domains, and break-glass access, with the Web BFF routes they need (FR-TEN-001, RBAC-003). Added 2026-11-06. Branding stays the tenant's own to change, so the Platform console shows it read-only, and tenant administrators got a Branding tab. Done 2026-11-06, PRs #50 and this one.
 - [x] **M3.11 Security visibility:** Security dashboard, plus `docs/security.md` and `docs/rbac.md`. Done 2026-11-07, with the SRS 10.3 security alerts and `make security-check`.
-- [ ] **M3.12 Exit gate:** cross-tenant and missing-permission tests all fail safely, and administrator MFA is enforced.
+- [x] **M3.12 Exit gate:** cross-tenant and missing-permission tests all fail safely, and administrator MFA is enforced. Done 2026-11-07: `make phase-3-gate` runs a sweep of every Web BFF route and all 17 Phase 3 checks.
 
 ## Phase 4: Assets and telemetry
 

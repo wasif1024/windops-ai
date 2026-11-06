@@ -326,6 +326,19 @@ def test_a_domain_belongs_to_one_tenant_and_the_refusal_names_nobody() -> None:
             timeout=5,
         )
         assert again.custom_domain.verification_token == mine.custom_domain.verification_token
+        # Every member reads the domain, and only those who manage it see its proof.
+        member = await world.stub.GetBranding(
+            tenant_pb2.GetBrandingRequest(), metadata=as_user("u-operator"), timeout=5
+        )
+        assert member.custom_domain.domain == "ops.north-sea.example"
+        assert member.custom_domain.verification_token == ""
+        asked = tenant_pb2.GetBrandingRequest(include_verification_token=True)
+        code = await code_of(
+            world.stub.GetBranding(asked, metadata=as_user("u-operator"), timeout=5)
+        )
+        assert code is grpc.StatusCode.PERMISSION_DENIED
+        manager = await world.stub.GetBranding(asked, metadata=as_user(), timeout=5)
+        assert manager.custom_domain.verification_token == mine.custom_domain.verification_token
         taken = tenant_pb2.SetCustomDomainRequest(domain="ops.north-sea.example")
         code = await code_of(
             world.stub.SetCustomDomain(taken, metadata=as_user("u-atlas-admin", OTHER), timeout=5)

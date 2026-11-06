@@ -365,9 +365,14 @@ def test_a_platform_administrator_lists_only_their_own_active_break_glass() -> N
         )
         mine = await stub.ListMyBreakGlassGrants(listing, metadata=platform, timeout=5)
         assert [grant.tenant_id for grant in mine.grants] == [OTHER]
-        # Another user sees none of them.
-        theirs = await stub.ListMyBreakGlassGrants(listing, metadata=as_user(ADMIN), timeout=5)
-        assert not theirs.grants
+        # Anyone else is refused, rather than shown an empty list, and cannot end one.
+        code = await code_of(
+            stub.ListMyBreakGlassGrants(listing, metadata=as_user(ADMIN), timeout=5)
+        )
+        assert code is grpc.StatusCode.PERMISSION_DENIED
+        end = authorization_pb2.EndBreakGlassRequest(grant_id="any")
+        code = await code_of(stub.EndBreakGlass(end, metadata=as_user(ADMIN), timeout=5))
+        assert code is grpc.StatusCode.PERMISSION_DENIED
 
     with_service(scenario)
 

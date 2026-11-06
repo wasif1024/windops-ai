@@ -105,12 +105,14 @@ Each has `category: security`. Routing by severity and owner arrives in M13.7.
 
 | Check | Proves |
 | --- | --- |
+| `make route-sweep` | Every Web BFF route, from the published OpenAPI document, refuses a caller with no token, an operator, and an administrator without a second factor, as each must. A new route fails until it is given a class |
 | `make identity-check`, `make mfa-check` | The realm's rules, MFA set-up, step-up and recovery codes |
 | `make mtls-check`, `make data-tls-check` | mTLS between services, and TLS on every data store, including a real certificate renewal |
 | `make authorization-check`, `make cross-tenant-check` | Deny by default, scopes, break-glass, and that no API reaches another tenant |
 | `make edge-check`, `make gateway-policy-check`, `make bff-check` | HTTPS, token checks, CORS and rate limits at the edge |
 | `make admin-api-check`, `make platform-api-check`, `make frontend-check` | The consoles, with real sign-ins, step-up and refusals |
 | `make security-check` | Each Security dashboard panel and alert has data behind it, from real refusals |
+| `make phase-3-gate` | All of the above, and the Audit Service's check, in one run of about 40 minutes (SRS 12) |
 
 ## Known limits
 
@@ -120,6 +122,7 @@ Each has `category: security`. Routing by severity and owner arrives in M13.7.
 - **Rate limits are per gateway pod.** With more than one, each counts on its own.
 - **The gateway's certificate is re-sent by hand** after cert-manager renews it: `make gateway-routes`, which `make
   dev` runs.
-- **Custom domains are not proven yet**, and tenants are not served at them.
+- **Custom domains are not proven yet**, and tenants are not served at them. Only those with `branding.manage` see a
+  domain's proof token.
 - **Behind a cloud load balancer**, the gateway must take the client's address from the forwarded header, or the
   per-address limits count the load balancer (Phase 15).

@@ -455,13 +455,7 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
             raise InvalidRequestError("Name the tenant to access")
         target = self._target(identity, request.target_tenant_id)
         user = self._user(identity)
-        async with self._engine.connect() as connection:
-            platform = await active_grants(connection, policy.PLATFORM_TENANT, user)
-        is_platform_admin = identity.tenant_id == policy.PLATFORM_TENANT and any(
-            grant.role == policy.PLATFORM_ADMINISTRATOR for grant in platform
-        )
-        if not is_platform_admin:
-            await self._refuse(identity, "break_glass", "Only a Platform Administrator can do this")
+        await self._require_platform_administrator(identity, user)
         try:
             require_recent_mfa(authentication_claims(identity))
         except MfaRequiredError:
@@ -515,10 +509,23 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
             )
         return response
 
+    async def _require_platform_administrator(self, identity: VerifiedIdentity, user: str) -> None:
+        """Break-glass is only for a Platform Administrator, signed in to the platform tenant."""
+        async with self._engine.connect() as connection:
+            platform = await active_grants(connection, policy.PLATFORM_TENANT, user)
+        if not (
+            identity.tenant_id == policy.PLATFORM_TENANT
+            and any(grant.role == policy.PLATFORM_ADMINISTRATOR for grant in platform)
+        ):
+            await self._refuse(identity, "break_glass", "Only a Platform Administrator can do this")
+
     async def ListMyBreakGlassGrants(  # noqa: N802  # The name comes from the contract.
         self, request: authorization_pb2.ListMyBreakGlassGrantsRequest, context: Any
     ) -> authorization_pb2.ListMyBreakGlassGrantsResponse:
-        user = self._user(current_identity())
+        identity = current_identity()
+        user = self._user(identity)
+        # Nobody else holds any, so anyone else is refused, rather than shown an empty list.
+        await self._require_platform_administrator(identity, user)
         now = _now()
         async with self._engine.begin() as connection:
             # The caller's own grants, wherever they are. Nobody else's can be named here.
@@ -544,6 +551,7 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
     ) -> authorization_pb2.EndBreakGlassResponse:
         identity = current_identity()
         user = self._user(identity)
+        await self._require_platform_administrator(identity, user)
         now = _now()
         async with self._engine.begin() as connection:
             replay = await _replayed(

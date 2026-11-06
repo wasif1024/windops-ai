@@ -16,6 +16,7 @@ flowchart LR
 | Operation | Needs |
 | --- | --- |
 | Read a tenant, its branding, logo or email templates | Being in that tenant, as a user or a service. Another tenant needs `tenant.manage` |
+| Read the custom domain's proof token, with `include_verification_token` | `branding.manage`. Without it, the domain comes back with no token |
 | Change branding, the logo, email templates or the custom domain | `branding.manage`, held by the Tenant Administrator, and a recent second factor |
 | Create, list, suspend or reactivate tenants | `tenant.manage`, held by the Platform Administrator, and a recent second factor |
 

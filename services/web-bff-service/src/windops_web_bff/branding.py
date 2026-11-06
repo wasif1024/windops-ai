@@ -126,7 +126,9 @@ def add_branding_routes(router: APIRouter, caller: Any, call: Call, fail: Any) -
     Who = Annotated[Caller, Depends(caller)]  # noqa: N806  # A type, named as one.
 
     async def current(who: Caller) -> OwnBranding:
-        answer = await call("tenant", "GetBranding", tenant_pb2.GetBrandingRequest(), who)
+        # The proof token too, which the Tenant Service gives only to those with branding.manage.
+        request = tenant_pb2.GetBrandingRequest(include_verification_token=True)
+        answer = await call("tenant", "GetBranding", request, who)
         domain = answer.custom_domain if answer.HasField("custom_domain") else None
         return _branding(answer.branding, domain)
 

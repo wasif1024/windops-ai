@@ -90,7 +90,8 @@ A Platform Administrator reaches a tenant's data only through break-glass, from 
 - for 1 to 240 minutes (60 by default), ending by itself, or earlier by hand,
 - with a second factor from the last 5 minutes,
 - read-only: only `.read` permissions, never a change,
-- every use recorded too (`authorization.break_glass.used`), and an alert when one starts.
+- every use recorded too (`authorization.break_glass.used`), and an alert when one starts,
+- and only a Platform Administrator may start, list or end one: anyone else is refused, and the refusal recorded.
 
 ## Grants are kept
 
