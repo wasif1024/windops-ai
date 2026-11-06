@@ -46,7 +46,8 @@ TENANTS = {"north-sea": "North Sea Wind", "atlas-wind": "Atlas Wind"}
 PLATFORM_TENANT = "windops-platform"
 PLATFORM_ADMIN_EMAIL = f"platform-admin@{PLATFORM_TENANT}.example"
 PLATFORM_ADMIN_KEY = "platform-admin"
-REDIRECT_URIS = ["http://localhost:5173/*", "http://127.0.0.1:5173/*"]
+# The frontend behind the gateway, and Vite's development server.
+REDIRECT_URIS = ["https://localhost:9443/*", "http://localhost:5173/*", "http://127.0.0.1:5173/*"]
 
 
 def realm_settings() -> dict[str, Any]:
@@ -133,7 +134,10 @@ def client_settings() -> dict[str, Any]:
         "fullScopeAllowed": False,
         "redirectUris": REDIRECT_URIS,
         "webOrigins": ["+"],
-        "attributes": {"pkce.code.challenge.method": "S256"},
+        "attributes": {
+            "pkce.code.challenge.method": "S256",
+            "post.logout.redirect.uris": "##".join(REDIRECT_URIS),
+        },
         "protocolMappers": [tenant_mapper(), audience_mapper()],
     }
 

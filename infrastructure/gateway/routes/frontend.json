@@ -1,0 +1,50 @@
+{
+  "uri": "/*",
+  "priority": -100,
+  "methods": [
+    "GET",
+    "HEAD"
+  ],
+  "vars": [
+    [
+      "uri",
+      "!",
+      "~~",
+      "^/(auth|api)(/|$)"
+    ]
+  ],
+  "plugins": {
+    "opentelemetry": {
+      "sampler": {
+        "name": "always_on"
+      }
+    }
+  },
+  "upstream": {
+    "type": "roundrobin",
+    "timeout": {
+      "connect": 2,
+      "send": 10,
+      "read": 10
+    },
+    "nodes": {
+      "windops-frontend.windops-system.svc.cluster.local:8080": 1
+    },
+    "checks": {
+      "active": {
+        "type": "http",
+        "http_path": "/healthz",
+        "healthy": {
+          "interval": 5,
+          "successes": 2
+        },
+        "unhealthy": {
+          "interval": 5,
+          "http_failures": 2,
+          "tcp_failures": 2,
+          "timeouts": 2
+        }
+      }
+    }
+  }
+}
