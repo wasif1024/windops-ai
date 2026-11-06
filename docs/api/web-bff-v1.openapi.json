@@ -107,6 +107,77 @@
         "title": "Me",
         "type": "object"
       },
+      "Permissions": {
+        "description": "For showing the right screens. Every operation is still checked when it runs.",
+        "properties": {
+          "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/ScopedPermission"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/ScopedRole"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "permissions"
+        ],
+        "title": "Permissions",
+        "type": "object"
+      },
+      "ScopedPermission": {
+        "properties": {
+          "permission": {
+            "title": "Permission",
+            "type": "string"
+          },
+          "turbine_id": {
+            "title": "Turbine Id",
+            "type": "string"
+          },
+          "wind_farm_id": {
+            "title": "Wind Farm Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "permission",
+          "wind_farm_id",
+          "turbine_id"
+        ],
+        "title": "ScopedPermission",
+        "type": "object"
+      },
+      "ScopedRole": {
+        "properties": {
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "turbine_id": {
+            "title": "Turbine Id",
+            "type": "string"
+          },
+          "wind_farm_id": {
+            "title": "Wind Farm Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "wind_farm_id",
+          "turbine_id"
+        ],
+        "title": "ScopedRole",
+        "type": "object"
+      },
       "Tenant": {
         "properties": {
           "name": {
@@ -213,6 +284,24 @@
           }
         },
         "summary": "Who is signed in"
+      }
+    },
+    "/api/v1/me/permissions": {
+      "get": {
+        "operationId": "my_permissions_api_v1_me_permissions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Permissions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "What the signed-in user may do, so a screen shows only that"
       }
     },
     "/api/v1/public/branding/{tenant_id}": {

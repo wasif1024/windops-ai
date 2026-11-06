@@ -2,12 +2,14 @@
 
 import asyncio
 import os
+from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
 import grpc
 from opentelemetry import metrics
+from windops.authorization.v1 import authorization_pb2_grpc
 from windops.tenant.v1 import tenant_pb2_grpc
 from windops_cache import connect as redis_connect
 from windops_grpc import ServiceClient, create_channel, run_service
@@ -45,37 +47,54 @@ def main() -> None:
         password=os.environ["WINDOPS_CACHE_PASSWORD"],
         ca_file=ca_file,
     )
-    state: dict[str, Any] = {}
+    clients: dict[str, tuple[Any, ServiceClient]] = {}
+    stubs = {
+        "tenant": (tenant_pb2_grpc.TenantServiceStub, "WINDOPS_TENANT_ADDRESS"),
+        "authorization": (
+            authorization_pb2_grpc.AuthorizationServiceStub,
+            "WINDOPS_AUTHORIZATION_ADDRESS",
+        ),
+    }
 
-    def tenant_client() -> tuple[Any, ServiceClient]:
+    def client_for(service: str) -> tuple[Any, ServiceClient]:
         # The channel must be made on the running event loop.
-        if "stub" not in state:
-            channel = create_channel(os.environ["WINDOPS_TENANT_ADDRESS"], tls)
-            state["stub"] = tenant_pb2_grpc.TenantServiceStub(channel)
+        if service not in clients:
+            stub_type, address = stubs[service]
+            channel = create_channel(os.environ[address], tls)
             breaker = CircuitBreaker(
-                "tenant",
+                service,
                 BreakerConfig(slow_call_seconds=1.0),
                 on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
             )
-            state["client"] = ServiceClient(breaker, identity_token=_outgoing.get)
-        return state["stub"], state["client"]
-
-    async def call_tenant(method: str, request: Any, identity: str) -> Any:
-        stub, client = tenant_client()
-        reset = _outgoing.set(identity)
-        try:
-            return await client.call(
-                getattr(stub, method), request, idempotent=True, deadline_seconds=DEADLINE_SECONDS
+            clients[service] = (
+                stub_type(channel),
+                ServiceClient(breaker, identity_token=_outgoing.get),
             )
-        finally:
-            _outgoing.reset(reset)
+        return clients[service]
+
+    def caller_for(service: str) -> Callable[[str, Any, str], Awaitable[Any]]:
+        async def call(method: str, request: Any, identity: str) -> Any:
+            stub, client = client_for(service)
+            reset = _outgoing.set(identity)
+            try:
+                return await client.call(
+                    getattr(stub, method),
+                    request,
+                    idempotent=True,
+                    deadline_seconds=DEADLINE_SECONDS,
+                )
+            finally:
+                _outgoing.reset(reset)
+
+        return call
 
     router = create_router(
         Dependencies(
             verifier=verifier,
             limiter=RateLimiter(redis),
             identity_secret=os.environ["WINDOPS_IDENTITY_SECRET"],
-            tenant=call_tenant,
+            tenant=caller_for("tenant"),
+            authorization=caller_for("authorization"),
         )
     )
     asyncio.run(

@@ -70,6 +70,14 @@ def check_calls(token: str, realm: Realm) -> None:
         tenant.status_code == 200 and tenant.json()["tenant_id"] == TENANT,
         "It calls the Tenant Service as that user, over mTLS",
     )
+    mine = get("/me/permissions", token).json()
+    names = {item["permission"] for item in mine["permissions"]}
+    check(
+        [role["role"] for role in mine["roles"]] == ["control-room-operator"]
+        and "alarm.acknowledge" in names
+        and "users.manage" not in names,
+        "The operator sees their own role and permissions, and nothing an administrator has",
+    )
     branding = get("/branding", token)
     check(branding.json()["tenant_id"] == TENANT, "and gets that tenant's branding")
     other = sign_in(realm, OTHER)

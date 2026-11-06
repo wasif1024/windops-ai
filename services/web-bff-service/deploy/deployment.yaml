@@ -67,6 +67,8 @@ spec:
               value: https://windops-keycloak.windops-system.svc.cluster.local:8443/auth/realms/windops/protocol/openid-connect/certs
             - name: WINDOPS_TENANT_ADDRESS
               value: windops-tenant.windops-system.svc.cluster.local:50051
+            - name: WINDOPS_AUTHORIZATION_ADDRESS
+              value: windops-authorization.windops-system.svc.cluster.local:50051
             - name: WINDOPS_CACHE_HOST
               valueFrom:
                 secretKeyRef:
