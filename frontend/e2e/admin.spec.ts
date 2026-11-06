@@ -1,14 +1,12 @@
 // A Tenant Administrator uses the console in a real browser, through the gateway and Keycloak,
 // at desktop size and at phone size (SRS 9.4, UX-001). make frontend-check sets up each one's
 // authenticator first, and deletes every user afterwards.
-import { createHmac } from "node:crypto";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { noSidewaysScroll, openScreen, signIn, stepUp } from "./helpers";
 
 const password = process.env.ADMIN_PASSWORD ?? "";
 const operator = process.env.OPERATOR_EMAIL ?? "";
 const tenant = process.env.TENANT ?? "north-sea";
-const enrolledAt = Number(process.env.ENROLLED_AT ?? "0");
-const PERIOD = 30;
 
 function account(project: string) {
   const upper = project.toUpperCase();
@@ -19,44 +17,6 @@ function account(project: string) {
   };
 }
 
-function base32(text: string): Buffer {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  let bits = "";
-  for (const letter of text.replace(/[\s=]/g, "").toUpperCase()) {
-    bits += alphabet.indexOf(letter).toString(2).padStart(5, "0");
-  }
-  const bytes = bits.match(/.{8}/g) ?? [];
-  return Buffer.from(bytes.map((byte) => parseInt(byte, 2)));
-}
-
-/** The code an authenticator app shows now (RFC 6238), with the realm's SHA-256. */
-function code(key: string, seconds: number): string {
-  const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(seconds / PERIOD)));
-  const digest = createHmac("sha256", base32(key)).update(counter).digest();
-  const start = (digest[digest.length - 1] ?? 0) & 15;
-  return String((digest.readUInt32BE(start) & 0x7fffffff) % 1_000_000).padStart(6, "0");
-}
-
-/** A code from a later window than setup used, since Keycloak accepts each code once. */
-async function freshCode(key: string): Promise<string> {
-  const used = Math.floor(enrolledAt / PERIOD);
-  while (Math.floor(Date.now() / 1000 / PERIOD) <= used) await new Promise((done) => setTimeout(done, 1000));
-  return code(key, Date.now() / 1000);
-}
-
-async function noSidewaysScroll(page: Page) {
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  expect(overflow, "the page must not scroll sideways").toBeLessThanOrEqual(0);
-}
-
-async function openAdministration(page: Page, isMobile: boolean) {
-  if (isMobile) await page.getByRole("button", { name: "Open the menu" }).click();
-  const menu = isMobile ? page.getByRole("dialog", { name: "Screens" }) : page.getByRole("navigation", { name: "Screens" });
-  await menu.getByRole("link", { name: "Administration" }).click();
-  await expect(page.getByRole("heading", { name: "Administration" })).toBeVisible();
-}
-
 test.describe.configure({ mode: "serial" });
 
 test("a Tenant Administrator manages users, roles and permissions, with step-up", async ({ page, isMobile }) => {
@@ -64,16 +24,11 @@ test("a Tenant Administrator manages users, roles and permissions, with step-up"
   expect(me.email && me.key && password, "make frontend-check passes each administrator").toBeTruthy();
 
   await page.goto(`/?tenant=${tenant}`);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL(/\/auth\/realms\/windops\//);
-  await page.locator("#username").fill(me.email);
-  await page.locator("#password").fill(password);
-  await page.locator("#kc-login").click();
-  await expect(page.getByTestId("tenant-name")).toBeVisible();
+  await signIn(page, me.email, password);
 
-  await openAdministration(page, isMobile);
+  await openScreen(page, isMobile, "Administration");
   const tabs = page.getByRole("navigation", { name: "Administration" });
-  await expect(tabs.getByRole("link")).toHaveText(["Users", "Role permissions", "Access denials"]);
+  await expect(tabs.getByRole("link")).toHaveText(["Users", "Role permissions", "Access denials", "Branding"]);
   const users = page.getByRole("list", { name: "Users" });
   await expect(users.getByRole("link", { name: operator })).toBeVisible();
   await noSidewaysScroll(page);
@@ -96,21 +51,19 @@ test("a Tenant Administrator manages users, roles and permissions, with step-up"
   await tabs.getByRole("link", { name: "Users" }).click();
   await page.getByLabel("Email").fill(me.added);
   await page.getByRole("button", { name: "Add user" }).click();
-  const stepUp = page.getByRole("alert").filter({ hasText: "needs your second factor" });
-  await expect(stepUp).toBeVisible();
+  const prompt = page.getByRole("alert").filter({ hasText: "needs your second factor" });
+  await expect(prompt).toBeVisible();
   await noSidewaysScroll(page);
   if (isMobile) {
     // On a phone, the prompt can be put off. The desktop journey goes on to verify.
-    await stepUp.getByRole("button", { name: "Not now" }).click();
-    await expect(stepUp).toHaveCount(0);
+    await prompt.getByRole("button", { name: "Not now" }).click();
+    await expect(prompt).toHaveCount(0);
+    await tabs.getByRole("link", { name: "Branding" }).click();
+    await expect(page.getByRole("region", { name: "Look and sign-in page" })).toBeVisible();
+    await noSidewaysScroll(page);
     return;
   }
-  await stepUp.getByRole("button", { name: "Verify now" }).click();
-  await page.waitForURL(/\/auth\/realms\/windops\//);
-  // The session already has the password, so Keycloak asks only for a code (SEC-003).
-  await expect(page.locator("#password")).toHaveCount(0);
-  await page.locator("#otp").fill(await freshCode(me.key));
-  await page.locator("#kc-login").click();
+  await stepUp(page, me.key);
   await expect(page.getByRole("heading", { name: "Administration" })).toBeVisible();
   expect(new URL(page.url()).searchParams.get("tab")).toBe("users");
 
@@ -139,4 +92,25 @@ test("a Tenant Administrator manages users, roles and permissions, with step-up"
   await expect(page.getByTestId("user-status")).toHaveText("Active");
   await noSidewaysScroll(page);
   await page.screenshot({ path: test.info().outputPath("user.png"), fullPage: true });
+
+  // The tenant's own branding (SRS 9.4). Saving it unchanged, and a domain set then removed,
+  // leave the demo tenant as it was.
+  await tabs.getByRole("link", { name: "Branding" }).click();
+  const look = page.getByRole("region", { name: "Look and sign-in page" });
+  await look.getByRole("button", { name: "Save branding" }).click();
+  await expect(look.getByRole("status")).toHaveText(/Saved/);
+  const emails = page.getByRole("region", { name: "Emails" });
+  await expect(emails.getByRole("button", { name: "Save this email" })).toHaveCount(3);
+  const domain = page.getByRole("region", { name: "Custom domain" });
+  // One left by a run that stopped part way is removed first.
+  if (await domain.getByRole("button", { name: "Remove domain" }).isVisible()) {
+    await domain.getByRole("button", { name: "Remove domain" }).click();
+  }
+  await domain.getByLabel(/Domain, such as/).fill(me.added.replace(/^[^@]+@/, "ops."));
+  await domain.getByRole("button", { name: "Set domain" }).click();
+  await expect(page.getByTestId("domain-token")).not.toBeEmpty();
+  await domain.getByRole("button", { name: "Remove domain" }).click();
+  await expect(domain.getByRole("button", { name: "Set domain" })).toBeVisible();
+  await noSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath("branding.png"), fullPage: true });
 });

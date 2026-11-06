@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { ApiError } from "../../api/client";
+import { ApiError } from "./client";
 import { messageFor, useChange } from "./useChange";
 
 const problem = (code: string, status = 503) => new ApiError({ title: "x", status, code });

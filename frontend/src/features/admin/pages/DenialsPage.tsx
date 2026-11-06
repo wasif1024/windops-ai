@@ -1,8 +1,8 @@
 import { useCallback } from "react";
 import { Button } from "../../../components/Button";
 import type { AccessDenial, AdminApi } from "../api";
-import { Loading, Panel, when } from "../components/Panel";
-import { useLoad } from "../useLoad";
+import { Loading, Panel, when } from "../../../components/Panel";
+import { useLoad } from "../../../api/useLoad";
 
 // The trail is read oldest first, so this many pages are read to show the newest at the top.
 const MAXIMUM_PAGES = 10;

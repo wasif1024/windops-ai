@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { adminApi } from "../api";
-import { useLoad } from "../useLoad";
+import { useLoad } from "../../../api/useLoad";
+import { BrandingPage } from "./BrandingPage";
 import { DenialsPage } from "./DenialsPage";
 import { RolesPage } from "./RolesPage";
 import { UserPage } from "./UserPage";
@@ -18,6 +19,7 @@ export const TABS: Tab[] = [
   { id: "users", title: "Users", needs: "users.manage" },
   { id: "roles", title: "Role permissions", needs: "permissions.manage" },
   { id: "denials", title: "Access denials", needs: "audit.read" },
+  { id: "branding", title: "Branding", needs: "branding.manage" },
 ];
 
 export function visibleTabs(held: ReadonlySet<string>): Tab[] {
@@ -75,6 +77,7 @@ export function AdminPage({ token, held }: { token: string; held: ReadonlySet<st
           ))}
         {tab.id === "roles" && <RolesPage api={api} />}
         {tab.id === "denials" && <DenialsPage api={api} emails={emails} />}
+        {tab.id === "branding" && <BrandingPage api={api} />}
       </div>
     </section>
   );

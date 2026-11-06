@@ -2,10 +2,10 @@ import { type FormEvent, useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "../../../components/Button";
 import type { AdminApi, CreatedUser, User } from "../api";
-import { ChangeStatus } from "../components/ChangeStatus";
-import { INPUT, LABEL, Loading, Panel } from "../components/Panel";
-import { useChange } from "../useChange";
-import { useLoad } from "../useLoad";
+import { ChangeStatus } from "../../../components/ChangeStatus";
+import { INPUT, LABEL, Loading, Panel } from "../../../components/Panel";
+import { useChange } from "../../../api/useChange";
+import { useLoad } from "../../../api/useLoad";
 
 // The same simple check Identity makes, so most mistakes are caught before a round trip.
 const EMAIL = /^[^@\s]{1,64}@[a-z0-9.-]{1,190}\.[a-z]{2,24}$/;

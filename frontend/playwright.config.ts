@@ -4,8 +4,9 @@ const spki = process.env.GATEWAY_SPKI ?? "";
 
 export default defineConfig({
   testDir: "e2e",
-  // Waiting for a fresh authenticator code can take 30 seconds.
-  timeout: 120_000,
+  // A fresh authenticator code can take 30 seconds, and a sign-in over the gateway's limit waits a
+  // minute (helpers.ts).
+  timeout: 240_000,
   retries: 0,
   // One at a time: the gateway allows 5 sign-ins a minute from one address (SRS 7.5), and this
   // stays within it.

@@ -1,6 +1,6 @@
-import { useAuth } from "../../../auth/auth";
-import { Button } from "../../../components/Button";
-import type { ChangeState } from "../useChange";
+import { useAuth } from "../auth/auth";
+import { Button } from "./Button";
+import type { ChangeState } from "../api/useChange";
 
 /** Verify with a second factor, then come back to this page, where the change can be made again. */
 function StepUp({ onDismiss }: { onDismiss: () => void }) {

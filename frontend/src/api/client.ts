@@ -75,7 +75,7 @@ export function newIdempotencyKey(): string {
 
 /** Send a change. The same key must go with every resend of the same change. */
 export async function sendJson<T>(
-  method: "POST" | "PUT",
+  method: "POST" | "PUT" | "DELETE",
   path: string,
   token: string,
   key: string,
@@ -93,6 +93,30 @@ export async function sendJson<T>(
     headers,
     credentials: "omit",
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!response.ok) throw new ApiError(await problemOf(response));
+  // A removal answers 204, with no body.
+  return (response.status === 204 ? undefined : await response.json()) as T;
+}
+
+/** Send a file as the body, such as a logo, with its own media type. */
+export async function sendFile<T>(
+  path: string,
+  token: string,
+  key: string,
+  file: Blob,
+  fetcher: typeof fetch = fetch,
+): Promise<T> {
+  const response = await fetcher(`${API}${path}`, {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+      "Idempotency-Key": key,
+      "Content-Type": file.type,
+    },
+    credentials: "omit",
+    body: file,
   });
   if (!response.ok) throw new ApiError(await problemOf(response));
   return (await response.json()) as T;

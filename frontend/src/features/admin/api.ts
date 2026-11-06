@@ -1,5 +1,5 @@
 // The administrator console's calls to Web BFF (SRS 9.4). The services decide every one.
-import { getJson, sendJson } from "../../api/client";
+import { getJson, sendFile, sendJson } from "../../api/client";
 
 export interface User {
   member_id: string;
@@ -66,6 +66,40 @@ export interface AccessDenials {
   next_page_token: string;
 }
 
+export interface CustomDomain {
+  domain: string;
+  /** "pending" until it is proven, which a later module adds. */
+  status: string;
+  /** To publish in a DNS TXT record, as proof of control. */
+  verification_token: string;
+  created_at: string | null;
+}
+
+export interface BrandingFields {
+  display_name: string;
+  primary_color: string;
+  accent_color: string;
+  login_title: string;
+  login_message: string;
+  time_zone: string;
+  locale: string;
+}
+
+export interface OwnBranding extends BrandingFields {
+  tenant_id: string;
+  has_logo: boolean;
+  updated_at: string | null;
+  custom_domain: CustomDomain | null;
+}
+
+export interface EmailTemplate {
+  template: string;
+  subject: string;
+  body: string;
+  customized: boolean;
+  placeholders: string[];
+}
+
 const user = (id: string) => `/admin/users/${encodeURIComponent(id)}`;
 
 /** Every call, bound to the signed-in user's token. */
@@ -97,6 +131,19 @@ export function adminApi(token: string) {
       sendJson<RolePermissions>("PUT", `/admin/roles/${encodeURIComponent(role)}/permissions`, token, key, {
         permissions,
       }),
+    branding: () => getJson<OwnBranding>("/admin/branding", token),
+    updateBranding: (key: string, fields: BrandingFields) =>
+      sendJson<OwnBranding>("PUT", "/admin/branding", token, key, fields),
+    setLogo: (key: string, file: File) => sendFile<OwnBranding>("/admin/branding/logo", token, key, file),
+    templates: () => getJson<{ templates: EmailTemplate[] }>("/admin/email-templates", token),
+    setTemplate: (key: string, template: string, subject: string, body: string) =>
+      sendJson<EmailTemplate>("PUT", `/admin/email-templates/${encodeURIComponent(template)}`, token, key, {
+        subject,
+        body,
+      }),
+    setDomain: (key: string, domain: string) =>
+      sendJson<CustomDomain>("PUT", "/admin/custom-domain", token, key, { domain }),
+    removeDomain: (key: string) => sendJson<undefined>("DELETE", "/admin/custom-domain", token, key),
     denials: (pageToken = "") =>
       getJson<AccessDenials>(
         `/admin/access-denials?page_size=100&page_token=${encodeURIComponent(pageToken)}`,
