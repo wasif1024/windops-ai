@@ -20,6 +20,7 @@ members = [
     "windops-resilience",
     "windops-sample-caller",
     "windops-sample-responder",
+    "windops-simulator",
     "windops-tenant",
     "windops-web-bff",
 ]
@@ -1353,6 +1354,7 @@ dev = [
     { name = "windops-resilience" },
     { name = "windops-sample-caller" },
     { name = "windops-sample-responder" },
+    { name = "windops-simulator" },
     { name = "windops-tenant" },
     { name = "windops-web-bff" },
 ]
@@ -1390,6 +1392,7 @@ dev = [
     { name = "windops-resilience", editable = "shared/resilience" },
     { name = "windops-sample-caller", editable = "services/sample-caller-service" },
     { name = "windops-sample-responder", editable = "services/sample-responder-service" },
+    { name = "windops-simulator", editable = "simulator" },
     { name = "windops-tenant", editable = "services/tenant-service" },
     { name = "windops-web-bff", editable = "services/web-bff-service" },
 ]
@@ -1686,6 +1689,11 @@ requires-dist = [
     { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-grpc", editable = "shared/grpc" },
 ]
+
+[[package]]
+name = "windops-simulator"
+version = "0.1.0"
+source = { editable = "simulator" }
 
 [[package]]
 name = "windops-tenant"

@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 4. Next up is M4.2.
+**Current position:** Phase 4. Next up is M4.3.
 
 ## How to use this tracker
 
@@ -106,7 +106,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 ## Phase 4: Assets and telemetry
 
 - [x] **M4.1 Asset Service:** wind farms, turbines, coordinates, status and component hierarchy (FR-AST-001, FR-AST-002). Done 2026-11-07, with synthetic demo assets (`make asset-seed`).
-- [ ] **M4.2 Simulator core:** seeded, versioned physical models, with all data marked synthetic (SIM-001, SIM-003, SIM-006).
+- [x] **M4.2 Simulator core:** seeded, versioned physical models, with all data marked synthetic (SIM-001, SIM-003, SIM-006). Done 2026-11-07, as the `windops-simulator` package. Sending samples, from its own workload, comes with M4.4.
 - [ ] **M4.3 Fault scenarios:** the six starting profiles, injected data problems and hidden ground truth (SIM-002, SIM-004, SIM-005).
 - [ ] **M4.4 Telemetry ingestion:** authenticated device route and required metadata (FR-TEL-001, FR-TEL-002, FR-TEL-005, API-004).
 - [ ] **M4.5 Telemetry storage:** PostgreSQL time partitions and summaries, with the SRS 8.3 rates and retention (FR-TEL-004).

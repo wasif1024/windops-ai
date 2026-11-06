@@ -18,3 +18,4 @@ tests
 !README.md
 !shared/*/README.md
 !services/*/README.md
+!simulator/README.md

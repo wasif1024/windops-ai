@@ -1,5 +1,6 @@
 """Per-user rate limits from SRS 7.5, counted in Redis. They fail closed (SRS 7.7)."""
 
+import math
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -54,5 +55,7 @@ class RateLimiter:
                 await self._redis.expire(key, WINDOW_SECONDS * 2)
         except Exception as error:
             raise LimitUnavailableError(type(error).__name__) from error
-        reset = int(WINDOW_SECONDS - now % WINDOW_SECONDS)
+        # Rounded up, and at least a second: rounded down, the last moment of a window would say
+        # retry after 0 seconds to a client that is still over its limit.
+        reset = max(1, math.ceil(WINDOW_SECONDS - now % WINDOW_SECONDS))
         return Decision(count <= limit, limit, max(limit - count, 0), reset)
