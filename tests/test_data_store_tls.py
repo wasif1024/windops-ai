@@ -2,7 +2,6 @@
 
 import json
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +12,6 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "infrastructure" / "data"
 STORES = ("postgres", "redis", "qdrant", "nats")
 TLS = "/var/run/windops/tls"
-sys.path.insert(0, str(ROOT / "scripts"))
 
 
 def rendered(directory: Path) -> list[dict[str, Any]]:
@@ -72,7 +70,7 @@ def test_qdrant_turns_on_tls_and_its_probes_use_it() -> None:
 
 
 def test_nats_requires_tls_and_services_are_given_a_tls_address() -> None:
-    from nats_access import EVENT_SERVICES, URL, configuration
+    from scripts.setup.nats_access import EVENT_SERVICES, URL, configuration
 
     config = json.loads(configuration(dict.fromkeys(["admin", *EVENT_SERVICES], "x")))
     assert config["tls"] == {"cert_file": f"{TLS}/tls.crt", "key_file": f"{TLS}/tls.key"}

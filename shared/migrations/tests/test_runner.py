@@ -33,7 +33,7 @@ def settings(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def service_package(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     """A package with the same migrations directory the service template creates."""
-    source = ROOT / "scripts" / "service_database_template" / "src" / "migrations"
+    source = ROOT / "scripts" / "dev" / "service_database_template" / "src" / "migrations"
     target = tmp_path / "probe_package" / "migrations"
     (target / "versions").mkdir(parents=True)
     (tmp_path / "probe_package" / "__init__.py").touch()

@@ -15,7 +15,7 @@ administrator password.
 
 ## Add a service
 
-1. Add it to `SERVICE_NAMESPACES` in `scripts/provision_postgres.py`.
+1. Add it to `SERVICE_NAMESPACES` in `scripts/setup/provision_postgres.py`.
 2. Run `make secrets`, then `make postgres-provision`.
 
 Both commands are safe to repeat, and keep existing passwords and data.

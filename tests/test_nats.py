@@ -3,7 +3,6 @@
 import json
 import re
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -11,10 +10,9 @@ import pytest
 import yaml
 from windops_events import SUBJECTS
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from local_secrets import nats_secrets
-from nats_access import EVENT_SERVICES, PUBLISHERS, configuration
-from provision_postgres import ADMIN_KEY, SERVICE_NAMESPACES, database_name
+from scripts.setup.local_secrets import nats_secrets
+from scripts.setup.nats_access import EVENT_SERVICES, PUBLISHERS, configuration
+from scripts.setup.provision_postgres import ADMIN_KEY, SERVICE_NAMESPACES, database_name
 
 ROOT = Path(__file__).resolve().parent.parent
 STACK = ROOT / "infrastructure" / "kubernetes" / "base" / "data"

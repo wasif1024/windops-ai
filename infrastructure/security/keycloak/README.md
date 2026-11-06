@@ -66,7 +66,7 @@ stop an administrator using a password-level token. Services must call
 `mfa` on refreshed tokens after the limit.
 
 Time-based codes use SHA-256, which some authenticator apps ignore, silently producing wrong codes. If codes are
-refused, change `otpPolicyAlgorithm` in `scripts/identity_seed.py` to `HmacSHA1`.
+refused, change `otpPolicyAlgorithm` in `scripts/setup/identity_seed.py` to `HmacSHA1`.
 
 If an administrator loses both their authenticator and recovery codes, another administrator removes their second
 factor in the admin console and sets the required actions again.

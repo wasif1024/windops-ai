@@ -1,6 +1,5 @@
 """Hold every service's migrations to DAT-001 and DAT-002."""
 
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -10,10 +9,9 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from windops_migrations import find_violations
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from new_service import create_service, template_values
-from provision_postgres import SERVICE_NAMESPACES
-from run_migrations import job_manifests
+from scripts.dev.new_service import create_service, template_values
+from scripts.setup.provision_postgres import SERVICE_NAMESPACES
+from scripts.setup.run_migrations import job_manifests
 
 ROOT = Path(__file__).resolve().parent.parent
 REVISIONS = sorted(ROOT.glob("services/*/src/*/migrations/versions/rev_*.py"))

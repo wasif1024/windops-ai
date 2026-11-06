@@ -313,7 +313,7 @@ def test_microservice_health_has_the_srs_indicators() -> None:
 
 
 def test_service_template_opts_in_to_scraping() -> None:
-    template = ROOT / "scripts" / "service_template" / "deploy" / "deployment.yaml.tmpl"
+    template = ROOT / "scripts" / "dev" / "service_template" / "deploy" / "deployment.yaml.tmpl"
     text = template.read_text()
     assert 'prometheus.io/scrape: "true"' in text
     assert 'prometheus.io/port: "8080"' in text

@@ -20,7 +20,7 @@ a limit, its oldest messages are removed. JetStream is not a system of record (S
 Each service has a login, in the Secret `windops-<service>-events` in its namespace, with the keys `url`,
 `username` and `password`.
 
-- A service can publish only the subjects it owns, as listed in `PUBLISHERS` in `scripts/nats_access.py`.
+- A service can publish only the subjects it owns, as listed in `PUBLISHERS` in `scripts/setup/nats_access.py`.
   Only Approval can publish `approval.decided`, for example.
 - A service that stores data can ask for audit records only on `audit.requested.<its own name>`.
 - Any service can create consumers and read events, because events hold identifiers, not evidence.
@@ -28,7 +28,7 @@ Each service has a login, in the Secret `windops-<service>-events` in its namesp
 
 ## Add a service or subject
 
-1. Update `scripts/nats_access.py`, and `shared/events` for a new subject.
+1. Update `scripts/setup/nats_access.py`, and `shared/events` for a new subject.
 2. Run `make secrets`.
 3. Run `kubectl --context windops --namespace windops-data rollout restart statefulset/windops-nats`.
    Stored events survive this.

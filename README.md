@@ -42,7 +42,7 @@ agents and how each kind of service relates to them.
 [![Architecture diagram. Users reach a React frontend, API Gateway and Web BFF. Agent Runtime runs the Supervisor and five specialist agents, which use MCP servers to call 23 gRPC services in total. Services exchange durable events over NATS JetStream, store data in PostgreSQL, Redis and Qdrant, and use external providers including Claude, Tavily and Open-Meteo.](docs/assets/architecture.png)](docs/assets/architecture.png)
 
 This is the target design from the SRS. To update either visual, edit and run
-`scripts/generate_readme_visuals.py`.
+`scripts/generate/readme_visuals.py`.
 
 [Service map](docs/service-map.md) shows how all 23 services connect, and what happens when a circuit
 breaker opens.
@@ -115,9 +115,9 @@ make help      # list every command
 One command runs the backend and the frontend together, so you can watch the screens as they are built:
 
 ```bash
-make dev                    # or scripts/dev.sh
-scripts/dev.sh --rebuild    # after pulling backend changes
-scripts/dev.sh --trust-ca   # macOS, once: trust the cluster's local CA, so the browser shows no warning
+make dev                       # or scripts/dev/dev.sh
+scripts/dev/dev.sh --rebuild   # after pulling backend changes
+scripts/dev/dev.sh --trust-ca  # macOS, once: trust the cluster's local CA, so the browser shows no warning
 ```
 
 It needs Docker Desktop, Minikube, kubectl, uv, Node.js 24 and Make, and says how to install any that are missing.
@@ -189,4 +189,4 @@ request, a chat or `.env.example`, which shows which module needs each key.
 | `infrastructure/` | Docker, Kubernetes, Minikube and observability configuration |
 | `docs/` | SRS, design documents and architecture decision records |
 | `tests/` | Cross-service tests |
-| `scripts/` | Developer scripts |
+| `scripts/` | The commands behind `make`, by role: setup, checks by phase, gates, dev tools and generators. See [scripts/README.md](scripts/README.md) |

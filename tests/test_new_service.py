@@ -1,6 +1,5 @@
 """Check the service generator and the manifests it creates."""
 
-import sys
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -8,8 +7,7 @@ from typing import Any
 import pytest
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from new_service import (
+from scripts.dev.new_service import (
     ScaffoldError,
     add_workspace_member,
     create_service,

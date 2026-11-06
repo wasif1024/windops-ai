@@ -2,17 +2,15 @@
 
 import json
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from local_secrets import redis_secrets
-from provision_postgres import ADMIN_KEY, SERVICE_NAMESPACES, database_name
-from redis_access import CACHE_SERVICES, acl_file
+from scripts.setup.local_secrets import redis_secrets
+from scripts.setup.provision_postgres import ADMIN_KEY, SERVICE_NAMESPACES, database_name
+from scripts.setup.redis_access import CACHE_SERVICES, acl_file
 
 ROOT = Path(__file__).resolve().parent.parent
 STACK = ROOT / "infrastructure" / "kubernetes" / "base" / "data"

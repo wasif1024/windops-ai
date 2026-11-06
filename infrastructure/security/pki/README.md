@@ -50,7 +50,7 @@ Migration Jobs and Keycloak are not gRPC services, so they mount only the CA, fr
 
 ## From your machine
 
-Checks reach a service using `scripts/tls_client.py`, which requests a client certificate named
+Checks reach a service using `scripts/lib/tls_client.py`, which requests a client certificate named
 `windops-check-client`.
 
 ## Limits

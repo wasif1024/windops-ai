@@ -2,15 +2,14 @@
 
 import json
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
+from windops_auth import LEVEL_MFA, LEVEL_PASSWORD
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from identity_seed import (
+from scripts.setup.identity_seed import (
     ADMIN_REQUIRED_ACTIONS,
     TENANTS,
     admin_client_settings,
@@ -22,9 +21,13 @@ from identity_seed import (
     strong_password,
     tenant_mapper,
 )
-from local_secrets import LOCAL_SECRETS, postgres_secrets
-from provision_postgres import ADMIN_KEY, PLATFORM_DATABASES, SERVICE_NAMESPACES, provisioning_sql
-from windops_auth import LEVEL_MFA, LEVEL_PASSWORD
+from scripts.setup.local_secrets import LOCAL_SECRETS, postgres_secrets
+from scripts.setup.provision_postgres import (
+    ADMIN_KEY,
+    PLATFORM_DATABASES,
+    SERVICE_NAMESPACES,
+    provisioning_sql,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 STACK = ROOT / "infrastructure" / "security" / "keycloak"
@@ -162,7 +165,7 @@ def test_the_tenant_claim_comes_from_the_organization() -> None:
 
 def test_the_seed_makes_a_tenant_part_of_every_login() -> None:
     """Keycloak adds a tenant only with this scope, which is optional by default (SEC-005)."""
-    source = (ROOT / "scripts" / "identity_seed.py").read_text()
+    source = (ROOT / "scripts" / "setup" / "identity_seed.py").read_text()
     assert 'ORGANIZATION_SCOPE = "organization"' in source
     assert "default-client-scopes/" in source
     assert "ensure_organization_scope(api, " in source
@@ -194,7 +197,7 @@ def test_tokens_name_their_level() -> None:
 
 
 def test_the_login_flow_keeps_keycloak_and_services_on_one_time_limit() -> None:
-    source = (ROOT / "scripts" / "identity_seed.py").read_text()
+    source = (ROOT / "scripts" / "setup" / "identity_seed.py").read_text()
     assert "add_level(api, second, 2, MFA_LEVEL_SECONDS)" in source
     assert "from windops_auth import" in source
 
@@ -230,7 +233,7 @@ def test_only_a_missing_demo_password_is_made() -> None:
 
 
 def test_demo_passwords_are_not_written_to_a_file() -> None:
-    source = (ROOT / "scripts" / "identity_seed.py").read_text()
+    source = (ROOT / "scripts" / "setup" / "identity_seed.py").read_text()
     assert "secrets.local.identity" not in source
     assert "DEMO_USERS_RESOURCE" in source
 

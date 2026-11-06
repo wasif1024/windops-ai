@@ -1,10 +1,6 @@
 """The published OpenAPI document matches the code, so a change to the API shows in review."""
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from export_openapi import DOCUMENT, generated
+from scripts.generate.openapi import DOCUMENT, generated
 
 
 def test_the_published_document_matches_the_code() -> None:
