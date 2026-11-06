@@ -128,7 +128,7 @@ Then it:
 2. starts the Minikube cluster if it is stopped,
 3. the first time, deploys everything and seeds the demo tenants and users, which takes a while,
 4. runs the gateway at https://localhost:9443 and the Vite dev server at http://localhost:5173, and prints the URLs
-   and the demo sign-ins.
+   and the demo users. `make demo-logins` shows their passwords.
 
 | Open | What it is |
 | --- | --- |

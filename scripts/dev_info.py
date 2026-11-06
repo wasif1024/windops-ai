@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""What scripts/dev.sh needs from the cluster: the CA certificate, and the demo sign-ins.
+"""What scripts/dev.sh needs from the cluster: the CA certificate, and the demo users.
 
 python scripts/dev_info.py ca       # write the cluster's CA certificate, and print its path
-python scripts/dev_info.py logins   # print the demo users' emails and passwords
+python scripts/dev_info.py logins   # print the demo users' emails; make demo-logins has passwords
 """
 
 import sys
@@ -20,21 +20,15 @@ from tls_client import authority_file
 
 
 def logins() -> list[tuple[str, str, str]]:
-    """Return (who, email, password) for each demo user. These exist only on a local cluster."""
-    passwords = read_demo_passwords()
+    """Return (who, email, password key) for each demo user, which exist only on a local cluster.
+
+    The key names the user's entry in `make demo-logins`. Passwords are never printed from here.
+    """
     found = []
     for alias in TENANTS:
-        found.append((f"{alias} operator", demo_email(alias), passwords.get(alias, "")))
-        found.append(
-            (
-                f"{alias} administrator",
-                demo_admin_email(alias),
-                passwords.get(demo_admin_key(alias), ""),
-            )
-        )
-    found.append(
-        ("Platform Administrator", PLATFORM_ADMIN_EMAIL, passwords.get(PLATFORM_ADMIN_KEY, ""))
-    )
+        found.append((f"{alias} operator", demo_email(alias), alias))
+        found.append((f"{alias} administrator", demo_admin_email(alias), demo_admin_key(alias)))
+    found.append(("Platform Administrator", PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_KEY))
     return found
 
 
@@ -45,11 +39,13 @@ def main() -> int:
         return 0
     if command == "logins":
         rows = logins()
+        if not read_demo_passwords():
+            print("  None yet: run make identity-seed")
+            return 0
         who_width = max(len(who) for who, _, _ in rows)
         email_width = max(len(email) for _, email, _ in rows)
-        for who, email, password in rows:
-            shown = password or "(run make identity-seed)"
-            print(f"  {who:<{who_width}}  {email:<{email_width}}  {shown}")
+        for who, email, key in rows:
+            print(f"  {who:<{who_width}}  {email:<{email_width}}  ({key})")
         return 0
     print(__doc__, file=sys.stderr)
     return 2

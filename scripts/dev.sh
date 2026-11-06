@@ -200,7 +200,8 @@ $(printf '\033[1m')WindOps is running.$(printf '\033[0m')
   As deployed             https://localhost:$GATEWAY_PORT/?tenant=north-sea
   Grafana                 make observability-forward, then http://127.0.0.1:3000
 
-Demo sign-ins (local only). Administrators set up an authenticator app at their first sign-in:
+Demo users (local only). See their passwords with: make demo-logins
+Administrators set up an authenticator app at their first sign-in.
 $(PYTHONPATH=scripts uv run --quiet python scripts/dev_info.py logins)
 
 Sign-in goes to Keycloak at https://localhost:$GATEWAY_PORT. Unless you ran with --trust-ca, the
