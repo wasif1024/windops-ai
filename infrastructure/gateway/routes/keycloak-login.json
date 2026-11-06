@@ -10,6 +10,7 @@
         "name": "always_on"
       }
     },
+    "prometheus": {},
     "limit-count": {
       "count": 5,
       "time_window": 60,

@@ -60,3 +60,41 @@ groups:
           severity: critical
         annotations:
           summary: "A data store in windops-data has no ready replica"
+  # SRS 10.3: suspicious authorization failures and security-relevant administrator events.
+  - name: windops-security
+    rules:
+      - alert: WindopsManyFailedSignIns
+        expr: sum(increase(keycloak_user_events_total{realm="windops",event="login",error!=""}[10m])) > 20
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "More than 20 failed sign-ins in 10 minutes. See the Security dashboard"
+      - alert: WindopsManyAccessDenials
+        expr: sum(increase(windops_audit_records_total{action="authorization.denied"}[10m])) > 20
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "More than 20 access denials in 10 minutes. The administrator console lists who and what"
+      - alert: WindopsSustainedRateLimiting
+        expr: sum(increase(apisix_http_status{code="429"}[10m])) > 100
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "The gateway refused more than 100 requests for their rate in 10 minutes"
+      - alert: WindopsBreakGlassStarted
+        expr: sum(increase(windops_audit_records_total{action="authorization.break_glass.started"}[5m])) > 0
+        labels:
+          severity: info
+          category: security
+        annotations:
+          summary: "A Platform Administrator started break-glass access to a tenant (RBAC-003)"
+      - alert: WindopsAdministratorRoleGranted
+        expr: sum by (action) (increase(windops_audit_records_total{action=~"authorization\\.role\\.granted\\.(tenant|platform)-administrator"}[5m])) > 0
+        labels:
+          severity: info
+          category: security
+        annotations:
+          summary: "An administrator role was granted: {{ $labels.action }}"

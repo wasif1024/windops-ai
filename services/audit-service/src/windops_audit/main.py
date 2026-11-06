@@ -152,24 +152,74 @@ class AuditService(audit_pb2_grpc.AuditServiceServicer):
         )
 
 
-async def record_event(engine: AsyncEngine, event: Event) -> None:
+# Bounded: actions are named in each service's code, never taken from a user.
+_MAXIMUM_LABEL = 80
+WATCHED = (
+    ("authorization.denied", "denied"),
+    ("authorization.break_glass.started", "succeeded"),
+    ("authorization.role.granted.tenant-administrator", "succeeded"),
+    ("authorization.role.granted.platform-administrator", "succeeded"),
+)
+
+
+def records_counter(meter_provider: metrics.MeterProvider | None = None) -> Any:
+    """Records by action and outcome, for the Security dashboard and its alerts (SRS 10.3).
+
+    Counted here, as the authoritative record, rather than in each service. No tenant or user
+    label, so the number of series stays small. Who and where are in the record itself.
+    """
+    meter = (meter_provider or metrics.get_meter_provider()).get_meter("windops.audit")
+    counter = meter.create_counter(
+        "windops.audit.records", description="Audit records stored, by action and outcome"
+    )
+    # What the security alerts watch starts at 0, so Prometheus sees the first one as a change.
+    for action, outcome in WATCHED:
+        counter.add(0, {"producer": "authorization", "action": action, "outcome": outcome})
+    return counter
+
+
+# Made once telemetry is running, by the consumer as it starts, as a count made before is lost.
+_RECORDS: Any = None
+
+
+def start_counting() -> Any:
+    global _RECORDS  # One counter for the process, made once.
+    if _RECORDS is None:
+        _RECORDS = records_counter()
+    return _RECORDS
+
+
+async def record_event(engine: AsyncEngine, event: Event, counter: Any = None) -> None:
     """Store one event's record and its announcement together, safely repeatable (EVT-003)."""
     last_conflict: IntegrityError | None = None
     for _ in range(APPEND_ATTEMPTS):
         try:
             async with engine.begin() as connection:
-                await append_record(connection, event)
-            return
+                appended = await append_record(connection, event)
         except IntegrityError as error:
             last_conflict = error
+            continue
         except OperationalError as error:
             # The event is fine, so it waits out the outage (SRS 7.7).
             raise RetryLaterError(type(error).__name__) from error
+        if appended:
+            # Only once stored, and never for a repeat, so the count matches the trail.
+            request = event.payload
+            (counter or start_counting()).add(
+                1,
+                {
+                    "producer": event.producer[:_MAXIMUM_LABEL],
+                    "action": getattr(request, "action", "")[:_MAXIMUM_LABEL],
+                    "outcome": getattr(request, "outcome", "")[:_MAXIMUM_LABEL],
+                },
+            )
+        return
     raise RetryLaterError("The chain stayed busy") from last_conflict
 
 
 async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
     """Keep trying to connect, because an outage must not restart this service (RES-006)."""
+    start_counting()
     client = None
     while client is None:
         if stop.is_set():

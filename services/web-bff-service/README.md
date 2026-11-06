@@ -101,6 +101,17 @@ Every change needs an `Idempotency-Key` header: a new random value per change, a
 (GRP-007). Web BFF never retries a change itself, so a new user's password cannot be lost to a retry. The browser
 may resend with the same key.
 
+## Metrics
+
+For the Security dashboard (SRS 10.3), with fixed labels only:
+
+| Metric | Counts |
+| --- | --- |
+| `windops_web_bff_tokens_refused_total{reason}` | Requests refused for their token: `missing`, `invalid`, `no_tenant` or `keys_unavailable` |
+| `windops_web_bff_rate_limited_total{traffic_class}` | Requests over a user's limit, `standard` or `administrator` |
+
+Each starts at 0 once telemetry is running, so Prometheus sees the first refusal.
+
 ## Check it
 
 ```bash

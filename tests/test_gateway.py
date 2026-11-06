@@ -18,7 +18,7 @@ ETCD = ROOT / "infrastructure" / "gateway" / "etcd"
 LOCAL_OVERLAY = ROOT / "infrastructure" / "kubernetes" / "overlays" / "local"
 GOOD_ROUTE: dict[str, Any] = {
     "uri": "/api/*",
-    "plugins": {"opentelemetry": {"sampler": {"name": "always_on"}}},
+    "plugins": {"opentelemetry": {"sampler": {"name": "always_on"}}, "prometheus": {}},
     "upstream": {
         "nodes": {"windops-web-bff:8080": 1},
         "checks": {"active": {"http_path": "/health/ready"}},
@@ -98,7 +98,15 @@ def test_gateway_sends_traces_to_the_collector() -> None:
 
 def test_gateway_enables_only_the_plugins_it_uses() -> None:
     config = gateway_config()
-    assert config["plugins"] == ["opentelemetry", "cors", "limit-count", "openid-connect"]
+    assert config["plugins"] == [
+        "opentelemetry",
+        "prometheus",
+        "cors",
+        "limit-count",
+        "openid-connect",
+    ]
+    # Counts only, on a port Prometheus scrapes inside the pod network.
+    assert config["plugin_attr"]["prometheus"]["export_addr"]["port"] == 9091
     assert config["stream_plugins"] == []
 
 
@@ -249,6 +257,12 @@ def test_the_frontend_never_answers_for_keycloak_or_the_api() -> None:
     assert route["uri"] == "/*" and route["priority"] < 0
     assert route["vars"] == [["uri", "!", "~~", "^/(auth|api)(/|$)"]]
     assert route["methods"] == ["GET", "HEAD"]
+
+
+def test_a_route_without_counting_is_refused() -> None:
+    route = {**GOOD_ROUTE, "plugins": {"opentelemetry": GOOD_ROUTE["plugins"]["opentelemetry"]}}
+    with pytest.raises(RouteError, match="prometheus"):
+        validate_route("uncounted.json", route)
 
 
 def test_a_routes_addresses_come_from_the_settings() -> None:

@@ -18,7 +18,8 @@
       "sampler": {
         "name": "always_on"
       }
-    }
+    },
+    "prometheus": {}
   },
   "upstream": {
     "type": "roundrobin",

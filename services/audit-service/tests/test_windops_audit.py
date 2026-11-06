@@ -275,3 +275,50 @@ def test_losing_a_race_to_another_replica_tries_again() -> None:
 
 def _engine(fake: FailingBegin) -> AsyncEngine:
     return fake  # type: ignore[return-value]
+
+
+def test_stored_records_are_counted_by_action_once_each() -> None:
+    """For the Security dashboard: a repeat is not counted, as it is not stored again."""
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader, NumberDataPoint
+    from windops_audit.main import records_counter
+
+    reader = InMemoryMetricReader()
+    counter = records_counter(MeterProvider(metric_readers=[reader]))
+    denied = event("e-2")
+    denied.payload.CopyFrom(
+        events_pb2.AuditRequested(
+            action="authorization.denied", actor_type="user", actor_id="u-1", outcome="denied"
+        )
+    )
+
+    async def run() -> None:
+        engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+        async with engine.begin() as connection:
+            await connection.run_sync(AUDIT_RECORDS.metadata.create_all)
+            await connection.run_sync(create_outbox_table)
+        for item in (event("e-1"), denied, denied):
+            await record_event(engine, item, counter)
+        await engine.dispose()
+
+    asyncio.run(run())
+    data = reader.get_metrics_data()
+    assert data is not None
+    points = [
+        point
+        for resource in data.resource_metrics
+        for scope in resource.scope_metrics
+        for metric in scope.metrics
+        if metric.name == "windops.audit.records"
+        for point in metric.data.data_points
+        if isinstance(point, NumberDataPoint)
+    ]
+    counted = {
+        ((p.attributes or {})["action"], (p.attributes or {})["outcome"]): p.value for p in points
+    }
+    assert {key: value for key, value in counted.items() if value} == {
+        ("alarm.acknowledged", "succeeded"): 1,
+        ("authorization.denied", "denied"): 1,
+    }
+    # What the alerts watch is there from the start, at 0, so the first one is seen as a change.
+    assert counted[("authorization.break_glass.started", "succeeded")] == 0

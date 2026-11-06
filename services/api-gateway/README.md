@@ -13,6 +13,7 @@ it has its own manifests, probes and resource limits, and runs as a non-root use
 | 7085 | Status, for Kubernetes probes | The pod address, and not listed on the Service |
 | 9180 | Admin API, with a key from a Secret | Inside the pod only |
 | 9090 | Control API, including upstream health | Inside the pod only |
+| 9091 | Prometheus metrics: counts only, never requests | The pod address, which Prometheus scrapes |
 
 ## Routes
 
@@ -20,7 +21,8 @@ Routes live in [infrastructure/gateway/routes](../../infrastructure/gateway/rout
 each, and `make gateway-routes` applies them. Every upstream must have active health checks and
 timeouts, so the gateway avoids an unhealthy backend and fails fast. A test enforces this.
 
-Every route must also enable tracing. The plugin's gateway-wide settings are in
+Every route must also enable tracing, and the `prometheus` plugin, which counts each answer by route and status,
+such as the 429s of the per-address limits, for the Security dashboard. A test enforces both. The tracing plugin's gateway-wide settings are in
 [infrastructure/gateway/plugin-metadata](../../infrastructure/gateway/plugin-metadata), and
 `make gateway-routes` applies them too.
 

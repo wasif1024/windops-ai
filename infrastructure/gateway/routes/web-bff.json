@@ -6,6 +6,7 @@
         "name": "always_on"
       }
     },
+    "prometheus": {},
     "cors": {
       "allow_origins": "${WINDOPS_ALLOWED_ORIGINS}",
       "allow_methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",

@@ -20,6 +20,7 @@ from windops_resilience import BreakerConfig, CircuitBreaker
 
 from windops_web_bff.api import DEADLINE_SECONDS, EXCEPTION_HANDLERS, Dependencies, create_router
 from windops_web_bff.limits import RateLimiter
+from windops_web_bff.security_metrics import SecurityCounters
 from windops_web_bff.tokens import TokenSettings, TokenVerifier
 
 SERVICE_NAME = "web-bff"
@@ -93,6 +94,13 @@ def main() -> None:
 
         return call
 
+    counters = SecurityCounters()
+
+    async def start_counting(stop: asyncio.Event) -> None:
+        # After telemetry starts, so the counts and their zeros reach Prometheus.
+        counters.start()
+        await stop.wait()
+
     router = create_router(
         Dependencies(
             verifier=verifier,
@@ -102,6 +110,7 @@ def main() -> None:
             authorization=caller_for("authorization"),
             identity=caller_for("identity"),
             audit=caller_for("audit"),
+            counters=counters,
         )
     )
     asyncio.run(
@@ -112,6 +121,7 @@ def main() -> None:
             http_exception_handlers=EXCEPTION_HANDLERS,
             # Only over TLS. Plain HTTP keeps health and metrics, for probes and Prometheus.
             api_over_https=True,
+            background=[start_counting],
         )
     )
 
