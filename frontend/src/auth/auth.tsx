@@ -10,10 +10,14 @@ import { createContext, type ReactNode, useContext, useEffect, useMemo, useState
 export const CLIENT_ID = "windops-web";
 export const CALLBACK_PATH = "/callback";
 
-export function settings(origin: string) {
+/**
+ * `authOrigin` is where Keycloak is. In the image it is this page's own origin, behind the same
+ * gateway. The dev server on port 5173 sets VITE_AUTH_ORIGIN to the gateway's fixed address.
+ */
+export function settings(origin: string, authOrigin: string = origin) {
   return {
-    // The one fixed issuer, behind the same gateway as this page.
-    authority: `${origin}/auth/realms/windops`,
+    // The one fixed issuer.
+    authority: `${authOrigin}/auth/realms/windops`,
     client_id: CLIENT_ID,
     redirect_uri: `${origin}${CALLBACK_PATH}`,
     post_logout_redirect_uri: `${origin}/`,
@@ -36,7 +40,10 @@ interface Auth {
 const AuthContext = createContext<Auth | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const manager = useMemo(() => new UserManager(settings(window.location.origin)), []);
+  const manager = useMemo(
+    () => new UserManager(settings(window.location.origin, import.meta.env.VITE_AUTH_ORIGIN || undefined)),
+    [],
+  );
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
 

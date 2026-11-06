@@ -94,14 +94,20 @@ nginx sends these on every page, from one file, so no location can lose them:
 
 ## Work on it
 
+`make dev` from the repository root runs this dev server with the backend, which is the easy way. See
+[Run it and see it](../README.md#run-it-and-see-it). By hand, with the gateway forwarded (`make gateway-forward`):
+
 ```bash
 cd frontend
 npm ci
-npm run dev        # http://localhost:5173, which Keycloak also accepts
+NODE_EXTRA_CA_CERTS=<the cluster CA> VITE_AUTH_ORIGIN=https://localhost:9443 npm run dev
 npm run lint
 npm run typecheck
 npm test
 ```
+
+On the dev server, `/api` goes through Vite's proxy to the gateway, and `VITE_AUTH_ORIGIN` tells the app that
+Keycloak is at the gateway, not on port 5173. The image needs neither, since it is behind the gateway itself.
 
 `make frontend-test` runs what CI runs. `make frontend-check` signs in through a real Chromium, through the gateway,
 and checks the branding, the navigation, the headers and that no token reaches browser storage. The browser trusts
