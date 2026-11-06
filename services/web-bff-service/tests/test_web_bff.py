@@ -354,3 +354,23 @@ def test_a_user_sees_their_own_permissions_and_scopes() -> None:
         assert body["permissions"][0]["permission"] == "alarm.read"
 
     with_bff(scenario)
+
+
+def test_keys_are_fetched_on_a_machine_that_booted_moments_ago() -> None:
+    """A monotonic clock counts from boot, so a minute after it, keys must still be fetched.
+
+    This failed only on freshly started CI machines, where every valid token was refused.
+    """
+    from windops_web_bff.tokens import TokenVerifier as Verifier
+
+    async def run() -> None:
+        verifier = Verifier(
+            TokenSettings(ISSUER, AUDIENCE, JWKS), transport=keycloak(), clock=lambda: 5.0
+        )
+        try:
+            caller = await verifier.verify(token())
+            assert caller.tenant_id == "north-sea"
+        finally:
+            await verifier.close()
+
+    asyncio.run(run())
