@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from windops.authorization.v1 import authorization_pb2
 from windops.tenant.v1 import tenant_pb2
 from windops_grpc import VerifiedIdentity, sign_identity
 from windops_resilience import BreakerOpenError
@@ -51,6 +52,26 @@ class Branding(BaseModel):
     has_logo: bool
 
 
+class ScopedRole(BaseModel):
+    role: str
+    # Both empty means the whole tenant.
+    wind_farm_id: str
+    turbine_id: str
+
+
+class ScopedPermission(BaseModel):
+    permission: str
+    wind_farm_id: str
+    turbine_id: str
+
+
+class Permissions(BaseModel):
+    """For showing the right screens. Every operation is still checked when it runs."""
+
+    roles: list[ScopedRole]
+    permissions: list[ScopedPermission]
+
+
 class Tenant(BaseModel):
     tenant_id: str
     name: str
@@ -64,6 +85,8 @@ class Dependencies:
     identity_secret: str
     # Calls one Tenant Service method with an identity token, through its breaker.
     tenant: Callable[[str, Any, str], Awaitable[Any]]
+    # Calls one Authorization Service method the same way.
+    authorization: Callable[[str, Any, str], Awaitable[Any]]
 
 
 class ApiError(Exception):
@@ -136,9 +159,10 @@ def create_router(deps: Dependencies) -> APIRouter:
         response.headers.update(headers)
         return verified
 
-    async def call(method: str, request: Any, token: str) -> Any:
+    async def call(method: str, request: Any, token: str, service: str = "tenant") -> Any:
+        target = deps.authorization if service == "authorization" else deps.tenant
         try:
-            return await deps.tenant(method, request, token)
+            return await target(method, request, token)
         except grpc.aio.AioRpcError as error:
             raise ApiError(from_grpc(error)) from error
         except (BreakerOpenError, TimeoutError) as error:
@@ -152,6 +176,37 @@ def create_router(deps: Dependencies) -> APIRouter:
             email=who.email,
             client=who.client,
             auth_level=who.auth_level,
+        )
+
+    @router.get(
+        "/me/permissions",
+        response_model=Permissions,
+        summary="What the signed-in user may do, so a screen shows only that",
+    )
+    async def my_permissions(who: Annotated[Caller, Depends(caller)]) -> Permissions:
+        answer = await call(
+            "ListMyPermissions",
+            authorization_pb2.ListMyPermissionsRequest(),
+            identity_for(who, deps.identity_secret),
+            service="authorization",
+        )
+        return Permissions(
+            roles=[
+                ScopedRole(
+                    role=item.role,
+                    wind_farm_id=item.scope.wind_farm_id,
+                    turbine_id=item.scope.turbine_id,
+                )
+                for item in answer.roles
+            ],
+            permissions=[
+                ScopedPermission(
+                    permission=item.permission,
+                    wind_farm_id=item.scope.wind_farm_id,
+                    turbine_id=item.scope.turbine_id,
+                )
+                for item in answer.permissions
+            ],
         )
 
     @router.get("/tenant", response_model=Tenant, summary="The signed-in user's tenant")

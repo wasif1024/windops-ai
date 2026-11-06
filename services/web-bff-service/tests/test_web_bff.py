@@ -93,6 +93,21 @@ class FakeTenant:
         )
 
 
+class FakeAuthorization:
+    async def __call__(self, method: str, request: Any, identity: str) -> Any:
+        from windops.authorization.v1 import authorization_pb2
+
+        claims = verify_identity(identity, SECRET)
+        assert method == "ListMyPermissions"
+        if claims.user_id != "u-1":
+            return authorization_pb2.ListMyPermissionsResponse()
+        farm = authorization_pb2.Scope(wind_farm_id="farm-1")
+        return authorization_pb2.ListMyPermissionsResponse(
+            roles=[authorization_pb2.ScopedRole(role="control-room-operator", scope=farm)],
+            permissions=[authorization_pb2.ScopedPermission(permission="alarm.read", scope=farm)],
+        )
+
+
 def rpc_error(code: grpc.StatusCode, details: str) -> grpc.aio.AioRpcError:
     return grpc.aio.AioRpcError(code, grpc.aio.Metadata(), grpc.aio.Metadata(), details)
 
@@ -122,6 +137,7 @@ def with_bff(
                     limiter=RateLimiter(counter),
                     identity_secret=SECRET,
                     tenant=tenant,
+                    authorization=FakeAuthorization(),
                 )
             )
         )
@@ -324,5 +340,17 @@ def test_the_versioned_openapi_document_is_published() -> None:
         assert document["info"]["version"] == "1.0.0"
         assert {f"{PREFIX}/me", f"{PREFIX}/tenant", f"{PREFIX}/branding"} <= set(document["paths"])
         assert f"{PREFIX}/openapi.json" not in document["paths"]
+
+    with_bff(scenario)
+
+
+def test_a_user_sees_their_own_permissions_and_scopes() -> None:
+    async def scenario(world: World) -> None:
+        response = await world.client.get(f"{PREFIX}/me/permissions", headers=auth(token()))
+        body = response.json()
+        assert body["roles"] == [
+            {"role": "control-room-operator", "wind_farm_id": "farm-1", "turbine_id": ""}
+        ]
+        assert body["permissions"][0]["permission"] == "alarm.read"
 
     with_bff(scenario)

@@ -37,6 +37,10 @@ class AuthorizationServiceStub:
     def __new__(cls, channel: _aio.Channel) -> AuthorizationServiceAsyncStub: ...
     Check: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.CheckRequest, _authorization_pb2.CheckResponse]
     """Whether the current user may use a permission, in a scope. Every denial is audited."""
+    ListMyPermissions: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.ListMyPermissionsRequest, _authorization_pb2.ListMyPermissionsResponse]
+    """The caller's own roles and permissions in their tenant, so a screen can show only what they may use.
+    It decides nothing: every operation still calls Check.
+    """
     GrantRole: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.GrantRoleRequest, _authorization_pb2.GrantRoleResponse]
     """Needs roles.manage and a recent second factor (SEC-003)."""
     RevokeRole: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.RevokeRoleRequest, _authorization_pb2.RevokeRoleResponse]
@@ -60,6 +64,10 @@ class AuthorizationServiceAsyncStub(AuthorizationServiceStub):
     def __init__(self, channel: _aio.Channel) -> None: ...
     Check: _aio.UnaryUnaryMultiCallable[_authorization_pb2.CheckRequest, _authorization_pb2.CheckResponse]  # type: ignore[assignment]
     """Whether the current user may use a permission, in a scope. Every denial is audited."""
+    ListMyPermissions: _aio.UnaryUnaryMultiCallable[_authorization_pb2.ListMyPermissionsRequest, _authorization_pb2.ListMyPermissionsResponse]  # type: ignore[assignment]
+    """The caller's own roles and permissions in their tenant, so a screen can show only what they may use.
+    It decides nothing: every operation still calls Check.
+    """
     GrantRole: _aio.UnaryUnaryMultiCallable[_authorization_pb2.GrantRoleRequest, _authorization_pb2.GrantRoleResponse]  # type: ignore[assignment]
     """Needs roles.manage and a recent second factor (SEC-003)."""
     RevokeRole: _aio.UnaryUnaryMultiCallable[_authorization_pb2.RevokeRoleRequest, _authorization_pb2.RevokeRoleResponse]  # type: ignore[assignment]
@@ -86,6 +94,16 @@ class AuthorizationServiceServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_authorization_pb2.CheckResponse, _abc.Awaitable[_authorization_pb2.CheckResponse]]:
         """Whether the current user may use a permission, in a scope. Every denial is audited."""
+
+    @_abc_1.abstractmethod
+    def ListMyPermissions(
+        self,
+        request: _authorization_pb2.ListMyPermissionsRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_authorization_pb2.ListMyPermissionsResponse, _abc.Awaitable[_authorization_pb2.ListMyPermissionsResponse]]:
+        """The caller's own roles and permissions in their tenant, so a screen can show only what they may use.
+        It decides nothing: every operation still calls Check.
+        """
 
     @_abc_1.abstractmethod
     def GrantRole(

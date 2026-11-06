@@ -41,6 +41,11 @@ class AuthorizationServiceStub:
                 request_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.CheckRequest.SerializeToString,
                 response_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.CheckResponse.FromString,
                 _registered_method=True)
+        self.ListMyPermissions = channel.unary_unary(
+                '/windops.authorization.v1.AuthorizationService/ListMyPermissions',
+                request_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListMyPermissionsRequest.SerializeToString,
+                response_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListMyPermissionsResponse.FromString,
+                _registered_method=True)
         self.GrantRole = channel.unary_unary(
                 '/windops.authorization.v1.AuthorizationService/GrantRole',
                 request_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.GrantRoleRequest.SerializeToString,
@@ -85,6 +90,14 @@ class AuthorizationServiceServicer:
 
     def Check(self, request, context):
         """Whether the current user may use a permission, in a scope. Every denial is audited.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListMyPermissions(self, request, context):
+        """The caller's own roles and permissions in their tenant, so a screen can show only what they may use.
+        It decides nothing: every operation still calls Check.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -145,6 +158,11 @@ def add_AuthorizationServiceServicer_to_server(servicer, server):
                     servicer.Check,
                     request_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.CheckRequest.FromString,
                     response_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.CheckResponse.SerializeToString,
+            ),
+            'ListMyPermissions': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListMyPermissions,
+                    request_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListMyPermissionsRequest.FromString,
+                    response_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListMyPermissionsResponse.SerializeToString,
             ),
             'GrantRole': grpc.unary_unary_rpc_method_handler(
                     servicer.GrantRole,
@@ -211,6 +229,33 @@ class AuthorizationService:
             '/windops.authorization.v1.AuthorizationService/Check',
             windops_dot_authorization_dot_v1_dot_authorization__pb2.CheckRequest.SerializeToString,
             windops_dot_authorization_dot_v1_dot_authorization__pb2.CheckResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListMyPermissions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.authorization.v1.AuthorizationService/ListMyPermissions',
+            windops_dot_authorization_dot_v1_dot_authorization__pb2.ListMyPermissionsRequest.SerializeToString,
+            windops_dot_authorization_dot_v1_dot_authorization__pb2.ListMyPermissionsResponse.FromString,
             options,
             channel_credentials,
             insecure,

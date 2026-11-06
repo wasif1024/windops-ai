@@ -554,3 +554,90 @@ class EndBreakGlassResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___EndBreakGlassResponse: _TypeAlias = EndBreakGlassResponse  # noqa: Y015
+
+@_typing.final
+class ListMyPermissionsRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListMyPermissionsRequest: _TypeAlias = ListMyPermissionsRequest  # noqa: Y015
+
+@_typing.final
+class ScopedPermission(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PERMISSION_FIELD_NUMBER: _builtins.int
+    SCOPE_FIELD_NUMBER: _builtins.int
+    permission: _builtins.str
+    @_builtins.property
+    def scope(self) -> Global___Scope:
+        """Where it applies. Both empty means the whole tenant."""
+
+    def __init__(
+        self,
+        *,
+        permission: _builtins.str = ...,
+        scope: Global___Scope | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["scope", b"scope"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["permission", b"permission", "scope", b"scope"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ScopedPermission: _TypeAlias = ScopedPermission  # noqa: Y015
+
+@_typing.final
+class ScopedRole(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    ROLE_FIELD_NUMBER: _builtins.int
+    SCOPE_FIELD_NUMBER: _builtins.int
+    role: _builtins.str
+    @_builtins.property
+    def scope(self) -> Global___Scope: ...
+    def __init__(
+        self,
+        *,
+        role: _builtins.str = ...,
+        scope: Global___Scope | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["scope", b"scope"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["role", b"role", "scope", b"scope"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ScopedRole: _TypeAlias = ScopedRole  # noqa: Y015
+
+@_typing.final
+class ListMyPermissionsResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    ROLES_FIELD_NUMBER: _builtins.int
+    PERMISSIONS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def roles(self) -> _containers.RepeatedCompositeFieldContainer[Global___ScopedRole]: ...
+    @_builtins.property
+    def permissions(self) -> _containers.RepeatedCompositeFieldContainer[Global___ScopedPermission]: ...
+    def __init__(
+        self,
+        *,
+        roles: _abc.Iterable[Global___ScopedRole] | None = ...,
+        permissions: _abc.Iterable[Global___ScopedPermission] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["permissions", b"permissions", "roles", b"roles"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListMyPermissionsResponse: _TypeAlias = ListMyPermissionsResponse  # noqa: Y015

@@ -18,7 +18,13 @@ def generated() -> str:
     # The routes describe the API without running it, so nothing here is called.
     unused: Any = None
     router = create_router(
-        Dependencies(verifier=unused, limiter=unused, identity_secret="", tenant=unused)
+        Dependencies(
+            verifier=unused,
+            limiter=unused,
+            identity_secret="",
+            tenant=unused,
+            authorization=unused,
+        )
     )
     return json.dumps(openapi_document(router), indent=2, sort_keys=True) + "\n"
 

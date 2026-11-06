@@ -219,6 +219,44 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
             allowed=decision.allowed, reason=decision.reason, break_glass=decision.break_glass
         )
 
+    async def ListMyPermissions(  # noqa: N802  # The name comes from the contract.
+        self, request: authorization_pb2.ListMyPermissionsRequest, context: Any
+    ) -> authorization_pb2.ListMyPermissionsResponse:
+        identity = current_identity()
+        if not identity.user_id:
+            return authorization_pb2.ListMyPermissionsResponse()
+        async with self._engine.connect() as connection:
+            grants = await active_grants(connection, identity.tenant_id, identity.user_id)
+            custom = await custom_mapping(connection, identity.tenant_id)
+        seen: set[tuple[str, str, str]] = set()
+        permissions = []
+        for grant in grants:
+            for permission in sorted(policy.permissions_of(grant.role, custom)):
+                key = (permission, grant.scope.wind_farm_id, grant.scope.turbine_id)
+                if key not in seen:
+                    seen.add(key)
+                    permissions.append(
+                        authorization_pb2.ScopedPermission(
+                            permission=permission,
+                            scope=authorization_pb2.Scope(
+                                wind_farm_id=grant.scope.wind_farm_id,
+                                turbine_id=grant.scope.turbine_id,
+                            ),
+                        )
+                    )
+        return authorization_pb2.ListMyPermissionsResponse(
+            roles=[
+                authorization_pb2.ScopedRole(
+                    role=grant.role,
+                    scope=authorization_pb2.Scope(
+                        wind_farm_id=grant.scope.wind_farm_id, turbine_id=grant.scope.turbine_id
+                    ),
+                )
+                for grant in grants
+            ],
+            permissions=permissions,
+        )
+
     async def GrantRole(  # noqa: N802  # The name comes from the contract.
         self, request: authorization_pb2.GrantRoleRequest, context: Any
     ) -> authorization_pb2.GrantRoleResponse:

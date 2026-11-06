@@ -400,3 +400,43 @@ def test_a_retry_still_needs_permission() -> None:
         assert code is grpc.StatusCode.PERMISSION_DENIED
 
     with_service(scenario)
+
+
+def test_a_user_lists_their_own_permissions_with_their_scopes() -> None:
+    async def scenario(stub: Any, engine: AsyncEngine) -> None:
+        await stub.GrantRole(
+            authorization_pb2.GrantRoleRequest(
+                grantee_id=OPERATOR,
+                role=policy.CONTROL_ROOM_OPERATOR,
+                scope=authorization_pb2.Scope(wind_farm_id="farm-1"),
+            ),
+            metadata=as_user(ADMIN),
+            timeout=5,
+        )
+        listed = await stub.ListMyPermissions(
+            authorization_pb2.ListMyPermissionsRequest(), metadata=as_user(OPERATOR), timeout=5
+        )
+        assert [(r.role, r.scope.wind_farm_id) for r in listed.roles] == [
+            (policy.CONTROL_ROOM_OPERATOR, "farm-1")
+        ]
+        names = {p.permission for p in listed.permissions}
+        assert names == policy.DEFAULT_MATRIX[policy.CONTROL_ROOM_OPERATOR]
+        assert all(p.scope.wind_farm_id == "farm-1" for p in listed.permissions)
+
+    with_service(scenario)
+
+
+def test_a_user_with_no_role_lists_nothing_and_another_tenant_is_not_reachable() -> None:
+    """There is no field to name another user or tenant, so only the caller's own come back."""
+
+    async def scenario(stub: Any, engine: AsyncEngine) -> None:
+        mine = await stub.ListMyPermissions(
+            authorization_pb2.ListMyPermissionsRequest(), metadata=as_user(OPERATOR), timeout=5
+        )
+        assert not mine.roles and not mine.permissions
+        elsewhere = await stub.ListMyPermissions(
+            authorization_pb2.ListMyPermissionsRequest(), metadata=as_user(ADMIN, OTHER), timeout=5
+        )
+        assert not elsewhere.roles
+
+    with_service(scenario)

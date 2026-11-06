@@ -8,6 +8,9 @@ import "google/protobuf/timestamp.proto";
 service AuthorizationService {
   // Whether the current user may use a permission, in a scope. Every denial is audited.
   rpc Check(CheckRequest) returns (CheckResponse);
+  // The caller's own roles and permissions in their tenant, so a screen can show only what they may use.
+  // It decides nothing: every operation still calls Check.
+  rpc ListMyPermissions(ListMyPermissionsRequest) returns (ListMyPermissionsResponse);
 
   // Needs roles.manage and a recent second factor (SEC-003).
   rpc GrantRole(GrantRoleRequest) returns (GrantRoleResponse);
@@ -161,4 +164,22 @@ message StartBreakGlassResponse {
 
 message EndBreakGlassResponse {
   BreakGlassGrant grant = 1;
+}
+
+message ListMyPermissionsRequest {}
+
+message ScopedPermission {
+  string permission = 1;
+  // Where it applies. Both empty means the whole tenant.
+  Scope scope = 2;
+}
+
+message ScopedRole {
+  string role = 1;
+  Scope scope = 2;
+}
+
+message ListMyPermissionsResponse {
+  repeated ScopedRole roles = 1;
+  repeated ScopedPermission permissions = 2;
 }
