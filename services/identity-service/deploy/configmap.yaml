@@ -5,11 +5,8 @@ metadata:
   labels:
     app.kubernetes.io/name: windops-identity
     app.kubernetes.io/part-of: windops
+# Environment-wide values, such as the release and addresses, are in windops-settings (make config).
 data:
-  WINDOPS_ENVIRONMENT: local
-  WINDOPS_VERSION: local
-  WINDOPS_LOG_LEVEL: INFO
   WINDOPS_GRPC_PORT: "50051"
   WINDOPS_HTTP_PORT: "8080"
-  WINDOPS_OTLP_ENDPOINT: http://windops-otel-collector.windops-observability.svc.cluster.local:4318
   WINDOPS_SHUTDOWN_GRACE_SECONDS: "20"

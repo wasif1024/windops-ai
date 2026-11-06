@@ -13,10 +13,5 @@ patches:
       - op: replace
         path: /spec/replicas
         value: 2
-  - target:
-      kind: ConfigMap
-      labelSelector: app.kubernetes.io/part-of=windops
-    patch: |-
-      - op: replace
-        path: /data/WINDOPS_ENVIRONMENT
-        value: production-example
+# The environment's name, log level and addresses are settings, in windops-settings: .env locally
+# (make config), and the pipeline's variables elsewhere. See .env.example.

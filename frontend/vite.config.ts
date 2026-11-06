@@ -6,13 +6,18 @@ import { defineConfig } from "vite";
 export default defineConfig({
   // Tailwind writes one static stylesheet at build time, so the strict CSP needs no inline styles.
   plugins: [react(), tailwindcss()],
-  // Only for `npm run dev`: the API is behind the gateway, which scripts/dev.sh forwards to port
-  // 9443. Node checks the gateway's certificate against the cluster's CA, in NODE_EXTRA_CA_CERTS.
+  // Only for `npm run dev`: the API is behind the gateway, at WINDOPS_PUBLIC_URL, which
+  // scripts/dev.sh passes as VITE_API_TARGET. Node checks the gateway's certificate against the
+  // cluster's CA, in NODE_EXTRA_CA_CERTS.
   server: {
     port: 5173,
     strictPort: true,
     proxy: {
-      "/api": { target: "https://localhost:9443", changeOrigin: true, secure: true },
+      "/api": {
+        target: process.env.VITE_API_TARGET ?? "https://localhost:9443",
+        changeOrigin: true,
+        secure: true,
+      },
     },
   },
   build: {

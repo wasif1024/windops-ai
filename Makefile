@@ -4,8 +4,9 @@
 
 PROTO_DIR := shared/protobuf
 CONTRACTS_BASELINE ?= origin/main
-# Commands name this profile and context directly, so they cannot reach another cluster.
-CLUSTER := windops
+# Commands name this profile and context directly, so they cannot reach another cluster. It is
+# WINDOPS_KUBE_CONTEXT in .env, and windops when that is unset.
+CLUSTER := $(or $(shell python3 scripts/settings.py WINDOPS_KUBE_CONTEXT 2>/dev/null),windops)
 OVERLAY ?= local
 KUBERNETES_DIR := infrastructure/kubernetes
 
@@ -17,7 +18,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help dev demo-logins install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check frontend-test frontend-check admin-api-check platform-api-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check frontend-test frontend-check admin-api-check platform-api-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -111,6 +112,7 @@ cluster-check: ## Deploy a throwaway service to prove the manifests work on the 
 
 infra: ## Create the namespaces, cert-manager, etcd, data stores, Keycloak and observability
 	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/namespaces
+	uv run python scripts/apply_settings.py
 	uv run python scripts/provision_pki.py
 	kubectl --context $(CLUSTER) apply --kustomize infrastructure/gateway/etcd
 	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/data
@@ -231,7 +233,11 @@ logs: ## Follow a workload's logs: make logs NAME=windops-telemetry
 	kubectl --context $(CLUSTER) logs --all-namespaces --follow --selector=app.kubernetes.io/name=$(NAME)
 
 services: ## Deploy the gateway and services, using the chosen overlay
+	uv run python scripts/apply_settings.py
 	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/overlays/$(OVERLAY)
+
+config: ## Put the WINDOPS_ settings from .env into the cluster, and restart what reads them
+	uv run python scripts/apply_settings.py
 
 sample-check: ## Prove two services work together on the cluster, through the gateway
 	PYTHONPATH=scripts uv run python scripts/verify_sample.py

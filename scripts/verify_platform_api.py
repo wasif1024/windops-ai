@@ -34,6 +34,7 @@ from identity_seed import (
     strong_password,
 )
 from provision_postgres import read_passwords
+from settings import KUBE_CONTEXT
 from verify_identity import Realm, delete_user
 from verify_mfa import Browser, enroll, has_field, sign_in_with_password
 from windops_auth import LEVEL_MFA
@@ -62,7 +63,7 @@ def call(
 def make_platform_administrator(user_id: str) -> None:
     subprocess.run(
         [
-            "kubectl", "--context", "windops", "--namespace=windops-system", "exec",
+            "kubectl", "--context", KUBE_CONTEXT, "--namespace=windops-system", "exec",
             "deployment/windops-authorization", "--", "python", "-m",
             "windops_authorization.bootstrap",
             "--tenant", PLATFORM_TENANT, "--user", user_id, "--role", "platform-administrator",

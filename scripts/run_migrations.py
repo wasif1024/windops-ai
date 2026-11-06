@@ -10,8 +10,9 @@ import time
 from pathlib import Path
 
 import yaml
+from settings import KUBE_CONTEXT
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 REPOSITORY = Path(__file__).resolve().parent.parent
 TIMEOUT_SECONDS = 660
 

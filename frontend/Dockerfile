@@ -12,6 +12,8 @@ RUN npm run build:app
 FROM nginxinc/nginx-unprivileged:1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
+# Run by the image's entrypoint before nginx starts: it writes /config.json from the settings.
+COPY --chmod=755 nginx/40-windops-config.sh /docker-entrypoint.d/40-windops-config.sh
 COPY --from=build /app/dist /usr/share/nginx/html
 USER 101
 EXPOSE 8080

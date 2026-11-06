@@ -9,7 +9,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-CONTEXT = "windops"
+from settings import KUBE_CONTEXT
+
+CONTEXT = KUBE_CONTEXT
 NAMESPACE = "windops-data"
 POD = "windops-postgres-0"
 ADMIN_USER = "windops_admin"

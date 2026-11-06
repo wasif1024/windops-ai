@@ -1,5 +1,5 @@
 {
-  "uri": "/auth/realms/windops/login-actions/*",
+  "uri": "/auth/realms/${WINDOPS_KEYCLOAK_REALM}/login-actions/*",
   "priority": 10,
   "methods": [
     "POST"
@@ -39,7 +39,7 @@
       "active": {
         "type": "https",
         "https_verify_certificate": true,
-        "http_path": "/auth/realms/windops/.well-known/openid-configuration",
+        "http_path": "/auth/realms/${WINDOPS_KEYCLOAK_REALM}/.well-known/openid-configuration",
         "healthy": {
           "interval": 5,
           "successes": 2

@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Apply the gateway's routes, stored as JSON files, through the APISIX Admin API.
 
-The Admin API listens inside the pod only, so this reaches it through a port-forward.
+The Admin API listens inside the pod only, so this reaches it through a port-forward. A route
+names a setting as ${WINDOPS_NAME}, which is filled in from scripts/settings.py, so an
+environment's addresses change in .env, not in the routes.
 """
 
 import base64
 import contextlib
 import json
+import re
 import socket
 import subprocess
 import sys
@@ -16,12 +19,13 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from settings import KUBE_CONTEXT, load
 
 REPOSITORY = Path(__file__).resolve().parent.parent
 ROUTES_DIRECTORY = REPOSITORY / "infrastructure" / "gateway" / "routes"
 PLUGIN_METADATA_DIRECTORY = REPOSITORY / "infrastructure" / "gateway" / "plugin-metadata"
 ADMIN_KEY_FILE = REPOSITORY / "infrastructure" / "minikube" / "secrets.local.gateway.env"
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 NAMESPACE = "windops-system"
 DEPLOYMENT = "deployment/windops-gateway"
 ADMIN_PORT = 9180
@@ -49,10 +53,30 @@ def validate_route(name: str, route: dict[str, Any]) -> None:
         raise RouteError(f"{name}: an upstream needs connect, send and read timeouts")
 
 
-def load_routes(directory: Path = ROUTES_DIRECTORY) -> dict[str, dict[str, Any]]:
+_PLACEHOLDER = re.compile(r"\$\{(WINDOPS_[A-Z_]+)\}")
+
+
+def fill_in(name: str, text: str, settings: dict[str, str] | None = None) -> str:
+    """Replace each ${WINDOPS_NAME} with its setting, keeping the JSON valid."""
+    values = load() if settings is None else settings
+
+    def setting(match: re.Match[str]) -> str:
+        value = values.get(match.group(1), "")
+        if not value:
+            raise RouteError(f"{name}: {match.group(1)} is not set")
+        if '"' in value or "\\" in value:
+            raise RouteError(f"{name}: {match.group(1)} cannot hold a quote or a backslash")
+        return value
+
+    return _PLACEHOLDER.sub(setting, text)
+
+
+def load_routes(
+    directory: Path = ROUTES_DIRECTORY, settings: dict[str, str] | None = None
+) -> dict[str, dict[str, Any]]:
     routes: dict[str, dict[str, Any]] = {}
     for path in sorted(directory.glob("*.json")):
-        route = json.loads(path.read_text())
+        route = json.loads(fill_in(path.name, path.read_text(), settings))
         validate_route(path.name, route)
         routes[path.stem] = route
     return routes

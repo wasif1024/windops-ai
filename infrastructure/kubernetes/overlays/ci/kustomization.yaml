@@ -1,4 +1,4 @@
-# Automated checks: one replica each, with quieter logs.
+# Automated checks: one replica each. CI sets WINDOPS_LOG_LEVEL=WARNING for quieter logs.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -12,13 +12,5 @@ patches:
       - op: replace
         path: /spec/replicas
         value: 1
-  - target:
-      kind: ConfigMap
-      labelSelector: app.kubernetes.io/part-of=windops
-    patch: |-
-      - op: replace
-        path: /data/WINDOPS_ENVIRONMENT
-        value: ci
-      - op: replace
-        path: /data/WINDOPS_LOG_LEVEL
-        value: WARNING
+# The environment's name, log level and addresses are settings, in windops-settings: .env locally
+# (make config), and the pipeline's variables elsewhere. See .env.example.

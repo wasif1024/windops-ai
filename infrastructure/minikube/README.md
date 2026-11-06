@@ -16,6 +16,10 @@ make images          # build service images into the cluster
 
 `make secrets` generates `secrets.local.*` files once. Git ignores them, so never commit them.
 
+`make infra` and `make services` also put the settings from `.env` into the `windops-settings` ConfigMap, the same
+as `make config`. See [Settings and provider keys](../../README.md#settings-and-provider-keys). `make dev` runs all
+of this the first time.
+
 ## Day to day
 
 | Command | What it does |

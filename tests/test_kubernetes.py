@@ -71,18 +71,21 @@ def overlay_with_service(tmp_path: Path, overlay: str) -> list[dict[str, Any]]:
 
 
 @pytest.mark.parametrize(
-    ("overlay", "replicas", "environment"),
-    [("local", 1, "local"), ("ci", 1, "ci"), ("production-example", 2, "production-example")],
+    ("overlay", "replicas"), [("local", 1), ("ci", 1), ("production-example", 2)]
 )
-def test_overlay_sets_replicas_and_environment(
-    overlay: str, replicas: int, environment: str, tmp_path: Path
+def test_overlay_sets_replicas_and_the_service_reads_the_shared_settings(
+    overlay: str, replicas: int, tmp_path: Path
 ) -> None:
     documents = overlay_with_service(tmp_path, overlay)
     deployment = next(item for item in documents if item["kind"] == "Deployment")
     config = next(item for item in documents if item["kind"] == "ConfigMap")
     assert deployment["spec"]["replicas"] == replicas
-    assert config["data"]["WINDOPS_ENVIRONMENT"] == environment
     assert deployment["metadata"]["namespace"] == "windops-application"
+    sources = deployment["spec"]["template"]["spec"]["containers"][0]["envFrom"]
+    # The shared settings last: Kubernetes takes a name from the last source, so they win.
+    assert sources[-1] == {"configMapRef": {"name": "windops-settings"}}
+    environment_wide = {"WINDOPS_ENVIRONMENT", "WINDOPS_LOG_LEVEL", "WINDOPS_OTLP_ENDPOINT"}
+    assert not environment_wide & set(config["data"])
 
 
 def test_local_overlay_meets_k8s_007(tmp_path: Path) -> None:

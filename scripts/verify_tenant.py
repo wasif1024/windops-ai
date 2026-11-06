@@ -29,6 +29,7 @@ from identity_seed import (
     keycloak_admin,
 )
 from provision_postgres import read_passwords
+from settings import KUBE_CONTEXT
 from tls_client import ClientBundle, blocking_channel, client_bundle
 from windops.audit.v1 import audit_pb2, audit_pb2_grpc
 from windops.tenant.v1 import tenant_pb2 as pb
@@ -36,7 +37,7 @@ from windops.tenant.v1 import tenant_pb2_grpc
 from windops_auth import LEVEL_MFA, LEVEL_PASSWORD
 from windops_grpc import VerifiedIdentity, sign_identity
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 SYSTEM, APPLICATION, DATA = "windops-system", "windops-application", "windops-data"
 DEPLOYMENT = "deployment/windops-tenant"
 HOST = "windops-tenant.windops-system.svc.cluster.local"

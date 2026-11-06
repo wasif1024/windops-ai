@@ -14,7 +14,8 @@ flowchart LR
 ## Every protected request
 
 1. **Verify the token** against Keycloak's published keys: RS256 only, from the fixed issuer
-   `https://localhost:9443/auth/realms/windops`, for the audience `windops-api`, not expired.
+   `$WINDOPS_PUBLIC_URL/auth/realms/$WINDOPS_KEYCLOAK_REALM`, for the audience `WINDOPS_OIDC_AUDIENCE`, not expired. Locally,
+   that is `https://localhost:9443/auth/realms/windops` and `windops-api`.
 2. **Require one tenant.** Keycloak gives no `tenant_id` to a user of a suspended tenant, or one in two, so those
    tokens are refused (SEC-005).
 3. **Apply the user's rate limit** (SRS 7.5): 120 requests a minute, or 300 for the administrators' client. If

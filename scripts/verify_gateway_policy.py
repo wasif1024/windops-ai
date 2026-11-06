@@ -26,11 +26,12 @@ from identity_seed import (
     strong_password,
 )
 from provision_postgres import read_passwords
+from settings import origins
 from verify_identity import Realm, create_user, delete_user
 
 SYSTEM = "windops-system"
 API = PUBLIC_URL.removesuffix("/auth") + "/api/v1"
-ALLOWED_ORIGIN = "http://localhost:5173"
+ALLOWED_ORIGIN = origins()[0]
 LOGIN_LIMIT = 5
 NO_TENANT_USER = f"gateway-policy-{secrets.token_hex(3)}@windops-check.example"
 

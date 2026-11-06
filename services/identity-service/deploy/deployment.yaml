@@ -47,6 +47,9 @@ spec:
           envFrom:
             - configMapRef:
                 name: windops-identity-config
+            # Settings for every workload, from .env through make config. Last, so they win.
+            - configMapRef:
+                name: windops-settings
           env:
             - name: WINDOPS_TLS_DIR
               value: /var/run/windops/tls
@@ -95,8 +98,6 @@ spec:
                 secretKeyRef:
                   name: windops-identity-events
                   key: password
-            - name: WINDOPS_AUTHORIZATION_ADDRESS
-              value: windops-authorization.windops-system.svc.cluster.local:50051
             # Over HTTPS, checked against the internal CA.
             - name: WINDOPS_KEYCLOAK_URL
               valueFrom:

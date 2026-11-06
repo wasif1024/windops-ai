@@ -28,6 +28,7 @@ from identity_seed import (
     read_demo_passwords,
 )
 from provision_postgres import read_passwords
+from settings import KUBE_CONTEXT
 from tls_client import ClientBundle, blocking_channel, client_bundle
 from verify_identity import Realm
 from windops.audit.v1 import audit_pb2, audit_pb2_grpc
@@ -36,7 +37,7 @@ from windops.identity.v1 import identity_pb2_grpc
 from windops_auth import LEVEL_MFA, LEVEL_PASSWORD
 from windops_grpc import VerifiedIdentity, sign_identity
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 SYSTEM, APPLICATION = "windops-system", "windops-application"
 DEPLOYMENT = "deployment/windops-identity"
 AUTHORIZATION = "deployment/windops-authorization"

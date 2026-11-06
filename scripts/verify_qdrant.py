@@ -14,10 +14,11 @@ from pathlib import Path
 import grpc
 import httpx
 from gateway_routes import port_forward
+from settings import KUBE_CONTEXT
 from tls_client import authority_file
 from windops_events import tls_context
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 NAMESPACE = "windops-data"
 STATEFULSET = "statefulset/windops-qdrant"
 POD = "windops-qdrant-0"

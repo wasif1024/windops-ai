@@ -11,9 +11,10 @@ import time
 
 import httpx
 from identity_seed import PUBLIC_URL, TENANTS, demo_email, keycloak_public, read_demo_passwords
+from settings import KUBE_CONTEXT
 from verify_identity import Realm
 
-CONTEXT = "windops"
+CONTEXT = KUBE_CONTEXT
 DATA = "windops-data"
 API = PUBLIC_URL.removesuffix("/auth") + "/api/v1"
 TENANT, OTHER = "north-sea", "atlas-wind"
