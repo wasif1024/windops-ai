@@ -9,7 +9,9 @@ from typing import Any
 
 import grpc
 from opentelemetry import metrics
+from windops.audit.v1 import audit_pb2_grpc
 from windops.authorization.v1 import authorization_pb2_grpc
+from windops.identity.v1 import identity_pb2_grpc
 from windops.tenant.v1 import tenant_pb2_grpc
 from windops_cache import connect as redis_connect
 from windops_grpc import ServiceClient, create_channel, run_service
@@ -54,6 +56,8 @@ def main() -> None:
             authorization_pb2_grpc.AuthorizationServiceStub,
             "WINDOPS_AUTHORIZATION_ADDRESS",
         ),
+        "identity": (identity_pb2_grpc.IdentityServiceStub, "WINDOPS_IDENTITY_ADDRESS"),
+        "audit": (audit_pb2_grpc.AuditServiceStub, "WINDOPS_AUDIT_ADDRESS"),
     }
 
     def client_for(service: str) -> tuple[Any, ServiceClient]:
@@ -73,14 +77,15 @@ def main() -> None:
         return clients[service]
 
     def caller_for(service: str) -> Callable[[str, Any, str], Awaitable[Any]]:
-        async def call(method: str, request: Any, identity: str) -> Any:
+        async def call(method: str, request: Any, identity: str, *, retry: bool = True) -> Any:
             stub, client = client_for(service)
             reset = _outgoing.set(identity)
             try:
                 return await client.call(
                     getattr(stub, method),
                     request,
-                    idempotent=True,
+                    # A change is never retried here. The browser resends it with the same key.
+                    idempotent=retry,
                     deadline_seconds=DEADLINE_SECONDS,
                 )
             finally:
@@ -95,6 +100,8 @@ def main() -> None:
             identity_secret=os.environ["WINDOPS_IDENTITY_SECRET"],
             tenant=caller_for("tenant"),
             authorization=caller_for("authorization"),
+            identity=caller_for("identity"),
+            audit=caller_for("audit"),
         )
     )
     asyncio.run(

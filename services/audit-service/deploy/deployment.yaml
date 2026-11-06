@@ -50,6 +50,9 @@ spec:
           env:
             - name: WINDOPS_TLS_DIR
               value: /var/run/windops/tls
+            # Every read asks it for audit.read first.
+            - name: WINDOPS_AUTHORIZATION_ADDRESS
+              value: windops-authorization.windops-system.svc.cluster.local:50051
             - name: WINDOPS_IDENTITY_SECRET
               valueFrom:
                 secretKeyRef:

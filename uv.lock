@@ -1396,20 +1396,26 @@ name = "windops-audit"
 version = "0.1.0"
 source = { editable = "services/audit-service" }
 dependencies = [
+    { name = "windops-auth" },
     { name = "windops-contracts" },
     { name = "windops-events" },
     { name = "windops-grpc" },
     { name = "windops-migrations" },
+    { name = "windops-observability" },
     { name = "windops-outbox" },
+    { name = "windops-resilience" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "windops-auth", editable = "shared/auth" },
     { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-events", editable = "shared/events" },
     { name = "windops-grpc", editable = "shared/grpc" },
     { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-observability", editable = "shared/observability" },
     { name = "windops-outbox", editable = "shared/outbox" },
+    { name = "windops-resilience", editable = "shared/resilience" },
 ]
 
 [[package]]

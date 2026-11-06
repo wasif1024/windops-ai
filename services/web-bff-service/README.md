@@ -8,7 +8,7 @@ flowchart LR
     Browser -->|"HTTPS, Bearer token"| Gateway["API Gateway"] -->|/api/*| BFF["Web BFF"]
     BFF -->|"verify against Keycloak's keys"| Keycloak[("Keycloak")]
     BFF -->|"count requests"| Redis[("Redis")]
-    BFF -->|"gRPC with mTLS, as the user"| Services["Tenant, and more to come"]
+    BFF -->|"gRPC with mTLS, as the user"| Services["Tenant, Identity, Authorization and Audit"]
 ```
 
 ## Every protected request
@@ -33,6 +33,7 @@ service's message is never forwarded, because the BFF is the edge and a message 
 | --- | --- |
 | A recent second factor is needed | 401, code `step_up_required`, with `WWW-Authenticate: Bearer error="insufficient_user_authentication", acr_values="mfa"` (RFC 9470), so the frontend can ask for a code and retry |
 | Permission denied, not found, invalid, conflict | 403, 404, 400 and 409, with codes `forbidden`, `not_found`, `invalid_request` and `conflict` |
+| A request that fails Web BFF's own checks, such as a missing `Idempotency-Key` | 422, code `invalid_request`, without repeating what was sent |
 | Unavailable, or anything unexpected | 503 `unavailable` or 502 `bad_gateway` |
 | A refused token | 401, with codes such as `missing_token`, `invalid_token` or `no_tenant` |
 
@@ -49,13 +50,37 @@ which a test keeps the same as the code. Run `make openapi` after changing a rou
 | `GET /api/v1/public/branding/{tenant}` | No | A tenant's branding for its sign-in page, without the domain's proof token |
 | `GET /api/v1/public/branding/{tenant}/logo` | No | Its logo, sent so a browser can never run it |
 
-Routes for the administrator console arrive with M3.9.
+### Administrator console (SRS 9.4)
+
+Each route calls the service that owns the data, as the signed-in user, and that service decides. Identity needs
+`users.manage`, Authorization `roles.manage` or `permissions.manage`, and Audit `audit.read`. Every change also
+needs a recent second factor, so without one it gets the step-up answer above.
+
+| Route | What |
+| --- | --- |
+| `GET /api/v1/admin/users` | The tenant's users, a page at a time |
+| `POST /api/v1/admin/users` | Add a user. The temporary password is in the first answer only |
+| `GET /api/v1/admin/users/{id}` | One user |
+| `POST /api/v1/admin/users/{id}/disable` and `/reactivate` | Disable a user, which ends their sessions, or reactivate them |
+| `GET /api/v1/admin/users/{id}/sessions` | Their sessions |
+| `POST /api/v1/admin/users/{id}/sessions/revoke` | End all their sessions |
+| `GET /api/v1/admin/users/{id}/mfa` | Whether they have set up a second factor |
+| `GET /api/v1/admin/role-grants` | Who holds which role and where, optionally for one user and with ended grants |
+| `POST /api/v1/admin/role-grants` | Give a role, in the whole tenant, a wind farm or a turbine |
+| `POST /api/v1/admin/role-grants/{id}/revoke` | End a grant, which is kept |
+| `GET` and `PUT /api/v1/admin/roles/{role}/permissions` | Read or replace what a role gives in this tenant |
+| `GET /api/v1/admin/access-denials` | Refused attempts in this tenant, from the audit trail |
+
+Every change needs an `Idempotency-Key` header: a new random value per change, and the same one when resending it
+(GRP-007). Web BFF never retries a change itself, so a new user's password cannot be lost to a retry. The browser
+may resend with the same key.
 
 ## Check it
 
 ```bash
 uv run pytest services/web-bff-service/tests
-make bff-check   # on the cluster, with real logins through the gateway
+make bff-check         # on the cluster, with real logins through the gateway
+make admin-api-check   # the administrator console's routes, the same way
 ```
 
 ## Limits
@@ -69,7 +94,9 @@ make bff-check   # on the cluster, with real logins through the gateway
   get the higher limit.
 - **A fixed one-minute window.** A user can make up to twice their limit across a window's edge.
 - **No field-level validation messages yet.** A 400 says only that the request is not valid, not which field. The
-  fix is gRPC's structured error reasons (`ErrorInfo`), mapped to messages here, with the administrator console
-  (M3.9).
+  fix is gRPC's structured error reasons (`ErrorInfo`), mapped to messages here. It is not done yet: the console's
+  forms check their own fields first, so a 400 means something only a service can see.
+- **The console works in the caller's own tenant.** A Platform Administrator managing another tenant, which the
+  services already allow, has no routes yet.
 - **Public pages have only per-address limits.** The public branding routes have no per-user limit. The gateway
   allows 60 requests a minute from one address.

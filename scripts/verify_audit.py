@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Prove the Audit Service works on the real local cluster, including real outages.
 
-Run `make secrets` and `make infra` first. This deploys the service, and leaves it running. It stops
+Run `make secrets`, `make infra` and `make services` first, because every read asks the
+Authorization Service for audit.read. This deploys the service, and leaves it running. It stops
 PostgreSQL and restarts NATS for a moment. Its test records and events are removed afterwards.
 """
 
@@ -39,6 +40,8 @@ DATABASE = database_name("audit")
 RUN = uuid.uuid4().hex[:8]
 TENANT = f"audit-check-{RUN}"
 OTHER_TENANT = f"audit-check-other-{RUN}"
+# Made an Auditor in both test tenants, since reading needs audit.read (SRS 3.2).
+READER = "audit-check"
 AUDIT_STREAM = "WINDOPS_AUDIT"
 EVENTS_STREAM = "WINDOPS_EVENTS"
 POSTGRES = "statefulset/windops-postgres"
@@ -83,6 +86,27 @@ def psql(sql: str) -> subprocess.CompletedProcess[str]:
     )  # fmt: skip
 
 
+def grant_reader() -> None:
+    for tenant in (TENANT, OTHER_TENANT):
+        kubectl(
+            "exec", "deployment/windops-authorization", "--namespace=windops-system", "--",
+            "python", "-m", "windops_authorization.bootstrap",
+            "--tenant", tenant, "--user", READER, "--role", "auditor",
+        )  # fmt: skip
+
+
+async def check_reader_needed(api: "AuditApi") -> None:
+    code = grpc.StatusCode.OK
+    try:
+        await api.records(user="audit-check-no-role")
+    except grpc.aio.AioRpcError as error:
+        code = error.code()
+    check(
+        code is grpc.StatusCode.PERMISSION_DENIED,
+        "someone without audit.read cannot read the trail (SRS 3.2)",
+    )
+
+
 def deploy() -> None:
     build = subprocess.run(
         ["docker", "build", "-q", "-f", "services/audit-service/Dockerfile", "-t", IMAGE, "."],
@@ -116,14 +140,14 @@ class AuditApi:
         self._stub = audit_pb2_grpc.AuditServiceStub(self._channel)
         self._secret = secret
 
-    def _metadata(self, tenant: str) -> tuple[tuple[str, str], ...]:
-        identity = VerifiedIdentity(subject="audit-check", tenant_id=tenant)
+    def _metadata(self, tenant: str, user: str = READER) -> tuple[tuple[str, str], ...]:
+        identity = VerifiedIdentity(subject=user, tenant_id=tenant, user_id=user)
         return (("x-windops-identity", sign_identity(identity, self._secret)),)
 
-    async def records(self, tenant: str = TENANT) -> list[Any]:
+    async def records(self, tenant: str = TENANT, user: str = READER) -> list[Any]:
         response = await self._stub.ListAuditRecords(
             audit_pb2.ListAuditRecordsRequest(page_size=200),
-            metadata=self._metadata(tenant),
+            metadata=self._metadata(tenant, user),
             timeout=10,
         )
         return list(response.records)
@@ -195,8 +219,10 @@ async def check_recording(api: AuditApi, alarm: Client) -> None:
     check(record.correlation_id == f"trace-{RUN}", "a record keeps its correlation ID (OBS-008)")
     await request_record(alarm, event_id=f"other-{RUN}", tenant=OTHER_TENANT)
     await asyncio.sleep(2)
+    # Only Alarm's: making the reader an Auditor left an Authorization record in each tenant too.
+    theirs = [item.event_id for item in await api.records(OTHER_TENANT) if item.producer == "alarm"]
     check(
-        [item.event_id for item in await api.records(OTHER_TENANT)] == [f"other-{RUN}"]
+        theirs == [f"other-{RUN}"]
         and f"other-{RUN}" not in [item.event_id for item in await api.records()],
         "a tenant sees only its own records",
     )
@@ -381,6 +407,7 @@ async def run(grpc_port: int, secret: str, passwords: dict[str, str]) -> None:
         with port_forward(f"pod/{NATS_POD}", DATA, 4222) as port:
             alarm = await nats_client(port, passwords, "alarm")
             admin = await nats_client(port, passwords, None)
+            await check_reader_needed(api)
             await check_recording(api, alarm)
             await check_redelivery(api, alarm)
             check_append_only()
@@ -402,6 +429,7 @@ def main() -> int:
     started = time.monotonic()
     try:
         deploy()
+        grant_reader()
         with port_forward(DEPLOYMENT, APPLICATION, 50051) as port:
             asyncio.run(run(port, secret, passwords))
     except (RuntimeError, OSError, NatsError, TimeoutError, grpc.aio.AioRpcError,

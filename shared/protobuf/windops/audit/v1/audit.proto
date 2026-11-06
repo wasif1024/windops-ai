@@ -4,15 +4,18 @@ package windops.audit.v1;
 import "google/protobuf/timestamp.proto";
 
 // Read-only. Records arrive only as events, so nothing can change one through this service.
+// Both calls need audit.read from the Authorization Service, in the caller's own tenant.
 service AuditService {
   rpc ListAuditRecords(ListAuditRecordsRequest) returns (ListAuditRecordsResponse);
   rpc VerifyAuditChain(VerifyAuditChainRequest) returns (AuditChainVerification);
 }
 
-// The tenant comes from the caller's verified identity (GRP-004).
+// The tenant comes from the caller's verified identity (GRP-004). Reading needs audit.read.
 message ListAuditRecordsRequest {
   int32 page_size = 1;
   string page_token = 2;
+  // Only records with this action, such as "authorization.denied". Empty means every record.
+  string action = 3;
 }
 
 message ListAuditRecordsResponse {

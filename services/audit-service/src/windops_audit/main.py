@@ -5,16 +5,20 @@ import contextlib
 import logging
 import os
 from collections.abc import Callable
-from typing import Any
+from pathlib import Path
+from typing import Any, Protocol
 
 import grpc
 from google.protobuf.timestamp_pb2 import Timestamp
 from nats.errors import Error as NatsError
 from nats.js.errors import APIError
+from opentelemetry import metrics
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from windops.audit.v1 import audit_pb2, audit_pb2_grpc
+from windops.authorization.v1 import authorization_pb2, authorization_pb2_grpc
+from windops_auth import current_identity_token
 from windops_events import (
     AUDIT_REQUEST_SUBJECTS,
     Event,
@@ -24,9 +28,19 @@ from windops_events import (
     connect,
     events_breaker,
 )
-from windops_grpc import InvalidRequestError, current_identity, run_service
+from windops_grpc import (
+    InvalidRequestError,
+    PermissionDeniedError,
+    ServiceClient,
+    UnavailableError,
+    create_channel,
+    current_identity,
+    run_service,
+)
 from windops_migrations import database_url
+from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
+from windops_resilience import BreakerConfig, BreakerOpenError, CircuitBreaker
 
 from windops_audit.records import SERVICE_NAME, append_record, list_records, verify_chain
 
@@ -37,6 +51,9 @@ MAX_PAGE_SIZE = 200
 RECONNECT_SECONDS = 2.0
 # Another replica may append first. That is safe, because the database refuses a fork, so try again.
 APPEND_ATTEMPTS = 5
+PERMISSION = "audit.read"
+DEADLINE_SECONDS = 3.0
+_MAXIMUM_ACTION = 128
 
 
 def _timestamp(value: Any) -> Timestamp:
@@ -45,23 +62,59 @@ def _timestamp(value: Any) -> Timestamp:
     return stamp
 
 
+class Authorizer(Protocol):
+    async def allowed(self, permission: str) -> bool: ...
+
+
+class AuthorizationClient:
+    """Asks the Authorization Service, as the caller, in their own tenant. Any failure denies."""
+
+    def __init__(self, stub: Any, client: ServiceClient) -> None:
+        self._stub, self._client = stub, client
+
+    async def allowed(self, permission: str) -> bool:
+        try:
+            response = await self._client.call(
+                self._stub.Check,
+                authorization_pb2.CheckRequest(permission=permission),
+                idempotent=True,
+                deadline_seconds=DEADLINE_SECONDS,
+            )
+        except (grpc.aio.AioRpcError, BreakerOpenError, TimeoutError) as error:
+            raise UnavailableError("Permissions cannot be checked right now") from error
+        return bool(response.allowed)
+
+
 class AuditService(audit_pb2_grpc.AuditServiceServicer):
-    def __init__(self, engine: AsyncEngine) -> None:
+    def __init__(self, engine: AsyncEngine, authorizer: Authorizer) -> None:
         self._engine = engine
+        self._authorizer = authorizer
+
+    async def _require_reader(self) -> None:
+        """Only Platform and Tenant Administrators and Auditors read the trail (SRS 3.2)."""
+        if not await self._authorizer.allowed(PERMISSION):
+            raise PermissionDeniedError("You do not have permission to do this")
 
     async def ListAuditRecords(  # noqa: N802  # The name comes from the contract.
         self, request: audit_pb2.ListAuditRecordsRequest, context: Any
     ) -> audit_pb2.ListAuditRecordsResponse:
         if request.page_size < 0:
             raise InvalidRequestError("page_size cannot be negative")
+        if len(request.action) > _MAXIMUM_ACTION:
+            raise InvalidRequestError("action is too long")
         limit = min(request.page_size or DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE)
         try:
             after = int(request.page_token or "0")
         except ValueError as error:
             raise InvalidRequestError("page_token is not valid") from error
+        await self._require_reader()
         async with self._engine.connect() as connection:
             rows = await list_records(
-                connection, current_identity().tenant_id, limit=limit, after_sequence=after
+                connection,
+                current_identity().tenant_id,
+                limit=limit,
+                after_sequence=after,
+                action=request.action,
             )
         records = [
             audit_pb2.AuditRecord(
@@ -89,6 +142,7 @@ class AuditService(audit_pb2_grpc.AuditServiceServicer):
     async def VerifyAuditChain(  # noqa: N802  # The name comes from the contract.
         self, request: audit_pb2.VerifyAuditChainRequest, context: Any
     ) -> audit_pb2.AuditChainVerification:
+        await self._require_reader()
         async with self._engine.connect() as connection:
             result = await verify_chain(connection, current_identity().tenant_id)
         return audit_pb2.AuditChainVerification(
@@ -163,16 +217,43 @@ async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
         await client.close()
 
 
-def registrar(engine: AsyncEngine) -> Callable[[grpc.aio.Server], None]:
+def registrar(engine: AsyncEngine, authorizer: Authorizer) -> Callable[[grpc.aio.Server], None]:
     def register(server: grpc.aio.Server) -> None:
         """Add this service's gRPC servicers to the server."""
-        audit_pb2_grpc.add_AuditServiceServicer_to_server(AuditService(engine), server)
+        audit_pb2_grpc.add_AuditServiceServicer_to_server(AuditService(engine, authorizer), server)
 
     return register
 
 
+class LazyAuthorizer:
+    """The channel must be made on the running event loop, so it waits for the first call."""
+
+    def __init__(self, address: str, tls: Path) -> None:
+        self._address, self._tls = address, tls
+        self._client: AuthorizationClient | None = None
+
+    async def allowed(self, permission: str) -> bool:
+        if self._client is None:
+            stub = authorization_pb2_grpc.AuthorizationServiceStub(
+                create_channel(self._address, self._tls)
+            )
+            breaker = CircuitBreaker(
+                "authorization",
+                BreakerConfig(slow_call_seconds=1.0),
+                on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
+            )
+            # The caller's own identity goes along, so Authorization decides for them.
+            self._client = AuthorizationClient(
+                stub, ServiceClient(breaker, identity_token=current_identity_token)
+            )
+        return await self._client.allowed(permission)
+
+
 def main() -> None:
     engine = create_async_engine(database_url(), pool_size=5, max_overflow=5, pool_pre_ping=True)
+    authorizer = LazyAuthorizer(
+        os.environ["WINDOPS_AUTHORIZATION_ADDRESS"], Path(os.environ["WINDOPS_TLS_DIR"])
+    )
 
     async def database_ready() -> bool:
         async with engine.connect() as connection:
@@ -185,7 +266,7 @@ def main() -> None:
     asyncio.run(
         run_service(
             SERVICE_NAME,
-            registrar(engine),
+            registrar(engine, authorizer),
             readiness_checks=[database_ready],
             background=[background],
         )

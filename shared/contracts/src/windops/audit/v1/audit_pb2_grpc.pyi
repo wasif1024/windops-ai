@@ -27,7 +27,9 @@ GRPC_GENERATED_VERSION: str
 GRPC_VERSION: str
 
 class AuditServiceStub:
-    """Read-only. Records arrive only as events, so nothing can change one through this service."""
+    """Read-only. Records arrive only as events, so nothing can change one through this service.
+    Both calls need audit.read from the Authorization Service, in the caller's own tenant.
+    """
 
     @_typing.overload
     def __new__(cls, channel: _grpc.Channel) -> _Self: ...
@@ -38,14 +40,18 @@ class AuditServiceStub:
 
 @_typing.type_check_only
 class AuditServiceAsyncStub(AuditServiceStub):
-    """Read-only. Records arrive only as events, so nothing can change one through this service."""
+    """Read-only. Records arrive only as events, so nothing can change one through this service.
+    Both calls need audit.read from the Authorization Service, in the caller's own tenant.
+    """
 
     def __init__(self, channel: _aio.Channel) -> None: ...
     ListAuditRecords: _aio.UnaryUnaryMultiCallable[_audit_pb2.ListAuditRecordsRequest, _audit_pb2.ListAuditRecordsResponse]  # type: ignore[assignment]
     VerifyAuditChain: _aio.UnaryUnaryMultiCallable[_audit_pb2.VerifyAuditChainRequest, _audit_pb2.AuditChainVerification]  # type: ignore[assignment]
 
 class AuditServiceServicer(metaclass=_abc_1.ABCMeta):
-    """Read-only. Records arrive only as events, so nothing can change one through this service."""
+    """Read-only. Records arrive only as events, so nothing can change one through this service.
+    Both calls need audit.read from the Authorization Service, in the caller's own tenant.
+    """
 
     @_abc_1.abstractmethod
     def ListAuditRecords(

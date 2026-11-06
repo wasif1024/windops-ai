@@ -94,7 +94,7 @@ class FakeTenant:
 
 
 class FakeAuthorization:
-    async def __call__(self, method: str, request: Any, identity: str) -> Any:
+    async def __call__(self, method: str, request: Any, identity: str, retry: bool = True) -> Any:
         from windops.authorization.v1 import authorization_pb2
 
         claims = verify_identity(identity, SECRET)
@@ -123,8 +123,15 @@ def keycloak() -> httpx.MockTransport:
     return httpx.MockTransport(lambda request: httpx.Response(200, json=jwks()))
 
 
+async def unused(method: str, request: Any, identity: str, retry: bool = True) -> Any:
+    raise AssertionError(f"{method} was not expected")
+
+
 def with_bff(
-    scenario: Callable[[World], Awaitable[None]], *, redis: FakeRedis | None = None
+    scenario: Callable[[World], Awaitable[None]],
+    *,
+    redis: FakeRedis | None = None,
+    services: dict[str, Any] | None = None,
 ) -> None:
     async def run() -> None:
         verifier = TokenVerifier(TokenSettings(ISSUER, AUDIENCE, JWKS), transport=keycloak())
@@ -137,7 +144,12 @@ def with_bff(
                     limiter=RateLimiter(counter),
                     identity_secret=SECRET,
                     tenant=tenant,
-                    authorization=FakeAuthorization(),
+                    **{
+                        "authorization": FakeAuthorization(),
+                        "identity": unused,
+                        "audit": unused,
+                        **(services or {}),
+                    },
                 )
             )
         )

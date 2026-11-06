@@ -17,7 +17,14 @@ from windops.events.v1 import events_pb2
 from windops_audit.main import record_event, registrar
 from windops_audit.records import AUDIT_RECORDS, SERVICE_NAME
 from windops_events import Event, RetryLaterError
-from windops_grpc import ServiceRuntime, Settings, VerifiedIdentity, sign_identity
+from windops_grpc import (
+    ServiceRuntime,
+    Settings,
+    UnavailableError,
+    VerifiedIdentity,
+    current_identity,
+    sign_identity,
+)
 from windops_outbox import create_outbox_table
 
 SECRET = "x" * 32
@@ -46,14 +53,33 @@ def event(event_id: str, tenant: str = "tenant-a") -> Event:
     )
 
 
-def metadata(tenant: str = "tenant-a") -> tuple[tuple[str, str], ...]:
-    token = sign_identity(VerifiedIdentity(subject="check", tenant_id=tenant), SECRET)
+READER = "reader"
+
+
+def metadata(tenant: str = "tenant-a", user: str = READER) -> tuple[tuple[str, str], ...]:
+    token = sign_identity(VerifiedIdentity(subject=user, tenant_id=tenant, user_id=user), SECRET)
     return (("x-windops-identity", token),)
+
+
+class FakeAuthorizer:
+    """Allows audit.read to READER only. The Authorization Service has its own tests."""
+
+    def __init__(self, *, down: bool = False) -> None:
+        self.down = down
+        self.asked: list[tuple[str, str]] = []
+
+    async def allowed(self, permission: str) -> bool:
+        user = current_identity().user_id or ""
+        self.asked.append((user, permission))
+        if self.down:
+            raise UnavailableError("Permissions cannot be checked right now")
+        return user == READER and permission == "audit.read"
 
 
 def with_service(
     scenario: Callable[[Any, grpc.aio.Channel], Awaitable[None]],
     *events: Event,
+    authorizer: FakeAuthorizer | None = None,
 ) -> None:
     root = logging.getLogger()
     saved_handlers, saved_level = list(root.handlers), root.level
@@ -66,7 +92,10 @@ def with_service(
         for item in events:
             await record_event(engine, item)
         runtime = ServiceRuntime(
-            SERVICE_NAME, SETTINGS, registrar(engine), install_global_telemetry=False
+            SERVICE_NAME,
+            SETTINGS,
+            registrar(engine, authorizer or FakeAuthorizer()),
+            install_global_telemetry=False,
         )
         await runtime.start()
         try:
@@ -114,6 +143,56 @@ def test_a_call_with_no_identity_is_refused() -> None:
     with_service(scenario, event("e-1"))
 
 
+def test_reading_needs_audit_read() -> None:
+    """SRS 3.2: only Platform and Tenant Administrators and Auditors read the trail."""
+    authorizer = FakeAuthorizer()
+
+    async def scenario(stub: Any, channel: grpc.aio.Channel) -> None:
+        for call, request in (
+            (stub.ListAuditRecords, audit_pb2.ListAuditRecordsRequest()),
+            (stub.VerifyAuditChain, audit_pb2.VerifyAuditChainRequest()),
+        ):
+            with pytest.raises(grpc.aio.AioRpcError) as error:
+                await call(request, metadata=metadata(user="operator"), timeout=5)
+            assert error.value.code() is grpc.StatusCode.PERMISSION_DENIED
+        assert authorizer.asked == [("operator", "audit.read")] * 2
+
+    with_service(scenario, event("e-1"), authorizer=authorizer)
+
+
+def test_when_permissions_cannot_be_checked_nothing_is_read() -> None:
+    """SRS 7.7: a failure to check denies."""
+
+    async def scenario(stub: Any, channel: grpc.aio.Channel) -> None:
+        with pytest.raises(grpc.aio.AioRpcError) as error:
+            await stub.ListAuditRecords(
+                audit_pb2.ListAuditRecordsRequest(), metadata=metadata(), timeout=5
+            )
+        assert error.value.code() is grpc.StatusCode.UNAVAILABLE
+
+    with_service(scenario, event("e-1"), authorizer=FakeAuthorizer(down=True))
+
+
+def test_records_can_be_listed_by_action() -> None:
+    """For the administrator console's access denials (SRS 9.4)."""
+    denied = event("e-2")
+    denied.payload.CopyFrom(
+        events_pb2.AuditRequested(
+            action="authorization.denied", actor_type="user", actor_id="u-1", outcome="denied"
+        )
+    )
+
+    async def scenario(stub: Any, channel: grpc.aio.Channel) -> None:
+        only = await stub.ListAuditRecords(
+            audit_pb2.ListAuditRecordsRequest(action="authorization.denied"),
+            metadata=metadata(),
+            timeout=5,
+        )
+        assert [item.event_id for item in only.records] == ["e-2"]
+
+    with_service(scenario, event("e-1"), denied, event("e-3"))
+
+
 def test_records_are_returned_a_page_at_a_time() -> None:
     """GRP-008."""
 
@@ -138,8 +217,9 @@ def test_records_are_returned_a_page_at_a_time() -> None:
     [
         audit_pb2.ListAuditRecordsRequest(page_token="not-a-number"),
         audit_pb2.ListAuditRecordsRequest(page_size=-1),
+        audit_pb2.ListAuditRecordsRequest(action="x" * 129),
     ],
-    ids=["bad_token", "negative_size"],
+    ids=["bad_token", "negative_size", "long_action"],
 )
 def test_an_invalid_page_request_is_refused(
     request_message: audit_pb2.ListAuditRecordsRequest,

@@ -11,6 +11,7 @@ from typing import Annotated, Any
 
 import grpc
 from fastapi import APIRouter, Depends, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -19,6 +20,7 @@ from windops.tenant.v1 import tenant_pb2
 from windops_grpc import VerifiedIdentity, sign_identity
 from windops_resilience import BreakerOpenError
 
+from windops_web_bff.admin import add_admin_routes
 from windops_web_bff.errors import from_grpc, problem
 from windops_web_bff.limits import LimitUnavailableError, RateLimiter
 from windops_web_bff.tokens import REASONS, Caller, TokenError, TokenVerifier, bearer
@@ -85,8 +87,11 @@ class Dependencies:
     identity_secret: str
     # Calls one Tenant Service method with an identity token, through its breaker.
     tenant: Callable[[str, Any, str], Awaitable[Any]]
-    # Calls one Authorization Service method the same way.
-    authorization: Callable[[str, Any, str], Awaitable[Any]]
+    # Calls one Authorization Service method the same way. These three also take `retry`, which is
+    # False for a change, so only the browser resends it, with the same idempotency key.
+    authorization: Callable[..., Awaitable[Any]]
+    identity: Callable[..., Awaitable[Any]]
+    audit: Callable[..., Awaitable[Any]]
 
 
 class ApiError(Exception):
@@ -159,14 +164,30 @@ def create_router(deps: Dependencies) -> APIRouter:
         response.headers.update(headers)
         return verified
 
-    async def call(method: str, request: Any, token: str, service: str = "tenant") -> Any:
-        target = deps.authorization if service == "authorization" else deps.tenant
+    async def answer(attempt: Awaitable[Any]) -> Any:
         try:
-            return await target(method, request, token)
+            return await attempt
         except grpc.aio.AioRpcError as error:
             raise ApiError(from_grpc(error)) from error
         except (BreakerOpenError, TimeoutError) as error:
             raise ApiError(problem(503, "Temporarily unavailable", "unavailable")) from error
+
+    async def call(method: str, request: Any, token: str, service: str = "tenant") -> Any:
+        target = deps.authorization if service == "authorization" else deps.tenant
+        return await answer(target(method, request, token))
+
+    services = {
+        "identity": deps.identity,
+        "authorization": deps.authorization,
+        "audit": deps.audit,
+    }
+
+    async def call_as(
+        service: str, method: str, request: Any, who: Caller, *, retry: bool = True
+    ) -> Any:
+        """Call as the signed-in user, so the service decides for them (SEC-003)."""
+        token = identity_for(who, deps.identity_secret)
+        return await answer(services[service](method, request, token, retry=retry))
 
     @router.get("/me", response_model=Me, summary="Who is signed in")
     async def me(who: Annotated[Caller, Depends(caller)]) -> Me:
@@ -266,6 +287,8 @@ def create_router(deps: Dependencies) -> APIRouter:
             },
         )
 
+    add_admin_routes(router, caller, call_as)
+
     @router.get("/openapi.json", include_in_schema=False)
     async def openapi() -> JSONResponse:
         return JSONResponse(openapi_document(router))
@@ -290,7 +313,13 @@ async def _handle(request: Request, error: Exception) -> JSONResponse:
     return error.response
 
 
+async def _invalid(request: Request, error: Exception) -> JSONResponse:
+    """A problem in our own words, which never repeats what was sent."""
+    return problem(422, "The request is not valid", "invalid_request")
+
+
 # For run_service, which adds them to the HTTP app.
 EXCEPTION_HANDLERS: dict[type[Exception], Callable[[Any, Exception], Awaitable[Any]]] = {
-    ApiError: _handle
+    ApiError: _handle,
+    RequestValidationError: _invalid,
 }

@@ -24,6 +24,8 @@ def generated() -> str:
             identity_secret="",
             tenant=unused,
             authorization=unused,
+            identity=unused,
+            audit=unused,
         )
     )
     return json.dumps(openapi_document(router), indent=2, sort_keys=True) + "\n"

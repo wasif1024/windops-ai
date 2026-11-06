@@ -27,6 +27,7 @@ if _version_not_supported:
 
 class AuditServiceStub:
     """Read-only. Records arrive only as events, so nothing can change one through this service.
+    Both calls need audit.read from the Authorization Service, in the caller's own tenant.
     """
 
     def __init__(self, channel):
@@ -49,6 +50,7 @@ class AuditServiceStub:
 
 class AuditServiceServicer:
     """Read-only. Records arrive only as events, so nothing can change one through this service.
+    Both calls need audit.read from the Authorization Service, in the caller's own tenant.
     """
 
     def ListAuditRecords(self, request, context):
@@ -86,6 +88,7 @@ def add_AuditServiceServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class AuditService:
     """Read-only. Records arrive only as events, so nothing can change one through this service.
+    Both calls need audit.read from the Authorization Service, in the caller's own tenant.
     """
 
     @staticmethod
