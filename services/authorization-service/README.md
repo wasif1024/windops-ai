@@ -25,6 +25,7 @@ flowchart LR
 | A Platform Administrator reads a tenant's data only through break-glass (RBAC-003) | `policy.decide_across_tenants` |
 | Break-glass needs a reason of 20 characters, lasts 1 to 240 minutes, and only reads | `policy.check_break_glass` |
 | Every denial, change and break-glass use is audited, in the same transaction | `store.audit` and the outbox |
+| A Platform Administrator lists only their own active break-glass grants, in every tenant | `ListMyBreakGlassGrants` |
 
 Ended grants stay, with who ended them and when, so the Approval Service can check the roles someone held
 at the time of a decision (RBAC-005, RBAC-006).

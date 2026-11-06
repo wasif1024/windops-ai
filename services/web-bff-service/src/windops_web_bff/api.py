@@ -21,8 +21,10 @@ from windops_grpc import VerifiedIdentity, sign_identity
 from windops_resilience import BreakerOpenError
 
 from windops_web_bff.admin import add_admin_routes
+from windops_web_bff.branding import add_branding_routes
 from windops_web_bff.errors import from_grpc, problem
 from windops_web_bff.limits import LimitUnavailableError, RateLimiter
+from windops_web_bff.platform import add_platform_routes
 from windops_web_bff.tokens import REASONS, Caller, TokenError, TokenVerifier, bearer
 
 API_VERSION = "1.0.0"
@@ -86,7 +88,7 @@ class Dependencies:
     limiter: RateLimiter
     identity_secret: str
     # Calls one Tenant Service method with an identity token, through its breaker.
-    tenant: Callable[[str, Any, str], Awaitable[Any]]
+    tenant: Callable[..., Awaitable[Any]]
     # Calls one Authorization Service method the same way. These three also take `retry`, which is
     # False for a change, so only the browser resends it, with the same idempotency key.
     authorization: Callable[..., Awaitable[Any]]
@@ -177,6 +179,7 @@ def create_router(deps: Dependencies) -> APIRouter:
         return await answer(target(method, request, token))
 
     services = {
+        "tenant": deps.tenant,
         "identity": deps.identity,
         "authorization": deps.authorization,
         "audit": deps.audit,
@@ -288,6 +291,8 @@ def create_router(deps: Dependencies) -> APIRouter:
         )
 
     add_admin_routes(router, caller, call_as)
+    add_branding_routes(router, caller, call_as, ApiError)
+    add_platform_routes(router, caller, call_as)
 
     @router.get("/openapi.json", include_in_schema=False)
     async def openapi() -> JSONResponse:

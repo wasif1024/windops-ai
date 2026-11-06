@@ -71,6 +71,31 @@ needs a recent second factor, so without one it gets the step-up answer above.
 | `GET` and `PUT /api/v1/admin/roles/{role}/permissions` | Read or replace what a role gives in this tenant |
 | `GET /api/v1/admin/access-denials` | Refused attempts in this tenant, from the audit trail |
 
+A tenant's own branding, for its administrators, needs `branding.manage`, which SRS 3.2 gives to Tenant
+Administrators:
+
+| Route | What |
+| --- | --- |
+| `GET`, `PUT /api/v1/admin/branding` | Read or replace the branding. Reading includes the custom domain's proof token, to publish |
+| `PUT /api/v1/admin/branding/logo` | A PNG or JPEG as the body, at most 256 KiB. Anything else gets 415, and a bigger body 413 without being read in full |
+| `GET /api/v1/admin/email-templates`, `PUT .../{template}` | The emails users get, and the placeholders each may use |
+| `PUT`, `DELETE /api/v1/admin/custom-domain` | Set or remove the one custom domain |
+
+### Platform console (M3.10)
+
+For the Platform Administrator, across tenants. The Tenant Service needs `tenant.manage`, which only a Platform
+Administrator holds, and Authorization allows break-glass only to one (RBAC-003). A tenant's branding is read-only
+here, without the domain's proof token: its own administrators change it.
+
+| Route | What |
+| --- | --- |
+| `GET`, `POST /api/v1/platform/tenants` | List tenants, or create one with its Keycloak organization |
+| `GET /api/v1/platform/tenants/{id}` | One tenant |
+| `POST /api/v1/platform/tenants/{id}/suspend`, `/reactivate` | Suspend, with a reason of at least 10 characters, or reactivate |
+| `GET /api/v1/platform/tenants/{id}/branding` | Its branding and custom domain, to view |
+| `GET`, `POST /api/v1/platform/break-glass` | Your own active grants, or start one: a reason of at least 20 characters, for 1 to 240 minutes |
+| `POST /api/v1/platform/break-glass/{id}/end` | End one early |
+
 Every change needs an `Idempotency-Key` header: a new random value per change, and the same one when resending it
 (GRP-007). Web BFF never retries a change itself, so a new user's password cannot be lost to a retry. The browser
 may resend with the same key.
@@ -81,6 +106,7 @@ may resend with the same key.
 uv run pytest services/web-bff-service/tests
 make bff-check         # on the cluster, with real logins through the gateway
 make admin-api-check   # the administrator console's routes, the same way
+make platform-api-check  # the Platform console's, as a Platform Administrator with a real code
 ```
 
 ## Limits
@@ -96,7 +122,7 @@ make admin-api-check   # the administrator console's routes, the same way
 - **No field-level validation messages yet.** A 400 says only that the request is not valid, not which field. The
   fix is gRPC's structured error reasons (`ErrorInfo`), mapped to messages here. It is not done yet: the console's
   forms check their own fields first, so a 400 means something only a service can see.
-- **The console works in the caller's own tenant.** A Platform Administrator managing another tenant, which the
-  services already allow, has no routes yet.
+- **The administrator console works in the caller's own tenant.** A Platform Administrator managing another tenant's
+  users and roles, which the services allow, has no routes. Break-glass covers emergencies.
 - **Public pages have only per-address limits.** The public branding routes have no per-user limit. The gateway
   allows 60 requests a minute from one address.

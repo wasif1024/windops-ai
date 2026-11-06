@@ -48,6 +48,8 @@ from windops_authorization.store import (
 _TENANT = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 _MAXIMUM_ID = 255
 _MAXIMUM_KEY = 128
+# Each lasts at most 4 hours and one tenant has one at a time, so this is never reached in use.
+_MAXIMUM_LISTED = 200
 STEP_UP = STEP_UP_MESSAGE
 
 
@@ -512,6 +514,30 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
                 connection, user, request.idempotency_key, "StartBreakGlass", request, response, now
             )
         return response
+
+    async def ListMyBreakGlassGrants(  # noqa: N802  # The name comes from the contract.
+        self, request: authorization_pb2.ListMyBreakGlassGrantsRequest, context: Any
+    ) -> authorization_pb2.ListMyBreakGlassGrantsResponse:
+        user = self._user(current_identity())
+        now = _now()
+        async with self._engine.begin() as connection:
+            # The caller's own grants, wherever they are. Nobody else's can be named here.
+            await across_tenants(connection)
+            rows = (
+                await connection.execute(
+                    select(BREAK_GLASS_GRANTS)
+                    .where(
+                        BREAK_GLASS_GRANTS.c.user_id == user,
+                        BREAK_GLASS_GRANTS.c.ended_at.is_(None),
+                        BREAK_GLASS_GRANTS.c.expires_at > now,
+                    )
+                    .order_by(BREAK_GLASS_GRANTS.c.expires_at)
+                    .limit(_MAXIMUM_LISTED)
+                )
+            ).all()
+        return authorization_pb2.ListMyBreakGlassGrantsResponse(
+            grants=[_break_glass_message(row) for row in rows]
+        )
 
     async def EndBreakGlass(  # noqa: N802  # The name comes from the contract.
         self, request: authorization_pb2.EndBreakGlassRequest, context: Any

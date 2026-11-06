@@ -332,6 +332,46 @@ def test_break_glass_is_reasoned_time_limited_read_only_and_audited() -> None:
     with_service(scenario)
 
 
+def test_a_platform_administrator_lists_only_their_own_active_break_glass() -> None:
+    """So the Platform console can show what is open, after a reload too."""
+
+    async def scenario(stub: Any, engine: AsyncEngine) -> None:
+        platform = as_user(PLATFORM, policy.PLATFORM_TENANT)
+        reason = "Investigating incident INC-4411 for the tenant"
+        listing = authorization_pb2.ListMyBreakGlassGrantsRequest()
+        assert not (await stub.ListMyBreakGlassGrants(listing, metadata=platform, timeout=5)).grants
+        first = await stub.StartBreakGlass(
+            authorization_pb2.StartBreakGlassRequest(
+                target_tenant_id=TENANT, reason=reason, duration_minutes=30
+            ),
+            metadata=platform,
+            timeout=5,
+        )
+        await stub.StartBreakGlass(
+            authorization_pb2.StartBreakGlassRequest(
+                target_tenant_id=OTHER, reason=reason, duration_minutes=10
+            ),
+            metadata=platform,
+            timeout=5,
+        )
+        mine = await stub.ListMyBreakGlassGrants(listing, metadata=platform, timeout=5)
+        # Soonest to expire first, across both tenants.
+        assert [grant.tenant_id for grant in mine.grants] == [OTHER, TENANT]
+        assert all(grant.reason == reason for grant in mine.grants)
+        await stub.EndBreakGlass(
+            authorization_pb2.EndBreakGlassRequest(grant_id=first.grant.grant_id),
+            metadata=platform,
+            timeout=5,
+        )
+        mine = await stub.ListMyBreakGlassGrants(listing, metadata=platform, timeout=5)
+        assert [grant.tenant_id for grant in mine.grants] == [OTHER]
+        # Another user sees none of them.
+        theirs = await stub.ListMyBreakGlassGrants(listing, metadata=as_user(ADMIN), timeout=5)
+        assert not theirs.grants
+
+    with_service(scenario)
+
+
 def test_only_a_platform_administrator_can_start_break_glass() -> None:
     async def scenario(stub: Any, engine: AsyncEngine) -> None:
         request = authorization_pb2.StartBreakGlassRequest(

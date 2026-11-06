@@ -641,3 +641,38 @@ class ListMyPermissionsResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___ListMyPermissionsResponse: _TypeAlias = ListMyPermissionsResponse  # noqa: Y015
+
+@_typing.final
+class ListMyBreakGlassGrantsRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListMyBreakGlassGrantsRequest: _TypeAlias = ListMyBreakGlassGrantsRequest  # noqa: Y015
+
+@_typing.final
+class ListMyBreakGlassGrantsResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    GRANTS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def grants(self) -> _containers.RepeatedCompositeFieldContainer[Global___BreakGlassGrant]: ...
+    def __init__(
+        self,
+        *,
+        grants: _abc.Iterable[Global___BreakGlassGrant] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["grants", b"grants"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListMyBreakGlassGrantsResponse: _TypeAlias = ListMyBreakGlassGrantsResponse  # noqa: Y015
