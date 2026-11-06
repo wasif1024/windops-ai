@@ -386,3 +386,16 @@ def test_keys_are_fetched_on_a_machine_that_booted_moments_ago() -> None:
             await verifier.close()
 
     asyncio.run(run())
+
+
+def test_retry_after_is_never_zero_in_a_windows_last_moment() -> None:
+    """Rounded down, a refusal 59.5 seconds into a window said to retry at once."""
+
+    async def check() -> None:
+        limiter = RateLimiter(FakeRedis(), clock=lambda: 1_767_225_659.5)
+        decision = await limiter.check("north-sea", "u-1", "windops-web")
+        assert decision.reset_seconds == 1
+        on_the_minute = RateLimiter(FakeRedis(), clock=lambda: 1_767_225_600.0)
+        assert (await on_the_minute.check("north-sea", "u-1", "windops-web")).reset_seconds == 60
+
+    asyncio.run(check())
