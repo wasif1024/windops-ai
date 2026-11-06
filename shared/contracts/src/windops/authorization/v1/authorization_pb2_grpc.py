@@ -81,6 +81,11 @@ class AuthorizationServiceStub:
                 request_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.EndBreakGlassRequest.SerializeToString,
                 response_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.EndBreakGlassResponse.FromString,
                 _registered_method=True)
+        self.ListMyBreakGlassGrants = channel.unary_unary(
+                '/windops.authorization.v1.AuthorizationService/ListMyBreakGlassGrants',
+                request_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListMyBreakGlassGrantsRequest.SerializeToString,
+                response_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListMyBreakGlassGrantsResponse.FromString,
+                _registered_method=True)
 
 
 class AuthorizationServiceServicer:
@@ -151,6 +156,14 @@ class AuthorizationServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListMyBreakGlassGrants(self, request, context):
+        """The caller's own break-glass grants that are still active, in every tenant, soonest to expire
+        first. It names no one else's.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_AuthorizationServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -198,6 +211,11 @@ def add_AuthorizationServiceServicer_to_server(servicer, server):
                     servicer.EndBreakGlass,
                     request_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.EndBreakGlassRequest.FromString,
                     response_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.EndBreakGlassResponse.SerializeToString,
+            ),
+            'ListMyBreakGlassGrants': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListMyBreakGlassGrants,
+                    request_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListMyBreakGlassGrantsRequest.FromString,
+                    response_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListMyBreakGlassGrantsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -445,6 +463,33 @@ class AuthorizationService:
             '/windops.authorization.v1.AuthorizationService/EndBreakGlass',
             windops_dot_authorization_dot_v1_dot_authorization__pb2.EndBreakGlassRequest.SerializeToString,
             windops_dot_authorization_dot_v1_dot_authorization__pb2.EndBreakGlassResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListMyBreakGlassGrants(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.authorization.v1.AuthorizationService/ListMyBreakGlassGrants',
+            windops_dot_authorization_dot_v1_dot_authorization__pb2.ListMyBreakGlassGrantsRequest.SerializeToString,
+            windops_dot_authorization_dot_v1_dot_authorization__pb2.ListMyBreakGlassGrantsResponse.FromString,
             options,
             channel_credentials,
             insecure,

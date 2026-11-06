@@ -4,37 +4,20 @@ Identity needs users.manage, Authorization roles.manage or permissions.manage, a
 Every change also needs a recent second factor, which comes back as a step-up challenge.
 """
 
-from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, Path, Query
-from google.protobuf.timestamp_pb2 import Timestamp
+from fastapi import APIRouter, Depends, Path, Query
 from pydantic import BaseModel, Field
 from windops.audit.v1 import audit_pb2
 from windops.authorization.v1 import authorization_pb2
 from windops.identity.v1 import identity_pb2
 
+from windops_web_bff.common import ID_PATTERN as _ID
+from windops_web_bff.common import Call, Key, MemberId
+from windops_web_bff.common import time_of as _time
 from windops_web_bff.tokens import Caller
 
 DENIED = "authorization.denied"
-# What Keycloak and the Authorization Service use as IDs and role names. They check again.
-_ID = r"^[A-Za-z0-9_-]{1,64}$"
-_KEY = _ID
-
-MemberId = Annotated[str, Path(pattern=_ID)]
-
-# Every change carries one, so the browser can safely send it again (GRP-007).
-Key = Annotated[
-    str,
-    Header(
-        alias="Idempotency-Key",
-        pattern=_KEY,
-        description="A new random value per change, the same when resending it",
-    ),
-]
-
-# (service, method, request, caller, retry) -> the service's answer
-Call = Callable[..., Awaitable[Any]]
 
 
 class User(BaseModel):
@@ -131,13 +114,6 @@ class AccessDenial(BaseModel):
 class AccessDenials(BaseModel):
     denials: list[AccessDenial]
     next_page_token: str
-
-
-def _time(message: Any, name: str) -> str | None:
-    if not message.HasField(name):
-        return None
-    stamp: Timestamp = getattr(message, name)
-    return stamp.ToDatetime().isoformat() + "Z"
 
 
 def _user(message: Any) -> User:

@@ -121,6 +121,38 @@ def check_step_up(admin: str, operator_id: str) -> None:
     )
 
 
+def check_branding(admin: str) -> None:
+    branding = call("GET", "/admin/branding", admin)
+    check(
+        branding.status_code == 200 and branding.json()["tenant_id"] == TENANT,
+        "A Tenant Administrator reads their tenant's branding",
+    )
+    current = branding.json()
+    fields = ("display_name", "primary_color", "accent_color", "login_title", "login_message")
+    change = {name: current[name] for name in (*fields, "time_zone", "locale")}
+    unchanged = httpx.put(
+        f"{API}/admin/branding",
+        json=change,
+        headers={"Authorization": f"Bearer {admin}", "Idempotency-Key": uuid.uuid4().hex},
+        timeout=20,
+    )
+    check(
+        unchanged.status_code == 401 and unchanged.json().get("code") == "step_up_required",
+        "and changing it asks for a second factor (SEC-003)",
+    )
+    svg = httpx.put(
+        f"{API}/admin/branding/logo",
+        content=b"<svg onload=alert(1)>",
+        headers={
+            "Authorization": f"Bearer {admin}",
+            "Idempotency-Key": uuid.uuid4().hex,
+            "Content-Type": "image/svg+xml",
+        },
+        timeout=20,
+    )
+    check(svg.status_code == 415, "An SVG logo is refused, as it can carry scripts")
+
+
 def denials(admin: str) -> list[dict[str, object]]:
     """Every denial in the tenant, a page at a time, oldest first."""
     found: list[dict[str, object]] = []
@@ -179,6 +211,7 @@ def main() -> int:
                         raise RuntimeError("A check user could not sign in")
                     check_reads(admin.access, admin_id, operator_id)
                     check_step_up(admin.access, operator_id)
+                    check_branding(admin.access)
                     check_denials(admin.access, operator.access, operator_id)
             finally:
                 with admin_client(base, admin_password) as api:

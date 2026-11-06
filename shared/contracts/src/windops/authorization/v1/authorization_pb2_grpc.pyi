@@ -54,6 +54,10 @@ class AuthorizationServiceStub:
     StartBreakGlass: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.StartBreakGlassRequest, _authorization_pb2.StartBreakGlassResponse]
     """A Platform Administrator's time-limited, reasoned access to one tenant's data (RBAC-003)."""
     EndBreakGlass: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.EndBreakGlassRequest, _authorization_pb2.EndBreakGlassResponse]
+    ListMyBreakGlassGrants: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.ListMyBreakGlassGrantsRequest, _authorization_pb2.ListMyBreakGlassGrantsResponse]
+    """The caller's own break-glass grants that are still active, in every tenant, soonest to expire
+    first. It names no one else's.
+    """
 
 @_typing.type_check_only
 class AuthorizationServiceAsyncStub(AuthorizationServiceStub):
@@ -81,6 +85,10 @@ class AuthorizationServiceAsyncStub(AuthorizationServiceStub):
     StartBreakGlass: _aio.UnaryUnaryMultiCallable[_authorization_pb2.StartBreakGlassRequest, _authorization_pb2.StartBreakGlassResponse]  # type: ignore[assignment]
     """A Platform Administrator's time-limited, reasoned access to one tenant's data (RBAC-003)."""
     EndBreakGlass: _aio.UnaryUnaryMultiCallable[_authorization_pb2.EndBreakGlassRequest, _authorization_pb2.EndBreakGlassResponse]  # type: ignore[assignment]
+    ListMyBreakGlassGrants: _aio.UnaryUnaryMultiCallable[_authorization_pb2.ListMyBreakGlassGrantsRequest, _authorization_pb2.ListMyBreakGlassGrantsResponse]  # type: ignore[assignment]
+    """The caller's own break-glass grants that are still active, in every tenant, soonest to expire
+    first. It names no one else's.
+    """
 
 class AuthorizationServiceServicer(metaclass=_abc_1.ABCMeta):
     """Decides what a user may do, and keeps their roles (SEC-006). Anything not granted is denied.
@@ -159,5 +167,15 @@ class AuthorizationServiceServicer(metaclass=_abc_1.ABCMeta):
         request: _authorization_pb2.EndBreakGlassRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_authorization_pb2.EndBreakGlassResponse, _abc.Awaitable[_authorization_pb2.EndBreakGlassResponse]]: ...
+
+    @_abc_1.abstractmethod
+    def ListMyBreakGlassGrants(
+        self,
+        request: _authorization_pb2.ListMyBreakGlassGrantsRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_authorization_pb2.ListMyBreakGlassGrantsResponse, _abc.Awaitable[_authorization_pb2.ListMyBreakGlassGrantsResponse]]:
+        """The caller's own break-glass grants that are still active, in every tenant, soonest to expire
+        first. It names no one else's.
+        """
 
 def add_AuthorizationServiceServicer_to_server(servicer: AuthorizationServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

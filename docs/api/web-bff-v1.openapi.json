@@ -110,6 +110,149 @@
         "title": "Branding",
         "type": "object"
       },
+      "BrandingChange": {
+        "description": "Every field, as the Tenant Service replaces them all. It checks each one.",
+        "properties": {
+          "accent_color": {
+            "maxLength": 7,
+            "title": "Accent Color",
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 200,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "locale": {
+            "maxLength": 35,
+            "title": "Locale",
+            "type": "string"
+          },
+          "login_message": {
+            "maxLength": 1000,
+            "title": "Login Message",
+            "type": "string"
+          },
+          "login_title": {
+            "maxLength": 200,
+            "title": "Login Title",
+            "type": "string"
+          },
+          "primary_color": {
+            "maxLength": 7,
+            "title": "Primary Color",
+            "type": "string"
+          },
+          "time_zone": {
+            "maxLength": 64,
+            "title": "Time Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "primary_color",
+          "accent_color",
+          "login_title",
+          "login_message",
+          "time_zone",
+          "locale"
+        ],
+        "title": "BrandingChange",
+        "type": "object"
+      },
+      "BreakGlassGrant": {
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "grant_id": {
+            "title": "Grant Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant_id",
+          "tenant_id",
+          "reason",
+          "started_at",
+          "expires_at",
+          "ended_at"
+        ],
+        "title": "BreakGlassGrant",
+        "type": "object"
+      },
+      "BreakGlassGrants": {
+        "properties": {
+          "grants": {
+            "items": {
+              "$ref": "#/components/schemas/BreakGlassGrant"
+            },
+            "title": "Grants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "grants"
+        ],
+        "title": "BreakGlassGrants",
+        "type": "object"
+      },
+      "CreatedTenant": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "tenant": {
+            "$ref": "#/components/schemas/windops_web_bff__platform__Tenant"
+          }
+        },
+        "required": [
+          "tenant",
+          "created"
+        ],
+        "title": "CreatedTenant",
+        "type": "object"
+      },
       "CreatedUser": {
         "properties": {
           "already_created": {
@@ -137,6 +280,126 @@
           "already_created"
         ],
         "title": "CreatedUser",
+        "type": "object"
+      },
+      "CustomDomain": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "verification_token": {
+            "title": "Verification Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "status",
+          "verification_token",
+          "created_at"
+        ],
+        "title": "CustomDomain",
+        "type": "object"
+      },
+      "DomainChange": {
+        "properties": {
+          "domain": {
+            "maxLength": 253,
+            "minLength": 3,
+            "title": "Domain",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain"
+        ],
+        "title": "DomainChange",
+        "type": "object"
+      },
+      "DomainStatus": {
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "status"
+        ],
+        "title": "DomainStatus",
+        "type": "object"
+      },
+      "EmailTemplate": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "customized": {
+            "title": "Customized",
+            "type": "boolean"
+          },
+          "placeholders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Placeholders",
+            "type": "array"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "template": {
+            "title": "Template",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template",
+          "subject",
+          "body",
+          "customized",
+          "placeholders"
+        ],
+        "title": "EmailTemplate",
+        "type": "object"
+      },
+      "EmailTemplates": {
+        "properties": {
+          "templates": {
+            "items": {
+              "$ref": "#/components/schemas/EmailTemplate"
+            },
+            "title": "Templates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "templates"
+        ],
+        "title": "EmailTemplates",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -215,6 +478,34 @@
         "title": "MfaStatus",
         "type": "object"
       },
+      "NewBreakGlass": {
+        "properties": {
+          "duration_minutes": {
+            "default": 60,
+            "maximum": 240.0,
+            "minimum": 1.0,
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 20,
+            "title": "Reason",
+            "type": "string"
+          },
+          "tenant_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "reason"
+        ],
+        "title": "NewBreakGlass",
+        "type": "object"
+      },
       "NewGrant": {
         "properties": {
           "role": {
@@ -247,6 +538,27 @@
         "title": "NewGrant",
         "type": "object"
       },
+      "NewTenant": {
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "tenant_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "name"
+        ],
+        "title": "NewTenant",
+        "type": "object"
+      },
       "NewUser": {
         "properties": {
           "email": {
@@ -271,6 +583,82 @@
           "email"
         ],
         "title": "NewUser",
+        "type": "object"
+      },
+      "OwnBranding": {
+        "properties": {
+          "accent_color": {
+            "title": "Accent Color",
+            "type": "string"
+          },
+          "custom_domain": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CustomDomain"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "has_logo": {
+            "title": "Has Logo",
+            "type": "boolean"
+          },
+          "locale": {
+            "title": "Locale",
+            "type": "string"
+          },
+          "login_message": {
+            "title": "Login Message",
+            "type": "string"
+          },
+          "login_title": {
+            "title": "Login Title",
+            "type": "string"
+          },
+          "primary_color": {
+            "title": "Primary Color",
+            "type": "string"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "time_zone": {
+            "title": "Time Zone",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "display_name",
+          "primary_color",
+          "accent_color",
+          "login_title",
+          "login_message",
+          "time_zone",
+          "locale",
+          "has_logo",
+          "updated_at",
+          "custom_domain"
+        ],
+        "title": "OwnBranding",
         "type": "object"
       },
       "PermissionList": {
@@ -549,27 +937,137 @@
         "title": "SessionsEnded",
         "type": "object"
       },
-      "Tenant": {
+      "Suspension": {
         "properties": {
-          "name": {
-            "title": "Name",
+          "reason": {
+            "maxLength": 500,
+            "minLength": 10,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "Suspension",
+        "type": "object"
+      },
+      "TemplateChange": {
+        "properties": {
+          "body": {
+            "maxLength": 10000,
+            "title": "Body",
             "type": "string"
           },
-          "status": {
-            "title": "Status",
+          "subject": {
+            "maxLength": 200,
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "body"
+        ],
+        "title": "TemplateChange",
+        "type": "object"
+      },
+      "TenantBranding": {
+        "description": "What a tenant shows its users. The domain's proof token is the tenant's, so it stays out.",
+        "properties": {
+          "accent_color": {
+            "title": "Accent Color",
+            "type": "string"
+          },
+          "custom_domain": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DomainStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "has_logo": {
+            "title": "Has Logo",
+            "type": "boolean"
+          },
+          "locale": {
+            "title": "Locale",
+            "type": "string"
+          },
+          "login_message": {
+            "title": "Login Message",
+            "type": "string"
+          },
+          "login_title": {
+            "title": "Login Title",
+            "type": "string"
+          },
+          "primary_color": {
+            "title": "Primary Color",
             "type": "string"
           },
           "tenant_id": {
             "title": "Tenant Id",
             "type": "string"
+          },
+          "time_zone": {
+            "title": "Time Zone",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "required": [
           "tenant_id",
-          "name",
-          "status"
+          "display_name",
+          "primary_color",
+          "accent_color",
+          "login_title",
+          "login_message",
+          "time_zone",
+          "locale",
+          "has_logo",
+          "updated_at",
+          "custom_domain"
         ],
-        "title": "Tenant",
+        "title": "TenantBranding",
+        "type": "object"
+      },
+      "TenantPage": {
+        "properties": {
+          "next_page_token": {
+            "title": "Next Page Token",
+            "type": "string"
+          },
+          "tenants": {
+            "items": {
+              "$ref": "#/components/schemas/windops_web_bff__platform__Tenant"
+            },
+            "title": "Tenants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tenants",
+          "next_page_token"
+        ],
+        "title": "TenantPage",
         "type": "object"
       },
       "User": {
@@ -677,6 +1175,64 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "windops_web_bff__api__Tenant": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "name",
+          "status"
+        ],
+        "title": "Tenant",
+        "type": "object"
+      },
+      "windops_web_bff__platform__Tenant": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "name",
+          "status",
+          "created_at"
+        ],
+        "title": "Tenant",
+        "type": "object"
       }
     }
   },
@@ -738,6 +1294,298 @@
           }
         },
         "summary": "Refused attempts in this tenant, oldest first, from the audit trail"
+      }
+    },
+    "/api/v1/admin/branding": {
+      "get": {
+        "operationId": "get_branding_api_v1_admin_branding_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnBranding"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Your tenant's branding, with its custom domain's proof token"
+      },
+      "put": {
+        "operationId": "update_branding_api_v1_admin_branding_put",
+        "parameters": [
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandingChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnBranding"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change the branding"
+      }
+    },
+    "/api/v1/admin/branding/logo": {
+      "put": {
+        "operationId": "set_logo_api_v1_admin_branding_logo_put",
+        "parameters": [
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnBranding"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace the logo: a PNG or JPEG of at most 256 KiB, sent as the body"
+      }
+    },
+    "/api/v1/admin/custom-domain": {
+      "delete": {
+        "operationId": "remove_domain_api_v1_admin_custom_domain_delete",
+        "parameters": [
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove your tenant's custom domain"
+      },
+      "put": {
+        "operationId": "set_domain_api_v1_admin_custom_domain_put",
+        "parameters": [
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomDomain"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set your tenant's one custom domain, with a token to prove it"
+      }
+    },
+    "/api/v1/admin/email-templates": {
+      "get": {
+        "operationId": "list_templates_api_v1_admin_email_templates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailTemplates"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "The emails your tenant's users get, and the placeholders each may use"
+      }
+    },
+    "/api/v1/admin/email-templates/{template}": {
+      "put": {
+        "operationId": "set_template_api_v1_admin_email_templates__template__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z_]{1,40}$",
+              "title": "Template",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailTemplate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change one email's subject and text"
       }
     },
     "/api/v1/admin/role-grants": {
@@ -1426,6 +2274,423 @@
         "summary": "What the signed-in user may do, so a screen shows only that"
       }
     },
+    "/api/v1/platform/break-glass": {
+      "get": {
+        "operationId": "my_break_glass_api_v1_platform_break_glass_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BreakGlassGrants"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Your own active break-glass grants, soonest to expire first"
+      },
+      "post": {
+        "operationId": "start_break_glass_api_v1_platform_break_glass_post",
+        "parameters": [
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewBreakGlass"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BreakGlassGrant"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start reasoned, time-limited, read-only access to one tenant's data"
+      }
+    },
+    "/api/v1/platform/break-glass/{grant_id}/end": {
+      "post": {
+        "operationId": "end_break_glass_api_v1_platform_break_glass__grant_id__end_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BreakGlassGrant"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End a break-glass grant early"
+      }
+    },
+    "/api/v1/platform/tenants": {
+      "get": {
+        "operationId": "list_tenants_api_v1_platform_tenants_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 256,
+              "title": "Page Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Every tenant"
+      },
+      "post": {
+        "operationId": "create_tenant_api_v1_platform_tenants_post",
+        "parameters": [
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewTenant"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedTenant"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create a tenant, and its Keycloak organization"
+      }
+    },
+    "/api/v1/platform/tenants/{tenant_id}": {
+      "get": {
+        "operationId": "get_tenant_api_v1_platform_tenants__tenant_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/windops_web_bff__platform__Tenant"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One tenant"
+      }
+    },
+    "/api/v1/platform/tenants/{tenant_id}/branding": {
+      "get": {
+        "operationId": "tenant_branding_api_v1_platform_tenants__tenant_id__branding_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantBranding"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "A tenant's branding and custom domain, to view"
+      }
+    },
+    "/api/v1/platform/tenants/{tenant_id}/reactivate": {
+      "post": {
+        "operationId": "reactivate_tenant_api_v1_platform_tenants__tenant_id__reactivate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/windops_web_bff__platform__Tenant"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reactivate a suspended tenant"
+      }
+    },
+    "/api/v1/platform/tenants/{tenant_id}/suspend": {
+      "post": {
+        "operationId": "suspend_tenant_api_v1_platform_tenants__tenant_id__suspend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Suspension"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/windops_web_bff__platform__Tenant"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suspend a tenant, so its users can no longer sign in to it"
+      }
+    },
     "/api/v1/public/branding/{tenant_id}": {
       "get": {
         "operationId": "public_branding_api_v1_public_branding__tenant_id__get",
@@ -1509,7 +2774,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Tenant"
+                  "$ref": "#/components/schemas/windops_web_bff__api__Tenant"
                 }
               }
             },

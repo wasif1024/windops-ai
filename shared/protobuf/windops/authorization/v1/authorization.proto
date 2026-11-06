@@ -27,6 +27,9 @@ service AuthorizationService {
   // A Platform Administrator's time-limited, reasoned access to one tenant's data (RBAC-003).
   rpc StartBreakGlass(StartBreakGlassRequest) returns (StartBreakGlassResponse);
   rpc EndBreakGlass(EndBreakGlassRequest) returns (EndBreakGlassResponse);
+  // The caller's own break-glass grants that are still active, in every tenant, soonest to expire
+  // first. It names no one else's.
+  rpc ListMyBreakGlassGrants(ListMyBreakGlassGrantsRequest) returns (ListMyBreakGlassGrantsResponse);
 }
 
 // Where something applies (RBAC-002). Both empty means the whole tenant.
@@ -182,4 +185,10 @@ message ScopedRole {
 message ListMyPermissionsResponse {
   repeated ScopedRole roles = 1;
   repeated ScopedPermission permissions = 2;
+}
+
+message ListMyBreakGlassGrantsRequest {}
+
+message ListMyBreakGlassGrantsResponse {
+  repeated BreakGlassGrant grants = 1;
 }

@@ -74,7 +74,7 @@ class FakeTenant:
     calls: list[tuple[str, str]] = field(default_factory=list)
     error: grpc.aio.AioRpcError | None = None
 
-    async def __call__(self, method: str, request: Any, identity: str) -> Any:
+    async def __call__(self, method: str, request: Any, identity: str, retry: bool = True) -> Any:
         self.calls.append((method, identity))
         if self.error is not None:
             raise self.error
@@ -143,8 +143,8 @@ def with_bff(
                     verifier=verifier,
                     limiter=RateLimiter(counter),
                     identity_secret=SECRET,
-                    tenant=tenant,
                     **{
+                        "tenant": tenant,
                         "authorization": FakeAuthorization(),
                         "identity": unused,
                         "audit": unused,
