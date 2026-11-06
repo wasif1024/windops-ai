@@ -15,6 +15,43 @@ serves it at `https://localhost:9443/`, on the same address as the API and Keycl
 
 Hiding a screen is a convenience, not protection. Every operation is still checked by the services.
 
+## Structure
+
+```text
+src/
+  main.tsx          entry point
+  app/              the shell: App, routes, navigation, sign-in and placeholder pages
+  auth/             sign-in with Keycloak, and tokens
+  api/              the Web BFF client, its errors and response types
+  branding/         a tenant's colors, title and logo
+  components/       building blocks more than one feature uses, such as Button and Logo
+  features/         one folder per SRS 4.11 area, as each is built
+  styles/           Tailwind, and the brand color variables
+  assets/           images the code imports, which Vite fingerprints
+e2e/                browser journeys, with Playwright
+```
+
+A feature owns its folder, so adding or removing one touches one place:
+
+```text
+features/admin/
+  pages/            UsersPage.tsx, one per route
+  components/       UserTable.tsx, used only here
+  api.ts            this feature's calls to Web BFF
+  *.test.tsx        tests beside the code they test
+```
+
+A component moves to `components/` only once a second feature needs it.
+
+## Styling
+
+[Tailwind CSS](https://tailwindcss.com) 4, with utility classes in the markup. It writes one static stylesheet at
+build time, so the strict Content Security Policy needs no inline styles.
+
+A tenant's branding sets two CSS variables, `--brand-primary` and `--brand-accent`, and Tailwind's theme maps them to
+`bg-brand-primary`, `border-brand-accent` and the rest, so every screen follows the tenant's colors with no code of
+its own. Tests find elements by role, label or `data-testid`, never by a styling class.
+
 ## Security headers
 
 nginx sends these on every page, from one file, so no location can lose them:

@@ -1,5 +1,5 @@
 // A tenant's branding, applied as CSS variables. Values come from the API, so each is checked first.
-import type { Branding } from "./api";
+import type { Branding } from "../api/client";
 
 const COLOR = /^#[0-9a-f]{6}$/;
 export const DEFAULTS = { primary: "#0b5394", accent: "#38761d" } as const;

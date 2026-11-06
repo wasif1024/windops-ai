@@ -1,6 +1,6 @@
 // The SRS 4.11 screens, and the permission each needs. Hiding one is for convenience only:
 // every operation behind it is still checked by the services.
-import type { ScopedPermission } from "./api";
+import type { ScopedPermission } from "../api/client";
 
 export interface Screen {
   id: string;

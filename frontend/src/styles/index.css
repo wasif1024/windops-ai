@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+/* A tenant's branding sets these at runtime (branding/branding.ts). The defaults are WindOps's own. */
+:root {
+  --brand-primary: #0b5394;
+  --brand-accent: #38761d;
+}
+
+/* inline, so a class such as bg-brand-primary follows the variable when branding changes it. */
+@theme inline {
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-accent: var(--brand-accent);
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+  }
+
+  :focus-visible {
+    @apply outline-3 outline-offset-2 outline-brand-accent;
+  }
+}
