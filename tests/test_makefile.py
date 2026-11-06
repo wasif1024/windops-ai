@@ -71,6 +71,7 @@ BUILT_TARGETS = {
     "openapi",
     "bff-check",
     "gateway-policy-check",
+    "token-exchange-check",
     "postgres-provision",
     "postgres-check",
     "redis-check",

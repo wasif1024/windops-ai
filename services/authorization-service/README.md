@@ -51,9 +51,9 @@ make authorization-check   # on the cluster
 
 - **Callers arrive one by one.** The Identity Service calls `Check` before every operation. Other services call it as
   they are built, and until one does, its own operations are not protected by these rules.
-- **A step-up claim from Web BFF.** The second-factor check reads `acr` and `auth_time` from the signed internal
-  identity. Web BFF copies them from the user's verified Keycloak token in M3.7, and until then only checks sign
-  them.
+- **The step-up check trusts the internal identity.** It reads `acr` and `auth_time` from the signed internal identity,
+  which Web BFF copies from the user's verified Keycloak token. A service holding the shared signing key could sign
+  any value (M3.3's limit).
 - **Unchecked user IDs.** A grant names a user ID that is not checked against Keycloak, because this service must
   not depend on the Identity Service. A disabled user keeps their grants, so reactivating them restores their access, but
   they cannot sign in to use them.

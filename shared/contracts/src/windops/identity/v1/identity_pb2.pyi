@@ -563,3 +563,52 @@ class SetOrganizationEnabledResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___SetOrganizationEnabledResponse: _TypeAlias = SetOrganizationEnabledResponse  # noqa: Y015
+
+@_typing.final
+class ExchangeTokenRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SUBJECT_TOKEN_FIELD_NUMBER: _builtins.int
+    AUDIENCE_FIELD_NUMBER: _builtins.int
+    subject_token: _builtins.str
+    """The caller's own Keycloak access token. It is never stored or logged."""
+    audience: _builtins.str
+    """The one service the new token is for. Only allowed services may be named."""
+    def __init__(
+        self,
+        *,
+        subject_token: _builtins.str = ...,
+        audience: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["audience", b"audience", "subject_token", b"subject_token"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ExchangeTokenRequest: _TypeAlias = ExchangeTokenRequest  # noqa: Y015
+
+@_typing.final
+class ExchangeTokenResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    ACCESS_TOKEN_FIELD_NUMBER: _builtins.int
+    EXPIRES_IN_SECONDS_FIELD_NUMBER: _builtins.int
+    AUDIENCE_FIELD_NUMBER: _builtins.int
+    access_token: _builtins.str
+    expires_in_seconds: _builtins.int
+    audience: _builtins.str
+    def __init__(
+        self,
+        *,
+        access_token: _builtins.str = ...,
+        expires_in_seconds: _builtins.int = ...,
+        audience: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["access_token", b"access_token", "audience", b"audience", "expires_in_seconds", b"expires_in_seconds"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ExchangeTokenResponse: _TypeAlias = ExchangeTokenResponse  # noqa: Y015

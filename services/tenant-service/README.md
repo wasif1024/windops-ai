@@ -38,8 +38,8 @@ tenant's row is refused by PostgreSQL. `ListTenants` is the only place that read
 ## Suspension
 
 Suspending a tenant disables its Keycloak organization, through the Identity Service. I tested it on the cluster:
-a user of a disabled organization can still sign in, but their token carries no `tenant_id`, so the gateway refuses
-it from M3.7. Tokens issued before then keep working for up to 5 minutes.
+a user of a disabled organization can still sign in, but their token carries no `tenant_id`, so the gateway and Web
+BFF refuse it. Tokens issued before the suspension keep working for up to 5 minutes.
 
 ## Branding rules
 

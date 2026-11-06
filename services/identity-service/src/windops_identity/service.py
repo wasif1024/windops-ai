@@ -35,6 +35,9 @@ from windops_identity.store import KeyReusedError, audit, created_before, record
 logger = logging.getLogger("windops.service")
 PERMISSION = "users.manage"
 TENANT_PERMISSION = "tenant.manage"
+# The services a token may be exchanged for, each with its own scope in Keycloak (SEC-008).
+EXCHANGE_TARGETS = frozenset({"windops-agent-runtime"})
+_MAXIMUM_TOKEN = 16_384
 _MAXIMUM_TENANT_NAME = 200
 STEP_UP = STEP_UP_MESSAGE
 DEADLINE_SECONDS = 3.0
@@ -426,5 +429,49 @@ class IdentityService(identity_pb2_grpc.IdentityServiceServicer):
                         member_id=str(current["id"]),
                     )
             return identity_pb2.SetOrganizationEnabledResponse(enabled=request.enabled)
+
+        return await self._guarded(work())
+
+    async def ExchangeToken(  # noqa: N802  # The name comes from the contract.
+        self, request: identity_pb2.ExchangeTokenRequest, context: Any
+    ) -> identity_pb2.ExchangeTokenResponse:
+        identity = current_identity()
+        if not identity.user_id:
+            raise PermissionDeniedError("Only a user's own token can be exchanged")
+        if request.audience not in EXCHANGE_TARGETS:
+            raise InvalidRequestError("This service cannot receive exchanged tokens")
+        if not request.subject_token or len(request.subject_token) > _MAXIMUM_TOKEN:
+            raise InvalidRequestError("A token is required")
+
+        async def work() -> identity_pb2.ExchangeTokenResponse:
+            owner = await self._keycloak.introspect(request.subject_token)
+            # Keycloak's answer, not the token's own words, so a forged token proves nothing.
+            if (
+                owner.get("active") is not True
+                or owner.get("sub") != identity.user_id
+                or owner.get("tenant_id") != identity.tenant_id
+            ):
+                raise PermissionDeniedError("Only the caller's own, current token can be exchanged")
+            try:
+                issued = await self._keycloak.exchange(
+                    request.subject_token, request.audience, f"{request.audience}-audience"
+                )
+            except KeycloakError as error:
+                if error.status == 400:
+                    raise PermissionDeniedError("Keycloak refused the exchange") from error
+                raise
+            async with self._engine.begin() as connection:
+                await audit(
+                    connection,
+                    tenant_id=identity.tenant_id,
+                    action=f"identity.token.exchanged.{request.audience}",
+                    actor_id=identity.user_id or "",
+                    member_id=identity.user_id or "",
+                )
+            return identity_pb2.ExchangeTokenResponse(
+                access_token=str(issued["access_token"]),
+                expires_in_seconds=int(issued.get("expires_in", 0)),
+                audience=request.audience,
+            )
 
         return await self._guarded(work())

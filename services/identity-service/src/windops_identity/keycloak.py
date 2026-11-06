@@ -60,6 +60,9 @@ class KeycloakSettings:
     client_secret: str
     # The CA Keycloak's certificate must come from. None only for a test's fake Keycloak.
     ca_file: str | None = None
+    # The client that may exchange a user's token, which is in every user token's audience.
+    exchange_client_id: str = ""
+    exchange_client_secret: str = ""
 
 
 def keycloak_breaker() -> CircuitBreaker:
@@ -280,6 +283,47 @@ class KeycloakAdmin:
 
     async def logout(self, user: str) -> None:
         self._ok(await self._call("POST", "users/{user}/logout", ids={"user": user}), 204)
+
+    async def _token_endpoint(self, path: str, data: dict[str, str]) -> httpx.Response:
+        """Call Keycloak's token endpoint as the exchange client. Not the admin API."""
+
+        async def send() -> httpx.Response:
+            response = await self._http.post(
+                f"/realms/{self._settings.realm}/protocol/openid-connect/{path}",
+                data=data,
+                auth=(self._settings.exchange_client_id, self._settings.exchange_client_secret),
+            )
+            if response.status_code >= 500:
+                response.raise_for_status()
+            return response
+
+        try:
+            return await self._breaker.call(send)
+        except httpx.HTTPError as error:
+            raise KeycloakError(f"Keycloak is unavailable: {type(error).__name__}") from error
+
+    async def introspect(self, token: str) -> dict[str, Any]:
+        """Ask Keycloak whose token this is. It checks the signature, expiry and session."""
+        response = self._ok(await self._token_endpoint("token/introspect", {"token": token}), 200)
+        body: dict[str, Any] = response.json()
+        return body
+
+    async def exchange(self, token: str, audience: str, scope: str) -> dict[str, Any]:
+        response = await self._token_endpoint(
+            "token",
+            {
+                "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+                "subject_token": token,
+                "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+                "requested_token_type": "urn:ietf:params:oauth:token-type:access_token",
+                "audience": audience,
+                "scope": scope,
+            },
+        )
+        if response.status_code == 400:
+            raise KeycloakError("Keycloak refused the exchange", 400)
+        body: dict[str, Any] = self._ok(response, 200).json()
+        return body
 
     async def credentials(self, user: str) -> list[dict[str, Any]]:
         response = self._ok(

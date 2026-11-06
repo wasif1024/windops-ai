@@ -27,4 +27,5 @@ Keycloak.
 
 ## Limits
 
-No service calls these yet. M3.5's Authorization Service does, once M3.7 passes these claims through.
+The Authorization, Identity and Tenant services call `require_recent_mfa` before every change. They read `acr`
+and `auth_time` from the signed internal identity, which Web BFF copies from the user's verified Keycloak token.

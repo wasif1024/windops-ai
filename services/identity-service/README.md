@@ -26,6 +26,18 @@ flowchart LR
 | An administrator cannot disable their own account | `DisableUser` |
 | Every change is audited, once | The outbox |
 
+## Token exchange (SEC-008)
+
+`ExchangeToken` swaps the caller's own Keycloak access token for one that only the agent runtime accepts:
+
+1. **Ask Keycloak whose token it is.** Keycloak introspects it, checking the signature, expiry and session, and it
+   must be active, for the caller's own user and tenant. A service holding another user's token cannot exchange it.
+2. **Exchange it,** as the `windops-api` client, for one allowed target, with that target's scope.
+3. **Audit it,** as `identity.token.exchanged.<target>`.
+
+The new token lasts 120 seconds, keeps the user and tenant, and names only the target. The token is never stored or
+logged.
+
 ## Keycloak access
 
 Keycloak lets nothing less than `manage-realm` read or change an organization's members, and organizations are our
@@ -47,12 +59,12 @@ make identity-service-check   # on the cluster
 - **A compromised service could change the realm.** If this service were compromised, its Keycloak key could change
   the realm, because Keycloak offers no narrower role for organizations. The allowlist limits only this code, not the
   key itself.
-- **Keycloak is reached over plain HTTP.** Keycloak has no TLS inside the cluster until M3.7, so this service's
-  calls to it, including its client secret, cross the pod network unencrypted.
 - **No password reset email.** There is no email server yet, so an administrator must pass on the temporary
   password. The Notification Service (Phase 11) can send an invitation instead.
 - **Up to 5 minutes of access after disabling.** A disabled user's access token keeps working until it expires,
   because tokens are not checked against Keycloak on each call (SEC-001 keeps them short).
 - **An unlikely gap after creating a user.** If the database fails right after Keycloak creates a user, the user
   exists but a retry is refused as a duplicate email. The administrator sees the user in the list.
-- **No token exchange yet.** Token exchange moved to M3.7.
+- **The exchange key can exchange any user's token.** The `windops-api` client's secret could exchange any user's
+  current token, so it lives only in this service's Secret. This service exchanges only the caller's own token,
+  which Keycloak confirms first.

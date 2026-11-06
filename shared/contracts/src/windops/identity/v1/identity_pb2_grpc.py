@@ -91,6 +91,11 @@ class IdentityServiceStub:
                 request_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.SetOrganizationEnabledRequest.SerializeToString,
                 response_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.SetOrganizationEnabledResponse.FromString,
                 _registered_method=True)
+        self.ExchangeToken = channel.unary_unary(
+                '/windops.identity.v1.IdentityService/ExchangeToken',
+                request_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.ExchangeTokenRequest.SerializeToString,
+                response_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.ExchangeTokenResponse.FromString,
+                _registered_method=True)
 
 
 class IdentityServiceServicer:
@@ -167,6 +172,15 @@ class IdentityServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ExchangeToken(self, request, context):
+        """Swap the caller's own access token for a short-lived one for one allowed service, such as
+        windops-agent-runtime, so an agent can act for the user without their login (SEC-008).
+        Keycloak checks the token is the caller's own, before the exchange.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_IdentityServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -219,6 +233,11 @@ def add_IdentityServiceServicer_to_server(servicer, server):
                     servicer.SetOrganizationEnabled,
                     request_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.SetOrganizationEnabledRequest.FromString,
                     response_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.SetOrganizationEnabledResponse.SerializeToString,
+            ),
+            'ExchangeToken': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExchangeToken,
+                    request_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.ExchangeTokenRequest.FromString,
+                    response_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.ExchangeTokenResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -498,6 +517,33 @@ class IdentityService:
             '/windops.identity.v1.IdentityService/SetOrganizationEnabled',
             windops_dot_identity_dot_v1_dot_identity__pb2.SetOrganizationEnabledRequest.SerializeToString,
             windops_dot_identity_dot_v1_dot_identity__pb2.SetOrganizationEnabledResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ExchangeToken(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.identity.v1.IdentityService/ExchangeToken',
+            windops_dot_identity_dot_v1_dot_identity__pb2.ExchangeTokenRequest.SerializeToString,
+            windops_dot_identity_dot_v1_dot_identity__pb2.ExchangeTokenResponse.FromString,
             options,
             channel_credentials,
             insecure,
