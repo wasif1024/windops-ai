@@ -69,6 +69,10 @@ spec:
               value: windops-tenant.windops-system.svc.cluster.local:50051
             - name: WINDOPS_AUTHORIZATION_ADDRESS
               value: windops-authorization.windops-system.svc.cluster.local:50051
+            - name: WINDOPS_IDENTITY_ADDRESS
+              value: windops-identity.windops-system.svc.cluster.local:50051
+            - name: WINDOPS_AUDIT_ADDRESS
+              value: windops-audit.windops-application.svc.cluster.local:50051
             - name: WINDOPS_CACHE_HOST
               valueFrom:
                 secretKeyRef:

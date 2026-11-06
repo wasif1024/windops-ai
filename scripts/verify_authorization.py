@@ -234,6 +234,10 @@ def check_audit(bundle: ClientBundle, key: str) -> None:
         "authorization.break_glass.started",
         "authorization.break_glass.used",
     }
+    # Reading the trail needs audit.read, so the reader is made an Auditor first (SRS 3.2).
+    reader = bootstrap(TENANT, "authz-check", "auditor")
+    if reader.returncode != 0:
+        raise RuntimeError(f"Could not make the reader an Auditor: {reader.stderr.strip()}")
     found: set[str] = set()
     for _ in range(30):
         found = audit_actions(bundle, key)

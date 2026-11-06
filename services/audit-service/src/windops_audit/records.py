@@ -144,16 +144,21 @@ async def append_record(connection: AsyncConnection, event: Event) -> bool:
 
 
 async def list_records(
-    connection: AsyncConnection, tenant_id: str, *, limit: int, after_sequence: int
+    connection: AsyncConnection,
+    tenant_id: str,
+    *,
+    limit: int,
+    after_sequence: int,
+    action: str = "",
 ) -> list[Any]:
-    """Return one tenant's records in order, after the given sequence."""
+    """Return one tenant's records in order, after the given sequence. `action` narrows them."""
     await in_tenant(connection, tenant_id)
-    result = await connection.execute(
-        select(AUDIT_RECORDS)
-        .where(AUDIT_RECORDS.c.tenant_id == tenant_id, AUDIT_RECORDS.c.sequence > after_sequence)
-        .order_by(AUDIT_RECORDS.c.sequence)
-        .limit(limit)
+    query = select(AUDIT_RECORDS).where(
+        AUDIT_RECORDS.c.tenant_id == tenant_id, AUDIT_RECORDS.c.sequence > after_sequence
     )
+    if action:
+        query = query.where(AUDIT_RECORDS.c.action == action)
+    result = await connection.execute(query.order_by(AUDIT_RECORDS.c.sequence).limit(limit))
     return list(result.all())
 
 

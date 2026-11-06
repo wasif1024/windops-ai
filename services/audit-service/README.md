@@ -34,6 +34,12 @@ Once stored, a record is announced with `audit.recorded`, through this service's
 
 `ListAuditRecords` and `VerifyAuditChain` return only the caller's tenant, taken from its verified identity.
 
+Both first ask the Authorization Service whether the caller has `audit.read`, which SRS 3.2 gives to Platform and
+Tenant Administrators and Auditors. If Authorization cannot answer, nothing is read (SRS 7.7).
+
+`ListAuditRecords` takes an optional `action`, such as `authorization.denied`, which the administrator console's
+access denials use.
+
 ## Run the tests
 
 ```bash
@@ -57,7 +63,7 @@ make audit-check
 - Anyone with the database's owner login, or an administrator, can turn the triggers off. The hash chain
   would show a change to a record, but not the removal of the newest ones. Anchoring the chain outside the
   database is not planned yet.
-- Any service holding this tenant's identity can read records until M3.5 adds the Auditor permission check.
+- Listing by `action` scans the tenant's records, as there is no index on it yet. That is fine at this size.
 - Other services do not send audit requests yet. Each adds them as it is built.
 
 ## What the scaffold provides

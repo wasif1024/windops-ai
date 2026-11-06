@@ -21,23 +21,27 @@ DESCRIPTOR: _descriptor.FileDescriptor
 
 @_typing.final
 class ListAuditRecordsRequest(_message.Message):
-    """The tenant comes from the caller's verified identity (GRP-004)."""
+    """The tenant comes from the caller's verified identity (GRP-004). Reading needs audit.read."""
 
     DESCRIPTOR: _descriptor.Descriptor
 
     PAGE_SIZE_FIELD_NUMBER: _builtins.int
     PAGE_TOKEN_FIELD_NUMBER: _builtins.int
+    ACTION_FIELD_NUMBER: _builtins.int
     page_size: _builtins.int
     page_token: _builtins.str
+    action: _builtins.str
+    """Only records with this action, such as "authorization.denied". Empty means every record."""
     def __init__(
         self,
         *,
         page_size: _builtins.int = ...,
         page_token: _builtins.str = ...,
+        action: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["page_size", b"page_size", "page_token", b"page_token"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "page_size", b"page_size", "page_token", b"page_token"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

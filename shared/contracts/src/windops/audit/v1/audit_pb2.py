@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1cwindops/audit/v1/audit.proto\x12\x10windops.audit.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"@\n\x17ListAuditRecordsRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\"c\n\x18ListAuditRecordsResponse\x12.\n\x07records\x18\x01 \x03(\x0b\x32\x1d.windops.audit.v1.AuditRecord\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\x19\n\x17VerifyAuditChainRequest\"`\n\x16\x41uditChainVerification\x12\r\n\x05valid\x18\x01 \x01(\x08\x12\x17\n\x0frecords_checked\x18\x02 \x01(\x03\x12\x1e\n\x16\x66irst_invalid_sequence\x18\x03 \x01(\x03\"\xf2\x02\n\x0b\x41uditRecord\x12\x10\n\x08sequence\x18\x01 \x01(\x03\x12\x10\n\x08\x65vent_id\x18\x02 \x01(\t\x12/\n\x0boccurred_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x0brecorded_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x10\n\x08producer\x18\x05 \x01(\t\x12\x0e\n\x06\x61\x63tion\x18\x06 \x01(\t\x12\x12\n\nactor_type\x18\x07 \x01(\t\x12\x10\n\x08\x61\x63tor_id\x18\x08 \x01(\t\x12\x14\n\x0con_behalf_of\x18\t \x01(\t\x12\x15\n\rresource_type\x18\n \x01(\t\x12\x13\n\x0bresource_id\x18\x0b \x01(\t\x12\x0f\n\x07outcome\x18\x0c \x01(\t\x12\x16\n\x0e\x63orrelation_id\x18\r \x01(\t\x12\x15\n\rprevious_hash\x18\x0e \x01(\t\x12\x13\n\x0brecord_hash\x18\x0f \x01(\t2\xe2\x01\n\x0c\x41uditService\x12i\n\x10ListAuditRecords\x12).windops.audit.v1.ListAuditRecordsRequest\x1a*.windops.audit.v1.ListAuditRecordsResponse\x12g\n\x10VerifyAuditChain\x12).windops.audit.v1.VerifyAuditChainRequest\x1a(.windops.audit.v1.AuditChainVerificationb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1cwindops/audit/v1/audit.proto\x12\x10windops.audit.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"P\n\x17ListAuditRecordsRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x0e\n\x06\x61\x63tion\x18\x03 \x01(\t\"c\n\x18ListAuditRecordsResponse\x12.\n\x07records\x18\x01 \x03(\x0b\x32\x1d.windops.audit.v1.AuditRecord\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\x19\n\x17VerifyAuditChainRequest\"`\n\x16\x41uditChainVerification\x12\r\n\x05valid\x18\x01 \x01(\x08\x12\x17\n\x0frecords_checked\x18\x02 \x01(\x03\x12\x1e\n\x16\x66irst_invalid_sequence\x18\x03 \x01(\x03\"\xf2\x02\n\x0b\x41uditRecord\x12\x10\n\x08sequence\x18\x01 \x01(\x03\x12\x10\n\x08\x65vent_id\x18\x02 \x01(\t\x12/\n\x0boccurred_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x0brecorded_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x10\n\x08producer\x18\x05 \x01(\t\x12\x0e\n\x06\x61\x63tion\x18\x06 \x01(\t\x12\x12\n\nactor_type\x18\x07 \x01(\t\x12\x10\n\x08\x61\x63tor_id\x18\x08 \x01(\t\x12\x14\n\x0con_behalf_of\x18\t \x01(\t\x12\x15\n\rresource_type\x18\n \x01(\t\x12\x13\n\x0bresource_id\x18\x0b \x01(\t\x12\x0f\n\x07outcome\x18\x0c \x01(\t\x12\x16\n\x0e\x63orrelation_id\x18\r \x01(\t\x12\x15\n\rprevious_hash\x18\x0e \x01(\t\x12\x13\n\x0brecord_hash\x18\x0f \x01(\t2\xe2\x01\n\x0c\x41uditService\x12i\n\x10ListAuditRecords\x12).windops.audit.v1.ListAuditRecordsRequest\x1a*.windops.audit.v1.ListAuditRecordsResponse\x12g\n\x10VerifyAuditChain\x12).windops.audit.v1.VerifyAuditChainRequest\x1a(.windops.audit.v1.AuditChainVerificationb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,15 +33,15 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'windops.audit.v1.audit_pb2'
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_LISTAUDITRECORDSREQUEST']._serialized_start=83
-  _globals['_LISTAUDITRECORDSREQUEST']._serialized_end=147
-  _globals['_LISTAUDITRECORDSRESPONSE']._serialized_start=149
-  _globals['_LISTAUDITRECORDSRESPONSE']._serialized_end=248
-  _globals['_VERIFYAUDITCHAINREQUEST']._serialized_start=250
-  _globals['_VERIFYAUDITCHAINREQUEST']._serialized_end=275
-  _globals['_AUDITCHAINVERIFICATION']._serialized_start=277
-  _globals['_AUDITCHAINVERIFICATION']._serialized_end=373
-  _globals['_AUDITRECORD']._serialized_start=376
-  _globals['_AUDITRECORD']._serialized_end=746
-  _globals['_AUDITSERVICE']._serialized_start=749
-  _globals['_AUDITSERVICE']._serialized_end=975
+  _globals['_LISTAUDITRECORDSREQUEST']._serialized_end=163
+  _globals['_LISTAUDITRECORDSRESPONSE']._serialized_start=165
+  _globals['_LISTAUDITRECORDSRESPONSE']._serialized_end=264
+  _globals['_VERIFYAUDITCHAINREQUEST']._serialized_start=266
+  _globals['_VERIFYAUDITCHAINREQUEST']._serialized_end=291
+  _globals['_AUDITCHAINVERIFICATION']._serialized_start=293
+  _globals['_AUDITCHAINVERIFICATION']._serialized_end=389
+  _globals['_AUDITRECORD']._serialized_start=392
+  _globals['_AUDITRECORD']._serialized_end=762
+  _globals['_AUDITSERVICE']._serialized_start=765
+  _globals['_AUDITSERVICE']._serialized_end=991
 # @@protoc_insertion_point(module_scope)
