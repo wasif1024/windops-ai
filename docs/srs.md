@@ -280,6 +280,8 @@ The React application shall provide these role-aware screens:
 - Knowledge library, audit explorer and notification center.
 - Administrator console for users, roles, permissions, MFA, sessions, branding, approval policies, MCP integrations and gateway policies.
 
+- **UX-001:** Every screen shall work on a phone, a tablet and a desktop, from 360 pixels wide, without scrolling sideways. Its browser tests shall run at phone size as well as desktop size.
+
 ### 4.12 Work-order lifecycle
 
 A work order moves only through the Maintenance and Approval services, and agents can reach only the draft state.

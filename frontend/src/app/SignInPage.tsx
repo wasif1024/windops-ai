@@ -19,7 +19,7 @@ export function SignInPage() {
   useEffect(() => applyBranding(branding), [branding]);
 
   return (
-    <main className="mx-auto mt-[10vh] max-w-md rounded-lg border-t-4 border-brand-primary bg-white p-8 shadow-sm">
+    <main className="mx-4 mt-[10vh] rounded-lg border-t-4 border-brand-primary bg-white p-6 shadow-sm sm:mx-auto sm:max-w-md sm:p-8">
       <Logo branding={branding} />
       <h1 className="mt-4 text-2xl font-semibold">{branding?.login_title || "Sign in to WindOps"}</h1>
       {branding?.login_message ? <p className="mt-2 text-slate-600">{branding.login_message}</p> : null}
