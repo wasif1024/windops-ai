@@ -24,10 +24,11 @@ export const SCREENS: Screen[] = [
   { id: "approvals", title: "Approval queue", anyOf: ["maintenance.approve"], arrives: "Phase 10" },
   { id: "audit", title: "Audit explorer", anyOf: ["audit.read"], arrives: "Phase 11" },
   { id: "notifications", title: "Notifications", anyOf: [], arrives: "Phase 11" },
+  { id: "platform", title: "Platform", anyOf: ["tenant.manage"], arrives: "M3.10" },
   {
     id: "admin",
     title: "Administration",
-    anyOf: ["users.manage", "roles.manage", "permissions.manage"],
+    anyOf: ["users.manage", "roles.manage", "permissions.manage", "branding.manage"],
     arrives: "M3.9",
   },
 ];

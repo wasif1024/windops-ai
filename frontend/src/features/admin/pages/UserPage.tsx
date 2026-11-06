@@ -3,10 +3,10 @@ import { Link } from "react-router-dom";
 import { Button } from "../../../components/Button";
 import type { AdminApi, RoleGrant, User } from "../api";
 import { FIRST_ROLE, roleTitle, TENANT_ROLES } from "../catalog";
-import { ChangeStatus } from "../components/ChangeStatus";
-import { INPUT, LABEL, Loading, Panel, when } from "../components/Panel";
-import { useChange } from "../useChange";
-import { useLoad } from "../useLoad";
+import { ChangeStatus } from "../../../components/ChangeStatus";
+import { INPUT, LABEL, Loading, Panel, when } from "../../../components/Panel";
+import { useChange } from "../../../api/useChange";
+import { useLoad } from "../../../api/useLoad";
 
 function where(grant: RoleGrant): string {
   if (grant.turbine_id) return `Turbine ${grant.turbine_id} in ${grant.wind_farm_id}`;

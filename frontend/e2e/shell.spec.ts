@@ -1,6 +1,7 @@
 // A real sign-in, in a real browser, through the gateway and Keycloak's own pages. It runs once
 // at desktop size and once at phone size (UX-001).
 import { expect, type Page, test } from "@playwright/test";
+import { signIn } from "./helpers";
 
 const email = process.env.OPERATOR_EMAIL ?? "";
 const password = process.env.OPERATOR_PASSWORD ?? "";
@@ -42,11 +43,7 @@ test("a control room operator signs in to a branded, role-aware shell", async ({
   await page.screenshot({ path: test.info().outputPath("sign-in.png") });
   await noSidewaysScroll(page);
 
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL(/\/auth\/realms\/windops\//);
-  await page.locator("#username").fill(email);
-  await page.locator("#password").fill(password);
-  await page.locator("#kc-login").click();
+  await signIn(page, email, password);
 
   await expect(page.getByTestId("tenant-name")).toHaveText(publicBranding.display_name);
   if (!isMobile) await expect(page.getByTestId("user-email")).toHaveText(email);

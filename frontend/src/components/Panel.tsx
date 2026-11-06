@@ -1,5 +1,5 @@
 import { type ReactNode, useId } from "react";
-import type { Loaded } from "../useLoad";
+import type { Loaded } from "../api/useLoad";
 
 /** A titled white card, the console's one container, named by its title for screen readers. */
 export function Panel({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {

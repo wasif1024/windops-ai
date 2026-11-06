@@ -1,7 +1,7 @@
 // Run one change against Web BFF: keep its idempotency key until it succeeds, and notice when the
 // service wants a recent second factor, so the screen can ask for one (RFC 9470).
 import { useCallback, useRef, useState } from "react";
-import { ApiError, newIdempotencyKey } from "../../api/client";
+import { ApiError, newIdempotencyKey } from "./client";
 
 export type ChangeState = { kind: "idle" } | { kind: "busy" } | { kind: "step-up" } | { kind: "failed"; message: string };
 

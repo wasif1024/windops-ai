@@ -2,10 +2,10 @@ import { useCallback, useId, useState } from "react";
 import { Button } from "../../../components/Button";
 import type { AdminApi, RolePermissions } from "../api";
 import { FIRST_ROLE, TENANT_PERMISSIONS, TENANT_ROLES } from "../catalog";
-import { ChangeStatus } from "../components/ChangeStatus";
-import { INPUT, LABEL, Loading, Panel } from "../components/Panel";
-import { useChange } from "../useChange";
-import { useLoad } from "../useLoad";
+import { ChangeStatus } from "../../../components/ChangeStatus";
+import { INPUT, LABEL, Loading, Panel } from "../../../components/Panel";
+import { useChange } from "../../../api/useChange";
+import { useLoad } from "../../../api/useLoad";
 
 function Editor({ api, mapping }: { api: AdminApi; mapping: RolePermissions }) {
   const [chosen, setChosen] = useState(() => new Set(mapping.permissions));

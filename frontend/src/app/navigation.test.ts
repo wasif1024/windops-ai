@@ -21,7 +21,7 @@ describe("role-aware navigation", () => {
   });
 
   it("shows administration for any administrative permission", () => {
-    for (const permission of ["users.manage", "roles.manage", "permissions.manage"]) {
+    for (const permission of ["users.manage", "roles.manage", "permissions.manage", "branding.manage"]) {
       expect(visibleScreens([grant(permission)]).map((s) => s.id)).toContain("admin");
     }
   });
@@ -34,5 +34,10 @@ describe("role-aware navigation", () => {
 
   it("names every screen once", () => {
     expect(new Set(SCREENS.map((s) => s.id)).size).toBe(SCREENS.length);
+  });
+
+  it("shows the Platform console only for tenant.manage", () => {
+    expect(visibleScreens([grant("tenant.manage")]).map((s) => s.id)).toContain("platform");
+    expect(visibleScreens([grant("users.manage")]).map((s) => s.id)).not.toContain("platform");
   });
 });

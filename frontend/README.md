@@ -61,6 +61,7 @@ Each tab shows only to someone holding its permission, and the services check ag
 | Users | `users.manage` | Add users, who get a temporary password shown once. Disable or reactivate them, see their second factor and sessions, and end their sessions. With `roles.manage`, give and revoke roles for the tenant, a wind farm or a turbine |
 | Role permissions | `permissions.manage` | Choose what each role gives in this tenant |
 | Access denials | `audit.read` | Refused attempts, from the audit trail |
+| Branding | `branding.manage` | The name, colors, sign-in text, time zone and language, the logo, the three emails, and the custom domain with the token to publish. Colors, the logo and placeholders are checked before sending |
 
 Every change sends a new `Idempotency-Key`, and the same one if it is sent again after an outage, so it happens
 once. When a change needs a recent second factor, the screen says so and offers **Verify now**, which goes to Keycloak
@@ -71,6 +72,22 @@ The browser check signs in as a temporary Tenant Administrator at each size. `ma
 authenticator straight with Keycloak, because the gateway allows 5 sign-ins a minute from one address. In the
 browser, the desktop journey verifies a real code, then adds a user, gives and revokes a role, and disables and
 reactivates them. Every user it makes is deleted afterwards.
+
+## Platform console (M3.10)
+
+`features/platform/` is for the Platform Administrator only (`tenant.manage`), across tenants:
+
+| Tab | What |
+| --- | --- |
+| Tenants | List and create tenants, open one to suspend it with a reason, or reactivate it, and view its branding and domain. Only the tenant's own administrators change branding (SRS 3.2) |
+| Break-glass access | Start reasoned, time-limited, read-only access to one customer tenant, see your active grants, and end one early (RBAC-003) |
+
+Every change asks for a second factor, as in the administrator console. Pieces both consoles use live in
+`components/` (`Panel`, `ChangeStatus`) and `api/` (`useChange`, `useLoad`).
+
+The browser check runs this journey as a temporary Platform Administrator too. The journeys share `e2e/helpers.ts`,
+which signs in through Keycloak's pages and, when the gateway's limit of 5 sign-ins a minute refuses one, waits out
+the minute and tries again.
 
 ## Styling
 
@@ -125,8 +142,9 @@ or above. ESLint 10 still asks for `minimatch` 10, which has a known denial-of-s
   everyone, and tokens never pass through it.
 - **A reload means a sign-in redirect.** Tokens are not kept across a reload. Keycloak's session cookie makes the
   sign-in instant while the session lasts.
-- **Screens are placeholders,** except Administration. Each says which phase builds it.
+- **Screens are placeholders,** except Administration and Platform. Each says which phase builds it.
 - **A change after step-up is made again by hand.** Verifying a second factor goes to Keycloak and back, which
   reloads the page, so the form is empty again. Nothing is kept in storage to replay it.
+- **A logo cannot be removed,** only replaced, as the Tenant Service has no call to remove one.
 - **Access denials are read oldest first.** The list reads up to 1,000 and shows them newest first. A tenant with
   more needs the audit explorer (Phase 11).

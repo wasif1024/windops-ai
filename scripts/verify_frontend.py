@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Sign in through a real browser, and see the branded, role-aware shell and console (SRS 4.11).
+"""Sign in through a real browser, and see the shell, the administrator and Platform consoles.
 
 Run `make images`, `make services`, `make gateway-routes` and the seeds first. Needs local port
 9443 free. The first run downloads Chromium for Playwright.
 
-For the administrator console, it makes a temporary Tenant Administrator for each screen size,
+For the consoles, it makes a temporary Tenant and Platform Administrator for each screen size,
 and sets up their authenticator straight with Keycloak, as the gateway allows only 5 sign-ins a
 minute from one address (SRS 7.5). The browser then signs in through the gateway. Every user it
 makes is deleted afterwards. Their grants stay, for IDs that can no longer sign in (RBAC-005).
@@ -26,6 +26,7 @@ from cryptography.hazmat.primitives import serialization
 from identity_seed import (
     ADMIN_REQUIRED_ACTIONS,
     ADMIN_SECRET_FILE,
+    PLATFORM_TENANT,
     PUBLIC_URL,
     TENANTS,
     admin_client,
@@ -49,6 +50,9 @@ TENANT = "north-sea"
 RUN = secrets.token_hex(3)
 PROJECTS = ("desktop", "phone")
 ADMINS = {project: f"admin-ui-{project}-{RUN}@windops-check.example" for project in PROJECTS}
+PLATFORM_ADMINS = {
+    project: f"platform-ui-{project}-{RUN}@windops-check.example" for project in PROJECTS
+}
 # The users each journey adds, which are deleted here afterwards.
 ADDED = {project: f"added-{project}-{RUN}@windops-check.example" for project in PROJECTS}
 API = PUBLIC_URL.removesuffix("/auth") + "/api/v1"
@@ -64,36 +68,40 @@ def gateway_spki() -> str:
     return base64.b64encode(hashlib.sha256(der).digest()).decode()
 
 
-def make_tenant_administrator(user_id: str) -> None:
+def bootstrap(tenant: str, user_id: str, role: str) -> None:
     subprocess.run(
         [
             "kubectl", "--context", KUBE_CONTEXT, "--namespace=windops-system", "exec",
             "deployment/windops-authorization", "--", "python", "-m",
             "windops_authorization.bootstrap",
-            "--tenant", TENANT, "--user", user_id, "--role", "tenant-administrator",
+            "--tenant", tenant, "--user", user_id, "--role", role,
         ],
         capture_output=True, text=True, check=True,
     )  # fmt: skip
 
 
 def prepare_admins(api: httpx.Client, password: str) -> None:
-    organization = ensure_tenant(api, TENANT, TENANTS[TENANT])
-    for email in ADMINS.values():
-        user_id = ensure_user(
-            api, email, password, new_password=True, required_actions=ADMIN_REQUIRED_ACTIONS
-        )
-        ensure_member(api, organization, user_id)
-        make_tenant_administrator(user_id)
+    for tenant, name, emails, role in (
+        (TENANT, TENANTS[TENANT], ADMINS, "tenant-administrator"),
+        (PLATFORM_TENANT, "WindOps Platform", PLATFORM_ADMINS, "platform-administrator"),
+    ):
+        organization = ensure_tenant(api, tenant, name)
+        for email in emails.values():
+            user_id = ensure_user(
+                api, email, password, new_password=True, required_actions=ADMIN_REQUIRED_ACTIONS
+            )
+            ensure_member(api, organization, user_id)
+            bootstrap(tenant, user_id, role)
 
 
 def enroll_admins(password: str) -> tuple[dict[str, str], str]:
     """Set up each administrator's authenticator, and sign the operator in, all straight with
-    Keycloak. Return each project's authenticator key, and the operator's access token."""
+    Keycloak. Return each one's authenticator key by email, and the operator's access token."""
     keys: dict[str, str] = {}
     with keycloak_public(through_gateway=False) as public:
         realm = Realm(public)
-        for project, email in ADMINS.items():
-            keys[project] = enroll(Browser(realm), email, password).secret
+        for email in (*ADMINS.values(), *PLATFORM_ADMINS.values()):
+            keys[email] = enroll(Browser(realm), email, password).secret
         operator = realm.login(demo_email(TENANT), read_demo_passwords()[TENANT])
     if operator is None:
         raise RuntimeError("The demo operator could not sign in")
@@ -124,8 +132,10 @@ def run_browser(password: str, keys: dict[str, str], operator_token: str) -> int
         for project in PROJECTS:
             upper = project.upper()
             env[f"ADMIN_EMAIL_{upper}"] = ADMINS[project]
-            env[f"ADMIN_TOTP_KEY_{upper}"] = keys[project]
+            env[f"ADMIN_TOTP_KEY_{upper}"] = keys[ADMINS[project]]
             env[f"ADDED_EMAIL_{upper}"] = ADDED[project]
+            env[f"PLATFORM_EMAIL_{upper}"] = PLATFORM_ADMINS[project]
+            env[f"PLATFORM_TOTP_KEY_{upper}"] = keys[PLATFORM_ADMINS[project]]
         result = subprocess.run(["npx", "playwright", "test"], cwd=FRONTEND, env=env, check=False)
     return result.returncode
 
@@ -146,7 +156,7 @@ def main() -> int:
             finally:
                 # A fresh login, as the first may have expired during the browser run.
                 with admin_client(base, admin_password) as api:
-                    for email in (*ADMINS.values(), *ADDED.values()):
+                    for email in (*ADMINS.values(), *PLATFORM_ADMINS.values(), *ADDED.values()):
                         delete_user(api, email)
     except (RuntimeError, OSError, httpx.HTTPError, subprocess.CalledProcessError) as error:
         print(f"{type(error).__name__}: {error}", file=sys.stderr)
