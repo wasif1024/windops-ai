@@ -1,8 +1,9 @@
 import { useParams } from "react-router-dom";
+import { AdminPage } from "../features/admin/pages/AdminPage";
 import { screenById, type Screen } from "./navigation";
 
 /** A screen the user's roles include. Until its feature is built, it says which phase builds it. */
-export function ScreenPage({ screens }: { screens: Screen[] }) {
+export function ScreenPage({ screens, token, held }: { screens: Screen[]; token: string; held: ReadonlySet<string> }) {
   const { id } = useParams();
   const screen = screenById(id);
   if (!screen || !screens.includes(screen)) {
@@ -13,6 +14,7 @@ export function ScreenPage({ screens }: { screens: Screen[] }) {
       </section>
     );
   }
+  if (screen.id === "admin") return <AdminPage token={token} held={held} />;
   return (
     <section>
       <h2 className="text-xl font-semibold">{screen.title}</h2>

@@ -279,6 +279,7 @@ The React application shall provide these role-aware screens:
 - Maintenance planner, parts lookup and approval queue.
 - Knowledge library, audit explorer and notification center.
 - Administrator console for users, roles, permissions, MFA, sessions, branding, approval policies, MCP integrations and gateway policies.
+- Platform console, for the Platform Administrator only, to list, create and suspend tenants, manage their branding and domains, and start break-glass access.
 
 - **UX-001:** Every screen shall work on a phone, a tablet and a desktop, from 360 pixels wide, without scrolling sideways. Its browser tests shall run at phone size as well as desktop size.
 

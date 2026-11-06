@@ -51,6 +51,27 @@ and returns focus to the button. The browser check runs at desktop size and at p
 
 Write mobile first: the plain class is the phone, and `md:` and `lg:` add the larger layouts.
 
+## Administrator console (SRS 9.4)
+
+`features/admin/` is the console for a tenant's own administrators. It works in the signed-in user's tenant only.
+Each tab shows only to someone holding its permission, and the services check again on every call.
+
+| Tab | Needs | What |
+| --- | --- | --- |
+| Users | `users.manage` | Add users, who get a temporary password shown once. Disable or reactivate them, see their second factor and sessions, and end their sessions. With `roles.manage`, give and revoke roles for the tenant, a wind farm or a turbine |
+| Role permissions | `permissions.manage` | Choose what each role gives in this tenant |
+| Access denials | `audit.read` | Refused attempts, from the audit trail |
+
+Every change sends a new `Idempotency-Key`, and the same one if it is sent again after an outage, so it happens
+once. When a change needs a recent second factor, the screen says so and offers **Verify now**, which goes to Keycloak
+for a code only, then comes back to the same tab. The lists of roles and permissions to choose from are in
+`catalog.ts`, which `tests/test_admin_catalog.py` keeps the same as the Authorization Service's policy.
+
+The browser check signs in as a temporary Tenant Administrator at each size. `make frontend-check` sets up their
+authenticator straight with Keycloak, because the gateway allows 5 sign-ins a minute from one address. In the
+browser, the desktop journey verifies a real code, then adds a user, gives and revokes a role, and disables and
+reactivates them. Every user it makes is deleted afterwards.
+
 ## Styling
 
 [Tailwind CSS](https://tailwindcss.com) 4, with utility classes in the markup. It writes one static stylesheet at
@@ -98,5 +119,8 @@ or above. ESLint 10 still asks for `minimatch` 10, which has a known denial-of-s
   everyone, and tokens never pass through it.
 - **A reload means a sign-in redirect.** Tokens are not kept across a reload. Keycloak's session cookie makes the
   sign-in instant while the session lasts.
-- **Screens are placeholders.** Each says which phase builds it.
-- **Step-up is not wired up yet.** The administrator console (M3.9) asks for a second factor when the API needs one.
+- **Screens are placeholders,** except Administration. Each says which phase builds it.
+- **A change after step-up is made again by hand.** Verifying a second factor goes to Keycloak and back, which
+  reloads the page, so the form is empty again. Nothing is kept in storage to replay it.
+- **Access denials are read oldest first.** The list reads up to 1,000 and shows them newest first. A tenant with
+  more needs the audit explorer (Phase 11).

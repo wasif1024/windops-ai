@@ -4,7 +4,7 @@ This is the single record of what has been built and what comes next. It breaks
 the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 3. Next up is M3.9. M3.5 came before M3.4, because Identity asks Authorization before every administrative action.
+**Current position:** Phase 3. Next up is M3.10. M3.5 came before M3.4, because Identity asks Authorization before every administrative action.
 
 ## How to use this tracker
 
@@ -36,7 +36,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 | - | [Prerequisites](#prerequisites) | 3 | Done |
 | 1 | [Platform foundation](#phase-1-platform-foundation) | 11 | Done |
 | 2 | [Data and events](#phase-2-data-and-events) | 9 | Done |
-| 3 | [Identity and tenancy](#phase-3-identity-and-tenancy) | 11 | In progress |
+| 3 | [Identity and tenancy](#phase-3-identity-and-tenancy) | 12 | In progress |
 | 4 | [Assets and telemetry](#phase-4-assets-and-telemetry) | 10 | Not started |
 | 5 | [Alarms, detection and cases](#phase-5-alarms-detection-and-cases) | 7 | Not started |
 | 6 | [Deterministic decisions](#phase-6-deterministic-decisions) | 5 | Not started |
@@ -98,9 +98,10 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [x] **M3.6 Tenant Service:** tenant lifecycle and branding, with row-level security and cross-tenant tests (FR-TEN-001, FR-TEN-002, DAT-005, DAT-008, SEC-007).
 - [x] **M3.7 Web BFF and edge policy:** REST, OpenAPI, gateway TLS, CORS allowlists and the SRS 7.5 rate limits, plus Keycloak's fixed address and token exchange (API-001, API-002, API-005, SEC-008).
 - [x] **M3.8 Frontend shell:** React and TypeScript in its own image, with login, role-aware navigation and tenant branding (SRS 4.11).
-- [ ] **M3.9 Base administrator console:** users, roles, permissions, MFA status, sessions and access denials (SRS 9.4).
-- [ ] **M3.10 Security visibility:** Security dashboard, plus `docs/security.md` and `docs/rbac.md`.
-- [ ] **M3.11 Exit gate:** cross-tenant and missing-permission tests all fail safely, and administrator MFA is enforced.
+- [x] **M3.9 Base administrator console:** users, roles, permissions, MFA status, sessions and access denials (SRS 9.4). Done 2026-11-06, PRs #47, #48 and this one.
+- [ ] **M3.10 Platform console:** the Platform Administrator's screens across tenants: list, create and suspend tenants, their branding and domains, and break-glass access, with the Web BFF routes they need (FR-TEN-001, RBAC-003). Added 2026-11-06.
+- [ ] **M3.11 Security visibility:** Security dashboard, plus `docs/security.md` and `docs/rbac.md`.
+- [ ] **M3.12 Exit gate:** cross-tenant and missing-permission tests all fail safely, and administrator MFA is enforced.
 
 ## Phase 4: Assets and telemetry
 

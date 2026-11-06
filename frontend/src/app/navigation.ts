@@ -27,7 +27,7 @@ export const SCREENS: Screen[] = [
   {
     id: "admin",
     title: "Administration",
-    anyOf: ["users.manage", "roles.manage", "permissions.manage", "branding.manage"],
+    anyOf: ["users.manage", "roles.manage", "permissions.manage"],
     arrives: "M3.9",
   },
 ];
