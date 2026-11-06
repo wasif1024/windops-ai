@@ -68,6 +68,36 @@ export async function getJson<T>(path: string, token?: string, fetcher: typeof f
   return (await response.json()) as T;
 }
 
+/** A new random key for one change, which the BFF and services use to recognise a resend (GRP-007). */
+export function newIdempotencyKey(): string {
+  return crypto.randomUUID();
+}
+
+/** Send a change. The same key must go with every resend of the same change. */
+export async function sendJson<T>(
+  method: "POST" | "PUT",
+  path: string,
+  token: string,
+  key: string,
+  body?: unknown,
+  fetcher: typeof fetch = fetch,
+): Promise<T> {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    Authorization: `Bearer ${token}`,
+    "Idempotency-Key": key,
+  };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const response = await fetcher(`${API}${path}`, {
+    method,
+    headers,
+    credentials: "omit",
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!response.ok) throw new ApiError(await problemOf(response));
+  return (await response.json()) as T;
+}
+
 export function logoUrl(tenant: string): string {
   return `${API}/public/branding/${encodeURIComponent(tenant)}/logo`;
 }

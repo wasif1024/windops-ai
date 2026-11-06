@@ -4,8 +4,12 @@ const spki = process.env.GATEWAY_SPKI ?? "";
 
 export default defineConfig({
   testDir: "e2e",
-  timeout: 60_000,
+  // Waiting for a fresh authenticator code can take 30 seconds.
+  timeout: 120_000,
   retries: 0,
+  // One at a time: the gateway allows 5 sign-ins a minute from one address (SRS 7.5), and this
+  // stays within it.
+  workers: 1,
   reporter: [["list"]],
   use: {
     baseURL: process.env.BASE_URL ?? "https://localhost:9443",

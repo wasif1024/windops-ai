@@ -21,7 +21,15 @@ describe("role-aware navigation", () => {
   });
 
   it("shows administration for any administrative permission", () => {
-    expect(visibleScreens([grant("branding.manage")]).map((s) => s.id)).toContain("admin");
+    for (const permission of ["users.manage", "roles.manage", "permissions.manage"]) {
+      expect(visibleScreens([grant(permission)]).map((s) => s.id)).toContain("admin");
+    }
+  });
+
+  it("keeps an auditor out of administration, for the audit explorer instead", () => {
+    const ids = visibleScreens([grant("audit.read")]).map((s) => s.id);
+    expect(ids).toContain("audit");
+    expect(ids).not.toContain("admin");
   });
 
   it("names every screen once", () => {

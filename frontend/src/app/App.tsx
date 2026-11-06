@@ -13,6 +13,8 @@ interface Session {
   me: Me;
   branding: Branding | null;
   screens: Screen[];
+  /** Every permission held anywhere, to choose what to show. The services still check each call. */
+  held: ReadonlySet<string>;
 }
 
 function useSession(token: string): Session | "loading" | "failed" {
@@ -25,7 +27,14 @@ function useSession(token: string): Session | "loading" | "failed" {
       getJson<Permissions>("/me/permissions", token),
     ])
       .then(([me, branding, permissions]) => {
-        if (!cancelled) setSession({ me, branding, screens: visibleScreens(permissions.permissions) });
+        if (!cancelled) {
+          setSession({
+            me,
+            branding,
+            screens: visibleScreens(permissions.permissions),
+            held: new Set(permissions.permissions.map((item) => item.permission)),
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) setSession("failed");
@@ -185,7 +194,7 @@ function Shell({ token }: { token: string }) {
       />
       <main className="min-w-0 p-4 md:p-6">
         <Routes>
-          <Route path="/screens/:id" element={<ScreenPage screens={session.screens} />} />
+          <Route path="/screens/:id" element={<ScreenPage screens={session.screens} token={token} held={session.held} />} />
           <Route path="*" element={first ? <Navigate to={`/screens/${first.id}`} replace /> : null} />
         </Routes>
       </main>
