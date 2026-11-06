@@ -1,0 +1,243 @@
+syntax = "proto3";
+
+package windops.asset.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Wind farms, turbines and their components, for one tenant (FR-AST-001, FR-AST-002).
+//
+// The tenant comes from the caller's verified identity (GRP-004), so another tenant's assets look
+// exactly like assets that do not exist. Reading needs turbine.read for the wind farm or turbine,
+// and a list shows only what the caller's scopes cover (RBAC-002). Every change needs asset.manage
+// and a recent second factor (SEC-003), and a create or update may be retried with the same
+// idempotency_key (GRP-007).
+//
+// A turbine's version rises with every change to it or its components, and each change is
+// announced as evidence.changed, so evidence that used an older version can be marked stale
+// (SRS 8.5).
+service AssetService {
+  rpc ListWindFarms(ListWindFarmsRequest) returns (ListWindFarmsResponse);
+  rpc GetWindFarm(GetWindFarmRequest) returns (GetWindFarmResponse);
+  rpc CreateWindFarm(CreateWindFarmRequest) returns (CreateWindFarmResponse);
+  // Replaces every field but its ID.
+  rpc UpdateWindFarm(UpdateWindFarmRequest) returns (UpdateWindFarmResponse);
+
+  rpc ListTurbines(ListTurbinesRequest) returns (ListTurbinesResponse);
+  // With its components.
+  rpc GetTurbine(GetTurbineRequest) returns (GetTurbineResponse);
+  rpc CreateTurbine(CreateTurbineRequest) returns (CreateTurbineResponse);
+  // Replaces every field but its ID, wind farm and status.
+  rpc UpdateTurbine(UpdateTurbineRequest) returns (UpdateTurbineResponse);
+  rpc SetTurbineStatus(SetTurbineStatusRequest) returns (SetTurbineStatusResponse);
+
+  rpc AddComponent(AddComponentRequest) returns (AddComponentResponse);
+  rpc SetComponentStatus(SetComponentStatusRequest) returns (SetComponentStatusResponse);
+}
+
+message Location {
+  // WGS 84 degrees.
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message WindFarm {
+  // Lowercase letters, digits and hyphens, such as "dogger-east". Unique in the tenant.
+  string wind_farm_id = 1;
+  string name = 2;
+  // ISO 3166-1 alpha-2, such as "GB".
+  string country = 3;
+  Location location = 4;
+  // An IANA time zone, such as "Europe/London".
+  string time_zone = 5;
+  bool offshore = 6;
+  int64 version = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// What the manufacturer built, from its datasheet.
+message TurbineModel {
+  string manufacturer = 1;
+  string model = 2;
+  double rated_power_kw = 3;
+  double rotor_diameter_m = 4;
+  double hub_height_m = 5;
+}
+
+message Turbine {
+  // Lowercase letters, digits and hyphens, such as "dogger-east-t01". Unique in the tenant.
+  string turbine_id = 1;
+  string wind_farm_id = 2;
+  string name = 3;
+  Location location = 4;
+  TurbineModel model = 5;
+  string serial_number = 6;
+  // ISO 8601, such as "2024-05-17". Empty when unknown.
+  string commissioned_on = 7;
+  // "operating", "curtailed", "stopped", "maintenance", "fault" or "offline".
+  string status = 8;
+  string status_reason = 9;
+  google.protobuf.Timestamp status_changed_at = 10;
+  int64 version = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+// One part of a turbine. Parts form a tree: a gearbox bearing belongs to its gearbox.
+message Component {
+  string component_id = 1;
+  string turbine_id = 2;
+  // Empty for a part directly under the turbine.
+  string parent_component_id = 3;
+  // Such as "gearbox", "main_bearing" or "generator". See the service's README for the list.
+  string kind = 4;
+  string name = 5;
+  string manufacturer = 6;
+  string model = 7;
+  string serial_number = 8;
+  // ISO 8601, such as "2024-05-17". Empty when unknown.
+  string installed_on = 9;
+  // "in_service", "degraded", "failed" or "removed".
+  string status = 10;
+  string status_reason = 11;
+  int64 version = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+message ListWindFarmsRequest {}
+
+message ListWindFarmsResponse {
+  repeated WindFarm wind_farms = 1;
+}
+
+message GetWindFarmRequest {
+  string wind_farm_id = 1;
+}
+
+message GetWindFarmResponse {
+  WindFarm wind_farm = 1;
+}
+
+message CreateWindFarmRequest {
+  string wind_farm_id = 1;
+  string name = 2;
+  string country = 3;
+  Location location = 4;
+  string time_zone = 5;
+  bool offshore = 6;
+  string idempotency_key = 7;
+}
+
+message CreateWindFarmResponse {
+  WindFarm wind_farm = 1;
+  // False when this answers a retry, or it already existed with the same fields.
+  bool created = 2;
+}
+
+message UpdateWindFarmRequest {
+  string wind_farm_id = 1;
+  string name = 2;
+  string country = 3;
+  Location location = 4;
+  string time_zone = 5;
+  bool offshore = 6;
+  string idempotency_key = 7;
+}
+
+message UpdateWindFarmResponse {
+  WindFarm wind_farm = 1;
+}
+
+message ListTurbinesRequest {
+  // Empty for every wind farm the caller may read.
+  string wind_farm_id = 1;
+  // From 1 to 500. Zero means 100.
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListTurbinesResponse {
+  repeated Turbine turbines = 1;
+  string next_page_token = 2;
+}
+
+message GetTurbineRequest {
+  string turbine_id = 1;
+}
+
+message GetTurbineResponse {
+  Turbine turbine = 1;
+  repeated Component components = 2;
+}
+
+message CreateTurbineRequest {
+  string turbine_id = 1;
+  string wind_farm_id = 2;
+  string name = 3;
+  Location location = 4;
+  TurbineModel model = 5;
+  string serial_number = 6;
+  string commissioned_on = 7;
+  string idempotency_key = 8;
+}
+
+message CreateTurbineResponse {
+  Turbine turbine = 1;
+  bool created = 2;
+}
+
+message UpdateTurbineRequest {
+  string turbine_id = 1;
+  string name = 2;
+  Location location = 3;
+  TurbineModel model = 4;
+  string serial_number = 5;
+  string commissioned_on = 6;
+  string idempotency_key = 7;
+}
+
+message UpdateTurbineResponse {
+  Turbine turbine = 1;
+}
+
+message SetTurbineStatusRequest {
+  string turbine_id = 1;
+  string status = 2;
+  // Why, in a few words. Required for any status but "operating".
+  string reason = 3;
+  string idempotency_key = 4;
+}
+
+message SetTurbineStatusResponse {
+  Turbine turbine = 1;
+}
+
+message AddComponentRequest {
+  string turbine_id = 1;
+  // Empty for a part directly under the turbine. Otherwise a component of the same turbine.
+  string parent_component_id = 2;
+  string kind = 3;
+  string name = 4;
+  string manufacturer = 5;
+  string model = 6;
+  string serial_number = 7;
+  string installed_on = 8;
+  string idempotency_key = 9;
+}
+
+message AddComponentResponse {
+  Component component = 1;
+  bool created = 2;
+}
+
+message SetComponentStatusRequest {
+  string component_id = 1;
+  string status = 2;
+  // Required for any status but "in_service".
+  string reason = 3;
+  string idempotency_key = 4;
+}
+
+message SetComponentStatusResponse {
+  Component component = 1;
+}

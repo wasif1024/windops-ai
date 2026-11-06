@@ -6,6 +6,7 @@ commonAnnotations:
 resources:
   - ../../../../frontend/deploy
   - ../../../../services/api-gateway/deploy
+  - ../../../../services/asset-service/deploy
   - ../../../../services/audit-service/deploy
   - ../../../../services/authorization-service/deploy
   - ../../../../services/identity-service/deploy
