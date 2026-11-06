@@ -1,5 +1,6 @@
-// A real sign-in, in a real browser, through the gateway and Keycloak's own pages.
-import { expect, test } from "@playwright/test";
+// A real sign-in, in a real browser, through the gateway and Keycloak's own pages. It runs once
+// at desktop size and once at phone size (UX-001).
+import { expect, type Page, test } from "@playwright/test";
 
 const email = process.env.OPERATOR_EMAIL ?? "";
 const password = process.env.OPERATOR_PASSWORD ?? "";
@@ -9,7 +10,25 @@ test.beforeAll(() => {
   expect(email && password, "make frontend-check passes the demo operator's login").toBeTruthy();
 });
 
-test("a control room operator signs in to a branded, role-aware shell", async ({ page, request }) => {
+async function noSidewaysScroll(page: Page) {
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow, "the page must not scroll sideways").toBeLessThanOrEqual(0);
+}
+
+/** The screens menu: the sidebar on a desktop, or the slide-over menu on a phone. */
+async function screensMenu(page: Page, isMobile: boolean) {
+  if (isMobile) {
+    const open = page.getByRole("button", { name: "Open the menu" });
+    await expect(open).toHaveAttribute("aria-expanded", "false");
+    await open.click();
+    await expect(open).toHaveAttribute("aria-expanded", "true");
+    return page.getByRole("dialog", { name: "Screens" });
+  }
+  await expect(page.getByRole("button", { name: "Open the menu" })).toBeHidden();
+  return page.getByRole("navigation", { name: "Screens" });
+}
+
+test("a control room operator signs in to a branded, role-aware shell", async ({ page, request, isMobile }) => {
   const document = await page.goto(`/?tenant=${tenant}`);
   const headers = document?.headers() ?? {};
   expect(headers["content-security-policy"]).toContain("default-src 'self'");
@@ -20,6 +39,8 @@ test("a control room operator signs in to a branded, role-aware shell", async ({
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     publicBranding.login_title || "Sign in to WindOps",
   );
+  await page.screenshot({ path: test.info().outputPath("sign-in.png") });
+  await noSidewaysScroll(page);
 
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(/\/auth\/realms\/windops\//);
@@ -27,15 +48,29 @@ test("a control room operator signs in to a branded, role-aware shell", async ({
   await page.locator("#password").fill(password);
   await page.locator("#kc-login").click();
 
-  await expect(page.getByTestId("user-email")).toHaveText(email);
   await expect(page.getByTestId("tenant-name")).toHaveText(publicBranding.display_name);
-  const navigation = page.getByRole("navigation", { name: "Screens" });
-  await expect(navigation.getByRole("link", { name: "Alarm console" })).toBeVisible();
-  await expect(navigation.getByRole("link", { name: "Administration" })).toHaveCount(0);
-  await expect(navigation.getByRole("link", { name: "Approval queue" })).toHaveCount(0);
+  if (!isMobile) await expect(page.getByTestId("user-email")).toHaveText(email);
+  await noSidewaysScroll(page);
 
-  await navigation.getByRole("link", { name: "Alarm console" }).click();
+  let menu = await screensMenu(page, isMobile);
+  if (isMobile) await expect(menu.getByTestId("menu-user-email")).toHaveText(email);
+  await expect(menu.getByRole("link", { name: "Alarm console" })).toBeVisible();
+  await expect(menu.getByRole("link", { name: "Administration" })).toHaveCount(0);
+  await expect(menu.getByRole("link", { name: "Approval queue" })).toHaveCount(0);
+
+  await menu.getByRole("link", { name: "Alarm console" }).click();
   await expect(page.getByText("This screen arrives in Phase 5.")).toBeVisible();
+  // For people to look at, in test-results, which git ignores.
+  await page.screenshot({ path: test.info().outputPath("shell.png") });
+  // On a phone, choosing a screen closes the menu, so the screen is not hidden behind it.
+  if (isMobile) await expect(page.getByRole("dialog", { name: "Screens" })).toHaveCount(0);
+
+  if (isMobile) {
+    menu = await screensMenu(page, isMobile);
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open the menu" })).toBeFocused();
+  }
 
   // Typing an address does not get round the menu: the screen says it is not available.
   await page.evaluate(() => window.history.pushState(null, "", "/screens/admin"));
@@ -48,6 +83,7 @@ test("a control room operator signs in to a branded, role-aware shell", async ({
   );
   expect(stored).not.toMatch(/eyJ[\w-]+\.eyJ/);
 
-  await page.getByRole("button", { name: "Sign out" }).click();
+  if (isMobile) menu = await screensMenu(page, isMobile);
+  await (isMobile ? menu : page).getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 });

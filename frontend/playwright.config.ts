@@ -1,4 +1,4 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 
 const spki = process.env.GATEWAY_SPKI ?? "";
 
@@ -14,4 +14,9 @@ export default defineConfig({
     launchOptions: { args: spki ? [`--ignore-certificate-errors-spki-list=${spki}`] : [] },
     trace: "retain-on-failure",
   },
+  // UX-001: every screen works on a phone as well as a desktop.
+  projects: [
+    { name: "desktop", use: { viewport: { width: 1280, height: 800 } } },
+    { name: "phone", use: { ...devices["Pixel 7"] } },
+  ],
 });

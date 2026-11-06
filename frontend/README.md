@@ -43,6 +43,14 @@ features/admin/
 
 A component moves to `components/` only once a second feature needs it.
 
+## Phones, tablets and desktops (UX-001)
+
+Every screen works from 360 pixels wide, without scrolling sideways. Below Tailwind's `md` breakpoint (768 pixels),
+the sidebar becomes a menu button, which opens a slide-over menu. It closes on Escape, a tap outside, or a choice,
+and returns focus to the button. The browser check runs at desktop size and at phone size, as a Pixel 7.
+
+Write mobile first: the plain class is the phone, and `md:` and `lg:` add the larger layouts.
+
 ## Styling
 
 [Tailwind CSS](https://tailwindcss.com) 4, with utility classes in the markup. It writes one static stylesheet at
