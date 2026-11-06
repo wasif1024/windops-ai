@@ -4,6 +4,7 @@ kind: Kustomization
 commonAnnotations:
   windops.io/managed-by: kustomize
 resources:
+  - ../../../../frontend/deploy
   - ../../../../services/api-gateway/deploy
   - ../../../../services/audit-service/deploy
   - ../../../../services/authorization-service/deploy

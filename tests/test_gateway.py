@@ -241,3 +241,11 @@ def test_web_bff_is_reached_over_tls_and_its_certificate_checked() -> None:
         upstream = load_routes()[name]["upstream"]
         assert upstream["scheme"] == "https" and upstream["tls"]["verify"] is True
         assert all(node.endswith(":8443") for node in upstream["nodes"])
+
+
+def test_the_frontend_never_answers_for_keycloak_or_the_api() -> None:
+    """An address no route allows, such as Keycloak's admin console, still gets a 404."""
+    route = load_routes()["frontend"]
+    assert route["uri"] == "/*" and route["priority"] < 0
+    assert route["vars"] == [["uri", "!", "~~", "^/(auth|api)(/|$)"]]
+    assert route["methods"] == ["GET", "HEAD"]

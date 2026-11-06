@@ -17,7 +17,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check frontend-test frontend-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -74,6 +74,8 @@ images: ## Build an image for every service, into the cluster's image store
 		echo "Building $$name:local"; \
 		docker build -q -f "$$dockerfile" -t "$$name:local" . || exit 1; \
 	done; \
+	echo "Building windops-frontend:local"; \
+	docker build -q -t windops-frontend:local frontend || exit 1; \
 	for dockerfile in infrastructure/docker/*/Dockerfile; do \
 		name="windops-$$(basename "$$(dirname "$$dockerfile")")"; \
 		echo "Building $$name:local"; \
@@ -177,6 +179,12 @@ gateway-policy-check: ## Prove the gateway's token checks, CORS and per-address 
 
 token-exchange-check: ## Prove token exchange for agents with a real login (SEC-008)
 	PYTHONPATH=scripts uv run python scripts/verify_token_exchange.py
+
+frontend-test: ## Lint, type-check, test and build the frontend, as CI does
+	cd frontend && npm ci --no-audit --no-fund && npm run lint && npm run typecheck && npm test && npm run build && npm audit --audit-level=moderate
+
+frontend-check: ## Sign in through a real browser, and see the branded, role-aware shell
+	PYTHONPATH=scripts uv run python scripts/verify_frontend.py
 
 data-tls-check: ## Prove every data store accepts only TLS, including a real renewal
 	PYTHONPATH=scripts uv run python scripts/verify_data_tls.py

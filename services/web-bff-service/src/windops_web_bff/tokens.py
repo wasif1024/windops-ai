@@ -3,6 +3,7 @@
 import asyncio
 import ssl
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -65,8 +66,13 @@ def bearer(header: str | None) -> str:
 
 class TokenVerifier:
     def __init__(
-        self, settings: TokenSettings, *, transport: httpx.AsyncBaseTransport | None = None
+        self,
+        settings: TokenSettings,
+        *,
+        transport: httpx.AsyncBaseTransport | None = None,
+        clock: Callable[[], float] = time.monotonic,
     ):
+        self._clock = clock
         self._settings = settings
         verify: ssl.SSLContext | bool = True
         if settings.ca_file:
@@ -74,14 +80,19 @@ class TokenVerifier:
             verify.minimum_version = ssl.TLSVersion.TLSv1_2
         self._http = httpx.AsyncClient(timeout=5.0, transport=transport, verify=verify)
         self._keys: dict[str, Any] = {}
-        self._fetched = 0.0
+        # None until the first fetch. A monotonic clock counts from the machine's boot, so on a
+        # freshly started machine it can be under REFRESH_SECONDS, which must not block that fetch.
+        self._fetched: float | None = None
         self._lock = asyncio.Lock()
 
     async def close(self) -> None:
         await self._http.aclose()
 
+    def _may_fetch(self) -> bool:
+        return self._fetched is None or self._clock() - self._fetched > REFRESH_SECONDS
+
     async def _key(self, key_id: str) -> Any:
-        if key_id not in self._keys and time.monotonic() - self._fetched > REFRESH_SECONDS:
+        if key_id not in self._keys and self._may_fetch():
             async with self._lock:
                 if key_id not in self._keys:
                     try:
@@ -89,7 +100,7 @@ class TokenVerifier:
                         response.raise_for_status()
                     except httpx.HTTPError as error:
                         raise TokenError("keys_unavailable") from error
-                    self._fetched = time.monotonic()
+                    self._fetched = self._clock()
                     self._keys = {
                         item["kid"]: jwt.PyJWK(item).key
                         for item in response.json()["keys"]
