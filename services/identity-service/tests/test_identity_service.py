@@ -452,3 +452,86 @@ def test_nobody_suspends_their_own_tenant() -> None:
         assert code is grpc.StatusCode.INVALID_ARGUMENT
 
     with_service(scenario)
+
+
+AGENT = "windops-agent-runtime"
+
+
+def own_token(world: World, user: str = ADMIN, tenant: str = TENANT) -> str:
+    world.keycloak.tokens["user-token"] = {"active": True, "sub": user, "tenant_id": tenant}
+    return "user-token"
+
+
+def exchange(token: str, audience: str = AGENT) -> Any:
+    return identity_pb2.ExchangeTokenRequest(subject_token=token, audience=audience)
+
+
+def test_a_user_exchanges_their_own_token_for_one_allowed_service() -> None:
+    """SEC-008."""
+
+    async def scenario(world: World) -> None:
+        response = await world.stub.ExchangeToken(
+            exchange(own_token(world)), metadata=as_user(), timeout=5
+        )
+        assert response.access_token == f"exchanged-for-{AGENT}"
+        assert (response.expires_in_seconds, response.audience) == (120, AGENT)
+        sent = world.keycloak.exchanges[0]
+        assert (sent["audience"], sent["scope"]) == (AGENT, f"{AGENT}-audience")
+        assert (TENANT, f"identity.token.exchanged.{AGENT}") in await audit_actions(world.engine)
+
+    with_service(scenario)
+
+
+@pytest.mark.parametrize(
+    "owner",
+    [
+        {"active": True, "sub": "someone-else", "tenant_id": TENANT},
+        {"active": True, "sub": ADMIN, "tenant_id": OTHER},
+        {"active": False, "sub": ADMIN, "tenant_id": TENANT},
+        {"active": True, "sub": ADMIN},
+    ],
+)
+def test_only_the_callers_own_current_token_is_exchanged(owner: dict[str, Any]) -> None:
+    """A service holding another user's token cannot turn it into one for an agent."""
+
+    async def scenario(world: World) -> None:
+        world.keycloak.tokens["stolen"] = owner
+        code = await code_of(
+            world.stub.ExchangeToken(exchange("stolen"), metadata=as_user(), timeout=5)
+        )
+        assert code is grpc.StatusCode.PERMISSION_DENIED
+        assert world.keycloak.exchanges == []
+
+    with_service(scenario)
+
+
+@pytest.mark.parametrize("audience", ["windops-admin", "windops-web", "", "windops-agent-runtime "])
+def test_only_allowed_services_can_receive_an_exchanged_token(audience: str) -> None:
+    async def scenario(world: World) -> None:
+        call = world.stub.ExchangeToken(
+            exchange(own_token(world), audience), metadata=as_user(), timeout=5
+        )
+        assert await code_of(call) is grpc.StatusCode.INVALID_ARGUMENT
+        assert world.keycloak.exchanges == []
+
+    with_service(scenario)
+
+
+def test_a_service_identity_cannot_exchange_a_token() -> None:
+    async def scenario(world: World) -> None:
+        token = sign_identity(VerifiedIdentity(subject="svc-x", tenant_id=TENANT), SECRET)
+        call = world.stub.ExchangeToken(
+            exchange(own_token(world)), metadata=(("x-windops-identity", token),), timeout=5
+        )
+        assert await code_of(call) is grpc.StatusCode.PERMISSION_DENIED
+
+    with_service(scenario)
+
+
+def test_keycloaks_refusal_is_passed_on() -> None:
+    async def scenario(world: World) -> None:
+        world.keycloak.refuse_exchange = True
+        call = world.stub.ExchangeToken(exchange(own_token(world)), metadata=as_user(), timeout=5)
+        assert await code_of(call) is grpc.StatusCode.PERMISSION_DENIED
+
+    with_service(scenario)

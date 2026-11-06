@@ -476,7 +476,7 @@ SECURITY_LAYERS = (
         ),
         (
             Control("Login through Keycloak (OIDC), with MFA for administrators"),
-            Control("The browser reaches only the gateway, never internal services", "M3.7"),
+            Control("The browser reaches only the gateway, never internal services"),
         ),
         inside_cluster=False,
     ),
@@ -490,7 +490,7 @@ SECURITY_LAYERS = (
             Control("The gateway is the only way in, and nothing else is exposed"),
             Control("Its Admin API needs a key, and answers only from inside its pod"),
             Control("Every route needs health checks and timeouts, so failures are fast"),
-            Control("TLS, CORS allowlists, rate limits and token validation", "M3.1, M3.7"),
+            Control("TLS, CORS allowlists, rate limits and token validation"),
         ),
     ),
     Layer(
@@ -806,7 +806,7 @@ HOP_CONTROLS = (
             Control("The gateway is the only way in, and nothing else is exposed"),
             Control("Every route needs health checks and timeouts"),
             Control("Login through Keycloak (OIDC), with MFA for administrators"),
-            Control("TLS, CORS allowlists, rate limits and token validation", "M3.1, M3.7"),
+            Control("TLS, CORS allowlists, rate limits and token validation"),
         ),
     ),
     (

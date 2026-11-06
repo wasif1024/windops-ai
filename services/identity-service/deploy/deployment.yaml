@@ -113,6 +113,17 @@ spec:
                 secretKeyRef:
                   name: windops-identity-keycloak
                   key: client-secret
+            # The client that exchanges a user's token for a short-lived one (SEC-008).
+            - name: WINDOPS_EXCHANGE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: windops-identity-keycloak
+                  key: exchange-client-id
+            - name: WINDOPS_EXCHANGE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: windops-identity-keycloak
+                  key: exchange-client-secret
           # Not a gRPC probe, because the kubelet has no client certificate to present.
           startupProbe:
             httpGet:

@@ -174,6 +174,100 @@ def identity_client_settings() -> dict[str, Any]:
     }
 
 
+# Token exchange (SEC-008). windops-api is in every user token's audience, so Keycloak lets it
+# exchange one. Each allowed target gets a client scope, and nothing else can be asked for.
+EXCHANGE_CLIENT_ID = API_AUDIENCE
+EXCHANGE_LIFETIME_SECONDS = 120
+EXCHANGE_TARGETS = ("windops-agent-runtime",)
+
+
+def exchange_client_settings() -> dict[str, Any]:
+    """The client the Identity Service exchanges tokens as. It cannot sign anyone in."""
+    return {
+        "clientId": EXCHANGE_CLIENT_ID,
+        "enabled": True,
+        "publicClient": False,
+        "standardFlowEnabled": False,
+        "implicitFlowEnabled": False,
+        "directAccessGrantsEnabled": False,
+        "serviceAccountsEnabled": False,
+        "fullScopeAllowed": False,
+        "attributes": {
+            "standard.token.exchange.enabled": "true",
+            "access.token.lifespan": str(EXCHANGE_LIFETIME_SECONDS),
+        },
+        # Without it, an exchanged token would carry no tenant, which every service refuses.
+        "protocolMappers": [tenant_mapper()],
+    }
+
+
+def target_client_settings(client_id: str) -> dict[str, Any]:
+    """A service that only receives exchanged tokens, and never signs anyone in."""
+    return {
+        "clientId": client_id,
+        "enabled": True,
+        "bearerOnly": True,
+        "publicClient": False,
+        "standardFlowEnabled": False,
+        "directAccessGrantsEnabled": False,
+        "protocolMappers": [],
+    }
+
+
+def target_scope_name(client_id: str) -> str:
+    return f"{client_id}-audience"
+
+
+def ensure_target_scope(api: httpx.Client, exchange_client: str, target: str) -> None:
+    """A scope that names one target in the audience, offered only to the exchange client."""
+    name = target_scope_name(target)
+    scopes = api.get(f"/{REALM}/client-scopes")
+    scopes.raise_for_status()
+    found = [item["id"] for item in scopes.json() if item["name"] == name]
+    if found:
+        scope_id = found[0]
+    else:
+        created = api.post(
+            f"/{REALM}/client-scopes",
+            json={
+                "name": name,
+                "protocol": "openid-connect",
+                "attributes": {"include.in.token.scope": "true"},
+                "protocolMappers": [
+                    {
+                        "name": "audience",
+                        "protocol": "openid-connect",
+                        "protocolMapper": "oidc-audience-mapper",
+                        "config": {
+                            "included.client.audience": target,
+                            "access.token.claim": "true",
+                        },
+                    }
+                ],
+            },
+        )
+        created.raise_for_status()
+        scope_id = created.headers["Location"].rsplit("/", 1)[-1]
+    api.put(
+        f"/{REALM}/clients/{exchange_client}/optional-client-scopes/{scope_id}"
+    ).raise_for_status()
+
+
+def ensure_exchange_client(api: httpx.Client) -> str:
+    """Create the exchange client and its targets, and return the exchange client's secret."""
+    ensure_client(api, exchange_client_settings())
+    ensure_organization_scope(api, EXCHANGE_CLIENT_ID)
+    found = api.get(f"/{REALM}/clients", params={"clientId": EXCHANGE_CLIENT_ID})
+    found.raise_for_status()
+    exchange_client = found.json()[0]["id"]
+    for target in EXCHANGE_TARGETS:
+        ensure_client(api, target_client_settings(target))
+        ensure_target_scope(api, exchange_client, target)
+    secret = api.get(f"/{REALM}/clients/{exchange_client}/client-secret")
+    secret.raise_for_status()
+    return str(secret.json()["value"])
+
+
 def ensure_identity_client(api: httpx.Client) -> str:
     """Create the Identity Service's client and roles, and return its secret."""
     ensure_client(api, identity_client_settings())
@@ -203,7 +297,7 @@ def ensure_identity_client(api: httpx.Client) -> str:
     return str(secret.json()["value"])
 
 
-def store_identity_client(secret: str) -> None:
+def store_identity_client(secret: str, exchange_secret: str) -> None:
     """Give the secret only to the Identity Service's namespace, sent over stdin."""
     manifest = {
         "apiVersion": "v1",
@@ -214,6 +308,8 @@ def store_identity_client(secret: str) -> None:
             "url": KEYCLOAK_URL,
             "client-id": IDENTITY_CLIENT_ID,
             "client-secret": secret,
+            "exchange-client-id": EXCHANGE_CLIENT_ID,
+            "exchange-client-secret": exchange_secret,
         },
     }
     subprocess.run(
@@ -514,7 +610,7 @@ def seed(
             required_actions=ADMIN_REQUIRED_ACTIONS,
         )
         ensure_member(api, platform_id, platform_admin)
-        store_identity_client(ensure_identity_client(api))
+        store_identity_client(ensure_identity_client(api), ensure_exchange_client(api))
 
 
 def missing_demo_passwords(existing: dict[str, str]) -> dict[str, str]:

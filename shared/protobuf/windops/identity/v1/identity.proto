@@ -26,6 +26,11 @@ service IdentityService {
   // second factor. A disabled organization's users get no tenant_id, so the gateway refuses them.
   rpc CreateOrganization(CreateOrganizationRequest) returns (CreateOrganizationResponse);
   rpc SetOrganizationEnabled(SetOrganizationEnabledRequest) returns (SetOrganizationEnabledResponse);
+
+  // Swap the caller's own access token for a short-lived one for one allowed service, such as
+  // windops-agent-runtime, so an agent can act for the user without their login (SEC-008).
+  // Keycloak checks the token is the caller's own, before the exchange.
+  rpc ExchangeToken(ExchangeTokenRequest) returns (ExchangeTokenResponse);
 }
 
 message User {
@@ -159,4 +164,17 @@ message SetOrganizationEnabledRequest {
 
 message SetOrganizationEnabledResponse {
   bool enabled = 1;
+}
+
+message ExchangeTokenRequest {
+  // The caller's own Keycloak access token. It is never stored or logged.
+  string subject_token = 1;
+  // The one service the new token is for. Only allowed services may be named.
+  string audience = 2;
+}
+
+message ExchangeTokenResponse {
+  string access_token = 1;
+  int32 expires_in_seconds = 2;
+  string audience = 3;
 }

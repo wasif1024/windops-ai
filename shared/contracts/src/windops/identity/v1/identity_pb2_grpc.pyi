@@ -55,6 +55,11 @@ class IdentityServiceStub:
     second factor. A disabled organization's users get no tenant_id, so the gateway refuses them.
     """
     SetOrganizationEnabled: _grpc.UnaryUnaryMultiCallable[_identity_pb2.SetOrganizationEnabledRequest, _identity_pb2.SetOrganizationEnabledResponse]
+    ExchangeToken: _grpc.UnaryUnaryMultiCallable[_identity_pb2.ExchangeTokenRequest, _identity_pb2.ExchangeTokenResponse]
+    """Swap the caller's own access token for a short-lived one for one allowed service, such as
+    windops-agent-runtime, so an agent can act for the user without their login (SEC-008).
+    Keycloak checks the token is the caller's own, before the exchange.
+    """
 
 @_typing.type_check_only
 class IdentityServiceAsyncStub(IdentityServiceStub):
@@ -83,6 +88,11 @@ class IdentityServiceAsyncStub(IdentityServiceStub):
     second factor. A disabled organization's users get no tenant_id, so the gateway refuses them.
     """
     SetOrganizationEnabled: _aio.UnaryUnaryMultiCallable[_identity_pb2.SetOrganizationEnabledRequest, _identity_pb2.SetOrganizationEnabledResponse]  # type: ignore[assignment]
+    ExchangeToken: _aio.UnaryUnaryMultiCallable[_identity_pb2.ExchangeTokenRequest, _identity_pb2.ExchangeTokenResponse]  # type: ignore[assignment]
+    """Swap the caller's own access token for a short-lived one for one allowed service, such as
+    windops-agent-runtime, so an agent can act for the user without their login (SEC-008).
+    Keycloak checks the token is the caller's own, before the exchange.
+    """
 
 class IdentityServiceServicer(metaclass=_abc_1.ABCMeta):
     """Manages a tenant's users in Keycloak, which holds their credentials and sessions (SEC-006).
@@ -168,5 +178,16 @@ class IdentityServiceServicer(metaclass=_abc_1.ABCMeta):
         request: _identity_pb2.SetOrganizationEnabledRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_identity_pb2.SetOrganizationEnabledResponse, _abc.Awaitable[_identity_pb2.SetOrganizationEnabledResponse]]: ...
+
+    @_abc_1.abstractmethod
+    def ExchangeToken(
+        self,
+        request: _identity_pb2.ExchangeTokenRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_identity_pb2.ExchangeTokenResponse, _abc.Awaitable[_identity_pb2.ExchangeTokenResponse]]:
+        """Swap the caller's own access token for a short-lived one for one allowed service, such as
+        windops-agent-runtime, so an agent can act for the user without their login (SEC-008).
+        Keycloak checks the token is the caller's own, before the exchange.
+        """
 
 def add_IdentityServiceServicer_to_server(servicer: IdentityServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

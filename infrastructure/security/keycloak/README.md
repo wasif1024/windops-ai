@@ -105,15 +105,31 @@ reset it, delete its Deployment, drop that database, then run `make infra` and `
 New logins and token exchange fail, and nothing falls back to weaker access (SRS 7.7). Tokens already issued
 keep working until they expire.
 
+## Token exchange (SEC-008)
+
+An agent acting for a user gets its own token, not the user's login:
+
+| Piece | What it is |
+| --- | --- |
+| `windops-api` | A confidential client with standard token exchange. It is in every user token's audience, which Keycloak requires, and only the Identity Service holds its secret |
+| `windops-agent-runtime` | A bearer-only client, which only receives exchanged tokens |
+| `windops-agent-runtime-audience` | A client scope, offered only to `windops-api`, which names the agent runtime in an exchanged token's audience |
+
+An exchanged token is for the same user and tenant, lasts 120 seconds, and names only the target service, so the
+gateway refuses it on the user's own API. A target with no scope cannot be asked for. `make token-exchange-check`
+proves this.
+
 ## Limits
 
-- Nothing requires `tenant_id` yet: a user with no organization, or two, gets a valid token with no tenant. M3.7's
-  gateway must refuse those (SEC-005).
+- **Keycloak still issues tokens without a tenant.** A user with no organization, or two, gets a valid token with no
+  `tenant_id`. The gateway and Web BFF both refuse it (SEC-005).
 - Roles belong to the Authorization Service, so M3.5 seeds them, and decides who counts as an administrator (SEC-006).
   Until then, the seed names its demo administrators directly.
-- No service enforces MFA yet. M3.5 calls `windops-auth`, once M3.7 passes token claims through.
+- **Services enforce step-up themselves.** The Authorization, Identity and Tenant services do this, from the claims
+  Web BFF passes on, while Keycloak only records how a user signed in.
 - WebAuthn is not set up, because SEC-002 accepts TOTP or WebAuthn.
 - Keycloak's Organization login step is left out, because no tenant has its own identity provider.
-- It uses plain HTTP and a flexible hostname until M3.7. Until then, a token's issuer follows the address used
-  to reach it.
+- **One fixed public address.** It serves only HTTPS, at `https://localhost:9443/auth`, behind the gateway, which
+  fixes the issuer in every token. Services reach it at its internal address, which `hostname-backchannel-dynamic`
+  allows.
 - One replica, so a restart interrupts login.

@@ -5,6 +5,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import parse_qsl
 
 import httpx
 
@@ -24,6 +25,10 @@ class FakeKeycloak:
     fail_adding_members: bool = False
     names: dict[str, str] = field(default_factory=dict)
     disabled: set[str] = field(default_factory=set)
+    # What introspection says about each token, as Keycloak would after checking it.
+    tokens: dict[str, dict[str, Any]] = field(default_factory=dict)
+    exchanges: list[dict[str, str]] = field(default_factory=list)
+    refuse_exchange: bool = False
 
     def add_tenant(self, alias: str) -> str:
         organization = str(uuid.uuid4())
@@ -50,7 +55,19 @@ class FakeKeycloak:
         path = request.url.path
         # As sent, so a test can see that an ID was escaped and not decoded into the path.
         self.calls.append((request.method, request.url.raw_path.decode().split("?")[0]))
+        if path == f"/realms/{REALM}/protocol/openid-connect/token/introspect":
+            form = dict(parse_qsl(request.content.decode()))
+            return httpx.Response(200, json=self.tokens.get(form["token"], {"active": False}))
         if path == f"/realms/{REALM}/protocol/openid-connect/token":
+            form = dict(parse_qsl(request.content.decode()))
+            if form.get("grant_type") == "urn:ietf:params:oauth:grant-type:token-exchange":
+                self.exchanges.append(form)
+                if self.refuse_exchange:
+                    return httpx.Response(400, json={"error": "invalid_scope"})
+                return httpx.Response(
+                    200,
+                    json={"access_token": f"exchanged-for-{form['audience']}", "expires_in": 120},
+                )
             return httpx.Response(200, json={"access_token": "token", "expires_in": 300})
         if self.fail_with is not None:
             return httpx.Response(self.fail_with)
