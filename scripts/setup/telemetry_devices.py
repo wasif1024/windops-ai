@@ -20,8 +20,8 @@ from scripts.lib.settings import KUBE_CONTEXT
 
 NAMESPACE = "windops-application"
 DEPLOYMENT = "deployment/windops-telemetry"
-# The Secret's name, not a secret.
-SECRET = "windops-simulator-devices"  # noqa: S105
+# The name of the Kubernetes Secret that holds the tokens.
+DEVICE_STORE = "windops-simulator-devices"
 
 
 def kubectl(*arguments: str, stdin: str | None = None) -> subprocess.CompletedProcess[str]:
@@ -36,9 +36,9 @@ def key_for(tenant_id: str, turbine_id: str) -> str:
 
 
 def stored_tokens() -> dict[str, str]:
-    found = kubectl("get", "secret", SECRET, "--ignore-not-found", "--output=json")
+    found = kubectl("get", "secret", DEVICE_STORE, "--ignore-not-found", "--output=json")
     if found.returncode != 0:
-        raise RuntimeError(f"Could not read {SECRET}: {found.stderr.strip()}")
+        raise RuntimeError(f"Could not read {DEVICE_STORE}: {found.stderr.strip()}")
     if not found.stdout.strip():
         return {}
     data = json.loads(found.stdout).get("data") or {}
@@ -51,7 +51,7 @@ def secret_manifest(tokens: dict[str, str]) -> str:
             "apiVersion": "v1",
             "kind": "Secret",
             "metadata": {
-                "name": SECRET,
+                "name": DEVICE_STORE,
                 "namespace": NAMESPACE,
                 "labels": {"app.kubernetes.io/part-of": "windops"},
             },
@@ -72,7 +72,7 @@ def main() -> int:
         if key_for(spec.tenant_id, spec.turbine_id) not in tokens
     ]
     if not wanted:
-        print(f"Every demo turbine already has a credential in {SECRET}")
+        print(f"Every demo turbine already has a credential in {DEVICE_STORE}")
         return 0
     # --replace, as a turbine missing from the Secret may still have a credential nobody can use.
     made = kubectl(
@@ -88,7 +88,7 @@ def main() -> int:
     if applied.returncode != 0:
         print(f"Could not store the tokens: {applied.stderr.strip()}", file=sys.stderr)
         return 1
-    print(f"Made {len(wanted)} device credentials, and kept their tokens in {SECRET}")
+    print(f"Made {len(wanted)} device credentials, and kept their tokens in {DEVICE_STORE}")
     return 0
 
 

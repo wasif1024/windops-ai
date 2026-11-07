@@ -28,7 +28,7 @@ from scripts.lib.settings import KUBE_CONTEXT
 from scripts.lib.tls_client import blocking_channel, client_bundle
 from scripts.setup.gateway_routes import port_forward
 from scripts.setup.identity_seed import PUBLIC_URL, keycloak_public
-from scripts.setup.telemetry_devices import SECRET
+from scripts.setup.telemetry_devices import DEVICE_STORE
 
 APPLICATION, DATA = "windops-application", "windops-data"
 HOST = "windops-telemetry.windops-application.svc.cluster.local"
@@ -73,11 +73,11 @@ def as_tenant(tenant: str, query: str) -> str:
 
 def device_token(tenant: str, turbine: str) -> str:
     encoded = kubectl(
-        "get", "secret", SECRET, f"--output=jsonpath={{.data.{tenant}\\.{turbine}}}"
+        "get", "secret", DEVICE_STORE, f"--output=jsonpath={{.data.{tenant}\\.{turbine}}}"
     ).stdout
     if not encoded:
         raise RuntimeError(
-            f"No token for {tenant}/{turbine} in {SECRET}: run make telemetry-devices"
+            f"No token for {tenant}/{turbine} in {DEVICE_STORE}: run make telemetry-devices"
         )
     return base64.b64decode(encoded).decode()
 
