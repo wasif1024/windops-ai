@@ -8,7 +8,7 @@ import asyncio
 import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -294,3 +294,15 @@ def test_a_token_carries_its_tenant_and_device_and_only_its_hash_is_kept() -> No
     assert credentials.matches(secret, credentials.hashed(secret))
     assert not credentials.matches(secret + "x", credentials.hashed(secret))
     assert secret not in credentials.hashed(secret)
+
+
+def test_a_sample_timed_far_in_the_future_is_refused_with_its_reason() -> None:
+    """A broken device clock must not fill the default partition."""
+
+    async def scenario(world: World) -> None:
+        sample = samples(1)[0]
+        sample["event_time"] = (RECEIVED + timedelta(hours=2)).isoformat()
+        response = await world.client.post(URL, json={"samples": [sample]}, headers=world.auth())
+        assert response.json()["rejected"] == [{"index": 0, "reason": "event_time_in_future"}]
+
+    with_route(scenario)
