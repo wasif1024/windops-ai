@@ -112,7 +112,7 @@ nginx sends these on every page, from one file, so no location can lose them:
 ## Work on it
 
 `make dev` from the repository root runs this dev server with the backend, which is the easy way. See
-[Run it and see it](../README.md#run-it-and-see-it). By hand, with the gateway forwarded (`make gateway-forward`):
+[Run the platform locally](../README.md#run-the-platform-locally). By hand, with the gateway forwarded (`make gateway-forward`):
 
 ```bash
 cd frontend

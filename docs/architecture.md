@@ -3,7 +3,7 @@
 WindOps AI helps people investigate turbine faults and prepare maintenance. Agents recommend, and
 deterministic services and authorized humans decide. The system never issues turbine commands.
 
-The [README](../README.md#system-and-security-architecture) has the layer and security diagram, and
+The [README](../README.md#architecture) has the platform architecture diagram, and
 [SRS section 7](srs.md#7-microservices-grpc-events-and-circuit-breaking) has the service diagram.
 
 ## How a request flows

@@ -1,11 +1,14 @@
 # WindOps AI
 
-Agentic AI for wind farm operations and predictive maintenance. AI interprets
-operational complexity, deterministic systems enforce critical rules, and
-authorized humans approve high-impact actions.
+[![CI](https://github.com/wasif1024/windops-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/wasif1024/windops-ai/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/wasif1024/windops-ai/actions/workflows/codeql.yml/badge.svg)](https://github.com/wasif1024/windops-ai/actions/workflows/codeql.yml)
 
-This is a portfolio-grade platform that runs on synthetic data. It is advisory
-only and never issues turbine commands.
+**Agentic AI for wind farm operations and predictive maintenance.** WindOps AI investigates turbine faults and
+prepares maintenance work for multi-tenant wind farm operators. AI agents interpret operational complexity,
+deterministic services enforce the rules that matter, and authorized people approve every high-impact action.
+
+The platform is advisory only: it never issues turbine commands. It is a portfolio-grade reference system, built
+to production standards and run on synthetic data from a seeded, physics-based turbine simulator.
 
 <table>
   <tr>
@@ -20,173 +23,179 @@ only and never issues turbine commands.
   </tr>
 </table>
 
-<sub>Illustrative images of the industry this project is for. None shows WindOps AI or its output. The
-control room image is a concept illustration: its figures, safety certification label and screens are
+<sub>Illustrative images of the industry this project serves. None shows WindOps AI or its output.
+The control room image is a concept illustration: its figures, safety certification label and screens are
 not claims about this project, which holds no certifications.</sub>
+
+## Design principles
+
+| Principle | What it means in the system |
+| --- | --- |
+| **Agents recommend, they never decide** | Agents investigate and draft. The Policy Service, the Approval Service and authorized people make every decision that matters |
+| **Deterministic where it counts** | Fault detection, production impact and policy checks are versioned rules with tests, not model output |
+| **Evidence before conclusions** | Every investigation works from an immutable evidence snapshot, and every claim must cite its source |
+| **Tenant isolation by construction** | The tenant comes from a verified identity, never a request field, and the database enforces it with row-level security |
+| **Fail safe, and visibly** | Each dependency has a defined failure behavior: refuse, pause or continue, behind a circuit breaker (ADR 0004) |
+| **Observable end to end** | Every request carries one trace ID through logs, metrics and traces, from the gateway to the database |
 
 ## Agent orchestration
 
 ![Animated walkthrough of the ten stages of an investigation. A deterministic rule detects a gearbox fault and the Investigation Service opens a case with an immutable evidence snapshot. The Supervisor delegates to five specialist agents, which reach services through MCP tools. The result is validated and checked by the Policy Service, a draft work order waits in pending review, an authorized human decides, and the decision is audited.](docs/assets/agent-orchestration.gif)
 
-Agents recommend and draft. Deterministic services and authorized humans decide.
-The animation illustrates the workflow in
-[SRS section 5.4](docs/srs.md#54-workflow), not a recording of a running system.
+An investigation from detection to decision, as specified in [SRS section 5.4](docs/srs.md#54-workflow). A
+deterministic rule raises the fault; the Supervisor delegates to five specialist agents, each limited to its own
+allowlisted tools; the Policy Service checks the result; and a person approves or rejects the draft work order. The
+animation illustrates the specified workflow, not a recording.
 
 ## Architecture
 
-[![Service overview. The React frontend and telemetry simulator enter through the APISIX API Gateway, which checks tokens with Keycloak. Web BFF and Agent Runtime, through MCP servers, call 23 services in total over gRPC. Services publish and consume durable events through NATS JetStream. Each of 20 services has its own database and login, on one PostgreSQL pod, alongside Redis and Qdrant. Every workload sends logs, metrics and traces to the observability stack, and external providers are reached through circuit breakers.](docs/assets/service-overview.png)](docs/assets/service-overview.png)
+[![WindOps AI platform architecture. Operators reach the React frontend, and the telemetry simulator sends device samples, both over HTTPS through the APISIX API Gateway, which checks sign-in with Keycloak. In the windops-system namespace, Web BFF calls the Identity, Authorization and Tenant services over gRPC. In windops-application, the Agent Runtime runs a Supervisor and five specialist agents, which reach services only through four MCP servers in windops-mcp. Twenty domain services, grouped by capability, call each other over gRPC with mutual TLS, a signed identity and circuit breakers, and publish durable events to four NATS JetStream streams. Each service owns its PostgreSQL database with row-level security, alongside Redis and Qdrant in windops-data, and external providers are reached through breakers. Every workload sends logs, metrics and traces to the observability stack. A side column lists the security controls on each hop, in place or planned with their module, the circuit breaker's states and failure behaviors, the agent guardrails and where the system runs. A strip shows delivery progress across all 15 phases.](docs/assets/platform-architecture.png)](docs/assets/platform-architecture.png)
 
-This overview shows every service, where its data lives and how events move. The next diagram shows the
-agents and how each kind of service relates to them.
+<sub>Select the diagram to view it full size. A green dot marks a service running today. Security controls marked
+planned name the module that delivers them; tests fail if a control is still shown as planned once its modules are
+finished, so the diagram cannot drift from the [implementation tracker](docs/phases/README.md). It is generated by
+`uv run python -m scripts.generate.readme_visuals`.</sub>
 
-[![Architecture diagram. Users reach a React frontend, API Gateway and Web BFF. Agent Runtime runs the Supervisor and five specialist agents, which use MCP servers to call 23 gRPC services in total. Services exchange durable events over NATS JetStream, store data in PostgreSQL, Redis and Qdrant, and use external providers including Claude, Tavily and Open-Meteo.](docs/assets/architecture.png)](docs/assets/architecture.png)
+### Key architectural decisions
 
-This is the target design from the SRS. To update either visual, edit and run
-`scripts/generate/readme_visuals.py`.
+| Concern | Decision |
+| --- | --- |
+| Entry | Apache APISIX is the only way into the cluster: TLS, OIDC token checks, CORS allowlists and per-route rate limits. Devices use a separate route with their own credentials |
+| Identity and access | Keycloak for sign-in, with MFA for administrators. Eight roles, scoped to a tenant, wind farm or turbine; the Authorization Service decides every action and denies by default |
+| Service communication | 23 services, each with its own image, contracts and data. Synchronous calls use gRPC with versioned Protobuf, mutual TLS, a signed identity and a deadline |
+| Events | NATS JetStream, published through a transactional outbox in each service, so a change and its event commit together. Failed messages go to a dead-letter stream |
+| Data | PostgreSQL with one database and login per service, and forced row-level security on every tenant table. Telemetry is partitioned by day (ADR 0003). Redis for cache and rate limits, Qdrant for vector search |
+| Agents | LangGraph and Claude. Agents reach services only through authenticated, schema-validated MCP servers with per-agent allowlists, and can draft but never approve |
+| Resilience | A circuit breaker per caller and dependency, bounded retries for idempotent calls only, and a documented fallback for every dependency (ADR 0004) |
+| Observability | OpenTelemetry traces in Tempo, metrics in Prometheus with Alertmanager, logs through Fluent Bit to Loki, and Grafana dashboards |
+| Deployment | Kubernetes with Kustomize overlays. Minikube locally (ADR 0001); Azure in the final phase (ADR 0005) |
 
-[Service map](docs/service-map.md) shows how all 23 services connect, and what happens when a circuit
-breaker opens.
+## Project status
 
-## How it works end to end
+Phases 1 to 3 are complete, each closed by an exit gate run on a real cluster:
 
-[![End-to-end architecture in four parts. First, all 23 services by Kubernetes namespace, showing gRPC calls, JetStream events, and data in one PostgreSQL pod with 20 separate databases. Second, one gRPC call step by step, with the security on each hop marked as built or planned. Third, the circuit breaker's closed, open and half-open states, and what happens when each dependency fails. Fourth, the shared local database server beside the planned production design with standby servers and backups.](docs/assets/end-to-end-architecture.png)](docs/assets/end-to-end-architecture.png)
+- **Phase 1:** the platform foundation.
+- **Phase 2:** data and events.
+- **Phase 3:** identity and tenancy.
 
-This shows how services communicate, where the databases run, how each hop is secured and how circuit
-breakers respond to a failure. Select it to see it full size.
+Phase 4, assets and telemetry, is in progress.
 
-## System and security architecture
+| Running today | |
+| --- | --- |
+| Edge | API Gateway, Web BFF and the React frontend, with Keycloak sign-in and MFA |
+| Identity and tenancy | Identity, Authorization and Tenant services, with tenant branding and administration consoles |
+| Operations | Asset Service with synthetic demo fleets, and Telemetry Service with authenticated device ingestion |
+| Platform | Audit Service, with a tamper-evident trail, plus PostgreSQL, Redis, Qdrant, NATS JetStream and the full observability stack |
 
-[![Layers from the client to external providers, with the security controls at each. The React frontend reaches the API Gateway over HTTPS, and Web BFF calls services over gRPC with a signed identity, deadline and trace. Agents reach services only through MCP tools. Each service reaches only its own data, and shares events through NATS JetStream. Kubernetes surrounds the edge, agents, services and data, and only named paths leave the cluster. Each layer lists its controls, marked as in place today or planned with the module that delivers them. A strip shows the progress of all 14 delivery phases.](docs/assets/security-layers.png)](docs/assets/security-layers.png)
+The [implementation tracker](docs/phases/README.md) lists every phase and module, and what is finished.
 
-A green dot marks a control that is built and tested in the shared code and templates. Only the Audit
-Service and sample services run so far, so most apply once services are built on them. A hollow amber dot marks a
-planned control, with the module that delivers it. Tests fail if a cited module does not exist, or if a
-control is still shown as planned after its modules are finished.
-
-### For architects
+## Documentation
 
 | Document | What it covers |
 | --- | --- |
-| [Requirements (SRS v1.1)](docs/srs.md) | Scope, fixed decisions, requirement IDs and acceptance criteria |
-| [Implementation tracker](docs/phases/README.md) | All 15 phases and their modules, with what is finished |
-| [ADR 0001: Local Minikube profile](docs/adr/0001-local-minikube-profile.md) | Running every workload on a 16 GB laptop |
-| [ADR 0002: Trace storage](docs/adr/0002-trace-storage-and-kube-state-metrics.md) | Adding Tempo and kube-state-metrics |
-| [ADR 0003: PostgreSQL without TimescaleDB](docs/adr/0003-postgresql-without-timescaledb.md) | Telemetry storage, and the shared local and production database designs |
-| [ADR 0005: Azure deployment](docs/adr/0005-azure-deployment-as-the-final-phase.md) | The final phase, and the Azure services it uses |
-| [Service certificates](infrastructure/security/pki/README.md) | Mutual TLS between services, and how certificates renew |
-| [Frontend](frontend/README.md) | The browser's application: sign-in, branding and role-aware screens |
-| [Keycloak](infrastructure/security/keycloak/README.md) | Login, tenants, token rules and the tenant model vendor check |
-| [Service map](docs/service-map.md) | Every service's calls and events, and each failure behavior |
-| [gRPC contracts](docs/grpc-contracts.md) | Versioning, breaking changes and per-call rules |
-| [Observability](docs/observability.md) | Data flow, dashboards and retention by environment |
-| [Events](docs/events.md) | Subjects, failure handling, dashboard and alerts |
-| [Coding standards](docs/coding-standards.md) | Merge rules, and what is enforced automatically |
+| [Software requirements (SRS v1.1)](docs/srs.md) | Scope, fixed decisions, requirement IDs and acceptance criteria. The source of truth |
+| [Implementation tracker](docs/phases/README.md) | All 15 phases and their modules, with progress and exit gates |
+| [Architecture](docs/architecture.md) | How a request flows through the system |
+| [Microservices](docs/microservices.md) and [service map](docs/service-map.md) | Every service's calls and events, and its behavior when a dependency fails |
+| [gRPC contracts](docs/grpc-contracts.md) and [events](docs/events.md) | Versioning, breaking changes, subjects, dead letters and alerts |
+| [Security](docs/security.md) and [roles and permissions](docs/rbac.md) | Identities, tenants, data protection and the API, and who may do what |
+| [Observability](docs/observability.md) | Data flow, dashboards, alerts and retention |
+| [Deployment](docs/deployment.md) | Bootstrapping and running on Kubernetes |
+| [Coding standards](docs/coding-standards.md) | Naming, commits, pull requests, merge rules and automated enforcement |
 
-## Status
+### Architecture decision records
 
-Phase 1 (platform foundation) is complete, and its [exit gate](docs/phases/phase-01-exit-gate.md)
-passed on a real local cluster. The shared libraries, service template, CI, API gateway and
-observability stack are built and tested, and two sample services prove them. No business services
-exist yet. Phase 2 (data and events) is next.
-The [tracker](docs/phases/README.md) shows the current position.
+| ADR | Decision |
+| --- | --- |
+| [0001](docs/adr/0001-local-minikube-profile.md) | A local Minikube profile that runs every workload on a 16 GB laptop |
+| [0002](docs/adr/0002-trace-storage-and-kube-state-metrics.md) | Tempo for trace storage, and kube-state-metrics |
+| [0003](docs/adr/0003-postgresql-without-timescaledb.md) | PostgreSQL without TimescaleDB, and the local and production database designs |
+| [0004](docs/adr/0004-failure-behavior-for-every-dependency.md) | A defined failure behavior for every dependency |
+| [0005](docs/adr/0005-azure-deployment-as-the-final-phase.md) | Azure deployment as the final phase, and the services it uses |
 
-## Requirements
+## Getting started
 
-[docs/srs.md](docs/srs.md) is the repository copy of SRS v1.1, the source of
-truth for scope and architecture. Section 12 sets the delivery order.
+### Prerequisites
 
-[docs/phases/README.md](docs/phases/README.md) tracks progress through the 14
-phases and their modules.
+Docker Desktop, Minikube, kubectl, [uv](https://docs.astral.sh/uv/), [Buf](https://buf.build/docs/installation/),
+Node.js 24 and Make. `make dev` checks for each and explains how to install anything missing.
 
-## Development
+### Run the platform locally
 
-Install [uv](https://docs.astral.sh/uv/), [Buf](https://buf.build/docs/installation/) and
-Make, then run:
-
-```bash
-make install   # install the locked development tools
-make check     # run lint, formatting, type checks, contract checks and tests
-make service NAME=telemetry-service   # create a service from the template
-make help      # list every command
-```
-
-### Run it and see it
-
-One command runs the backend and the frontend together, so you can watch the screens as they are built:
+One command runs the backend and the frontend together:
 
 ```bash
 make dev                       # or scripts/dev/dev.sh
 scripts/dev/dev.sh --rebuild   # after pulling backend changes
-scripts/dev/dev.sh --trust-ca  # macOS, once: trust the cluster's local CA, so the browser shows no warning
+scripts/dev/dev.sh --trust-ca  # macOS, once: trust the cluster's local CA in the browser
 ```
 
-It needs Docker Desktop, Minikube, kubectl, uv, Node.js 24 and Make, and says how to install any that are missing.
-Then it:
+It installs the locked Python packages and the frontend's dependencies when they are missing or out of date, starts
+the Minikube cluster, and on the first run deploys every workload and seeds the demo tenants, users and assets.
+Then it serves:
 
-1. installs the locked Python packages (`uv sync`) and the frontend's `node_modules` (`npm ci`), when they are
-   missing or out of date,
-2. starts the Minikube cluster if it is stopped,
-3. the first time, deploys everything and seeds the demo tenants and users, which takes a while,
-4. runs the gateway at https://localhost:9443 and the Vite dev server at http://localhost:5173, and prints the URLs
-   and the demo users. `make demo-logins` shows their passwords.
-
-| Open | What it is |
+| Address | What it is |
 | --- | --- |
-| http://localhost:5173/?tenant=north-sea | The frontend with live reload: a saved change shows at once |
+| http://localhost:5173/?tenant=north-sea | The frontend with live reload |
 | https://localhost:9443/?tenant=north-sea | The frontend as deployed in the cluster |
 
-Sign-in goes to Keycloak at https://localhost:9443, whose certificate comes from your cluster's own CA. Without
-`--trust-ca`, the browser warns once: choose Advanced, then Proceed to localhost. Administrators set up an
-authenticator app at their first sign-in. Ctrl+C stops both, and the cluster keeps running: `make cluster-stop`
-frees its memory.
+Sign-in goes to Keycloak through the gateway, with a certificate from the cluster's own CA. Without `--trust-ca`, the
+browser warns once. `make demo-logins` shows the demo users' passwords, and administrators set up an authenticator
+app at first sign-in. Ctrl+C stops both servers and leaves the cluster running; `make cluster-stop` frees its
+memory. [infrastructure/minikube](infrastructure/minikube/README.md) covers the cluster in detail.
 
-Follow the [coding standards](docs/coding-standards.md) for naming, commit messages,
-pull requests and merge rules. To run on a local cluster, see
-[infrastructure/minikube](infrastructure/minikube/README.md).
+### Develop and verify
+
+```bash
+make install   # install the locked development tools
+make check     # lint, formatting, type checks, contract checks and tests
+make service NAME=example-service   # create a service from the template
+make help      # list every command, including the cluster checks
+```
+
+Every pull request must pass lint, type checks, tests, CodeQL, a dependency audit, and secret and image scans.
+The [coding standards](docs/coding-standards.md) set the merge rules.
 
 ### Settings and provider keys
 
-Every value that differs between environments is a setting in `.env`, so a change needs no code change.
-[.env.example](.env.example) lists them all, with the local defaults. `make dev` copies it to `.env` the first
-time, and later adds any new settings while keeping your values. Git ignores `.env`, and images never receive it.
+Every value that differs between environments is a setting, so changing one never needs a code change.
+[.env.example](.env.example) lists them all with local defaults. `make dev` copies it to `.env` on the first run and
+adds new settings later, keeping your values. Git ignores `.env`, and images never contain it.
 
-| Setting | What it is |
+| Setting | Purpose |
 | --- | --- |
-| `WINDOPS_PUBLIC_URL` | The gateway's public address. Keycloak's pages, every token's issuer and the browser use it |
+| `WINDOPS_PUBLIC_URL` | The gateway's public address, used by Keycloak, token issuers and the browser |
 | `WINDOPS_ALLOWED_ORIGINS` | Other browser origins allowed to call the API and sign in, such as the dev server |
-| `WINDOPS_KEYCLOAK_REALM`, `WINDOPS_OIDC_AUDIENCE`, `WINDOPS_WEB_CLIENT_ID` | The Keycloak realm, the API's token audience, and the browser's client |
+| `WINDOPS_KEYCLOAK_REALM`, `WINDOPS_OIDC_AUDIENCE`, `WINDOPS_WEB_CLIENT_ID` | The Keycloak realm, the API's token audience and the browser's client |
 | `WINDOPS_ENVIRONMENT`, `WINDOPS_VERSION`, `WINDOPS_LOG_LEVEL` | The release, as logs and traces report it |
 | `WINDOPS_*_ADDRESS`, `WINDOPS_OTLP_ENDPOINT`, `WINDOPS_KEYCLOAK_INTERNAL_URL` | Addresses inside the cluster |
-| `WINDOPS_KUBE_CONTEXT`, `WINDOPS_DEV_PORT` | This machine only: the kubectl context, and the dev server's port |
+| `WINDOPS_KUBE_CONTEXT`, `WINDOPS_DEV_PORT` | Local machine only: the kubectl context and the dev server's port |
 
-After changing a setting, run `make config`. It puts the `WINDOPS_` settings into the `windops-settings`
-ConfigMap, which every service, Keycloak and the gateway read, and restarts what reads it. A change to the public
-address or origins also needs `make gateway-routes` and `make identity-seed`, which `make dev` runs too.
+After a change, run `make config`. It loads the settings into the `windops-settings` ConfigMap that every workload
+reads, and restarts them. Changes to the public address or origins also need `make gateway-routes` and
+`make identity-seed`; `make dev` runs both. Settings resolve from the process environment first, then `.env`, then
+`.env.example`, so CI and the future Azure pipeline set the same names as pipeline variables, with secrets from Key
+Vault.
 
-Settings are read from the process environment first, then `.env`, then `.env.example`. So CI, and later the Azure
-pipeline, set the same names as pipeline variables, with secrets from Key Vault, and nothing in the code changes.
-
-A setting is never a secret, because a ConfigMap is not secret: `make config` refuses names ending in `_KEY`,
-`_SECRET`, `_PASSWORD` or `_TOKEN`. Generated passwords stay in Kubernetes Secrets (`make secrets`). Security
-rules, such as TLS verification, the Content Security Policy and the SRS rate limits, are not settings, so no
-value can turn them off.
-
-Provider keys are blank until a module needs one: add yours to `.env`. Never paste a real key into an issue, a pull
-request, a chat or `.env.example`, which shows which module needs each key.
+A setting is never a secret: `make config` refuses any name ending in `_KEY`, `_SECRET`, `_PASSWORD` or `_TOKEN`.
+Generated credentials live in Kubernetes Secrets (`make secrets`). Security rules, such as TLS verification, the
+Content Security Policy and the SRS rate limits, are not settings, so no value can turn them off. Provider keys stay
+blank until a module needs one; add yours to `.env`, and never paste a real key into an issue, pull request or
+`.env.example`.
 
 ## Repository layout
 
 | Path | Contents |
 | --- | --- |
 | `frontend/` | React and TypeScript application |
-| `services/` | The 23 services, each with its own image and data boundary |
-| `simulator/` | Synthetic telemetry and fault scenarios |
-| `mcp-servers/` | Agent-facing tools |
+| `services/` | The 23 services, each with its own image, contracts and data boundary |
+| `simulator/` | Seeded turbine physics, fault profiles, data problems and scenarios with ground truth |
+| `mcp-servers/` | Agent-facing tool servers |
 | `agents/` | Supervisor and specialist agent definitions |
 | `skills/` | Agent skills |
 | `evaluations/` | Datasets, evaluators and regression runs |
 | `shared/` | Protobuf contracts and cross-cutting libraries |
-| `infrastructure/` | Docker, Kubernetes, Minikube and observability configuration |
-| `docs/` | SRS, design documents and architecture decision records |
+| `infrastructure/` | Kubernetes, Minikube, gateway, security and observability configuration |
+| `docs/` | Requirements, design documents and architecture decision records |
 | `tests/` | Cross-service tests |
 | `scripts/` | The commands behind `make`, by role: setup, checks by phase, gates, dev tools and generators. See [scripts/README.md](scripts/README.md) |
