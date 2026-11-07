@@ -84,7 +84,7 @@ Phase 4, assets and telemetry, is in progress.
 | --- | --- |
 | Edge | API Gateway, Web BFF and the React frontend, with Keycloak sign-in and MFA |
 | Identity and tenancy | Identity, Authorization and Tenant services, with tenant branding and administration consoles |
-| Operations | Asset Service with synthetic demo fleets, and Telemetry Service with authenticated device ingestion |
+| Operations | Asset Service with synthetic demo fleets, and Telemetry Service with authenticated device ingestion, fed live by the simulator's 13 devices |
 | Platform | Audit Service, with a tamper-evident trail, plus PostgreSQL, Redis, Qdrant, NATS JetStream and the full observability stack |
 
 The [implementation tracker](docs/phases/README.md) lists every phase and module, and what is finished.

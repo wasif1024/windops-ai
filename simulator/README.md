@@ -104,7 +104,54 @@ Every fault scenario also has light link trouble, so detection is never tested o
 uv run pytest simulator/tests
 ```
 
+## Streaming live (M4.4)
+
+The simulator also runs as its own workload, `windops-simulator`, as the demo fleet's devices. Every second it steps
+all 13 turbines to the wall clock. Every 5 seconds each turbine sends what it has to the gateway's device route, with
+its own token, as a real device would.
+
+- **Tokens:** each turbine's token comes from the Secret `windops-simulator-devices`, which `make telemetry-devices`
+  fills. It is mounted as one file per turbine, never put in an environment variable. A replaced token is picked up
+  within a minute, with no restart.
+- **TLS:** the gateway's certificate is checked against the cluster's own CA, from the simulator's certificate.
+- **Through an outage:** a device keeps what it could not send, up to an hour of samples, and tries again with
+  backoff. It waits as long as `Retry-After` says. A batch the service refuses outright (400, 401 or 413) is dropped
+  and counted, as sending it again cannot succeed.
+- **Sequence:** a live sample's `sequence` is its event time in Unix seconds. It rises by one a second, and keeps
+  rising after a restart, so a restart never reuses one.
+- **Link trouble:** light link trouble, the same as the fault scenarios', is on by default, so data-quality detection
+  always has something to find. Set `WINDOPS_SIMULATOR_DATA_PROBLEMS=none` for a perfect link.
+- **One replica only,** replaced with `Recreate`, as a second copy would send everything twice.
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `WINDOPS_INGEST_URL` | the gateway's in-cluster `/ingest/v1/samples` | Where devices send. HTTPS only |
+| `WINDOPS_SIMULATOR_SEED` | `1001` | The weather and wear |
+| `WINDOPS_SIMULATOR_BATCH_SECONDS` | `5` | How often each device sends |
+| `WINDOPS_SIMULATOR_DATA_PROBLEMS` | `light` | `light` or `none` |
+
+It serves `/health/live`, `/health/ready` (ready once it has tokens) and `/metrics`, which Prometheus scrapes:
+
+- samples generated, accepted, rejected and dropped, with the reason, per turbine;
+- requests by status;
+- samples buffered;
+- when each turbine's last batch was accepted, for the data freshness dashboard (M4.9).
+
+`make simulator-check` proves it on the cluster:
+
+- every demo turbine is live;
+- samples arrive within seconds;
+- Prometheus has every device;
+- a restart loses nothing and reuses no sequence.
+
+To run it on your machine, against the gateway through a port-forward:
+
+```bash
+WINDOPS_INGEST_URL=https://localhost:9443/ingest/v1/samples WINDOPS_TLS_DIR=<folder with ca.crt> \
+  WINDOPS_SIMULATOR_TOKENS_DIR=<folder of token files> uv run python -m windops_simulator.stream
+```
+
 ## Still to come
 
-- **Sending** samples to the Telemetry Service, from its own workload, as an authenticated device (M4.4).
 - **10-minute SCADA summaries and CMS vibration spectra** come from the Telemetry Service (M4.5).
+- **Faults on the live stream:** for now the live fleet is healthy. Scenarios with faults run from the command line.

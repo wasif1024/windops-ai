@@ -1,0 +1,26 @@
+# The simulator's certificate, from the internal CA. Its ca.crt is how it checks the gateway.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-simulator-tls
+  labels:
+    app.kubernetes.io/name: windops-simulator
+    app.kubernetes.io/part-of: windops
+spec:
+  secretName: windops-simulator-tls
+  commonName: windops-simulator
+  dnsNames:
+    - windops-simulator
+    - windops-simulator.windops-application
+  duration: 720h
+  renewBefore: 168h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - client auth
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io

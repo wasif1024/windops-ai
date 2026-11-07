@@ -467,6 +467,9 @@ def draw_edge(c: Canvas) -> None:
     c.node(
         830, 112, 1060, 158, "Telemetry simulator", "a credential per turbine", "service", 13, 11.5
     )
+    # The simulator is not a service, so it runs once its workload is deployable.
+    if (SERVICES_DIRECTORY.parent / "simulator" / "deploy" / "kustomization.yaml").exists():
+        c.dot(1051, 121, 3.5, GREEN)
     c.arrow([(232, 135), (256, 135)])
 
     namespace(c, 40, 186, 1080, 336, "windops-system", "")
