@@ -62,11 +62,11 @@ what it sends.
 
 Making and revoking a credential each queue an audit record. `make telemetry-devices` gives each demo turbine a
 credential and keeps the tokens in the Secret `windops-simulator-devices`, for the simulator. It is safe to repeat:
-a turbine whose token is in the Secret is skipped.
+a turbine whose token is in the Secret is skipped. The simulator's workload streams the whole demo fleet through
+this route with those tokens; see [windops-simulator](../../simulator/README.md#streaming-live-m44).
 
 ## Still to come
 
-- The simulator streaming the demo fleet through this route, from its own workload (M4.4).
 - 10-minute summaries, CMS spectra and retention (M4.5), data-quality labels (M4.6), and reading telemetry and
   snapshots, `StreamTurbineTelemetry` and `CreateTelemetrySnapshot`, which answer UNIMPLEMENTED until M4.7.
 

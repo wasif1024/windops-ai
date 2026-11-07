@@ -18,7 +18,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check simulator-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -82,6 +82,8 @@ images: ## Build an image for every service, into the cluster's image store
 		echo "Building $$name:local"; \
 		docker build -q -f "$$dockerfile" -t "$$name:local" . || exit 1; \
 	done; \
+	echo "Building windops-simulator:local"; \
+	docker build -q -f simulator/Dockerfile -t windops-simulator:local . || exit 1; \
 	echo "Building windops-frontend:local"; \
 	docker build -q -t windops-frontend:local frontend || exit 1; \
 	for dockerfile in infrastructure/docker/*/Dockerfile; do \
@@ -179,6 +181,9 @@ telemetry-devices: ## Give each demo turbine a device credential, kept in the si
 
 telemetry-check: ## Prove telemetry ingestion: device credentials, the gateway route, storage
 	uv run python -m scripts.checks.fleet.telemetry
+
+simulator-check: ## Prove the simulator streams the whole demo fleet live, and survives a restart
+	uv run python -m scripts.checks.fleet.simulator
 
 tenant-check: ## Prove tenants, branding and row-level security on the cluster
 	uv run python -m scripts.checks.identity.tenant

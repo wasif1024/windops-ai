@@ -8,7 +8,8 @@ resources:
 patches:
   - target:
       kind: Deployment
-      labelSelector: app.kubernetes.io/part-of=windops
+      # Not the simulator: a second copy would send every sample twice.
+      labelSelector: app.kubernetes.io/part-of=windops,app.kubernetes.io/component!=simulator
     patch: |-
       - op: replace
         path: /spec/replicas

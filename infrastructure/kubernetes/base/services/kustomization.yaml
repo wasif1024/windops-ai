@@ -15,3 +15,4 @@ resources:
   - ../../../../services/telemetry-service/deploy
   - ../../../../services/tenant-service/deploy
   - ../../../../services/web-bff-service/deploy
+  - ../../../../simulator/deploy
