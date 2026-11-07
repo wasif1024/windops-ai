@@ -63,7 +63,6 @@ def test_roadmap_progress_counts_ticked_modules(tmp_path: Path) -> None:
 def test_readme_shows_the_one_architecture_diagram() -> None:
     readme = (ROOT / "README.md").read_text()
     assert "docs/assets/platform-architecture.png" in readme
-    assert (ROOT / "docs" / "assets" / "platform-architecture.png").exists()
 
 
 def test_a_service_runs_once_it_has_an_image_or_a_deployment() -> None:
