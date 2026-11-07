@@ -692,11 +692,11 @@ def draw_roadmap(c: Canvas, y: float, x0: float, x1: float) -> float:
 
 def build_platform_architecture() -> None:
     c = Canvas(1600, 1480)
-    c.text(40, 40, "WindOps AI platform architecture", 30, True)
+    c.text(40, 40, "WindOps AI: AI-Assisted Fault Investigation for Renewable Assets", 28, True)
     c.text(
         40, 74,
-        "The target design from SRS v1.1. A green dot marks a service running today; "
-        "the rest arrive phase by phase.",
+        "Platform architecture, the target design from SRS v1.1. A green dot marks a service "
+        "running today; the rest arrive phase by phase.",
         15, color=MUTED,
     )  # fmt: skip
     legend = (

@@ -1,11 +1,11 @@
-# WindOps AI
+# WindOps AI: AI-Assisted Fault Investigation for Renewable Assets
 
 [![CI](https://github.com/wasif1024/windops-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/wasif1024/windops-ai/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/wasif1024/windops-ai/actions/workflows/codeql.yml/badge.svg)](https://github.com/wasif1024/windops-ai/actions/workflows/codeql.yml)
 
-**Agentic AI for wind farm operations and predictive maintenance.** WindOps AI investigates turbine faults and
-prepares maintenance work for multi-tenant wind farm operators. AI agents interpret operational complexity,
-deterministic services enforce the rules that matter, and authorized people approve every high-impact action.
+**Agentic AI that investigates equipment faults and prepares maintenance for renewable energy operators,
+built first for wind farms.** AI agents interpret operational complexity, deterministic services enforce the rules
+that matter, and authorized people approve every high-impact action, for each tenant separately.
 
 The platform is advisory only: it never issues turbine commands. It is a portfolio-grade reference system, built
 to production standards and run on synthetic data from a seeded, physics-based turbine simulator.
@@ -49,7 +49,7 @@ animation illustrates the specified workflow, not a recording.
 
 ## Architecture
 
-[![WindOps AI platform architecture. Operators reach the React frontend, and the telemetry simulator sends device samples, both over HTTPS through the APISIX API Gateway, which checks sign-in with Keycloak. In the windops-system namespace, Web BFF calls the Identity, Authorization and Tenant services over gRPC. In windops-application, the Agent Runtime runs a Supervisor and five specialist agents, which reach services only through four MCP servers in windops-mcp. Twenty domain services, grouped by capability, call each other over gRPC with mutual TLS, a signed identity and circuit breakers, and publish durable events to four NATS JetStream streams. Each service owns its PostgreSQL database with row-level security, alongside Redis and Qdrant in windops-data, and external providers are reached through breakers. Every workload sends logs, metrics and traces to the observability stack. A side column lists the security controls on each hop, in place or planned with their module, the circuit breaker's states and failure behaviors, the agent guardrails and where the system runs. A strip shows delivery progress across all 15 phases.](docs/assets/platform-architecture.png)](docs/assets/platform-architecture.png)
+[![WindOps AI platform architecture: AI-assisted fault investigation for renewable assets. Operators reach the React frontend, and the telemetry simulator sends device samples, both over HTTPS through the APISIX API Gateway, which checks sign-in with Keycloak. In the windops-system namespace, Web BFF calls the Identity, Authorization and Tenant services over gRPC. In windops-application, the Agent Runtime runs a Supervisor and five specialist agents, which reach services only through four MCP servers in windops-mcp. Twenty domain services, grouped by capability, call each other over gRPC with mutual TLS, a signed identity and circuit breakers, and publish durable events to four NATS JetStream streams. Each service owns its PostgreSQL database with row-level security, alongside Redis and Qdrant in windops-data, and external providers are reached through breakers. Every workload sends logs, metrics and traces to the observability stack. A side column lists the security controls on each hop, in place or planned with their module, the circuit breaker's states and failure behaviors, the agent guardrails and where the system runs. A strip shows delivery progress across all 15 phases.](docs/assets/platform-architecture.png)](docs/assets/platform-architecture.png)
 
 <sub>Select the diagram to view it full size. A green dot marks a service running today. Security controls marked
 planned name the module that delivers them; tests fail if a control is still shown as planned once its modules are
