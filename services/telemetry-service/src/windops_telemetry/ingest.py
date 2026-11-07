@@ -10,7 +10,7 @@ import json
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -33,6 +33,8 @@ from windops_telemetry.store import (
 PREFIX = "/ingest/v1"
 MAXIMUM_BODY_BYTES = 1024 * 1024
 MAXIMUM_SAMPLES = 600
+# A sample timed further ahead than this has a broken clock. It is refused, with its reason.
+FUTURE_TOLERANCE = timedelta(hours=1)
 
 
 class Rejected(BaseModel):
@@ -166,6 +168,8 @@ def create_ingest_router(
                         reason = "wrong_tenant"
                     elif sample.turbine_id != device.turbine_id:
                         reason = "wrong_turbine"
+                    elif sample.event_time > received + FUTURE_TOLERANCE:
+                        reason = "event_time_in_future"
                 except MalformedError as error:
                     reason = error.reason
             if reason:

@@ -41,16 +41,60 @@ per-address limit.
 
 ## What it stores
 
-| Table | What |
-| --- | --- |
-| `operational_samples` | One row per sample: tenant, turbine, event time, sequence, the device, ingestion time, source, schema and model versions, `synthetic`, state, availability, quality status and the 12 readings. A reading is null while its sensor sends nothing. Quality status is `received` until data-quality detection labels it (M4.6) |
-| `ingest_rejections` | Each refused sample, with its reason and at most 500 characters of what was sent |
-| `device_credentials` | Each device's turbine, who made it, when, and when it was revoked. Only the secret's SHA-256 is kept |
+| Table | What | Partitions | Kept (SRS 8.3) |
+| --- | --- | --- | --- |
+| `operational_samples` | One row per 1 Hz sample: tenant, turbine, event time, sequence, the device, ingestion time, source, schema and model versions, `synthetic`, state, availability, quality status and the 12 readings. A reading is null while its sensor sends nothing. Quality status is `received` until data-quality detection labels it (M4.6) | A day each, by event time | 90 days |
+| `scada_summaries` | A 10-minute SCADA summary per turbine: mean, minimum, maximum and standard deviation of each reading, coverage, quality status, availability, producing time, energy, duplicates, late samples, revision and the versions it came from | A month each, by period | 2 years |
+| `ingest_rejections` | Each refused sample, with its reason and at most 500 characters of what was sent | None, deleted row by row | 90 days |
+| `retention_holds` | Ranges of data a snapshot references, kept past retention until released. Snapshots write them from M4.7 | None | Until released |
+| `device_credentials` | Each device's turbine, who made it, when, and when it was revoked. Only the secret's SHA-256 is kept | None | Always |
 
-Samples are partitioned by event time, a partition a day (ADR 0003). The service makes each day's partition from
-yesterday to 3 days ahead, and checks every hour. A default partition holds anything outside them, so nothing is lost.
 Every table and partition has forced row-level security, and a device's tenant comes from its credential, never from
 what it sends.
+
+### 10-minute summaries (FR-TEL-004)
+
+The summarizer runs every minute. It reads which samples arrived since it last looked, by ingestion time, and
+summarizes again each 10-minute period they belong to, from all its samples. So a delayed or out-of-order sample
+recalculates its period, raising the summary's `revision` and counting it in `late_samples`. A period is first
+summarized a minute after it ends, for batches still on their way. On its first run it reads back a day.
+
+| Field | How |
+| --- | --- |
+| `sample_count`, `coverage` | Distinct samples by sequence, against 600 for 10 minutes at 1 Hz. A duplicate counts once, in `duplicate_samples` |
+| `quality_status` | `complete` at 95% coverage or more, `partial` at 50%, otherwise `sparse` |
+| `<reading>_mean`, `_min`, `_max`, `_std` | Over the samples where the reading is present. Missing readings are counted in `null_readings` |
+| Wind direction | A circular mean and spread, so 350 and 10 degrees average to north |
+| `energy_kwh` | The mean power over the whole 10 minutes, so a gap in the data does not read as no output |
+| `available_fraction`, `producing_fraction` | The share of samples available, and producing |
+| `source`, `schema_version`, `model_version`, `synthetic` | Where the samples came from, so a summary can be reproduced (FR-TEL-006) |
+
+With more than one replica, an advisory lock lets one summarize at a time, and the others skip that minute.
+
+### Partitions and retention (ADR 0003)
+
+Every hour the service:
+
+- makes partitions from yesterday to 3 days ahead, and from last month to 2 months ahead. Each table has a default
+  partition for anything outside them, so nothing is lost. Before a partition is made, any rows the default partition
+  holds for its range are moved into it, so PostgreSQL never refuses it;
+- drops each partition wholly past its retention, unless a live retention hold, from any tenant, overlaps it. Rows in a
+  default partition past retention, and rejections past it, are deleted, as there is no partition to drop.
+
+A sample timed more than an hour ahead is refused as `event_time_in_future`, so a broken device clock cannot fill a
+default partition.
+
+| Setting | Default |
+| --- | --- |
+| `WINDOPS_TELEMETRY_RAW_RETENTION_DAYS` | `90`, for samples and rejections |
+| `WINDOPS_TELEMETRY_SUMMARY_RETENTION_DAYS` | `730`, for summaries |
+
+To run the upkeep now rather than on its schedule, inside the service's pod:
+
+```bash
+kubectl exec deployment/windops-telemetry -n windops-application -- \
+  python -m windops_telemetry.upkeep --partitions --retention --summaries
+```
 
 ## Device credentials
 
@@ -67,12 +111,15 @@ this route with those tokens; see [windops-simulator](../../simulator/README.md#
 
 ## Still to come
 
-- 10-minute summaries, CMS spectra and retention (M4.5), data-quality labels (M4.6), and reading telemetry and
-  snapshots, `StreamTurbineTelemetry` and `CreateTelemetrySnapshot`, which answer UNIMPLEMENTED until M4.7.
+- CMS vibration batches, with spectral band features and raw waveform windows (M4.5).
+- Data-quality labels (M4.6).
+- Reading telemetry and snapshots, `StreamTurbineTelemetry` and `CreateTelemetrySnapshot`, which answer
+  UNIMPLEMENTED until M4.7. Snapshots will write retention holds.
 
 ## Run the tests
 
 ```bash
 uv run pytest services/telemetry-service/tests
-make telemetry-check   # on the cluster, after make telemetry-devices
+make telemetry-check           # on the cluster, after make telemetry-devices
+make telemetry-storage-check   # partitions, summaries, late data and retention
 ```

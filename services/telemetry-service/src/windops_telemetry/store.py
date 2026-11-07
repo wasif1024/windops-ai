@@ -10,6 +10,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     Float,
+    Integer,
     LargeBinary,
     MetaData,
     Table,
@@ -83,11 +84,70 @@ IDEMPOTENCY_KEYS = Table(
     Column("response", LargeBinary, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
+# The statistics kept for each reading in a summary.
+STATISTICS = ("mean", "min", "max", "std")
+# A 10-minute SCADA summary for each turbine (FR-TEL-004), partitioned by month on its period. It
+# is recalculated, with a higher revision, whenever late data arrives for its period (SRS 8.3).
+SCADA_SUMMARIES = Table(
+    "scada_summaries",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("turbine_id", Text, primary_key=True),
+    Column("period_start", DateTime(timezone=True), primary_key=True),
+    Column("period_end", DateTime(timezone=True), nullable=False),
+    # Distinct samples, by sequence, against the 600 a 1 Hz device sends in 10 minutes.
+    Column("sample_count", Integer, nullable=False),
+    Column("coverage", Float, nullable=False),
+    # complete, partial or sparse, from the coverage.
+    Column("quality_status", Text, nullable=False),
+    Column("duplicate_samples", Integer, nullable=False),
+    # Samples that arrived after the period had first been summarized.
+    Column("late_samples", Integer, nullable=False),
+    Column("null_readings", Integer, nullable=False),
+    Column("available_fraction", Float, nullable=False),
+    Column("producing_fraction", Float, nullable=False),
+    Column("energy_kwh", Float),
+    Column("source", Text, nullable=False),
+    Column("schema_version", Text, nullable=False),
+    Column("model_version", Text, nullable=False),
+    Column("synthetic", Boolean, nullable=False),
+    Column("revision", Integer, nullable=False),
+    Column("first_computed_at", DateTime(timezone=True), nullable=False),
+    Column("computed_at", DateTime(timezone=True), nullable=False),
+    *(
+        Column(f"{reading.name}_{statistic}", Float)
+        for reading in READINGS
+        for statistic in STATISTICS
+    ),
+)
+# Data a snapshot references, kept past its retention until the snapshot is released (SRS 8.3).
+# Snapshots write these from M4.7. Retention keeps any partition a live hold overlaps.
+RETENTION_HOLDS = Table(
+    "retention_holds",
+    METADATA,
+    Column("tenant_id", Text, nullable=False),
+    Column("hold_id", Text, primary_key=True),
+    Column("table_name", Text, nullable=False),
+    Column("starts_at", DateTime(timezone=True), nullable=False),
+    Column("ends_at", DateTime(timezone=True), nullable=False),
+    Column("reason", Text, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("released_at", DateTime(timezone=True)),
+)
+# How far the summarizer has read, by ingestion time. Platform upkeep, not tenant data.
+SUMMARY_WATERMARKS = Table(
+    "summary_watermarks",
+    METADATA,
+    Column("name", Text, primary_key=True),
+    Column("watermark", DateTime(timezone=True), nullable=False),
+)
 TENANT_TABLES = (
     "device_credentials",
     "operational_samples",
     "ingest_rejections",
     "idempotency_keys",
+    "scada_summaries",
+    "retention_holds",
 )
 EXCERPT_CHARACTERS = 500
 

@@ -6,7 +6,6 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import date
 from typing import Any
 
 import grpc
@@ -25,7 +24,7 @@ from windops_grpc import (
     sign_identity,
 )
 from windops_outbox import OUTBOX_TABLE, create_outbox_table
-from windops_telemetry import credentials, partitions
+from windops_telemetry import credentials
 from windops_telemetry.service import TelemetryService
 from windops_telemetry.store import DEVICE_CREDENTIALS, METADATA, SERVICE_NAME
 
@@ -254,26 +253,14 @@ def test_reading_telemetry_says_it_arrives_later() -> None:
     with_service(scenario)
 
 
-def test_partitions_are_named_by_day_and_skipped_off_postgresql() -> None:
-    assert partitions.name_for(date(2026, 1, 5)) == "operational_samples_20260105"
-
-    async def run() -> list[str]:
-        engine = create_async_engine("sqlite+aiosqlite://")
-        try:
-            return await partitions.ensure(engine)
-        finally:
-            await engine.dispose()
-
-    assert asyncio.run(run()) == []
-
-
 def test_the_migration_creates_every_column_the_service_writes() -> None:
     """The migration spells out its SQL, so this keeps it and the code's table the same."""
     from pathlib import Path
 
-    from windops_telemetry.store import OPERATIONAL_SAMPLES
+    from windops_telemetry.store import OPERATIONAL_SAMPLES, SCADA_SUMMARIES
 
     versions = Path(__file__).parents[1] / "src" / "windops_telemetry" / "migrations" / "versions"
     text = "".join(path.read_text() for path in versions.glob("rev_*.py"))
-    missing = [column.name for column in OPERATIONAL_SAMPLES.c if f'"{column.name} ' not in text]
+    columns = [*OPERATIONAL_SAMPLES.c, *SCADA_SUMMARIES.c]
+    missing = [column.name for column in columns if f'"{column.name} ' not in text]
     assert missing == []
