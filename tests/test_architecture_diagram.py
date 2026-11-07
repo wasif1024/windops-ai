@@ -9,6 +9,7 @@ from scripts.generate.readme_visuals import (
     ENTRY_SERVICES,
     OVERVIEW_GROUPS,
     all_controls,
+    is_running,
     read_phase_progress,
 )
 from scripts.setup.provision_postgres import SERVICE_NAMESPACES
@@ -59,12 +60,16 @@ def test_roadmap_progress_counts_ticked_modules(tmp_path: Path) -> None:
     assert read_phase_progress(tracker) == [(1, "First", 1, 2), (2, "Second", 0, 1)]
 
 
-def test_readme_shows_the_diagram() -> None:
-    assert "docs/assets/security-layers.png" in (ROOT / "README.md").read_text()
+def test_readme_shows_the_one_architecture_diagram() -> None:
+    readme = (ROOT / "README.md").read_text()
+    assert "docs/assets/platform-architecture.png" in readme
+    assert (ROOT / "docs" / "assets" / "platform-architecture.png").exists()
 
 
-def test_readme_shows_the_end_to_end_diagram() -> None:
-    assert "docs/assets/end-to-end-architecture.png" in (ROOT / "README.md").read_text()
+def test_a_service_runs_once_it_has_an_image_or_a_deployment() -> None:
+    assert is_running("Asset")
+    assert is_running("API Gateway")
+    assert not is_running("Agent Runtime")
 
 
 def test_end_to_end_diagram_draws_every_srs_service_once() -> None:
@@ -77,10 +82,9 @@ def test_end_to_end_diagram_draws_every_srs_service_once() -> None:
     assert sorted(drawn) == expected
 
 
-def test_readme_shows_the_service_overview_and_industry_images() -> None:
+def test_readme_shows_the_industry_images() -> None:
     readme = (ROOT / "README.md").read_text()
     for image in (
-        "docs/assets/service-overview.png",
         "docs/assets/industry/offshore-wind-farm.jpg",
         "docs/assets/industry/turbine-technician.jpg",
         "docs/assets/industry/control-room.jpg",
@@ -95,7 +99,7 @@ def test_readme_does_not_let_the_control_room_image_make_claims() -> None:
     assert "holds no certifications" in readme
 
 
-def test_service_overview_draws_every_group_and_database() -> None:
+def test_the_diagram_draws_every_domain_service_and_its_database() -> None:
     drawn = [name for _, _, members in OVERVIEW_GROUPS for name, _ in members]
     assert len(drawn) == 20
     assert len(SERVICE_NAMESPACES) == 20
