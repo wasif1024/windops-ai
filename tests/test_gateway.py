@@ -295,3 +295,17 @@ def test_a_missing_or_unsafe_setting_is_refused(tmp_path: Path) -> None:
     unsafe["WINDOPS_PUBLIC_URL"] = 'https://x", "evil": "'
     with pytest.raises(RouteError, match="quote"):
         load_routes(tmp_path, settings=unsafe)
+
+
+def test_the_device_route_skips_user_sign_in_and_checks_the_services_certificate() -> None:
+    """API-004: devices bring their own credential, which the Telemetry Service checks."""
+    route = load_routes()["ingest"]
+    assert route["uri"] == "/ingest/*"
+    assert "openid-connect" not in route["plugins"]
+    assert "cors" not in route["plugins"]
+    upstream = route["upstream"]
+    assert (upstream["scheme"], upstream["tls"]["verify"]) == ("https", True)
+    assert list(upstream["nodes"]) == [
+        "windops-telemetry.windops-application.svc.cluster.local:8443"
+    ]
+    assert upstream["checks"]["active"]["https_verify_certificate"] is True

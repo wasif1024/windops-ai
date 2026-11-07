@@ -3,9 +3,62 @@ package windops.telemetry.v1;
 
 import "google/protobuf/timestamp.proto";
 
+// Turbine telemetry (SRS 4.2). Devices send it over HTTPS, through the gateway's /ingest route, each
+// with a credential for one tenant and turbine (FR-TEL-005, API-004). These calls manage those
+// credentials, and later read the telemetry. The tenant comes from the caller's verified identity.
 service TelemetryService {
+  // Arrives with M4.7.
   rpc StreamTurbineTelemetry(StreamTurbineTelemetryRequest) returns (stream TelemetryPoint);
+  // Arrives with M4.7.
   rpc CreateTelemetrySnapshot(CreateTelemetrySnapshotRequest) returns (TelemetrySnapshot);
+
+  // A new credential for one turbine's device. Its secret is in this answer only, and is never
+  // stored, only its hash. Needs asset.manage for the turbine and a recent second factor.
+  rpc CreateDeviceCredential(CreateDeviceCredentialRequest) returns (CreateDeviceCredentialResponse);
+  // Needs asset.manage. Never returns a secret.
+  rpc ListDeviceCredentials(ListDeviceCredentialsRequest) returns (ListDeviceCredentialsResponse);
+  // Stops it at once. Needs asset.manage and a recent second factor.
+  rpc RevokeDeviceCredential(RevokeDeviceCredentialRequest) returns (RevokeDeviceCredentialResponse);
+}
+
+message DeviceCredential {
+  string device_id = 1;
+  string turbine_id = 2;
+  string created_by = 3;
+  google.protobuf.Timestamp created_at = 4;
+  // Unset while it works.
+  google.protobuf.Timestamp revoked_at = 5;
+}
+
+message CreateDeviceCredentialRequest {
+  string turbine_id = 1;
+  string idempotency_key = 2;
+}
+
+message CreateDeviceCredentialResponse {
+  DeviceCredential credential = 1;
+  // What the device sends, as "Authorization: Bearer <token>". Only in the first answer: a retry
+  // with the same key returns the credential without it.
+  string token = 2;
+}
+
+message ListDeviceCredentialsRequest {
+  // Empty for every turbine.
+  string turbine_id = 1;
+  bool include_revoked = 2;
+}
+
+message ListDeviceCredentialsResponse {
+  repeated DeviceCredential credentials = 1;
+}
+
+message RevokeDeviceCredentialRequest {
+  string device_id = 1;
+  string idempotency_key = 2;
+}
+
+message RevokeDeviceCredentialResponse {
+  DeviceCredential credential = 1;
 }
 
 message StreamTurbineTelemetryRequest {

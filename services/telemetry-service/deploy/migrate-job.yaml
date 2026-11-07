@@ -1,0 +1,91 @@
+# Applied only by `make migrate`, never by `make services`, because migrations run once per release
+# and not on startup (DAT-002, K8S-005).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: windops-telemetry-migrate
+  namespace: windops-application
+  labels:
+    app.kubernetes.io/name: windops-telemetry-migrate
+    app.kubernetes.io/part-of: windops
+spec:
+  # A failed migration needs a person, and retrying would only hide it.
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: windops-telemetry-migrate
+        app.kubernetes.io/part-of: windops
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: windops-telemetry:local
+          imagePullPolicy: IfNotPresent
+          command: [python, -m, windops_migrations, upgrade, windops_telemetry]
+          env:
+            - name: WINDOPS_TLS_DIR
+              value: /var/run/windops/tls
+            - name: WINDOPS_DATABASE_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-database
+                  key: host
+            - name: WINDOPS_DATABASE_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-database
+                  key: port
+            - name: WINDOPS_DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-database
+                  key: database
+            - name: WINDOPS_DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-database
+                  key: username
+            - name: WINDOPS_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-database
+                  key: password
+          # Starting values. Replace them with measured figures (SRS 11).
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: trust
+              mountPath: /var/run/windops/tls
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: trust
+          secret:
+            secretName: windops-trust
+            defaultMode: 0444
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi

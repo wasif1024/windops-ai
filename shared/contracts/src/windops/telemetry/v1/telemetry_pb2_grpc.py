@@ -26,7 +26,10 @@ if _version_not_supported:
 
 
 class TelemetryServiceStub:
-    """Missing associated documentation comment in .proto file."""
+    """Turbine telemetry (SRS 4.2). Devices send it over HTTPS, through the gateway's /ingest route, each
+    with a credential for one tenant and turbine (FR-TEL-005, API-004). These calls manage those
+    credentials, and later read the telemetry. The tenant comes from the caller's verified identity.
+    """
 
     def __init__(self, channel):
         """Constructor.
@@ -44,19 +47,61 @@ class TelemetryServiceStub:
                 request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateTelemetrySnapshotRequest.SerializeToString,
                 response_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.TelemetrySnapshot.FromString,
                 _registered_method=True)
+        self.CreateDeviceCredential = channel.unary_unary(
+                '/windops.telemetry.v1.TelemetryService/CreateDeviceCredential',
+                request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateDeviceCredentialRequest.SerializeToString,
+                response_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateDeviceCredentialResponse.FromString,
+                _registered_method=True)
+        self.ListDeviceCredentials = channel.unary_unary(
+                '/windops.telemetry.v1.TelemetryService/ListDeviceCredentials',
+                request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ListDeviceCredentialsRequest.SerializeToString,
+                response_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ListDeviceCredentialsResponse.FromString,
+                _registered_method=True)
+        self.RevokeDeviceCredential = channel.unary_unary(
+                '/windops.telemetry.v1.TelemetryService/RevokeDeviceCredential',
+                request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.RevokeDeviceCredentialRequest.SerializeToString,
+                response_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.RevokeDeviceCredentialResponse.FromString,
+                _registered_method=True)
 
 
 class TelemetryServiceServicer:
-    """Missing associated documentation comment in .proto file."""
+    """Turbine telemetry (SRS 4.2). Devices send it over HTTPS, through the gateway's /ingest route, each
+    with a credential for one tenant and turbine (FR-TEL-005, API-004). These calls manage those
+    credentials, and later read the telemetry. The tenant comes from the caller's verified identity.
+    """
 
     def StreamTurbineTelemetry(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Arrives with M4.7.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def CreateTelemetrySnapshot(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Arrives with M4.7.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateDeviceCredential(self, request, context):
+        """A new credential for one turbine's device. Its secret is in this answer only, and is never
+        stored, only its hash. Needs asset.manage for the turbine and a recent second factor.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListDeviceCredentials(self, request, context):
+        """Needs asset.manage. Never returns a secret.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RevokeDeviceCredential(self, request, context):
+        """Stops it at once. Needs asset.manage and a recent second factor.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -74,6 +119,21 @@ def add_TelemetryServiceServicer_to_server(servicer, server):
                     request_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateTelemetrySnapshotRequest.FromString,
                     response_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.TelemetrySnapshot.SerializeToString,
             ),
+            'CreateDeviceCredential': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateDeviceCredential,
+                    request_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateDeviceCredentialRequest.FromString,
+                    response_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateDeviceCredentialResponse.SerializeToString,
+            ),
+            'ListDeviceCredentials': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListDeviceCredentials,
+                    request_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ListDeviceCredentialsRequest.FromString,
+                    response_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ListDeviceCredentialsResponse.SerializeToString,
+            ),
+            'RevokeDeviceCredential': grpc.unary_unary_rpc_method_handler(
+                    servicer.RevokeDeviceCredential,
+                    request_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.RevokeDeviceCredentialRequest.FromString,
+                    response_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.RevokeDeviceCredentialResponse.SerializeToString,
+            ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
             'windops.telemetry.v1.TelemetryService', rpc_method_handlers)
@@ -83,7 +143,10 @@ def add_TelemetryServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class TelemetryService:
-    """Missing associated documentation comment in .proto file."""
+    """Turbine telemetry (SRS 4.2). Devices send it over HTTPS, through the gateway's /ingest route, each
+    with a credential for one tenant and turbine (FR-TEL-005, API-004). These calls manage those
+    credentials, and later read the telemetry. The tenant comes from the caller's verified identity.
+    """
 
     @staticmethod
     def StreamTurbineTelemetry(request,
@@ -129,6 +192,87 @@ class TelemetryService:
             '/windops.telemetry.v1.TelemetryService/CreateTelemetrySnapshot',
             windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateTelemetrySnapshotRequest.SerializeToString,
             windops_dot_telemetry_dot_v1_dot_telemetry__pb2.TelemetrySnapshot.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateDeviceCredential(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.telemetry.v1.TelemetryService/CreateDeviceCredential',
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateDeviceCredentialRequest.SerializeToString,
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateDeviceCredentialResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListDeviceCredentials(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.telemetry.v1.TelemetryService/ListDeviceCredentials',
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ListDeviceCredentialsRequest.SerializeToString,
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ListDeviceCredentialsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RevokeDeviceCredential(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.telemetry.v1.TelemetryService/RevokeDeviceCredential',
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.RevokeDeviceCredentialRequest.SerializeToString,
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.RevokeDeviceCredentialResponse.FromString,
             options,
             channel_credentials,
             insecure,

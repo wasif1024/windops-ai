@@ -26,3 +26,7 @@ checks, CORS and a per-address limit.
 Every route must have the `opentelemetry` plugin, and every upstream must have `checks.active` and
 `timeout`. `make check` fails without them.
 Without timeouts, APISIX waits up to 60 seconds for a backend that is down.
+
+`ingest.json` is the device route (API-004). It has no user sign-in and no CORS, as devices are not browsers: the
+Telemetry Service checks each device's own credential. Its per-address limit is coarse, high enough for a whole fleet
+behind one address. Each device's real limit, 600 requests a minute, is counted by the service.

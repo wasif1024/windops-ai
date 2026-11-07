@@ -1,0 +1,167 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: windops-telemetry
+  labels:
+    app.kubernetes.io/name: windops-telemetry
+    app.kubernetes.io/part-of: windops
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: windops-telemetry
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: windops-telemetry
+        app.kubernetes.io/part-of: windops
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
+    spec:
+      automountServiceAccountToken: false
+      # Longer than WINDOPS_SHUTDOWN_GRACE_SECONDS, so calls can finish first.
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: telemetry
+          image: windops-telemetry:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50051
+            - name: http
+              containerPort: 8080
+            # The device route, over TLS. Only the gateway reaches it.
+            - name: https
+              containerPort: 8443
+          envFrom:
+            - configMapRef:
+                name: windops-telemetry-config
+            # Settings for every workload, from .env through make config. Last, so they win.
+            - configMapRef:
+                name: windops-settings
+          env:
+            - name: WINDOPS_TLS_DIR
+              value: /var/run/windops/tls
+            - name: WINDOPS_IDENTITY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: windops-internal-identity
+                  key: signing-key
+            - name: WINDOPS_DATABASE_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-database
+                  key: host
+            - name: WINDOPS_DATABASE_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-database
+                  key: port
+            - name: WINDOPS_DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-database
+                  key: database
+            - name: WINDOPS_DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-database
+                  key: username
+            - name: WINDOPS_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-database
+                  key: password
+            - name: WINDOPS_EVENTS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-events
+                  key: url
+            - name: WINDOPS_EVENTS_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-events
+                  key: username
+            - name: WINDOPS_EVENTS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-events
+                  key: password
+            - name: WINDOPS_CACHE_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-cache
+                  key: host
+            - name: WINDOPS_CACHE_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-cache
+                  key: port
+            - name: WINDOPS_CACHE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-cache
+                  key: username
+            - name: WINDOPS_CACHE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: windops-telemetry-cache
+                  key: password
+          # Not a gRPC probe, because the kubelet has no client certificate to present.
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 10
+          # Starting values. Replace them with measured figures (SRS 11).
+          resources:
+            requests:
+              cpu: 25m
+              memory: 96Mi
+            limits:
+              cpu: 250m
+              memory: 192Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tls
+              mountPath: /var/run/windops/tls
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tls
+          secret:
+            secretName: windops-telemetry-tls
+            defaultMode: 0440
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi

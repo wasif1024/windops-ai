@@ -98,6 +98,7 @@ seed() {
   make authorization-seed
   make tenant-seed
   make asset-seed
+  make telemetry-devices
 }
 
 if ! kube get deployment windops-web-bff --namespace=windops-system >/dev/null 2>&1; then

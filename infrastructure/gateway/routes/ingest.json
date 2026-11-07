@@ -1,0 +1,53 @@
+{
+  "uri": "/ingest/*",
+  "plugins": {
+    "opentelemetry": {
+      "sampler": {
+        "name": "always_on"
+      }
+    },
+    "prometheus": {},
+    "limit-count": {
+      "count": 12000,
+      "time_window": 60,
+      "key_type": "var",
+      "key": "remote_addr",
+      "rejected_code": 429,
+      "policy": "local",
+      "show_limit_quota_header": true
+    }
+  },
+  "upstream": {
+    "type": "roundrobin",
+    "scheme": "https",
+    "pass_host": "node",
+    "tls": {
+      "verify": true
+    },
+    "timeout": {
+      "connect": 2,
+      "send": 10,
+      "read": 15
+    },
+    "nodes": {
+      "windops-telemetry.windops-application.svc.cluster.local:8443": 1
+    },
+    "checks": {
+      "active": {
+        "type": "https",
+        "https_verify_certificate": true,
+        "http_path": "/health/ready",
+        "healthy": {
+          "interval": 2,
+          "successes": 2
+        },
+        "unhealthy": {
+          "interval": 2,
+          "http_failures": 2,
+          "tcp_failures": 2,
+          "timeouts": 2
+        }
+      }
+    }
+  }
+}

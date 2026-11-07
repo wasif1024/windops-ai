@@ -27,32 +27,95 @@ GRPC_GENERATED_VERSION: str
 GRPC_VERSION: str
 
 class TelemetryServiceStub:
+    """Turbine telemetry (SRS 4.2). Devices send it over HTTPS, through the gateway's /ingest route, each
+    with a credential for one tenant and turbine (FR-TEL-005, API-004). These calls manage those
+    credentials, and later read the telemetry. The tenant comes from the caller's verified identity.
+    """
+
     @_typing.overload
     def __new__(cls, channel: _grpc.Channel) -> _Self: ...
     @_typing.overload
     def __new__(cls, channel: _aio.Channel) -> TelemetryServiceAsyncStub: ...
     StreamTurbineTelemetry: _grpc.UnaryStreamMultiCallable[_telemetry_pb2.StreamTurbineTelemetryRequest, _telemetry_pb2.TelemetryPoint]
+    """Arrives with M4.7."""
     CreateTelemetrySnapshot: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.CreateTelemetrySnapshotRequest, _telemetry_pb2.TelemetrySnapshot]
+    """Arrives with M4.7."""
+    CreateDeviceCredential: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.CreateDeviceCredentialRequest, _telemetry_pb2.CreateDeviceCredentialResponse]
+    """A new credential for one turbine's device. Its secret is in this answer only, and is never
+    stored, only its hash. Needs asset.manage for the turbine and a recent second factor.
+    """
+    ListDeviceCredentials: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.ListDeviceCredentialsRequest, _telemetry_pb2.ListDeviceCredentialsResponse]
+    """Needs asset.manage. Never returns a secret."""
+    RevokeDeviceCredential: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.RevokeDeviceCredentialRequest, _telemetry_pb2.RevokeDeviceCredentialResponse]
+    """Stops it at once. Needs asset.manage and a recent second factor."""
 
 @_typing.type_check_only
 class TelemetryServiceAsyncStub(TelemetryServiceStub):
+    """Turbine telemetry (SRS 4.2). Devices send it over HTTPS, through the gateway's /ingest route, each
+    with a credential for one tenant and turbine (FR-TEL-005, API-004). These calls manage those
+    credentials, and later read the telemetry. The tenant comes from the caller's verified identity.
+    """
+
     def __init__(self, channel: _aio.Channel) -> None: ...
     StreamTurbineTelemetry: _aio.UnaryStreamMultiCallable[_telemetry_pb2.StreamTurbineTelemetryRequest, _telemetry_pb2.TelemetryPoint]  # type: ignore[assignment]
+    """Arrives with M4.7."""
     CreateTelemetrySnapshot: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.CreateTelemetrySnapshotRequest, _telemetry_pb2.TelemetrySnapshot]  # type: ignore[assignment]
+    """Arrives with M4.7."""
+    CreateDeviceCredential: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.CreateDeviceCredentialRequest, _telemetry_pb2.CreateDeviceCredentialResponse]  # type: ignore[assignment]
+    """A new credential for one turbine's device. Its secret is in this answer only, and is never
+    stored, only its hash. Needs asset.manage for the turbine and a recent second factor.
+    """
+    ListDeviceCredentials: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.ListDeviceCredentialsRequest, _telemetry_pb2.ListDeviceCredentialsResponse]  # type: ignore[assignment]
+    """Needs asset.manage. Never returns a secret."""
+    RevokeDeviceCredential: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.RevokeDeviceCredentialRequest, _telemetry_pb2.RevokeDeviceCredentialResponse]  # type: ignore[assignment]
+    """Stops it at once. Needs asset.manage and a recent second factor."""
 
 class TelemetryServiceServicer(metaclass=_abc_1.ABCMeta):
+    """Turbine telemetry (SRS 4.2). Devices send it over HTTPS, through the gateway's /ingest route, each
+    with a credential for one tenant and turbine (FR-TEL-005, API-004). These calls manage those
+    credentials, and later read the telemetry. The tenant comes from the caller's verified identity.
+    """
+
     @_abc_1.abstractmethod
     def StreamTurbineTelemetry(
         self,
         request: _telemetry_pb2.StreamTurbineTelemetryRequest,
         context: _ServicerContext,
-    ) -> _typing.Union[_abc.Iterator[_telemetry_pb2.TelemetryPoint], _abc.AsyncIterator[_telemetry_pb2.TelemetryPoint]]: ...
+    ) -> _typing.Union[_abc.Iterator[_telemetry_pb2.TelemetryPoint], _abc.AsyncIterator[_telemetry_pb2.TelemetryPoint]]:
+        """Arrives with M4.7."""
 
     @_abc_1.abstractmethod
     def CreateTelemetrySnapshot(
         self,
         request: _telemetry_pb2.CreateTelemetrySnapshotRequest,
         context: _ServicerContext,
-    ) -> _typing.Union[_telemetry_pb2.TelemetrySnapshot, _abc.Awaitable[_telemetry_pb2.TelemetrySnapshot]]: ...
+    ) -> _typing.Union[_telemetry_pb2.TelemetrySnapshot, _abc.Awaitable[_telemetry_pb2.TelemetrySnapshot]]:
+        """Arrives with M4.7."""
+
+    @_abc_1.abstractmethod
+    def CreateDeviceCredential(
+        self,
+        request: _telemetry_pb2.CreateDeviceCredentialRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_telemetry_pb2.CreateDeviceCredentialResponse, _abc.Awaitable[_telemetry_pb2.CreateDeviceCredentialResponse]]:
+        """A new credential for one turbine's device. Its secret is in this answer only, and is never
+        stored, only its hash. Needs asset.manage for the turbine and a recent second factor.
+        """
+
+    @_abc_1.abstractmethod
+    def ListDeviceCredentials(
+        self,
+        request: _telemetry_pb2.ListDeviceCredentialsRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_telemetry_pb2.ListDeviceCredentialsResponse, _abc.Awaitable[_telemetry_pb2.ListDeviceCredentialsResponse]]:
+        """Needs asset.manage. Never returns a secret."""
+
+    @_abc_1.abstractmethod
+    def RevokeDeviceCredential(
+        self,
+        request: _telemetry_pb2.RevokeDeviceCredentialRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_telemetry_pb2.RevokeDeviceCredentialResponse, _abc.Awaitable[_telemetry_pb2.RevokeDeviceCredentialResponse]]:
+        """Stops it at once. Needs asset.manage and a recent second factor."""
 
 def add_TelemetryServiceServicer_to_server(servicer: TelemetryServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...
