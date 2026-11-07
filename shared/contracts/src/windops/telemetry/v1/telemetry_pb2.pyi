@@ -59,6 +59,174 @@ QUALITY_MISSING: Quality.ValueType  # 3
 Global___Quality: _TypeAlias = Quality  # noqa: Y015
 
 @_typing.final
+class DeviceCredential(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DEVICE_ID_FIELD_NUMBER: _builtins.int
+    TURBINE_ID_FIELD_NUMBER: _builtins.int
+    CREATED_BY_FIELD_NUMBER: _builtins.int
+    CREATED_AT_FIELD_NUMBER: _builtins.int
+    REVOKED_AT_FIELD_NUMBER: _builtins.int
+    device_id: _builtins.str
+    turbine_id: _builtins.str
+    created_by: _builtins.str
+    @_builtins.property
+    def created_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def revoked_at(self) -> _timestamp_pb2.Timestamp:
+        """Unset while it works."""
+
+    def __init__(
+        self,
+        *,
+        device_id: _builtins.str = ...,
+        turbine_id: _builtins.str = ...,
+        created_by: _builtins.str = ...,
+        created_at: _timestamp_pb2.Timestamp | None = ...,
+        revoked_at: _timestamp_pb2.Timestamp | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "revoked_at", b"revoked_at"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "created_by", b"created_by", "device_id", b"device_id", "revoked_at", b"revoked_at", "turbine_id", b"turbine_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___DeviceCredential: _TypeAlias = DeviceCredential  # noqa: Y015
+
+@_typing.final
+class CreateDeviceCredentialRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TURBINE_ID_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    turbine_id: _builtins.str
+    idempotency_key: _builtins.str
+    def __init__(
+        self,
+        *,
+        turbine_id: _builtins.str = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["idempotency_key", b"idempotency_key", "turbine_id", b"turbine_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___CreateDeviceCredentialRequest: _TypeAlias = CreateDeviceCredentialRequest  # noqa: Y015
+
+@_typing.final
+class CreateDeviceCredentialResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CREDENTIAL_FIELD_NUMBER: _builtins.int
+    TOKEN_FIELD_NUMBER: _builtins.int
+    token: _builtins.str
+    """What the device sends, as "Authorization: Bearer <token>". Only in the first answer: a retry
+    with the same key returns the credential without it.
+    """
+    @_builtins.property
+    def credential(self) -> Global___DeviceCredential: ...
+    def __init__(
+        self,
+        *,
+        credential: Global___DeviceCredential | None = ...,
+        token: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["credential", b"credential"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["credential", b"credential", "token", b"token"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___CreateDeviceCredentialResponse: _TypeAlias = CreateDeviceCredentialResponse  # noqa: Y015
+
+@_typing.final
+class ListDeviceCredentialsRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TURBINE_ID_FIELD_NUMBER: _builtins.int
+    INCLUDE_REVOKED_FIELD_NUMBER: _builtins.int
+    turbine_id: _builtins.str
+    """Empty for every turbine."""
+    include_revoked: _builtins.bool
+    def __init__(
+        self,
+        *,
+        turbine_id: _builtins.str = ...,
+        include_revoked: _builtins.bool = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["include_revoked", b"include_revoked", "turbine_id", b"turbine_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListDeviceCredentialsRequest: _TypeAlias = ListDeviceCredentialsRequest  # noqa: Y015
+
+@_typing.final
+class ListDeviceCredentialsResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CREDENTIALS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def credentials(self) -> _containers.RepeatedCompositeFieldContainer[Global___DeviceCredential]: ...
+    def __init__(
+        self,
+        *,
+        credentials: _abc.Iterable[Global___DeviceCredential] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["credentials", b"credentials"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListDeviceCredentialsResponse: _TypeAlias = ListDeviceCredentialsResponse  # noqa: Y015
+
+@_typing.final
+class RevokeDeviceCredentialRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DEVICE_ID_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    device_id: _builtins.str
+    idempotency_key: _builtins.str
+    def __init__(
+        self,
+        *,
+        device_id: _builtins.str = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["device_id", b"device_id", "idempotency_key", b"idempotency_key"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___RevokeDeviceCredentialRequest: _TypeAlias = RevokeDeviceCredentialRequest  # noqa: Y015
+
+@_typing.final
+class RevokeDeviceCredentialResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CREDENTIAL_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def credential(self) -> Global___DeviceCredential: ...
+    def __init__(
+        self,
+        *,
+        credential: Global___DeviceCredential | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["credential", b"credential"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["credential", b"credential"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___RevokeDeviceCredentialResponse: _TypeAlias = RevokeDeviceCredentialResponse  # noqa: Y015
+
+@_typing.final
 class StreamTurbineTelemetryRequest(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 

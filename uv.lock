@@ -21,6 +21,7 @@ members = [
     "windops-sample-caller",
     "windops-sample-responder",
     "windops-simulator",
+    "windops-telemetry",
     "windops-tenant",
     "windops-web-bff",
 ]
@@ -1355,6 +1356,7 @@ dev = [
     { name = "windops-sample-caller" },
     { name = "windops-sample-responder" },
     { name = "windops-simulator" },
+    { name = "windops-telemetry" },
     { name = "windops-tenant" },
     { name = "windops-web-bff" },
 ]
@@ -1393,6 +1395,7 @@ dev = [
     { name = "windops-sample-caller", editable = "services/sample-caller-service" },
     { name = "windops-sample-responder", editable = "services/sample-responder-service" },
     { name = "windops-simulator", editable = "simulator" },
+    { name = "windops-telemetry", editable = "services/telemetry-service" },
     { name = "windops-tenant", editable = "services/tenant-service" },
     { name = "windops-web-bff", editable = "services/web-bff-service" },
 ]
@@ -1694,6 +1697,35 @@ requires-dist = [
 name = "windops-simulator"
 version = "0.1.0"
 source = { editable = "simulator" }
+
+[[package]]
+name = "windops-telemetry"
+version = "0.1.0"
+source = { editable = "services/telemetry-service" }
+dependencies = [
+    { name = "windops-auth" },
+    { name = "windops-cache" },
+    { name = "windops-contracts" },
+    { name = "windops-events" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-observability" },
+    { name = "windops-outbox" },
+    { name = "windops-resilience" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-cache", editable = "shared/cache" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-events", editable = "shared/events" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-observability", editable = "shared/observability" },
+    { name = "windops-outbox", editable = "shared/outbox" },
+    { name = "windops-resilience", editable = "shared/resilience" },
+]
 
 [[package]]
 name = "windops-tenant"

@@ -25,25 +25,39 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n$windops/telemetry/v1/telemetry.proto\x12\x14windops.telemetry.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbe\x01\n\x1dStreamTurbineTelemetryRequest\x12\x12\n\nturbine_id\x18\x01 \x01(\t\x12-\n\tfrom_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12+\n\x07to_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12-\n\x07metrics\x18\x04 \x03(\x0e\x32\x1c.windops.telemetry.v1.Metric\"\xa9\x01\n\x1e\x43reateTelemetrySnapshotRequest\x12\x12\n\nturbine_id\x18\x01 \x01(\t\x12-\n\tfrom_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12+\n\x07to_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x17\n\x0fidempotency_key\x18\x04 \x01(\t\">\n\x11TelemetrySnapshot\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\x12\x14\n\x0c\x63ontent_hash\x18\x02 \x01(\t\"\xbb\x01\n\x0eTelemetryPoint\x12.\n\nevent_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12,\n\x06metric\x18\x02 \x01(\x0e\x32\x1c.windops.telemetry.v1.Metric\x12\r\n\x05value\x18\x03 \x01(\x01\x12\x0c\n\x04unit\x18\x04 \x01(\t\x12.\n\x07quality\x18\x05 \x01(\x0e\x32\x1d.windops.telemetry.v1.Quality*z\n\x06Metric\x12\x16\n\x12METRIC_UNSPECIFIED\x10\x00\x12\x1e\n\x1aMETRIC_GEARBOX_TEMPERATURE\x10\x01\x12\x1e\n\x1aMETRIC_BEARING_TEMPERATURE\x10\x02\x12\x18\n\x14METRIC_VIBRATION_RMS\x10\x03*^\n\x07Quality\x12\x17\n\x13QUALITY_UNSPECIFIED\x10\x00\x12\x10\n\x0cQUALITY_GOOD\x10\x01\x12\x13\n\x0fQUALITY_SUSPECT\x10\x02\x12\x13\n\x0fQUALITY_MISSING\x10\x03\x32\x83\x02\n\x10TelemetryService\x12u\n\x16StreamTurbineTelemetry\x12\x33.windops.telemetry.v1.StreamTurbineTelemetryRequest\x1a$.windops.telemetry.v1.TelemetryPoint0\x01\x12x\n\x17\x43reateTelemetrySnapshot\x12\x34.windops.telemetry.v1.CreateTelemetrySnapshotRequest\x1a\'.windops.telemetry.v1.TelemetrySnapshotb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n$windops/telemetry/v1/telemetry.proto\x12\x14windops.telemetry.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xad\x01\n\x10\x44\x65viceCredential\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x12\n\nturbine_id\x18\x02 \x01(\t\x12\x12\n\ncreated_by\x18\x03 \x01(\t\x12.\n\ncreated_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nrevoked_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"L\n\x1d\x43reateDeviceCredentialRequest\x12\x12\n\nturbine_id\x18\x01 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x02 \x01(\t\"k\n\x1e\x43reateDeviceCredentialResponse\x12:\n\ncredential\x18\x01 \x01(\x0b\x32&.windops.telemetry.v1.DeviceCredential\x12\r\n\x05token\x18\x02 \x01(\t\"K\n\x1cListDeviceCredentialsRequest\x12\x12\n\nturbine_id\x18\x01 \x01(\t\x12\x17\n\x0finclude_revoked\x18\x02 \x01(\x08\"\\\n\x1dListDeviceCredentialsResponse\x12;\n\x0b\x63redentials\x18\x01 \x03(\x0b\x32&.windops.telemetry.v1.DeviceCredential\"K\n\x1dRevokeDeviceCredentialRequest\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x02 \x01(\t\"\\\n\x1eRevokeDeviceCredentialResponse\x12:\n\ncredential\x18\x01 \x01(\x0b\x32&.windops.telemetry.v1.DeviceCredential\"\xbe\x01\n\x1dStreamTurbineTelemetryRequest\x12\x12\n\nturbine_id\x18\x01 \x01(\t\x12-\n\tfrom_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12+\n\x07to_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12-\n\x07metrics\x18\x04 \x03(\x0e\x32\x1c.windops.telemetry.v1.Metric\"\xa9\x01\n\x1e\x43reateTelemetrySnapshotRequest\x12\x12\n\nturbine_id\x18\x01 \x01(\t\x12-\n\tfrom_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12+\n\x07to_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x17\n\x0fidempotency_key\x18\x04 \x01(\t\">\n\x11TelemetrySnapshot\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\x12\x14\n\x0c\x63ontent_hash\x18\x02 \x01(\t\"\xbb\x01\n\x0eTelemetryPoint\x12.\n\nevent_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12,\n\x06metric\x18\x02 \x01(\x0e\x32\x1c.windops.telemetry.v1.Metric\x12\r\n\x05value\x18\x03 \x01(\x01\x12\x0c\n\x04unit\x18\x04 \x01(\t\x12.\n\x07quality\x18\x05 \x01(\x0e\x32\x1d.windops.telemetry.v1.Quality*z\n\x06Metric\x12\x16\n\x12METRIC_UNSPECIFIED\x10\x00\x12\x1e\n\x1aMETRIC_GEARBOX_TEMPERATURE\x10\x01\x12\x1e\n\x1aMETRIC_BEARING_TEMPERATURE\x10\x02\x12\x18\n\x14METRIC_VIBRATION_RMS\x10\x03*^\n\x07Quality\x12\x17\n\x13QUALITY_UNSPECIFIED\x10\x00\x12\x10\n\x0cQUALITY_GOOD\x10\x01\x12\x13\n\x0fQUALITY_SUSPECT\x10\x02\x12\x13\n\x0fQUALITY_MISSING\x10\x03\x32\x92\x05\n\x10TelemetryService\x12u\n\x16StreamTurbineTelemetry\x12\x33.windops.telemetry.v1.StreamTurbineTelemetryRequest\x1a$.windops.telemetry.v1.TelemetryPoint0\x01\x12x\n\x17\x43reateTelemetrySnapshot\x12\x34.windops.telemetry.v1.CreateTelemetrySnapshotRequest\x1a\'.windops.telemetry.v1.TelemetrySnapshot\x12\x83\x01\n\x16\x43reateDeviceCredential\x12\x33.windops.telemetry.v1.CreateDeviceCredentialRequest\x1a\x34.windops.telemetry.v1.CreateDeviceCredentialResponse\x12\x80\x01\n\x15ListDeviceCredentials\x12\x32.windops.telemetry.v1.ListDeviceCredentialsRequest\x1a\x33.windops.telemetry.v1.ListDeviceCredentialsResponse\x12\x83\x01\n\x16RevokeDeviceCredential\x12\x33.windops.telemetry.v1.RevokeDeviceCredentialRequest\x1a\x34.windops.telemetry.v1.RevokeDeviceCredentialResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'windops.telemetry.v1.telemetry_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_METRIC']._serialized_start=714
-  _globals['_METRIC']._serialized_end=836
-  _globals['_QUALITY']._serialized_start=838
-  _globals['_QUALITY']._serialized_end=932
-  _globals['_STREAMTURBINETELEMETRYREQUEST']._serialized_start=96
-  _globals['_STREAMTURBINETELEMETRYREQUEST']._serialized_end=286
-  _globals['_CREATETELEMETRYSNAPSHOTREQUEST']._serialized_start=289
-  _globals['_CREATETELEMETRYSNAPSHOTREQUEST']._serialized_end=458
-  _globals['_TELEMETRYSNAPSHOT']._serialized_start=460
-  _globals['_TELEMETRYSNAPSHOT']._serialized_end=522
-  _globals['_TELEMETRYPOINT']._serialized_start=525
-  _globals['_TELEMETRYPOINT']._serialized_end=712
-  _globals['_TELEMETRYSERVICE']._serialized_start=935
-  _globals['_TELEMETRYSERVICE']._serialized_end=1194
+  _globals['_METRIC']._serialized_start=1419
+  _globals['_METRIC']._serialized_end=1541
+  _globals['_QUALITY']._serialized_start=1543
+  _globals['_QUALITY']._serialized_end=1637
+  _globals['_DEVICECREDENTIAL']._serialized_start=96
+  _globals['_DEVICECREDENTIAL']._serialized_end=269
+  _globals['_CREATEDEVICECREDENTIALREQUEST']._serialized_start=271
+  _globals['_CREATEDEVICECREDENTIALREQUEST']._serialized_end=347
+  _globals['_CREATEDEVICECREDENTIALRESPONSE']._serialized_start=349
+  _globals['_CREATEDEVICECREDENTIALRESPONSE']._serialized_end=456
+  _globals['_LISTDEVICECREDENTIALSREQUEST']._serialized_start=458
+  _globals['_LISTDEVICECREDENTIALSREQUEST']._serialized_end=533
+  _globals['_LISTDEVICECREDENTIALSRESPONSE']._serialized_start=535
+  _globals['_LISTDEVICECREDENTIALSRESPONSE']._serialized_end=627
+  _globals['_REVOKEDEVICECREDENTIALREQUEST']._serialized_start=629
+  _globals['_REVOKEDEVICECREDENTIALREQUEST']._serialized_end=704
+  _globals['_REVOKEDEVICECREDENTIALRESPONSE']._serialized_start=706
+  _globals['_REVOKEDEVICECREDENTIALRESPONSE']._serialized_end=798
+  _globals['_STREAMTURBINETELEMETRYREQUEST']._serialized_start=801
+  _globals['_STREAMTURBINETELEMETRYREQUEST']._serialized_end=991
+  _globals['_CREATETELEMETRYSNAPSHOTREQUEST']._serialized_start=994
+  _globals['_CREATETELEMETRYSNAPSHOTREQUEST']._serialized_end=1163
+  _globals['_TELEMETRYSNAPSHOT']._serialized_start=1165
+  _globals['_TELEMETRYSNAPSHOT']._serialized_end=1227
+  _globals['_TELEMETRYPOINT']._serialized_start=1230
+  _globals['_TELEMETRYPOINT']._serialized_end=1417
+  _globals['_TELEMETRYSERVICE']._serialized_start=1640
+  _globals['_TELEMETRYSERVICE']._serialized_end=2298
 # @@protoc_insertion_point(module_scope)

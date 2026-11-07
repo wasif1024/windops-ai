@@ -17,6 +17,7 @@ members = [
     "services/identity-service",
     "services/sample-caller-service",
     "services/sample-responder-service",
+    "services/telemetry-service",
     "services/tenant-service",
     "services/web-bff-service",
     "shared/auth",
@@ -50,6 +51,7 @@ windops-tenant = { workspace = true }
 windops-simulator = { workspace = true }
 windops-web-bff = { workspace = true }
 windops-asset = { workspace = true }
+windops-telemetry = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -83,6 +85,8 @@ files = [
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
     "services/sample-responder-service/tests",
+    "services/telemetry-service/src",
+    "services/telemetry-service/tests",
     "services/tenant-service/src",
     "services/tenant-service/tests",
     "services/web-bff-service/src",
@@ -109,7 +113,6 @@ files = [
 ]
 explicit_package_bases = true
 mypy_path = [
-    "simulator/src",
     "services/asset-service/src",
     "services/asset-service/tests",
     "services/audit-service/src",
@@ -122,6 +125,8 @@ mypy_path = [
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
     "services/sample-responder-service/tests",
+    "services/telemetry-service/src",
+    "services/telemetry-service/tests",
     "services/tenant-service/src",
     "services/tenant-service/tests",
     "services/web-bff-service/src",
@@ -143,6 +148,7 @@ mypy_path = [
     "shared/outbox/tests",
     "shared/resilience/src",
     "shared/resilience/tests",
+    "simulator/src",
 ]
 
 # A breaker's state property changes between reads, which mypy's narrowing cannot see.
@@ -203,6 +209,7 @@ dev = [
     "windops-sample-caller",
     "windops-sample-responder",
     "windops-simulator",
+    "windops-telemetry",
     "windops-tenant",
     "windops-web-bff",
 ]
