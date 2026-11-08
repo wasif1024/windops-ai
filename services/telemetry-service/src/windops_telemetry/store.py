@@ -24,6 +24,7 @@ from windops_events import audit_request_subject
 from windops_outbox import add_event
 
 from windops_telemetry.schema import READINGS
+from windops_telemetry.spectra import FEATURES as CMS_FEATURE_NAMES
 
 SERVICE_NAME = "telemetry"
 METADATA = MetaData()
@@ -120,6 +121,53 @@ SCADA_SUMMARIES = Table(
         for statistic in STATISTICS
     ),
 )
+# CMS vibration features: one row per sensor per window, every 10 minutes (FR-TEL-004). Partitioned
+# by month on event time, and kept as long as the SCADA summaries.
+CMS_FEATURES = Table(
+    "cms_features",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("turbine_id", Text, primary_key=True),
+    Column("sensor", Text, primary_key=True),
+    Column("event_time", DateTime(timezone=True), primary_key=True),
+    Column("sequence", BigInteger, nullable=False),
+    Column("device_id", Text, nullable=False),
+    Column("ingested_at", DateTime(timezone=True), nullable=False),
+    Column("source", Text, nullable=False),
+    Column("schema_version", Text, nullable=False),
+    Column("model_version", Text, nullable=False),
+    Column("synthetic", Boolean, nullable=False),
+    # How the features were computed: windops_telemetry.spectra.FEATURE_VERSION.
+    Column("feature_version", Text, nullable=False),
+    Column("sample_rate_hz", Integer, nullable=False),
+    Column("samples", Integer, nullable=False),
+    Column("rotor_speed_rpm", Float, nullable=False),
+    Column("generator_speed_rpm", Float, nullable=False),
+    Column("shaft_hz", Float, nullable=False),
+    Column("quality_status", Text, nullable=False),
+    # The kept raw window, if there is one, and why the device flagged it, if it did.
+    Column("window_id", Text),
+    Column("trigger", Text),
+    *(Column(name, Float) for name in CMS_FEATURE_NAMES),
+)
+# Raw CMS windows, kept on a schedule or a device's trigger, as float32 values (SRS 8.3).
+# Partitioned by day on event time, for 90 days, or longer while a snapshot holds them.
+CMS_WAVEFORMS = Table(
+    "cms_waveforms",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("turbine_id", Text, primary_key=True),
+    Column("sensor", Text, primary_key=True),
+    Column("event_time", DateTime(timezone=True), primary_key=True),
+    Column("window_id", Text, nullable=False),
+    Column("ingested_at", DateTime(timezone=True), nullable=False),
+    Column("sample_rate_hz", Integer, nullable=False),
+    Column("samples", Integer, nullable=False),
+    Column("unit", Text, nullable=False),
+    # "schedule", or "trigger:" and the device's reason.
+    Column("kept_for", Text, nullable=False),
+    Column("values_f32le", LargeBinary, nullable=False),
+)
 # Data a snapshot references, kept past its retention until the snapshot is released (SRS 8.3).
 # Snapshots write these from M4.7. Retention keeps any partition a live hold overlaps.
 RETENTION_HOLDS = Table(
@@ -142,6 +190,8 @@ SUMMARY_WATERMARKS = Table(
     Column("watermark", DateTime(timezone=True), nullable=False),
 )
 TENANT_TABLES = (
+    "cms_features",
+    "cms_waveforms",
     "device_credentials",
     "operational_samples",
     "ingest_rejections",

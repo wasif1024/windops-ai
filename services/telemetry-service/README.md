@@ -96,6 +96,37 @@ kubectl exec deployment/windops-telemetry -n windops-application -- \
   python -m windops_telemetry.upkeep --partitions --retention --summaries
 ```
 
+### CMS vibration (FR-TEL-004)
+
+`POST /ingest/v1/cms` takes one CMS batch: a window from each of up to three accelerometers (`main_bearing`,
+`gearbox`, `generator`), with the shaft speeds when it was recorded. A window is 1,024 to 16,384 values in g, a power
+of two long. A batch that breaks its schema, or names another tenant or turbine, is refused whole and kept with a
+`cms_` reason, without its long windows in the excerpt. The answer says how many windows were stored, and how many
+were `duplicates` of windows already kept.
+
+Each window becomes one row of `cms_features`, computed off the event loop by a plain-Python FFT, version `1`:
+
+| Feature | What |
+| --- | --- |
+| `rms`, `peak`, `crest_factor`, `kurtosis` | Time domain. Impacts from a damaged bearing raise kurtosis well above the 3 of healthy noise |
+| `band_shaft_rms` | 0.5 to 2.5 orders of the sensor's shaft: imbalance and misalignment |
+| `band_bearing_rms` | The watched bearing's outer-race defect frequency, plus or minus 10% |
+| `band_gear_mesh_rms` | The gear mesh, plus or minus 5%, on the gearbox only |
+| `band_broadband_rms`, `band_high_rms` | 10 Hz to 1 kHz, and 1 kHz to the Nyquist frequency |
+
+Bands are placed from the drivetrain's kinematics and the shaft speed sent with the batch, so they follow the shaft as
+the turbine speeds up. A stopped shaft's bands are empty, not zero. Every row carries `feature_version` and the
+batch's model version, so an investigation can tell how its numbers were made (FR-TEL-006).
+
+The raw window is kept in `cms_waveforms`, as float32 values, when the device flags a trigger, or for the first batch
+in each block of `WINDOPS_TELEMETRY_CMS_RAW_EVERY_HOURS`, 6 by default. Keeping every window would take about 16 GB
+over 90 days for the demo fleet; this keeps under 500 MB.
+
+| Table | Partitions | Kept (SRS 8.3) |
+| --- | --- | --- |
+| `cms_features` | A month each, by event time | 2 years, `WINDOPS_TELEMETRY_CMS_FEATURE_RETENTION_DAYS` |
+| `cms_waveforms` | A day each, by event time | 90 days, `WINDOPS_TELEMETRY_CMS_WAVEFORM_RETENTION_DAYS`, or longer while a snapshot holds them |
+
 ## Device credentials
 
 | Call | Needs |
@@ -111,7 +142,6 @@ this route with those tokens; see [windops-simulator](../../simulator/README.md#
 
 ## Still to come
 
-- CMS vibration batches, with spectral band features and raw waveform windows (M4.5).
 - Data-quality labels (M4.6).
 - Reading telemetry and snapshots, `StreamTurbineTelemetry` and `CreateTelemetrySnapshot`, which answer
   UNIMPLEMENTED until M4.7. Snapshots will write retention holds.
@@ -122,4 +152,5 @@ this route with those tokens; see [windops-simulator](../../simulator/README.md#
 uv run pytest services/telemetry-service/tests
 make telemetry-check           # on the cluster, after make telemetry-devices
 make telemetry-storage-check   # partitions, summaries, late data and retention
+make cms-check                 # live CMS features, a worn bearing's signature, raw windows
 ```

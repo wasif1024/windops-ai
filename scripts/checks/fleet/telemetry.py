@@ -106,7 +106,7 @@ def check_ingestion(token: str, other_tenant_token: str) -> int:
     sequence = int(time.time())
     good = send(token, samples(TURBINE, 3, sequence))
     check(
-        good.status_code == 200 and good.json() == {"accepted": 3, "rejected": []},
+        good.status_code == 200 and (good.json()["accepted"], good.json()["rejected"]) == (3, []),
         "A demo turbine's device sends samples through the gateway, and all 3 are stored",
     )
     wrong = send(token, [*samples("dogger-east-t02", 1, sequence), "{cut off"])

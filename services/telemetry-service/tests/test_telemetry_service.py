@@ -257,10 +257,15 @@ def test_the_migration_creates_every_column_the_service_writes() -> None:
     """The migration spells out its SQL, so this keeps it and the code's table the same."""
     from pathlib import Path
 
-    from windops_telemetry.store import OPERATIONAL_SAMPLES, SCADA_SUMMARIES
+    from windops_telemetry.store import (
+        CMS_FEATURES,
+        CMS_WAVEFORMS,
+        OPERATIONAL_SAMPLES,
+        SCADA_SUMMARIES,
+    )
 
     versions = Path(__file__).parents[1] / "src" / "windops_telemetry" / "migrations" / "versions"
     text = "".join(path.read_text() for path in versions.glob("rev_*.py"))
-    columns = [*OPERATIONAL_SAMPLES.c, *SCADA_SUMMARIES.c]
+    columns = [*OPERATIONAL_SAMPLES.c, *SCADA_SUMMARIES.c, *CMS_FEATURES.c, *CMS_WAVEFORMS.c]
     missing = [column.name for column in columns if f'"{column.name} ' not in text]
     assert missing == []

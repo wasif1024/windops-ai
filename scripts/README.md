@@ -11,7 +11,7 @@ a module of the `scripts` package, so it runs from the repository root as, for e
 | `checks/foundation/` | Phase 1: the cluster, the service template, the gateway, observability and migrations | `make cluster-check`, `make gateway-check` |
 | `checks/data/` | Phase 2: PostgreSQL, Redis, Qdrant, NATS, events, the outbox, the Audit Service and TLS on every store | `make audit-check`, `make data-tls-check` |
 | `checks/identity/` | Phase 3: Keycloak, MFA, mTLS, Authorization, Identity, Tenant, cross-tenant isolation and token exchange | `make mfa-check`, `make cross-tenant-check` |
-| `checks/fleet/` | Phase 4: assets, the simulator and telemetry | `make asset-check`, `make telemetry-check`, `make simulator-check`, `make telemetry-storage-check` |
+| `checks/fleet/` | Phase 4: assets, the simulator and telemetry | `make asset-check`, `make telemetry-check`, `make simulator-check`, `make telemetry-storage-check`, `make cms-check` |
 | `checks/edge/` | The gateway's policy, Web BFF, and the sweep of every route | `make bff-check`, `make route-sweep` |
 | `checks/consoles/` | The consoles' APIs, the browser journeys and the Security dashboard | `make frontend-check`, `make security-check` |
 | `checks/gates/` | Each phase's exit gate, which runs that phase's checks together | `make phase-3-gate` |

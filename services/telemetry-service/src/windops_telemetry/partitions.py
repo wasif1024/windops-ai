@@ -1,6 +1,7 @@
 """Telemetry partitions: made ahead of time, and dropped whole for retention (SRS 8.3, ADR 0003).
 
-Samples are partitioned by day on event time, and SCADA summaries by month on their period. Each
+Samples and raw CMS windows are partitioned by day on event time, and SCADA summaries and CMS
+features by month. Each
 table also has a default partition, which holds anything outside its partitions, so nothing is
 lost. Every hour this:
 
@@ -97,9 +98,13 @@ def tables() -> tuple[Partitioned, ...]:
     """The partitioned tables, with the retention the settings give them (SRS 8.3 by default)."""
     raw = _days("WINDOPS_TELEMETRY_RAW_RETENTION_DAYS", 90)
     summaries = _days("WINDOPS_TELEMETRY_SUMMARY_RETENTION_DAYS", 730)
+    features = _days("WINDOPS_TELEMETRY_CMS_FEATURE_RETENTION_DAYS", 730)
+    waveforms = _days("WINDOPS_TELEMETRY_CMS_WAVEFORM_RETENTION_DAYS", 90)
     return (
         Partitioned("operational_samples", "event_time", "day", 1, 3, raw),
         Partitioned("scada_summaries", "period_start", "month", 1, 2, summaries),
+        Partitioned("cms_features", "event_time", "month", 1, 2, features),
+        Partitioned("cms_waveforms", "event_time", "day", 1, 3, waveforms),
     )
 
 

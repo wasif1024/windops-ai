@@ -4,7 +4,9 @@ Runs as its own workload. Each turbine is a device with its own token, from the 
 `make telemetry-devices` fills, mounted as one file per turbine. Every second the fleet is
 stepped forward to the wall clock, and every few seconds each device sends what it has, in one
 batch, through the gateway's device route. A device keeps what it could not send and tries again,
-as a real one buffers through an outage, up to an hour of samples. Light link trouble is injected
+as a real one buffers through an outage, up to an hour of samples. Every 10 minutes each device
+also records a CMS batch from its three accelerometers, and sends it to the CMS route, flagged
+when a sensor's level jumps, so its raw window is kept. Light link trouble is injected
 by default (SIM-004), so the data-quality checks downstream always have something to find.
 
     python -m windops_simulator.stream
@@ -33,6 +35,7 @@ from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
+from windops_simulator.cms import rms
 from windops_simulator.delivery import DataProblems, Link
 from windops_simulator.fleet import DEMO_TURBINES, TurbineSpec
 from windops_simulator.scenarios import LIGHT
@@ -44,6 +47,11 @@ logger = logging.getLogger("windops.simulator")
 MAXIMUM_BATCH = 600
 # A device keeps at most an hour of samples while it cannot send them.
 MAXIMUM_BUFFER = 3600
+# A device keeps at most an hour of CMS batches while it cannot send them.
+MAXIMUM_CMS_BUFFER = 6
+# A CMS window is flagged when its RMS is this many times its sensor's usual level.
+TRIGGER_RATIO = 2.0
+TRIGGER_AFTER_WINDOWS = 3
 # Further behind than this, the fleet jumps to now in one step, leaving a gap as a real outage does.
 MAXIMUM_CATCH_UP_SECONDS = 600
 MAXIMUM_BACKOFF_SECONDS = 30.0
@@ -62,6 +70,8 @@ class Settings:
     ca_file: Path
     seed: int = 1001
     batch_seconds: float = 5.0
+    # How often each device records a CMS batch, in seconds. 0 turns CMS off.
+    cms_seconds: int = 600
     problems: str = "light"
     http_port: int = 8080
 
@@ -82,6 +92,7 @@ class Settings:
             batch_seconds=float(env.get("WINDOPS_SIMULATOR_BATCH_SECONDS", "5")),
             problems=problems,
             http_port=int(env.get("WINDOPS_HTTP_PORT", "8080")),
+            cms_seconds=int(env.get("WINDOPS_SIMULATOR_CMS_SECONDS", "600")),
         )
 
 
@@ -109,7 +120,13 @@ class Answer:
 
 
 class Transport(Protocol):
-    def post(self, token: str, body: bytes) -> Answer: ...
+    def post(self, token: str, body: bytes, kind: str = "samples") -> Answer: ...
+
+
+def routes_for(url: str) -> dict[str, str]:
+    """The CMS route sits beside the samples route: /ingest/v1/samples, then /ingest/v1/cms."""
+    path = urlsplit(url).path or "/"
+    return {"samples": path, "cms": path.rsplit("/", 1)[0] + "/cms"}
 
 
 class HttpsTransport:
@@ -118,7 +135,7 @@ class HttpsTransport:
     def __init__(self, url: str, ca_file: Path, timeout: float = 10.0) -> None:
         parts = urlsplit(url)
         self._host, self._port = parts.hostname or "", parts.port or 443
-        self._path = parts.path or "/"
+        self._paths = routes_for(url)
         self._context = ssl.create_default_context(cafile=str(ca_file))
         self._timeout = timeout
         self._connection: http.client.HTTPSConnection | None = None
@@ -135,12 +152,12 @@ class HttpsTransport:
             self._connection.close()
             self._connection = None
 
-    def post(self, token: str, body: bytes) -> Answer:
+    def post(self, token: str, body: bytes, kind: str = "samples") -> Answer:
         headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
         for attempt in range(2):
             try:
                 connection = self._connect()
-                connection.request("POST", self._path, body=body, headers=headers)
+                connection.request("POST", self._paths[kind], body=body, headers=headers)
                 response = connection.getresponse()
                 raw = response.read()
             except (http.client.HTTPException, OSError):
@@ -167,6 +184,11 @@ class Device:
     key: Key
     token: str
     buffer: deque[Any] = field(default_factory=deque)
+    # CMS batches still to send, the newest MAXIMUM_CMS_BUFFER of them.
+    cms: deque[Any] = field(default_factory=deque)
+    # Each sensor's usual RMS, for the device's own trigger.
+    baselines: dict[str, float] = field(default_factory=dict)
+    windows_seen: int = 0
     next_attempt: float = 0.0
     failures: int = 0
 
@@ -282,6 +304,7 @@ class Streamer:
             self._carry(self.simulator.step(math.floor(behind)))
         while self.simulator.now.timestamp() + 1 <= now:
             self._carry(self.simulator.step(1.0))
+            self._record_cms()
         while self._waiting and self._waiting[0][0] <= now:
             _, _, key, payload = heapq.heappop(self._waiting)
             device = self.devices.get(key)
@@ -299,6 +322,43 @@ class Streamer:
             self.metrics.set("windops_simulator_buffered_samples", len(device.buffer),
                              **_labels(key))  # fmt: skip
         self.heartbeat = now
+
+    def _record_cms(self) -> None:
+        """On each CMS boundary, every device records a batch from its accelerometers."""
+        period = self.settings.cms_seconds
+        if not period or int(self.simulator.now.timestamp()) % period:
+            return
+        for key, device in self.devices.items():
+            batch = self.simulator.cms_batch(key[1])
+            trigger = self._trigger(device, batch)
+            if trigger:
+                batch["trigger"] = trigger
+            device.cms.append(batch)
+            self.metrics.add("windops_simulator_cms_windows_generated_total", len(batch["sensors"]),
+                             **_labels(key))  # fmt: skip
+            if len(device.cms) > MAXIMUM_CMS_BUFFER:
+                device.cms.popleft()
+                self.metrics.add("windops_simulator_cms_windows_dropped_total", 3,
+                                 reason="buffer_full", **_labels(key))  # fmt: skip
+
+    @staticmethod
+    def _trigger(device: Device, batch: dict[str, Any]) -> str | None:
+        """As a real CMS unit does: flag a window whose RMS jumps above its sensor's usual level.
+
+        The baseline learns only from unflagged windows, after a few, so a slow fault still
+        triggers rather than becoming the new normal.
+        """
+        levels = {w["sensor"]: rms(w["values"]) for w in batch["sensors"]}
+        device.windows_seen += 1
+        flagged = device.windows_seen > TRIGGER_AFTER_WINDOWS and any(
+            level > TRIGGER_RATIO * device.baselines.get(sensor, level)
+            for sensor, level in levels.items()
+        )
+        if not flagged:
+            for sensor, level in levels.items():
+                old = device.baselines.get(sensor, level)
+                device.baselines[sensor] = old + (level - old) / min(device.windows_seen, 12)
+        return "rms_above_baseline" if flagged else None
 
     def _carry(self, samples: list[Any]) -> None:
         for sample in samples:
@@ -324,40 +384,52 @@ class Streamer:
         self._last_batch = now
         for device in self.devices.values():
             if device.buffer and device.next_attempt <= now:
-                self._send(device, now)
+                self._send(device, now, "samples")
+            # One CMS batch a turn at most: each is a few hundred kilobytes.
+            if device.cms and device.next_attempt <= now:
+                self._send(device, now, "cms")
 
-    def _send(self, device: Device, now: float) -> None:
-        batch = [device.buffer[index] for index in range(min(MAXIMUM_BATCH, len(device.buffer)))]
-        body = json.dumps({"samples": batch}).encode()
+    def _send(self, device: Device, now: float, kind: str) -> None:
         labels = _labels(device.key)
+        if kind == "samples":
+            count = min(MAXIMUM_BATCH, len(device.buffer))
+            body = json.dumps({"samples": [device.buffer[i] for i in range(count)]}).encode()
+            queue: deque[Any] = device.buffer
+        else:
+            count, queue = 1, device.cms
+            body = json.dumps(device.cms[0]).encode()
         try:
-            answer = self.transport.post(device.token, body)
+            answer = self.transport.post(device.token, body, kind)
         except OSError as error:
             self.metrics.add("windops_simulator_requests_total", status="unreachable")
             self._back_off(device, now, type(error).__name__)
             return
         self.metrics.add("windops_simulator_requests_total", status=str(answer.status))
+        name = "samples" if kind == "samples" else "cms_windows"
         if answer.status == 200:
-            for _ in batch:
-                device.buffer.popleft()
+            for _ in range(count):
+                queue.popleft()
             device.failures, device.next_attempt = 0, 0.0
             rejected = len(answer.body.get("rejected", []))
-            self.metrics.add("windops_simulator_samples_accepted_total",
+            self.metrics.add(f"windops_simulator_{name}_accepted_total",
                              answer.body.get("accepted", 0), **labels)  # fmt: skip
-            self.metrics.add("windops_simulator_samples_rejected_total", rejected, **labels)
-            self.metrics.set("windops_simulator_last_accepted_timestamp_seconds", now, **labels)
+            self.metrics.add(f"windops_simulator_{name}_rejected_total", rejected, **labels)
+            if kind == "samples":
+                self.metrics.set("windops_simulator_last_accepted_timestamp_seconds", now,
+                                 **labels)  # fmt: skip
         elif answer.status == 429:
             device.next_attempt = now + (answer.retry_after or self.settings.batch_seconds)
         elif answer.status in (400, 401, 403, 413):
             # Sending these again cannot succeed. A refused token may have been replaced.
-            for _ in batch:
-                device.buffer.popleft()
-            self.metrics.add("windops_simulator_samples_dropped_total", len(batch),
+            for _ in range(count):
+                queue.popleft()
+            self.metrics.add(f"windops_simulator_{name}_dropped_total", count,
                              reason=f"refused_{answer.status}", **labels)  # fmt: skip
             logger.warning(
                 "The Telemetry Service refused a batch",
-                extra={**labels, "status": answer.status, "code": answer.body.get("code", "")},
-            )
+                extra={**labels, "kind": kind, "status": answer.status,
+                       "code": answer.body.get("code", "")},
+            )  # fmt: skip
             if answer.status == 401:
                 device.next_attempt = now + TOKEN_RELOAD_SECONDS
                 self._tokens_loaded_at = -math.inf
