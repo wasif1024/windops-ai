@@ -1,4 +1,6 @@
-"""10-minute SCADA summaries, kept up to date as samples arrive, late ones too (FR-TEL-004).
+"""10-minute SCADA summaries and data-quality labels, kept up to date as samples arrive.
+
+FR-TEL-004 and FR-TEL-003.
 
 Every minute, the summarizer reads which samples arrived since it last looked, by ingestion time,
 and finds the 10-minute periods they belong to. Each closed period among them is summarized again
@@ -14,19 +16,23 @@ import asyncio
 import contextlib
 import logging
 import math
+import os
 import statistics
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import bindparam, delete, func, select, text, update
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from windops_migrations import across_tenants, in_tenant
 
+from windops_telemetry import quality
 from windops_telemetry.schema import READINGS
 from windops_telemetry.store import (
+    DATA_GAPS,
+    INGEST_REJECTIONS,
     OPERATIONAL_SAMPLES,
     SCADA_SUMMARIES,
     STATISTICS,
@@ -45,6 +51,10 @@ WATERMARK = "scada"
 LOCK_KEY = 4_400_002
 DIRECTION = "wind_direction_deg"
 COMPLETE, PARTIAL = 0.95, 0.5
+# How far either side of a period to look for neighbours that arrived first.
+CONTEXT = timedelta(seconds=60)
+# How far back to look for the turbine's last sequence before a period.
+LOOK_BACK = timedelta(hours=1)
 
 Period = tuple[str, str, datetime]
 
@@ -156,6 +166,7 @@ async def write_summary(
     ).scalar_one_or_none()
     # Late samples are those that arrived after the period was first summarized.
     values = summarize(rows, start, _utc(first) if first else None)
+    values.update(await _check_quality(connection, tenant, turbine, start, rows, now))
     statement = _insert(connection).values(
         tenant_id=tenant, turbine_id=turbine, period_start=start, revision=1,
         first_computed_at=now, computed_at=now, **values,
@@ -168,6 +179,105 @@ async def write_summary(
         )
     )
     return True
+
+
+def _delay() -> timedelta:
+    return timedelta(seconds=float(os.environ.get("WINDOPS_TELEMETRY_DELAY_SECONDS", "20")))
+
+
+async def _check_quality(
+    connection: AsyncConnection,
+    tenant: str,
+    turbine: str,
+    start: datetime,
+    rows: Sequence[Any],
+    now: datetime,
+) -> dict[str, int]:
+    """Label the period's samples and record its gaps (FR-TEL-003), and return the counts."""
+    samples = OPERATIONAL_SAMPLES.c
+    mine = (samples.tenant_id == tenant) & (samples.turbine_id == turbine)
+    end = start + PERIOD
+    # A neighbour just outside the period may have arrived first, which decides out_of_order.
+    context = (
+        await connection.execute(
+            select(samples.sequence, samples.event_time, samples.ingested_at,
+                   samples.arrival_index)
+            .where(mine, samples.event_time >= start - CONTEXT, samples.event_time < end + CONTEXT)
+            .where((samples.event_time < start) | (samples.event_time >= end))
+        )
+    ).all()  # fmt: skip
+    labels = quality.label(rows, context, _delay())
+    changes = [
+        {
+            "q": labels[key],
+            "e": row.event_time,
+            "s": row.sequence,
+            "i": row.ingested_at,
+            "a": key[2],
+        }
+        for row in rows
+        if row.quality_status != labels[(key := quality.key_of(row))]
+    ]
+    if changes:
+        await connection.execute(
+            update(OPERATIONAL_SAMPLES)
+            .where(
+                mine, samples.event_time == bindparam("e"), samples.sequence == bindparam("s"),
+                samples.ingested_at == bindparam("i"),
+                func.coalesce(samples.arrival_index, 0) == bindparam("a"),
+            )
+            .values(quality_status=bindparam("q")),
+            changes,
+        )  # fmt: skip
+    before = (
+        await connection.execute(
+            select(func.max(samples.sequence)).where(
+                mine, samples.event_time < start, samples.event_time >= start - LOOK_BACK
+            )
+        )
+    ).scalar_one_or_none()
+    sequences = {int(row.sequence) for row in rows}
+    low = int(before) + 1 if before is not None else min(sequences)
+    rejected = INGEST_REJECTIONS.c
+    malformed = {
+        int(value)
+        for value in (
+            await connection.execute(
+                select(rejected.sequence).where(
+                    rejected.tenant_id == tenant, rejected.turbine_id == turbine,
+                    rejected.sequence.is_not(None),
+                    rejected.reason.not_in(("wrong_tenant", "wrong_turbine")),
+                    ((rejected.event_time >= start) & (rejected.event_time < end))
+                    | (rejected.event_time.is_(None)
+                       & rejected.sequence.between(low, max(sequences))),
+                )
+            )
+        ).scalars()
+    }  # fmt: skip
+    found = quality.gaps(sequences, None if before is None else int(before), malformed)
+    gap = DATA_GAPS.c
+    await connection.execute(
+        delete(DATA_GAPS).where(
+            gap.tenant_id == tenant, gap.turbine_id == turbine, gap.period_start == start
+        )
+    )
+    if found:
+        await connection.execute(
+            DATA_GAPS.insert(),
+            [
+                {"tenant_id": tenant, "turbine_id": turbine, "period_start": start,
+                 "first_sequence": g.first, "last_sequence": g.last, "missing": g.missing,
+                 "detected_at": now}
+                for g in found
+            ],
+        )  # fmt: skip
+    counts = quality.count(labels.values())
+    return {
+        "delayed_samples": counts[quality.DELAYED],
+        "out_of_order_samples": counts[quality.OUT_OF_ORDER],
+        "missing_samples": sum(g.missing for g in found),
+        "malformed_samples": len(malformed - sequences),
+    }
 
 
 class Summarizer:

@@ -60,6 +60,8 @@ OPERATIONAL_SAMPLES = Table(
     Column("available", Boolean, nullable=False),
     Column("quality_status", Text, nullable=False),
     *(Column(reading.name, Float) for reading in READINGS),
+    # Its place in the batch it came in, so arrival order is known within one ingestion time.
+    Column("arrival_index", Integer),
 )
 # What could not be stored as a sample, kept with its reason, never dropped silently (FR-TEL-003).
 INGEST_REJECTIONS = Table(
@@ -73,6 +75,22 @@ INGEST_REJECTIONS = Table(
     Column("reason", Text, nullable=False),
     # The start of what was sent, to look at, never more than this many characters.
     Column("excerpt", Text, nullable=False),
+    # When a broken sample still has a readable sequence and time, so its slot is not missing.
+    Column("sequence", BigInteger),
+    Column("event_time", DateTime(timezone=True)),
+)
+# Runs of sequences a turbine never sent, found per 10-minute period and redone with it.
+# FR-TEL-003.
+DATA_GAPS = Table(
+    "data_gaps",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("turbine_id", Text, primary_key=True),
+    Column("period_start", DateTime(timezone=True), primary_key=True),
+    Column("first_sequence", BigInteger, primary_key=True),
+    Column("last_sequence", BigInteger, nullable=False),
+    Column("missing", Integer, nullable=False),
+    Column("detected_at", DateTime(timezone=True), nullable=False),
 )
 IDEMPOTENCY_KEYS = Table(
     "idempotency_keys",
@@ -104,6 +122,11 @@ SCADA_SUMMARIES = Table(
     Column("duplicate_samples", Integer, nullable=False),
     # Samples that arrived after the period had first been summarized.
     Column("late_samples", Integer, nullable=False),
+    # By label (FR-TEL-003). Null on summaries written before labelling.
+    Column("delayed_samples", Integer),
+    Column("out_of_order_samples", Integer),
+    Column("missing_samples", Integer),
+    Column("malformed_samples", Integer),
     Column("null_readings", Integer, nullable=False),
     Column("available_fraction", Float, nullable=False),
     Column("producing_fraction", Float, nullable=False),
@@ -198,6 +221,7 @@ TENANT_TABLES = (
     "idempotency_keys",
     "scada_summaries",
     "retention_holds",
+    "data_gaps",
 )
 EXCERPT_CHARACTERS = 500
 
