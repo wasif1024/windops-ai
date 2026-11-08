@@ -121,7 +121,7 @@ def test_a_device_sends_simulator_samples_which_are_stored_with_both_times() -> 
         sent = samples(3)
         response = await world.client.post(URL, json={"samples": sent}, headers=world.auth())
         assert response.status_code == 200
-        assert response.json() == {"accepted": 3, "rejected": []}
+        assert response.json() == {"accepted": 3, "rejected": [], "duplicates": 0}
         rows = await world.rows(OPERATIONAL_SAMPLES)
         assert [row.sequence for row in rows] == [1, 2, 3]
         first = rows[0]
@@ -179,6 +179,7 @@ def test_a_device_can_send_only_its_own_turbines_samples() -> None:
                 {"index": 1, "reason": "wrong_turbine"},
                 {"index": 2, "reason": "wrong_tenant"},
             ],
+            "duplicates": 0,
         }
         rejections = await world.rows(INGEST_REJECTIONS)
         assert sorted(row.reason for row in rejections) == ["wrong_tenant", "wrong_turbine"]
@@ -207,6 +208,7 @@ def test_malformed_samples_are_rejected_with_reasons_and_never_dropped() -> None
                 {"index": 1, "reason": "bad_power_kw"},
                 {"index": 2, "reason": "not_json"},
             ],
+            "duplicates": 0,
         }
         rejections = {row.reason: row for row in await world.rows(INGEST_REJECTIONS)}
         assert rejections["not_json"].excerpt == cut_off

@@ -12,8 +12,9 @@ import random
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from typing import Any
 
-from windops_simulator import models
+from windops_simulator import cms, models
 from windops_simulator.faults import ActiveFault, FaultSpec
 from windops_simulator.fleet import TurbineSpec
 
@@ -70,6 +71,10 @@ class _TurbineState:
     temperatures: dict[str, float] = field(default_factory=dict)
     faults: list[ActiveFault] = field(default_factory=list)
     sequence: int = 0
+    # As of the last step, for the CMS windows.
+    rpm: float = 0.0
+    rpm_fraction: float = 0.0
+    load: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -228,6 +233,7 @@ class Simulator:
             fault.extra_vibration_mm_s(self.now, rpm_fraction) for fault in state.faults
         )
         state.sequence += 1
+        state.rpm, state.rpm_fraction, state.load = rpm, rpm_fraction, load
 
         def reported(channel: str, true_value: float, digits: int) -> float | None:
             """What the sensor sends, which a sensor fault may change or leave out."""
@@ -268,3 +274,36 @@ class Simulator:
             available=spec.status == "operating",
             seed=self.seed,
         )
+
+    def cms_batch(self, turbine_id: str) -> dict[str, Any]:
+        """One CMS batch: a window from each of the turbine's accelerometers, now (FR-TEL-004)."""
+        state = next(t for t in self._turbines if t.spec.turbine_id == turbine_id)
+        spec, moment = state.spec, self.now
+        stream = random_stream(
+            self.seed, f"cms:{spec.tenant_id}:{spec.turbine_id}:{int(moment.timestamp())}"
+        )
+        return {
+            "schema_version": cms.CMS_SCHEMA_VERSION,
+            "tenant_id": spec.tenant_id,
+            "turbine_id": spec.turbine_id,
+            "event_time": moment.isoformat(),
+            "sequence": int(moment.timestamp()),
+            "source": SOURCE,
+            "model_version": models.MODEL_VERSION,
+            "seed": self.seed,
+            "synthetic": True,
+            "rotor_speed_rpm": round(state.rpm, 2),
+            "generator_speed_rpm": round(state.rpm * models.GEARBOX_RATIO, 1),
+            "sample_rate_hz": cms.SAMPLE_RATE_HZ,
+            "sensors": [
+                {
+                    "sensor": sensor.name,
+                    "unit": cms.UNIT,
+                    "values": cms.window(
+                        stream, sensor, state.rpm, state.rpm_fraction, state.load, state.faults,
+                        moment,
+                    ),
+                }
+                for sensor in cms.SENSORS
+            ],
+        }  # fmt: skip

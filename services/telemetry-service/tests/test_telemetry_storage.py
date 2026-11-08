@@ -212,7 +212,7 @@ def test_each_tenant_and_turbine_gets_its_own_summary() -> None:
 
 
 def test_partitions_are_named_and_planned_by_day_and_by_month() -> None:
-    samples, months = partitions.tables()
+    samples, months, _, _ = partitions.tables()
     assert samples.name_for(date(2026, 1, 5)) == "operational_samples_20260105"
     assert months.name_for(date(2026, 1, 1)) == "scada_summaries_202601"
     assert samples.wanted(date(2026, 1, 1)) == [
@@ -229,7 +229,7 @@ def test_partitions_are_named_and_planned_by_day_and_by_month() -> None:
 def test_retention_comes_from_the_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("WINDOPS_TELEMETRY_RAW_RETENTION_DAYS", "30")
     monkeypatch.setenv("WINDOPS_TELEMETRY_SUMMARY_RETENTION_DAYS", "365")
-    samples, months = partitions.tables()
+    samples, months, _, _ = partitions.tables()
     assert (samples.retention, months.retention) == (timedelta(days=30), timedelta(days=365))
 
 

@@ -18,7 +18,7 @@ The same seed, start and turbines always print the same samples. The default sta
 
 ## What it models (SIM-003)
 
-Models version `1.1.0`, in `models.py` and `faults.py`. Any change to them changes the version, which every sample carries.
+Models version `1.2.0`, in `models.py`, `faults.py` and `cms.py`. Any change to them changes the version, which every sample carries.
 
 | Model | How |
 | --- | --- |
@@ -60,6 +60,30 @@ turbine's data is the same with or without a fault until it begins.
 | `sensor_drift` | One sensor's reading creeps away, 2.5 units an hour, while the machine is healthy | `sensor_drift` |
 | `sensor_dropout` | One sensor sends nothing, in stretches of about two minutes, more often as it worsens | `sensor_dropout` |
 | `false_positive_high_load` | A sustained strong wind: a healthy turbine at full load, running hot but in its normal range | `no_fault` |
+
+## CMS vibration (FR-TEL-004)
+
+Each turbine has three accelerometers, and each records a window of acceleration in g every 10 minutes: 8,192 values
+at 5,120 Hz, 1.6 seconds. A device sends the three as one CMS batch, schema version `1`, with the shaft speeds at that
+moment (`Simulator.cms_batch`). A window is the sum of what a real drivetrain makes:
+
+| Sensor | Shaft | Watches | Healthy signal |
+| --- | --- | --- | --- |
+| `main_bearing` | Rotor | Main bearing, outer-race defect at 8.1 orders | 1x and 2x shaft tones, growing with speed |
+| `gearbox` | High-speed shaft, 100x the rotor | Gearbox bearing, at 4.2 orders, and a 23-tooth pinion | Shaft tones, and the gear mesh at 23 orders, growing with load |
+| `generator` | High-speed shaft | Generator bearing, at 3.6 orders | Shaft tones |
+
+Every window also has broadband noise, which grows with load. The fault profiles add their signatures:
+
+| Fault | What changes in the windows |
+| --- | --- |
+| `imbalance` | A strong 1x tone on the main bearing, growing with the square of rotor speed |
+| `bearing_wear` | Impacts at the worn bearing's defect frequency, each ringing at about 2 kHz, on that bearing's sensor only. A slow main bearing shows mostly as kurtosis (impulsiveness); a fast gearbox or generator bearing as high-frequency energy too |
+| `gearbox_oil_overheating` | A little more gear mesh |
+| The sensor faults and the false positive | Nothing: they are SCADA effects |
+
+The kinematics, shaft orders and resonances, are fixed for the synthetic fleet. The Telemetry Service places its
+spectral bands with the same ones, and a test keeps the two the same.
 
 ## Data problems (SIM-004)
 
@@ -121,6 +145,11 @@ its own token, as a real device would.
   rising after a restart, so a restart never reuses one.
 - **Link trouble:** light link trouble, the same as the fault scenarios', is on by default, so data-quality detection
   always has something to find. Set `WINDOPS_SIMULATOR_DATA_PROBLEMS=none` for a perfect link.
+- **CMS:** on each 10-minute boundary, every device records a CMS batch and sends it to the CMS route,
+  `/ingest/v1/cms`, beside the samples route. It keeps up to an hour of them through an outage. Like a real CMS unit,
+  it flags a batch with `"trigger": "rms_above_baseline"` when a sensor's RMS is more than twice its usual level,
+  which it learns from its first windows, so the service keeps that raw window. Set `WINDOPS_SIMULATOR_CMS_SECONDS=0`
+  to turn CMS off.
 - **One replica only,** replaced with `Recreate`, as a second copy would send everything twice.
 
 | Setting | Default | What it does |
@@ -129,6 +158,7 @@ its own token, as a real device would.
 | `WINDOPS_SIMULATOR_SEED` | `1001` | The weather and wear |
 | `WINDOPS_SIMULATOR_BATCH_SECONDS` | `5` | How often each device sends |
 | `WINDOPS_SIMULATOR_DATA_PROBLEMS` | `light` | `light` or `none` |
+| `WINDOPS_SIMULATOR_CMS_SECONDS` | `600` | How often each device records a CMS batch. `0` turns it off |
 
 It serves `/health/live`, `/health/ready` (ready once it has tokens) and `/metrics`, which Prometheus scrapes:
 
@@ -153,5 +183,4 @@ WINDOPS_INGEST_URL=https://localhost:9443/ingest/v1/samples WINDOPS_TLS_DIR=<fol
 
 ## Still to come
 
-- **10-minute SCADA summaries and CMS vibration spectra** come from the Telemetry Service (M4.5).
 - **Faults on the live stream:** for now the live fleet is healthy. Scenarios with faults run from the command line.

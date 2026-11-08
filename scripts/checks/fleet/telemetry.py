@@ -106,7 +106,7 @@ def check_ingestion(token: str, other_tenant_token: str) -> int:
     sequence = int(time.time())
     good = send(token, samples(TURBINE, 3, sequence))
     check(
-        good.status_code == 200 and good.json() == {"accepted": 3, "rejected": []},
+        good.status_code == 200 and (good.json()["accepted"], good.json()["rejected"]) == (3, []),
         "A demo turbine's device sends samples through the gateway, and all 3 are stored",
     )
     wrong = send(token, [*samples("dogger-east-t02", 1, sequence), "{cut off"])
@@ -170,11 +170,28 @@ def check_plain_port() -> None:
     )
 
 
+def calling(telemetry: Caller, method: str, request: Any, **kw: Any) -> Any:
+    """Call as the check's administrator, trying again while a dependency is still waking.
+
+    The first call after a quiet spell opens fresh connections to Asset and Authorization, which
+    can outlast the service's deadline, so it answers UNAVAILABLE, as it should (SRS 7.7). Each
+    try signs a fresh identity.
+    """
+    for attempt in range(5):
+        try:
+            return telemetry.call(method, request, ADMIN, TENANT, **kw)
+        except grpc.RpcError as error:
+            if error.code() is not grpc.StatusCode.UNAVAILABLE or attempt == 4:
+                raise
+            time.sleep(2)
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
 def check_credential_api(telemetry: Caller) -> str:
     """FR-TEL-005: an administrator makes and revokes a credential, which works only until then."""
     request = pb.CreateDeviceCredentialRequest(turbine_id=TURBINE)
     try:
-        telemetry.call("CreateDeviceCredential", request, ADMIN, TENANT, level=LEVEL_PASSWORD)
+        calling(telemetry, "CreateDeviceCredential", request, level=LEVEL_PASSWORD)
         refused = grpc.StatusCode.OK
     except grpc.RpcError as error:
         refused = error.code()
@@ -182,13 +199,11 @@ def check_credential_api(telemetry: Caller) -> str:
         refused is grpc.StatusCode.PERMISSION_DENIED,
         "Making a credential without a recent second factor is refused",
     )
-    made = telemetry.call("CreateDeviceCredential", request, ADMIN, TENANT)
+    made = calling(telemetry, "CreateDeviceCredential", request)
     device = made.credential.device_id
     first = send(made.token, samples(TURBINE, 1, int(time.time()), f"{SOURCE}-credential"))
     check(first.status_code == 200, "A Tenant Administrator makes a credential, and it works")
-    telemetry.call(
-        "RevokeDeviceCredential", pb.RevokeDeviceCredentialRequest(device_id=device), ADMIN, TENANT
-    )
+    calling(telemetry, "RevokeDeviceCredential", pb.RevokeDeviceCredentialRequest(device_id=device))
     after = send(made.token, samples(TURBINE, 1, int(time.time()), f"{SOURCE}-credential"))
     check(after.status_code == 401, "Once revoked, the same token is refused")
     return str(device)

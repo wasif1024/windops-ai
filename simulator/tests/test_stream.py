@@ -12,12 +12,15 @@ import pytest
 from windops_simulator.fleet import DEMO_TURBINES
 from windops_simulator.stream import (
     MAXIMUM_BUFFER,
+    MAXIMUM_CMS_BUFFER,
     Answer,
+    Device,
     Metrics,
     Settings,
     Streamer,
     health_server,
     load_tokens,
+    routes_for,
 )
 
 START = 1_800_000_000.0
@@ -42,7 +45,12 @@ class FakeTransport:
     script: list[Answer | Exception] = field(default_factory=list)
     posts: list[tuple[str, list[Any]]] = field(default_factory=list)
 
-    def post(self, token: str, body: bytes) -> Answer:
+    cms: list[dict[str, Any]] = field(default_factory=list)
+
+    def post(self, token: str, body: bytes, kind: str = "samples") -> Answer:
+        if kind == "cms":
+            self.cms.append(json.loads(body))
+            return Answer(200, {"accepted": 3, "rejected": []})
         samples = json.loads(body)["samples"]
         self.posts.append((token, samples))
         if self.script:
@@ -247,3 +255,64 @@ def test_metrics_keep_every_digit_of_a_timestamp() -> None:
     assert 'windops_simulator_last_accepted_timestamp_seconds{turbine_id="t"} 1794090675.25' in (
         metrics.render()
     )
+
+
+# --- CMS batches
+
+
+def test_each_device_sends_a_cms_batch_on_every_ten_minute_boundary() -> None:
+    transport, clock = FakeTransport(), Clock()
+    clock.now = START - (START % 600) + 590  # 10 seconds before a boundary
+    stream = streamer(transport, clock, turbines=TWO)
+    run(stream, clock, 620)
+    assert sorted(batch["turbine_id"] for batch in transport.cms) == [
+        "atlas-ridge-t01", "atlas-ridge-t01", "dogger-east-t01", "dogger-east-t01",
+    ]  # fmt: skip
+    first = transport.cms[0]
+    assert int(datetime.fromisoformat(first["event_time"]).timestamp()) % 600 == 0
+    assert {window["sensor"] for window in first["sensors"]} == {
+        "main_bearing", "gearbox", "generator",
+    }  # fmt: skip
+    assert len(first["sensors"][0]["values"]) == 8192
+    assert first["synthetic"] is True
+
+
+def test_a_device_flags_a_window_whose_level_jumps_and_keeps_its_baseline() -> None:
+    device = Device(("north-sea", "dogger-east-t01"), "t")
+
+    def window(level: float) -> dict[str, Any]:
+        return {"sensors": [{"sensor": "gearbox", "values": [level, -level] * 512}]}
+
+    assert [Streamer._trigger(device, window(0.05)) for _ in range(4)] == [None] * 4
+    assert Streamer._trigger(device, window(0.2)) == "rms_above_baseline"
+    assert device.baselines["gearbox"] == pytest.approx(0.05)
+    assert Streamer._trigger(device, window(0.06)) is None
+
+
+def test_cms_batches_wait_through_an_outage_and_keep_only_the_newest_hour() -> None:
+    script: list[Answer | Exception] = [OSError("down")] * 10_000
+    transport, clock = FakeTransport(script), Clock()
+    clock.now = START - (START % 600)
+    stream = streamer(transport, clock)
+
+    def failing_cms(token: str, body: bytes, kind: str = "samples") -> Answer:
+        raise OSError("down")
+
+    transport.post = failing_cms  # type: ignore[method-assign]
+    run(stream, clock, 600 * 8)
+    device = stream.devices[("north-sea", "dogger-east-t01")]
+    assert len(device.cms) == MAXIMUM_CMS_BUFFER
+    assert stream.metrics.get(
+        "windops_simulator_cms_windows_dropped_total", reason="buffer_full",
+        tenant_id="north-sea", turbine_id="dogger-east-t01",
+    ) == 3 * (8 - MAXIMUM_CMS_BUFFER)  # fmt: skip
+
+
+def test_the_cms_route_sits_beside_the_samples_route() -> None:
+    assert routes_for("https://gateway/ingest/v1/samples") == {
+        "samples": "/ingest/v1/samples", "cms": "/ingest/v1/cms",
+    }  # fmt: skip
+    settings = Settings.from_environment(
+        {"WINDOPS_INGEST_URL": "https://g/ingest/v1/samples", "WINDOPS_SIMULATOR_CMS_SECONDS": "0"}
+    )
+    assert settings.cms_seconds == 0

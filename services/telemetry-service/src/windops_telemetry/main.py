@@ -133,7 +133,11 @@ def main() -> None:
             SERVICE_NAME,
             register,
             readiness_checks=(database_ready,),
-            http_router=create_ingest_router(engine, DeviceLimiter(redis)),
+            http_router=create_ingest_router(
+                engine,
+                DeviceLimiter(redis),
+                raw_every_hours=int(os.environ.get("WINDOPS_TELEMETRY_CMS_RAW_EVERY_HOURS", "6")),
+            ),
             # Devices reach it only over TLS, through the gateway. Plain HTTP serves health.
             api_over_https=True,
             background=(relay, keep_partitions, keep_summaries),
