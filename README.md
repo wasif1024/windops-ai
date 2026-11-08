@@ -49,7 +49,7 @@ animation illustrates the specified workflow, not a recording.
 
 ## Architecture
 
-[![WindOps AI platform architecture: AI-assisted fault investigation for renewable assets. Operators reach the React frontend, and the telemetry simulator sends device samples, both over HTTPS through the APISIX API Gateway, which checks sign-in with Keycloak. In the windops-system namespace, Web BFF calls the Identity, Authorization and Tenant services over gRPC. In windops-application, the Agent Runtime runs a Supervisor and five specialist agents, which reach services only through four MCP servers in windops-mcp. Twenty domain services, grouped by capability, call each other over gRPC with mutual TLS, a signed identity and circuit breakers, and publish durable events to four NATS JetStream streams. Each service owns its PostgreSQL database with row-level security, alongside Redis and Qdrant in windops-data, and external providers are reached through breakers. Every workload sends logs, metrics and traces to the observability stack. A side column lists the security controls on each hop, in place or planned with their module, the circuit breaker's states and failure behaviors, the agent guardrails and where the system runs. A strip shows delivery progress across all 15 phases.](docs/assets/platform-architecture.png)](docs/assets/platform-architecture.png)
+[![WindOps AI platform architecture: AI-assisted fault investigation for renewable assets. Operators reach the React frontend, and the telemetry simulator sends device samples, both over HTTPS through the APISIX API Gateway, which checks sign-in with Keycloak. In the windops-system namespace, Web BFF calls the Identity, Authorization and Tenant services over gRPC. In windops-application, the Agent Runtime runs a Supervisor and five specialist agents, which reach services only through four MCP servers in windops-mcp. Twenty domain services, grouped by capability, call each other over gRPC with mutual TLS, a signed identity and circuit breakers, and publish durable events to four NATS JetStream streams. Each service owns its PostgreSQL database with row-level security, alongside Redis and Qdrant in windops-data, and external providers are reached through breakers. Every workload sends logs, metrics and traces to the observability stack. A side column lists the security controls on each hop, in place or planned with their module, the circuit breaker's states and failure behaviors, the agent guardrails and where the system runs. A strip shows delivery progress across every phase.](docs/assets/platform-architecture.png)](docs/assets/platform-architecture.png)
 
 <sub>Select the diagram to view it full size. A green dot marks a service running today. Security controls marked
 planned name the module that delivers them; tests fail if a control is still shown as planned once its modules are
@@ -94,7 +94,7 @@ The [implementation tracker](docs/phases/README.md) lists every phase and module
 | Document | What it covers |
 | --- | --- |
 | [Software requirements (SRS v1.1)](docs/srs.md) | Scope, fixed decisions, requirement IDs and acceptance criteria. The source of truth |
-| [Implementation tracker](docs/phases/README.md) | All 15 phases and their modules, with progress and exit gates |
+| [Implementation tracker](docs/phases/README.md) | Every phase and its modules, with progress and exit gates |
 | [Architecture](docs/architecture.md) | How a request flows through the system |
 | [Microservices](docs/microservices.md) and [service map](docs/service-map.md) | Every service's calls and events, and its behavior when a dependency fails |
 | [gRPC contracts](docs/grpc-contracts.md) and [events](docs/events.md) | Versioning, breaking changes, subjects, dead letters and alerts |
@@ -112,6 +112,7 @@ The [implementation tracker](docs/phases/README.md) lists every phase and module
 | [0003](docs/adr/0003-postgresql-without-timescaledb.md) | PostgreSQL without TimescaleDB, and the local and production database designs |
 | [0004](docs/adr/0004-failure-behavior-for-every-dependency.md) | A defined failure behavior for every dependency |
 | [0005](docs/adr/0005-azure-deployment-as-the-final-phase.md) | Azure deployment as the final phase, and the services it uses |
+| [0006](docs/adr/0006-azure-aligned-platform-services.md) | The platform aligned with Azure's reference architecture: Service Bus, Workload ID, Cilium and Azure Monitor |
 
 ## Getting started
 

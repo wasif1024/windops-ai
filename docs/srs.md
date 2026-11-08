@@ -11,7 +11,7 @@ SRS v1.1 keeps every v1.0 feature, makes gRPC, microservices, containers and cir
 | Project | WindOps AI: agentic wind farm operations and predictive maintenance platform |
 | Version and status | 1.1, baseline for design and implementation |
 | Supersedes | Software Requirements Specification v1.0, 4 November 2026 |
-| Deployment target | Kubernetes on Minikube for development and demonstration, then Azure Kubernetes Service as the final phase ([ADR 0005](adr/0005-azure-deployment-as-the-final-phase.md)) |
+| Deployment target | Kubernetes on Minikube for development and demonstration, then Azure Kubernetes Service as the final phase ([ADR 0005](adr/0005-azure-deployment-as-the-final-phase.md)), with the platform aligned to Azure's reference architecture in Phase 4A ([ADR 0006](adr/0006-azure-aligned-platform-services.md)) |
 | Readiness claim | Portfolio-grade platform on synthetic data, not a certified industrial control system |
 | Requirement words | "Shall" is mandatory, "should" is recommended, "may" is optional |
 
@@ -24,7 +24,7 @@ SRS v1.1 keeps every v1.0 feature, makes gRPC, microservices, containers and cir
 | No owner for energy and financial impact | Production Impact Service added | 4, 7 |
 | No owner for policy checks and thresholds | Policy Service added | 4, 7 |
 | Identity Service overlapped Keycloak | Service keeps a defined scope around Keycloak | 7, 9 |
-| No async messaging | NATS JetStream and a transactional outbox | 7 |
+| No async messaging | NATS JetStream locally, or Azure Service Bus on Azure, with a transactional outbox ([ADR 0006](adr/0006-azure-aligned-platform-services.md)) | 7 |
 | No REST translation layer | Web BFF Service added, with OpenAPI | 7 |
 | No live progress for long runs | Server-sent events through the BFF | 7 |
 | Telemetry storage undefined | PostgreSQL time partitions, with retention and sample rates ([ADR 0003](adr/0003-postgresql-without-timescaledb.md)) | 8 |
@@ -469,7 +469,7 @@ The groups are for reading only. Each named service still deploys and scales on 
 | Frontend | React and TypeScript in its own image and workload |
 | Public API | REST and server-sent events over HTTPS through Apache APISIX and Web BFF |
 | Internal synchronous API | gRPC and versioned Protocol Buffers |
-| Internal events | NATS JetStream with Protobuf payloads |
+| Internal events | NATS JetStream locally, or Azure Service Bus on Azure, with Protobuf payloads (ADR 0006) |
 | Backend | Python, with grpc.aio for internal APIs and FastAPI for public, health and metrics endpoints |
 | Agents | LangChain, Deep Agents, LangGraph and Claude |
 | Relational and telemetry data | PostgreSQL, and Alembic per service |
@@ -604,7 +604,7 @@ enum Quality {
 
 ### 7.6 Events and consistency
 
-- **EVT-001:** Durable domain events shall use JetStream with versioned Protobuf schemas.
+- **EVT-001:** Durable domain events shall use JetStream, or Azure Service Bus on Azure (ADR 0006), with versioned Protobuf schemas.
 - **EVT-002:** State changes and their events shall be committed together using a transactional outbox.
 - **EVT-003:** Consumers shall be idempotent, and repeatedly failing messages shall go to a dead-letter stream with an alert.
 - **EVT-004:** Audit events shall be durable. An approval is not reported successful until its outbox entry is committed.
@@ -1034,7 +1034,7 @@ Delivery runs through 15 phases, ordered by dependency and gated by tests rather
 
 ![Delivery roadmap in four stages. Platform base covers phases 1 to 3, deterministic core covers phases 4 to 6, agents and action covers phases 7 to 10, and proof and release covers phases 11 to 14. Each stage has an exit condition that the next stage depends on.](assets/srs/delivery-roadmap.svg)
 
-*Delivery roadmap · phases 1 to 14 in 4 stages. Phase 15 then deploys the finished system to Azure.*
+*Delivery roadmap · phases 1 to 14 in 4 stages. Phase 4A aligns the platform with Azure after Phase 4 (ADR 0006), and Phase 15 deploys the finished system to Azure.*
 
 Agents arrive after the deterministic rules exist, so they never need to invent thresholds or calculations.
 

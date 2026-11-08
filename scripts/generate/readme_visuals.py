@@ -372,17 +372,18 @@ def is_running(name: str) -> bool:
     )
 
 
-def read_phase_progress(tracker: Path = TRACKER) -> list[tuple[int, str, int, int]]:
+def read_phase_progress(tracker: Path = TRACKER) -> list[tuple[str, str, int, int]]:
     """Return each phase's number, name, finished modules and total modules from the tracker."""
     text = tracker.read_text()
     phases = []
-    for match in re.finditer(r"^## Phase (\d+): (.+)$", text, re.M):
+    # A phase is a number, or a number and a letter for one added between two, such as 4A.
+    for match in re.finditer(r"^## Phase (\d+[A-Z]?): (.+)$", text, re.M):
         following = text[match.end() :]
         next_heading = following.find("\n## ")
         section = following if next_heading == -1 else following[:next_heading]
         done = len(re.findall(r"^- \[x\] ", section, re.M))
         total = done + len(re.findall(r"^- \[ \] ", section, re.M))
-        phases.append((int(match.group(1)), match.group(2), done, total))
+        phases.append((match.group(1), match.group(2), done, total))
     return phases
 
 
