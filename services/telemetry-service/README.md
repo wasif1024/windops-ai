@@ -45,7 +45,8 @@ per-address limit.
 | --- | --- | --- | --- |
 | `operational_samples` | One row per 1 Hz sample: tenant, turbine, event time, sequence, the device, ingestion time, source, schema and model versions, `synthetic`, state, availability, quality status and the 12 readings. A reading is null while its sensor sends nothing. Quality status is `received` until data-quality detection labels it (M4.6) | A day each, by event time | 90 days |
 | `scada_summaries` | A 10-minute SCADA summary per turbine: mean, minimum, maximum and standard deviation of each reading, coverage, quality status, availability, producing time, energy, duplicates, late samples, revision and the versions it came from | A month each, by period | 2 years |
-| `ingest_rejections` | Each refused sample, with its reason and at most 500 characters of what was sent | None, deleted row by row | 90 days |
+| `ingest_rejections` | Each refused sample, with its reason, at most 500 characters of what was sent, and its sequence and time if they can be read | None, deleted row by row | 90 days |
+| `data_gaps` | Each run of sequences a turbine never sent, per 10-minute period | None, deleted row by row | 90 days |
 | `retention_holds` | Ranges of data a snapshot references, kept past retention until released. Snapshots write them from M4.7 | None | Until released |
 | `device_credentials` | Each device's turbine, who made it, when, and when it was revoked. Only the secret's SHA-256 is kept | None | Always |
 
@@ -70,6 +71,35 @@ summarized a minute after it ends, for batches still on their way. On its first 
 | `source`, `schema_version`, `model_version`, `synthetic` | Where the samples came from, so a summary can be reproduced (FR-TEL-006) |
 
 With more than one replica, an advisory lock lets one summarize at a time, and the others skip that minute.
+
+### Data quality (FR-TEL-003)
+
+Nothing a device sends is dropped silently. Each time the summarizer summarizes a period, it also labels the period's
+samples, so labels follow late data the way summaries do. Each sample gets the first label that applies:
+
+| `quality_status` | When |
+| --- | --- |
+| `duplicate` | A later copy of a sequence the turbine already sent. The first copy stays `ok` |
+| `delayed` | It arrived more than `WINDOPS_TELEMETRY_DELAY_SECONDS`, 20 by default, after it was measured. A device sends within a few seconds |
+| `out_of_order` | A sample with a higher sequence, from the same turbine, arrived before it. A delayed sample does not make the ones after it look out of order |
+| `ok` | None of these |
+| `received` | Not looked at yet: its period has not closed, or it was summarized before labelling existed |
+
+Arrival order within one batch comes from each sample's place in it, `arrival_index`.
+
+**Missing samples** cannot be labelled, as they are not there. Each run of sequences a turbine never sent is kept in
+`data_gaps`, per period. A late sample that fills a gap removes it.
+
+**Malformed samples** are the rejections the device route keeps, with their reasons. When a broken sample still has a
+readable sequence and time, the rejection keeps them, so its slot is counted as malformed, not also as missing.
+Text cut off part way cannot say which sample it was, so its slot reads as missing.
+
+Each summary counts its `duplicate_samples`, `delayed_samples`, `out_of_order_samples`, `missing_samples` and
+`malformed_samples`. A test replays a simulator scenario with every kind of problem through the route, and matches
+the labels to its ground truth:
+- duplicates, delays and gaps exactly;
+- out-of-order with no false alarms. The only misses are a sample whose next one was itself lost, broken or delayed,
+  when nothing out of order reached the wire.
 
 ### Partitions and retention (ADR 0003)
 
@@ -142,7 +172,6 @@ this route with those tokens; see [windops-simulator](../../simulator/README.md#
 
 ## Still to come
 
-- Data-quality labels (M4.6).
 - Reading telemetry and snapshots, `StreamTurbineTelemetry` and `CreateTelemetrySnapshot`, which answer
   UNIMPLEMENTED until M4.7. Snapshots will write retention holds.
 
@@ -153,4 +182,5 @@ uv run pytest services/telemetry-service/tests
 make telemetry-check           # on the cluster, after make telemetry-devices
 make telemetry-storage-check   # partitions, summaries, late data and retention
 make cms-check                 # live CMS features, a worn bearing's signature, raw windows
+make data-quality-check        # one of each data problem, sent and labelled
 ```

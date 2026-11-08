@@ -106,6 +106,24 @@ def _insert_ignoring(connection: AsyncConnection, table: Table) -> Any:
     return dialect.insert(table).on_conflict_do_nothing()
 
 
+def _readable(item: object) -> dict[str, Any]:
+    """The sequence and time of a refused sample, where they can still be read."""
+    if not isinstance(item, dict):
+        return {"sequence": None, "event_time": None}
+    sequence = item.get("sequence")
+    moment = None
+    if isinstance(item.get("event_time"), str):
+        try:
+            moment = datetime.fromisoformat(item["event_time"])
+        except ValueError:
+            moment = None
+    return {
+        "sequence": sequence if isinstance(sequence, int) and not isinstance(sequence, bool)
+        and 0 < sequence < 2**62 else None,
+        "event_time": moment if moment is not None and moment.tzinfo else None,
+    }  # fmt: skip
+
+
 def _excerpt(item: object) -> str:
     text = item if isinstance(item, str) else json.dumps(item, default=str)
     return text[:EXCERPT_CHARACTERS]
@@ -307,6 +325,7 @@ def create_ingest_router(
                         "received_at": received,
                         "reason": reason,
                         "excerpt": _excerpt(item),
+                        **_readable(item),
                     }
                 )
                 continue
@@ -325,6 +344,7 @@ def create_ingest_router(
                     "operating_state": sample.operating_state,
                     "available": sample.available,
                     "quality_status": "received",
+                    "arrival_index": index,
                     **sample.readings,
                 }
             )

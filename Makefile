@@ -18,7 +18,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check simulator-check telemetry-storage-check cms-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check simulator-check telemetry-storage-check cms-check data-quality-check $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -190,6 +190,9 @@ telemetry-storage-check: ## Prove partitions, live 10-minute summaries, late dat
 
 cms-check: ## Prove CMS vibration: live features, a worn bearing's signature and raw windows
 	uv run python -m scripts.checks.fleet.cms
+
+data-quality-check: ## Prove data-quality labels: one of each problem sent, and labelled
+	uv run python -m scripts.checks.fleet.data_quality
 
 tenant-check: ## Prove tenants, branding and row-level security on the cluster
 	uv run python -m scripts.checks.identity.tenant

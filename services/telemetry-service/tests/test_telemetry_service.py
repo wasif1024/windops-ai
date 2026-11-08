@@ -267,5 +267,12 @@ def test_the_migration_creates_every_column_the_service_writes() -> None:
     versions = Path(__file__).parents[1] / "src" / "windops_telemetry" / "migrations" / "versions"
     text = "".join(path.read_text() for path in versions.glob("rev_*.py"))
     columns = [*OPERATIONAL_SAMPLES.c, *SCADA_SUMMARIES.c, *CMS_FEATURES.c, *CMS_WAVEFORMS.c]
-    missing = [column.name for column in columns if f'"{column.name} ' not in text]
+    # Written out as SQL, or added later with sa.Column.
+    missing = [
+        column.name
+        for column in columns
+        if f'"{column.name} ' not in text
+        and f'"{column.name}",' not in text
+        and f" {column.name} " not in text
+    ]
     assert missing == []

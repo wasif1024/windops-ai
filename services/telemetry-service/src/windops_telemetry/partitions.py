@@ -27,7 +27,7 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from windops_migrations import across_tenants, enable_tenant_isolation
 
-from windops_telemetry.store import INGEST_REJECTIONS, RETENTION_HOLDS
+from windops_telemetry.store import DATA_GAPS, INGEST_REJECTIONS, RETENTION_HOLDS
 
 logger = logging.getLogger("windops.service")
 CHECK_SECONDS = 3600
@@ -202,6 +202,10 @@ async def expire(
         # Rejections are not partitioned, so they go row by row, with the raw samples' retention.
         await connection.execute(
             delete(INGEST_REJECTIONS).where(INGEST_REJECTIONS.c.received_at < now - raw.retention)
+        )
+        # Gaps go with the samples they describe.
+        await connection.execute(
+            delete(DATA_GAPS).where(DATA_GAPS.c.period_start < now - raw.retention)
         )
         if not postgres:
             return dropped
