@@ -48,16 +48,18 @@ def test_a_control_is_not_shown_as_planned_once_its_modules_are_done() -> None:
 
 def test_roadmap_reads_all_phases_with_the_tracker_totals() -> None:
     phases = read_phase_progress()
-    assert [number for number, _, _, _ in phases] == list(range(1, 16))
-    table = dict(re.findall(r"^\| (\d+) \| \[[^\]]+\]\([^)]*\) \| (\d+) \|", TRACKER, re.M))
+    expected = [str(n) for n in range(1, 16)]
+    expected.insert(4, "4A")  # Added after Phase 4 by ADR 0006.
+    assert [number for number, _, _, _ in phases] == expected
+    table = dict(re.findall(r"^\| (\d+[A-Z]?) \| \[[^\]]+\]\([^)]*\) \| (\d+) \|", TRACKER, re.M))
     for number, _, _, total in phases:
-        assert int(table[str(number)]) == total
+        assert int(table[number]) == total
 
 
 def test_roadmap_progress_counts_ticked_modules(tmp_path: Path) -> None:
     tracker = tmp_path / "README.md"
     tracker.write_text("## Phase 1: First\n\n- [x] a\n- [ ] b\n\n## Phase 2: Second\n\n- [ ] c\n")
-    assert read_phase_progress(tracker) == [(1, "First", 1, 2), (2, "Second", 0, 1)]
+    assert read_phase_progress(tracker) == [("1", "First", 1, 2), ("2", "Second", 0, 1)]
 
 
 def test_readme_shows_the_one_architecture_diagram() -> None:

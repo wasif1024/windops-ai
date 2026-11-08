@@ -1,10 +1,11 @@
 # Implementation tracker
 
 This is the single record of what has been built and what comes next. It breaks
-the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules.
+the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into modules, with Phase 4A added
+between Phases 4 and 5 by [ADR 0006](../adr/0006-azure-aligned-platform-services.md).
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 4. Next up is M4.7.
+**Current position:** Phase 4A, Azure alignment ([ADR 0006](../adr/0006-azure-aligned-platform-services.md)). Next up is M4A.2. M4.7 waits until Phase 4A is done.
 
 ## How to use this tracker
 
@@ -38,6 +39,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 | 2 | [Data and events](#phase-2-data-and-events) | 9 | Done |
 | 3 | [Identity and tenancy](#phase-3-identity-and-tenancy) | 12 | Done |
 | 4 | [Assets and telemetry](#phase-4-assets-and-telemetry) | 10 | In progress |
+| 4A | [Azure alignment](#phase-4a-azure-alignment) | 7 | In progress |
 | 5 | [Alarms, detection and cases](#phase-5-alarms-detection-and-cases) | 7 | Not started |
 | 6 | [Deterministic decisions](#phase-6-deterministic-decisions) | 5 | Not started |
 | 7 | [Knowledge and external intelligence](#phase-7-knowledge-and-external-intelligence) | 7 | Not started |
@@ -115,6 +117,22 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [ ] **M4.8 Fleet screens:** fleet overview, turbine detail and telemetry charts (SRS 4.11).
 - [ ] **M4.9 Freshness visibility:** Data Freshness dashboard, starting with telemetry delay (SRS 10.3).
 - [ ] **M4.10 Exit gate:** a seeded fault profile streams into storage with the correct quality labels.
+
+## Phase 4A: Azure alignment
+
+Added by [ADR 0006](../adr/0006-azure-aligned-platform-services.md), before M4.7, so the system follows Azure's
+[advanced AKS microservices architecture](https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/containers/aks-microservices/aks-microservices-advanced).
+`WINDOPS_ENVIRONMENT` chooses each service's back end: `local` keeps today's, and `dev` or `live` uses Azure's. Stage
+1, the code and its local proof, costs nothing. Stage 2, M4A.6 and the live tests, creates Azure resources only after
+their plan and monthly price are approved.
+
+- [x] **M4A.1 Azure alignment decision:** ADR 0006, this phase, the SRS and the settings. Done 2026-11-09.
+- [ ] **M4A.2 Cilium:** the local cluster on Cilium in place of Calico, with every cluster check passing on it.
+- [ ] **M4A.3 Event back ends:** one events interface, with NATS JetStream for `local` and Azure Service Bus for `dev` and `live`, the outbox unchanged, one test suite for both, and one run against a real Service Bus namespace.
+- [ ] **M4A.4 Workload identity:** Microsoft Entra Workload ID for Service Bus, Azure Database for PostgreSQL and Key Vault, with no stored password, and passwords as today locally.
+- [ ] **M4A.5 Azure Monitor:** OpenTelemetry to Application Insights and Log Analytics, metrics to managed Prometheus, and the dashboards and alert rules as code for Azure Managed Grafana.
+- [ ] **M4A.6 Azure foundation and live proof:** the Azure resources in Bicep, created from an approved plan and price, with Service Bus, Workload ID and monitoring proven on them.
+- [ ] **M4A.7 Azure presentation:** the README and its diagram show the Azure architecture, and the local profile beside it.
 
 ## Phase 5: Alarms, detection and cases
 
@@ -224,6 +242,8 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [ ] **M14.7 Exit gate:** no critical findings remain, and a clean `make` bootstrap passes the smoke and end-to-end tests.
 
 ## Phase 15: Azure deployment
+
+Phase 4A builds the Azure services, Workload ID, monitoring and their Bicep first ([ADR 0006](../adr/0006-azure-aligned-platform-services.md)). This phase deploys the whole system on them, hardens it and presents it.
 
 - [ ] **M15.1 Azure decisions:** subscription, region, budget with an alert, domain, and refreshed prices and quota ([ADR 0005](../adr/0005-azure-deployment-as-the-final-phase.md)).
 - [ ] **M15.2 Foundation:** resource group, Container Registry and Key Vault in Bicep, with GitHub OIDC login and no stored Azure password.
