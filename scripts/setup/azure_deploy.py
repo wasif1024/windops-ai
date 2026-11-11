@@ -67,6 +67,8 @@ PROVIDERS = (
     "Microsoft.Security",
     "Microsoft.Consumption",
 )
+# Azure Resource Manager's states for a deployment that has not finished.
+RUNNING = {"Accepted", "Running", "Canceling"}
 COST = "Compute costs about $0.98 an hour while it runs; the data group about $20 a month."
 # Key Vault's data-plane roles take a few minutes to reach a new vault.
 ROLE_WAIT_SECONDS, ROLE_ATTEMPTS = 15, 20
@@ -394,14 +396,19 @@ def down(config: dict[str, Any], assume_yes: bool) -> int:
     if not assume_yes:
         confirm("Delete the compute?")
     subscription = config["subscription"]
+    stop_deployment(config)
     if az("group", "exists", "--name", compute, "--subscription", subscription) == "true":
         print(f"Deleting {compute}: about 10 minutes")
         az("group", "delete", "--name", compute, "--subscription", subscription, "--yes")
+    data = f"rg-windops-{environment}-data"
+    if az("group", "exists", "--name", data, "--subscription", subscription) != "true":
+        # A run rejected or cancelled before it deployed: nothing to stop, and nothing to create.
+        print(f"{data} does not exist: nothing is running.")
+        return 0
     print("Removing the cluster's and this machine's addresses from the firewalls")
     # Only the configured ranges stay: an agent's address is needed only while it deploys.
     kept = {**config, "ranges": config["configured_ranges"] or config["ranges"]}
     deploy(kept, operator_object_id(config), what_if=False, deployCompute=False)
-    data = f"rg-windops-{environment}-data"
     servers = az_json(
         "postgres", "flexible-server", "list", "--resource-group", data,
         "--subscription", subscription, "--query", "[].{n:name, s:state}",
@@ -413,6 +420,31 @@ def down(config: dict[str, Any], assume_yes: bool) -> int:
                "--name", server["n"], "--subscription", subscription)  # fmt: skip
     print("Done: about $20 a month until `make azure-up`.")
     return 0
+
+
+def stop_deployment(config: dict[str, Any], wait_seconds: int = 900) -> None:
+    """Cancel a deployment still running in Azure, as one does after its pipeline job is cancelled.
+
+    Cancelling a job stops only the agent: Azure Resource Manager carries on creating resources.
+    Deleting the compute group under it would race with it, so it is stopped first.
+    """
+    name, subscription = f"windops-{config['environment']}", config["subscription"]
+
+    def state() -> str:
+        return az(
+            "deployment", "sub", "list", "--subscription", subscription,
+            "--query", f"[?name=='{name}'].properties.provisioningState | [0]", "--output", "tsv",
+        )  # fmt: skip
+
+    if state() not in RUNNING - {"Canceling"}:
+        return
+    print(f"Cancelling the deployment {name}, which is still running in Azure")
+    az("deployment", "sub", "cancel", "--name", name, "--subscription", subscription)
+    deadline = time.monotonic() + wait_seconds
+    while state() in RUNNING:
+        if time.monotonic() > deadline:
+            raise AzureError(f"{name} is still running after {wait_seconds} seconds")
+        time.sleep(15)
 
 
 def deployed_outputs(config: dict[str, Any]) -> dict[str, Any]:
