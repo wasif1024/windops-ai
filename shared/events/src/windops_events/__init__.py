@@ -1,5 +1,13 @@
-"""Durable, tenant-carrying JetStream events (SRS 7.6, DAT-007)."""
+"""Durable, tenant-carrying events, on JetStream or Azure Service Bus (SRS 7.6, ADR 0006)."""
 
+from windops_events.backend import (
+    BACKENDS,
+    Consumer,
+    Events,
+    Publisher,
+    events_backend,
+    open_events,
+)
 from windops_events.client import (
     EventConsumer,
     EventPublisher,
@@ -24,23 +32,29 @@ from windops_events.streams import (
 
 __all__ = [
     "AUDIT_REQUEST_SUBJECTS",
+    "BACKENDS",
     "DEAD_LETTER_PREFIX",
     "DEAD_LETTER_STREAM",
     "STREAMS",
     "SUBJECTS",
+    "Consumer",
     "Event",
     "EventConsumer",
     "EventPublisher",
+    "Events",
     "EventsUnavailableError",
     "InvalidEventError",
     "PublishedEvent",
+    "Publisher",
     "RetryLaterError",
     "StreamSpec",
     "audit_request_subject",
     "build_envelope",
     "connect",
     "ensure_streams",
+    "events_backend",
     "events_breaker",
+    "open_events",
     "parse_event",
     "tls_context",
 ]
