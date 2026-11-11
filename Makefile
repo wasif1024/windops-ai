@@ -224,9 +224,8 @@ azure-destroy: ## Delete every Azure resource and the budget, after asking you t
 azure-prove: ## Prove the deployed Azure cluster's nodes, and events on its Service Bus
 	uv run python -m scripts.setup.azure_deploy prove
 
-azure-pipeline-identity: ## Create the Azure DevOps pipeline's identity once: ISSUER=... SUBJECT=... (docs/azure-devops.md)
-	@test -n "$(ISSUER)" -a -n "$(SUBJECT)" || { echo 'Usage: make azure-pipeline-identity ISSUER=https://vstoken.dev.azure.com/... SUBJECT=sc://org/project/windops-staging' >&2; exit 1; }
-	uv run python -m scripts.setup.azure_pipeline --issuer "$(ISSUER)" --subject "$(SUBJECT)"
+azure-pipeline-identity: ## Create the Azure DevOps pipeline's identity once, from AZURE_PIPELINE_ISSUER and _SUBJECT (docs/azure-devops.md)
+	uv run python -m scripts.setup.azure_pipeline $(if $(ISSUER),--issuer "$(ISSUER)") $(if $(SUBJECT),--subject "$(SUBJECT)")
 
 tenant-check: ## Prove tenants, branding and row-level security on the cluster
 	uv run python -m scripts.checks.identity.tenant
