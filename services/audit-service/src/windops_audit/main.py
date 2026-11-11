@@ -22,11 +22,10 @@ from windops_auth import current_identity_token
 from windops_events import (
     AUDIT_REQUEST_SUBJECTS,
     Event,
-    EventConsumer,
-    EventPublisher,
+    Events,
+    EventsUnavailableError,
     RetryLaterError,
-    connect,
-    events_breaker,
+    open_events,
 )
 from windops_grpc import (
     InvalidRequestError,
@@ -220,33 +219,27 @@ async def record_event(engine: AsyncEngine, event: Event, counter: Any = None) -
 async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
     """Keep trying to connect, because an outage must not restart this service (RES-006)."""
     start_counting()
-    client = None
-    while client is None:
+    events: Events | None = None
+    while events is None:
         if stop.is_set():
             return
         try:
-            client = await connect(
-                url=os.environ["WINDOPS_EVENTS_URL"],
-                username=os.environ["WINDOPS_EVENTS_USERNAME"],
-                password=os.environ["WINDOPS_EVENTS_PASSWORD"],
-                name=SERVICE_NAME,
-                ca_file=f"{os.environ['WINDOPS_TLS_DIR']}/ca.crt",
+            # NATS JetStream or Azure Service Bus, as WINDOPS_ENVIRONMENT chooses (ADR 0006).
+            events = await open_events(SERVICE_NAME)
+        except EventsUnavailableError as error:
+            logger.warning(
+                "Cannot reach the events back end yet", extra={"error_type": type(error).__name__}
             )
-        except (NatsError, APIError, TimeoutError, OSError) as error:
-            logger.warning("Cannot reach JetStream yet", extra={"error_type": type(error).__name__})
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), timeout=RECONNECT_SECONDS)
-
-    js = client.jetstream()
-    publisher = EventPublisher(js, producer=SERVICE_NAME, breaker=events_breaker())
 
     async def handler(event: Event) -> None:
         await record_event(engine, event)
 
-    consumer = EventConsumer(
-        js, subject=AUDIT_REQUEST_SUBJECTS, durable=SERVICE_NAME, handler=handler
+    consumer = events.consumer(
+        subject=AUDIT_REQUEST_SUBJECTS, durable=SERVICE_NAME, handler=handler
     )
-    relay = asyncio.create_task(OutboxRelay(engine, publisher).run_forever(stop))
+    relay = asyncio.create_task(OutboxRelay(engine, events.publisher).run_forever(stop))
     started = False
     try:
         while not stop.is_set():
@@ -255,7 +248,7 @@ async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
                     await consumer.start()
                     started = True
                 await consumer.run_once()
-            except (NatsError, APIError, TimeoutError, OSError) as error:
+            except (NatsError, APIError, EventsUnavailableError, TimeoutError, OSError) as error:
                 logger.warning(
                     "Cannot read audit requests yet", extra={"error_type": type(error).__name__}
                 )
@@ -264,7 +257,7 @@ async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
     finally:
         stop.set()
         await relay
-        await client.close()
+        await events.close()
 
 
 def registrar(engine: AsyncEngine, authorizer: Authorizer) -> Callable[[grpc.aio.Server], None]:

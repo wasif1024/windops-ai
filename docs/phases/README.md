@@ -5,7 +5,7 @@ the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into module
 between Phases 4 and 5 by [ADR 0006](../adr/0006-azure-aligned-platform-services.md).
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 4A, Azure alignment ([ADR 0006](../adr/0006-azure-aligned-platform-services.md)). Next up is M4A.3. M4.7 waits until Phase 4A is done.
+**Current position:** Phase 4A, Azure alignment ([ADR 0006](../adr/0006-azure-aligned-platform-services.md)). Next up is M4A.4. M4.7 waits until Phase 4A is done.
 
 ## How to use this tracker
 
@@ -128,7 +128,7 @@ their plan and monthly price are approved.
 
 - [x] **M4A.1 Azure alignment decision:** ADR 0006, this phase, the SRS and the settings. Done 2026-11-09.
 - [x] **M4A.2 Cilium:** the local cluster on Cilium in place of Calico. Done 2026-11-11: `make cluster` uses Cilium, and `make cluster-check` proves Cilium is the network plugin and enforces both a Kubernetes NetworkPolicy and a CiliumNetworkPolicy. The phase gates run again at the end of Phase 4A.
-- [ ] **M4A.3 Event back ends:** one events interface, with NATS JetStream for `local` and Azure Service Bus for `dev` and `live`, the outbox unchanged, one test suite for both, and one run against a real Service Bus namespace.
+- [x] **M4A.3 Event back ends:** one events interface, with NATS JetStream for `local` and Azure Service Bus for `dev` and `live`, the outbox unchanged, one test suite for both, and one run against a real Service Bus namespace. Done 2026-11-11: `open_events()` chooses from `WINDOPS_ENVIRONMENT`, a five-scenario contract runs against both, and a real Standard namespace passed it (`make servicebus-check`) before being deleted.
 - [ ] **M4A.4 Workload identity:** Microsoft Entra Workload ID for Service Bus, Azure Database for PostgreSQL and Key Vault, with no stored password, and passwords as today locally.
 - [ ] **M4A.5 Azure Monitor:** OpenTelemetry to Application Insights and Log Analytics, metrics to managed Prometheus, and the dashboards and alert rules as code for Azure Managed Grafana.
 - [ ] **M4A.6 Azure foundation and live proof:** the Azure resources in Bicep, created from an approved plan and price, with Service Bus, Workload ID and monitoring proven on them.
