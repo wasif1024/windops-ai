@@ -25,6 +25,8 @@ import base64
 import datetime
 import ipaddress
 import json
+import os
+import shutil
 import subprocess
 import sys
 import time
@@ -116,18 +118,34 @@ def deployment_settings() -> dict[str, Any]:
     email = values.get("AZURE_ALERT_EMAIL", "")
     if "@" not in email:
         raise AzureError("Set AZURE_ALERT_EMAIL in .env: budget and alert emails go there")
-    ranges = ip_ranges(values.get("AZURE_OPERATOR_IP_RANGES", "") or public_ip())
     return {
         "subscription": settings.get("AZURE_SUBSCRIPTION_ID"),
         "location": values.get("AZURE_LOCATION") or "swedencentral",
-        "environment": values.get("AZURE_ENVIRONMENT") or "dev",
+        "environment": values.get("AZURE_ENVIRONMENT") or "staging",
         "budget": int(values.get("AZURE_BUDGET_USD") or 100),
         "email": email,
-        "ranges": ranges,
+        "ranges": merged_ranges(values.get("AZURE_OPERATOR_IP_RANGES", ""), public_ip()),
+        "configured_ranges": ip_ranges(values.get("AZURE_OPERATOR_IP_RANGES", "")),
+        "operator": values.get("AZURE_OPERATOR_OBJECT_ID", ""),
+        "pipeline": values.get("AZURE_PIPELINE_PRINCIPAL_ID", ""),
     }
 
 
-def operator_object_id() -> str:
+def merged_ranges(configured: str, current: str) -> list[str]:
+    """The configured ranges, and the address this runs from, so a pipeline agent can reach in."""
+    ranges = ip_ranges(configured)
+    if not any(ipaddress.ip_address(current) in ipaddress.ip_network(r) for r in ranges):
+        ranges.append(current)
+    return ip_ranges(",".join(ranges))
+
+
+def operator_object_id(config: dict[str, Any]) -> str:
+    """The person the deployment is for. A pipeline signs in as itself, so it is set there."""
+    if config["operator"]:
+        return str(config["operator"])
+    signed_in = az_json("account", "show", "--query", "user")
+    if signed_in.get("type") != "user":
+        raise AzureError("Signed in as a service principal: set AZURE_OPERATOR_OBJECT_ID")
     return az("ad", "signed-in-user", "show", "--query", "id", "--output", "tsv")
 
 
@@ -138,6 +156,7 @@ def parameters(config: dict[str, Any], operator: str, **extra: Any) -> list[str]
         "environment": config["environment"],
         "operatorIpRanges": config["ranges"],
         "operatorObjectId": operator,
+        "pipelinePrincipalId": config.get("pipeline", ""),
         "alertEmail": config["email"],
         "budgetAmount": config["budget"],
         **extra,
@@ -326,7 +345,7 @@ def save_outputs(environment: str, outputs: dict[str, Any]) -> Path:
 
 
 def plan(config: dict[str, Any], compute: bool) -> int:
-    operator = operator_object_id()
+    operator = operator_object_id(config)
     missing = unregistered_providers(config["subscription"])
     if missing:
         print("Not registered yet, so `up` registers them first, which is free:")
@@ -346,7 +365,7 @@ def up(config: dict[str, Any], assume_yes: bool) -> int:
     print(f"Allowed to the cluster API, Key Vault and Service Bus: {', '.join(config['ranges'])}")
     if not assume_yes:
         confirm("Create it?")
-    operator = operator_object_id()
+    operator = operator_object_id(config)
     register_providers(config["subscription"])
     recover_deleted_vault(config)
     print("Creating the data resource group")
@@ -362,12 +381,8 @@ def up(config: dict[str, Any], assume_yes: bool) -> int:
         gatewayCertificateUri=certificate, gatewayTrustedRootCertificate=trusted_root,
     )  # fmt: skip
     path = save_outputs(config["environment"], outputs)
-    az("aks", "get-credentials", "--subscription", config["subscription"],
-       "--resource-group", outputs["computeResourceGroup"], "--name", outputs["clusterName"],
-       "--context", f"windops-aks-{config['environment']}", "--overwrite-existing")  # fmt: skip
-    context = f"windops-aks-{config['environment']}"
-    print(f"Done. Outputs in {path.relative_to(REPOSITORY)}; kubectl context {context},")
-    print("which needs kubelogin: az aks install-cli.")
+    context = use_cluster(config, outputs)
+    print(f"Done. Outputs in {path.relative_to(REPOSITORY)}; kubectl context {context}.")
     print(f"Gateway: https://{outputs['gatewayFqdn']}. Run `make azure-down` when finished.")
     return 0
 
@@ -382,8 +397,10 @@ def down(config: dict[str, Any], assume_yes: bool) -> int:
     if az("group", "exists", "--name", compute, "--subscription", subscription) == "true":
         print(f"Deleting {compute}: about 10 minutes")
         az("group", "delete", "--name", compute, "--subscription", subscription, "--yes")
-    print("Removing the cluster's address from Service Bus's firewall")
-    deploy(config, operator_object_id(), what_if=False, deployCompute=False)
+    print("Removing the cluster's and this machine's addresses from the firewalls")
+    # Only the configured ranges stay: an agent's address is needed only while it deploys.
+    kept = {**config, "ranges": config["configured_ranges"] or config["ranges"]}
+    deploy(kept, operator_object_id(config), what_if=False, deployCompute=False)
     data = f"rg-windops-{environment}-data"
     servers = az_json(
         "postgres", "flexible-server", "list", "--resource-group", data,
@@ -398,14 +415,64 @@ def down(config: dict[str, Any], assume_yes: bool) -> int:
     return 0
 
 
-def destroy(config: dict[str, Any]) -> int:
+def deployed_outputs(config: dict[str, Any]) -> dict[str, Any]:
+    """The last deployment's outputs, from Azure, so any machine or pipeline job can read them."""
+    found = az_json(
+        "deployment", "sub", "show", "--subscription", config["subscription"],
+        "--name", f"windops-{config['environment']}", "--query", "properties.outputs",
+    )  # fmt: skip
+    return {name: item["value"] for name, item in (found or {}).items()}
+
+
+def use_cluster(config: dict[str, Any], outputs: dict[str, Any]) -> str:
+    """A kubectl context for the cluster, signed in through kubelogin with the CLI's session."""
+    context = f"windops-aks-{config['environment']}"
+    az(
+        "aks", "get-credentials", "--subscription", config["subscription"],
+        "--resource-group", outputs["computeResourceGroup"], "--name", outputs["clusterName"],
+        "--context", context, "--overwrite-existing",
+    )  # fmt: skip
+    if shutil.which("kubelogin") is None:
+        raise AzureError("kubectl needs kubelogin for Entra sign-in: run az aks install-cli")
+    subprocess.run(["kubelogin", "convert-kubeconfig", "--login", "azurecli"], check=True)
+    return context
+
+
+def prove(config: dict[str, Any]) -> int:
+    """What the pipeline checks once the compute is up: the nodes, and events on Service Bus."""
+    outputs = deployed_outputs(config)
+    if not outputs.get("clusterName"):
+        raise AzureError("No cluster in the last deployment: run `make azure-up` first")
+    context = use_cluster(config, outputs)
+    nodes = subprocess.run(
+        ["kubectl", "--context", context, "get", "nodes", "--no-headers"],
+        capture_output=True, text=True, check=False,
+    )  # fmt: skip
+    ready = [line for line in nodes.stdout.splitlines() if " Ready " in f" {line} "]
+    if nodes.returncode != 0 or len(ready) < 2:
+        raise AzureError(f"The cluster's two nodes are not Ready: {nodes.stderr or nodes.stdout}")
+    print(f"PASS {len(ready)} AKS nodes are Ready")
+    # The same five-scenario contract NATS passes, on the deployed namespace (M4A.3).
+    check = subprocess.run(
+        [sys.executable, "-m", "scripts.checks.data.servicebus"],
+        env={**os.environ, "WINDOPS_SERVICEBUS_NAMESPACE": outputs["serviceBusNamespace"]},
+        cwd=REPOSITORY, check=False,
+    )  # fmt: skip
+    if check.returncode != 0:
+        raise AzureError("Events on the deployed Service Bus failed their contract")
+    return 0
+
+
+def destroy(config: dict[str, Any], confirmed: str = "") -> int:
     environment, subscription = config["environment"], config["subscription"]
     groups = [f"rg-windops-{environment}-compute", f"rg-windops-{environment}-data"]
     print(
         f"This deletes {' and '.join(groups)}, with every database, image, secret and log in them,"
     )
     print("and the budget. Key Vault keeps the vault for 90 days, and `up` takes it back.")
-    confirm("Delete everything?", expected=f"destroy {environment}")
+    expected = f"destroy {environment}"
+    if confirmed != environment:
+        confirm("Delete everything?", expected=expected)
     for group in groups:
         if az("group", "exists", "--name", group, "--subscription", subscription) == "true":
             print(f"Deleting {group}")
@@ -423,7 +490,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     plan_parser.add_argument("--compute", action="store_true", help="include the compute group")
     for name in ("up", "down"):
         commands.add_parser(name).add_argument("--yes", action="store_true", help="do not ask")
-    commands.add_parser("destroy")
+    commands.add_parser("prove", help="check the deployed nodes and Service Bus")
+    commands.add_parser("destroy").add_argument(
+        "--confirm", default="", metavar="ENVIRONMENT", help="the environment's name, to not ask"
+    )
     arguments = parser.parse_args(argv)
     try:
         config = deployment_settings()
@@ -434,7 +504,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             return up(config, arguments.yes)
         if arguments.command == "down":
             return down(config, arguments.yes)
-        return destroy(config)
+        if arguments.command == "prove":
+            return prove(config)
+        return destroy(config, arguments.confirm)
     except (AzureError, RuntimeError, ValueError) as error:
         print(error, file=sys.stderr)
         return 1

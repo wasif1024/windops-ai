@@ -96,12 +96,15 @@ monitoring pods are not deployed.
 | Profile | What runs | Per month |
 | --- | --- | --- |
 | **Idle** | The data resource group only, between demos | **about $20** |
-| **Demo (recommended)** | The compute for about 60 hours a month, such as 15 sessions of 4 hours | **about $85** |
+| **Proof run (recommended)** | The pipeline deploys staging, proves it and removes the compute: about an hour | **about $1 a run, plus $20** |
+| Demo | The compute for about 60 hours a month, such as 15 sessions of 4 hours | **about $85** |
 | Always on, gateway for demos | The cluster and database all month, App Gateway for 60 hours, and about 15 GB of logs | about $455 |
 | Always on | Everything all month | about $778 |
 | Live, later (Phase 15) | Production grade, as below | about $1,800 |
 
-The demo profile is what M4A.6 asks to approve. The $100 budget leaves room for a busy month, and its alerts warn
+The proof run is what M4A.6 asks to approve: the Azure DevOps pipeline deploys the `staging` environment, proves
+it, and removes the compute, so vCPUs run only for that hour ([docs/azure-devops.md](azure-devops.md)). A live demo
+keeps the compute for its length, at $0.98 an hour. The $100 budget leaves room for a busy month, and its alerts warn
 long before then.
 
 ## How to stop paying

@@ -75,7 +75,7 @@ finished, so the diagram cannot drift from the [implementation tracker](docs/pha
 WindOps AI is built for Azure and runs the same platform on a laptop. Each workload keeps its code, and only the
 back ends behind it change, chosen by `WINDOPS_ENVIRONMENT` ([ADR 0006](docs/adr/0006-azure-aligned-platform-services.md)):
 
-| Concern | Locally (`local`, `ci`) | On Azure (`dev`, `live`) |
+| Concern | Locally (`local`, `ci`) | On Azure (`dev`, `staging`, `live`) |
 | --- | --- | --- |
 | Cluster | Minikube with Cilium | AKS with Azure CNI Overlay, powered by Cilium |
 | Way in | APISIX | Application Gateway WAF v2, then APISIX |
@@ -96,7 +96,8 @@ down by splitting the deployment in two:
 | Profile | What runs | Per month |
 | --- | --- | --- |
 | Idle | The data resource group only | about $20 |
-| **Demo (planned)** | The compute for about 60 hours a month | **about $85** |
+| **Proof run (planned)** | Azure DevOps deploys staging, proves it and removes the compute | **about $1 a run** |
+| Demo | The compute for about 60 hours a month | about $85 |
 | Always on | Everything, all month | about $778 |
 | Live, later | Production grade: zone redundant, with SLAs | about $1,800 |
 
@@ -107,7 +108,10 @@ down by splitting the deployment in two:
 | Secure | No stored secrets. A WAF in Prevention mode, PostgreSQL with private access and Entra sign-in only, local auth off on Service Bus and ACR, and Defender for Containers |
 | Efficient | Managed monitoring replaces six self-hosted pods, with collection limited to what the dashboards and alerts use |
 
-The plan is awaiting approval. M4A.6 writes it in Bicep, and creates nothing until the plan and its price are
+Azure Pipelines deploys it: it validates, waits for an approval, deploys the `staging` environment, proves the
+cluster and Service Bus, and removes the compute again ([docs/azure-devops.md](docs/azure-devops.md)). It signs in
+through workload identity federation, so no secret is stored. The Bicep is in
+[infrastructure/azure/bicep](infrastructure/azure/bicep), and nothing is created until the plan and its price are
 approved.
 
 ## Project status
@@ -144,6 +148,7 @@ The [implementation tracker](docs/phases/README.md) lists every phase and module
 | [Observability](docs/observability.md) | Data flow, dashboards, alerts and retention |
 | [Deployment](docs/deployment.md) | Bootstrapping and running on Kubernetes |
 | [Azure deployment plan](docs/azure-plan.md) | Every Azure resource with its size and monthly price, and how to stop paying for it |
+| [Deploying with Azure DevOps](docs/azure-devops.md) | The pipeline that deploys and proves staging, and its one-time setup |
 | [Coding standards](docs/coding-standards.md) | Naming, commits, pull requests, merge rules and automated enforcement |
 
 ### Architecture decision records

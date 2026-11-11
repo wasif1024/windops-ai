@@ -14,9 +14,9 @@ targetScope = 'subscription'
 @description('The region for every resource. Sweden Central was the cheapest compared (docs/azure-plan.md).')
 param location string = 'swedencentral'
 
-@description('dev for demos, live for production. Workloads read it as WINDOPS_ENVIRONMENT.')
-@allowed(['dev', 'live'])
-param environment string = 'dev'
+@description('staging is the test stage the pipeline deploys and proves; live is production. Workloads read it as WINDOPS_ENVIRONMENT.')
+@allowed(['dev', 'staging', 'live'])
+param environment string = 'staging'
 
 @description('Create the compute resource group: AKS and App Gateway. false keeps only the data.')
 param deployCompute bool = false
@@ -27,6 +27,9 @@ param operatorIpRanges array
 
 @description('The operator\'s Microsoft Entra object ID: cluster admin, and writer of secrets and certificates.')
 param operatorObjectId string
+
+@description('The Azure DevOps pipeline\'s identity, given the same admin roles as the operator. Empty when run by hand.')
+param pipelinePrincipalId string = ''
 
 @description('Where budget and alert emails go. From .env, never committed.')
 param alertEmail string
@@ -60,6 +63,11 @@ var tags = {
 }
 var dataGroupName = 'rg-windops-${environment}-data'
 var computeGroupName = 'rg-windops-${environment}-compute'
+// Who may write secrets and certificates, use Service Bus, and run the cluster.
+var admins = concat(
+  [{ principalId: operatorObjectId, principalType: 'User' }],
+  empty(pipelinePrincipalId) ? [] : [{ principalId: pipelinePrincipalId, principalType: 'ServicePrincipal' }]
+)
 var deployGateway = deployCompute && !empty(gatewayCertificateUri) && !empty(gatewayTrustedRootCertificate)
 
 resource dataGroup 'Microsoft.Resources/resourceGroups@2024-03-01' = {
@@ -97,6 +105,7 @@ module data 'modules/data.bicep' = {
     allowedIpRanges: concat(operatorIpRanges, deployCompute ? [edge!.outputs.outboundIpAddress] : [])
     operatorIpRanges: operatorIpRanges
     operatorObjectId: operatorObjectId
+    admins: admins
     alertEmail: alertEmail
   }
 }
@@ -110,7 +119,7 @@ module compute 'modules/compute.bicep' = if (deployCompute) {
     tags: tags
     kubernetesVersion: kubernetesVersion
     operatorIpRanges: operatorIpRanges
-    operatorObjectId: operatorObjectId
+    admins: admins
     aksSubnetId: data.outputs.aksSubnetId
     appGatewaySubnetId: data.outputs.appGatewaySubnetId
     controlPlaneIdentityId: data.outputs.controlPlaneIdentityId
