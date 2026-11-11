@@ -3,7 +3,9 @@
 #
 #   Validate         the Azure tests, and a what-if of every change
 #   Deploy           make azure-up, once someone approves the windops-staging environment
-#   Prove            the AKS nodes are Ready, and events pass their contract on Service Bus
+#   Platform         make azure-platform: the services' images, then the services on AKS
+#   Prove            the nodes, Service Bus, and the services with Workload ID, Key Vault,
+#                    mutual TLS and Application Insights
 #   Remove compute   make azure-down, even if Prove or Deploy failed or the run was cancelled
 #
 # It signs in to Azure through the windops-staging service connection, with workload identity
@@ -16,7 +18,9 @@ trigger:
     include:
       - infrastructure/azure
       - infrastructure/kubernetes/overlays/azure
+      - infrastructure/monitoring/azure
       - scripts/setup/azure_deploy.py
+      - scripts/setup/azure_platform.py
       - scripts/generate/azure_foundation.py
 
 # Pull requests are GitHub Actions' to check.
@@ -53,7 +57,7 @@ stages:
           - job: validate
             steps:
               - template: templates/setup.yml
-              - script: uv run pytest -q tests/test_azure_foundation.py tests/test_azure_overlay.py tests/test_azure_monitoring.py
+              - script: uv run pytest -q tests/test_azure_foundation.py tests/test_azure_overlay.py tests/test_azure_monitoring.py tests/test_azure_platform.py shared/migrations/tests/test_provision.py
                 displayName: The Azure files are made from the code, and keep the plan's settings
               - task: AzureCLI@2
                 displayName: What would change (creates nothing)
@@ -85,14 +89,30 @@ stages:
                         scriptLocation: inlineScript
                         inlineScript: uv run python -m scripts.setup.azure_deploy up --yes
 
-      - stage: Prove
+      - stage: Platform
         dependsOn: Deploy
+        jobs:
+          - job: platform
+            # Building and pushing the images takes most of it.
+            timeoutInMinutes: 60
+            steps:
+              - template: templates/setup.yml
+              - task: AzureCLI@2
+                displayName: Push the images, then deploy the services onto AKS
+                inputs:
+                  azureSubscription: $(serviceConnection)
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: uv run python -m scripts.setup.azure_deploy platform
+
+      - stage: Prove
+        dependsOn: Platform
         jobs:
           - job: prove
             steps:
               - template: templates/setup.yml
               - task: AzureCLI@2
-                displayName: The nodes are Ready, and events pass their contract on Service Bus
+                displayName: Nodes, Service Bus, Workload ID, Key Vault, mutual TLS and traces
                 inputs:
                   azureSubscription: $(serviceConnection)
                   scriptType: bash
@@ -102,7 +122,7 @@ stages:
       - ${{ if not(parameters.keepRunning) }}:
           - stage: RemoveCompute
             displayName: Remove compute
-            dependsOn: [Deploy, Prove]
+            dependsOn: [Deploy, Platform, Prove]
             # Whenever Deploy was reached, so no vCPU is left running: when Prove failed, when Deploy
             # failed, and when the run was cancelled. always() is what lets it run after a cancel.
             # Not when Validate stopped the run: then Deploy was skipped and nothing was created.

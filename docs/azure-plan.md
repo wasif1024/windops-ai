@@ -96,14 +96,14 @@ monitoring pods are not deployed.
 | Profile | What runs | Per month |
 | --- | --- | --- |
 | **Idle** | The data resource group only, between demos | **about $20** |
-| **Proof run (recommended)** | The pipeline deploys staging, proves it and removes the compute: about an hour | **about $1 a run, plus $20** |
+| **Proof run (recommended)** | The pipeline deploys staging and its services, proves them and removes the compute: about two hours | **about $2 a run, plus $20** |
 | Demo | The compute for about 60 hours a month, such as 15 sessions of 4 hours | **about $85** |
 | Always on, gateway for demos | The cluster and database all month, App Gateway for 60 hours, and about 15 GB of logs | about $455 |
 | Always on | Everything all month | about $778 |
 | Live, later (Phase 15) | Production grade, as below | about $1,800 |
 
 The proof run is what M4A.6 asks to approve: the Azure DevOps pipeline deploys the `staging` environment, proves
-it, and removes the compute, so vCPUs run only for that hour ([docs/azure-devops.md](azure-devops.md)). A live demo
+it, and removes the compute, so vCPUs run only for those two hours ([docs/azure-devops.md](azure-devops.md)). A live demo
 keeps the compute for its length, at $0.98 an hour. The $100 budget leaves room for a busy month, and its alerts warn
 long before then.
 
@@ -116,13 +116,15 @@ others say what they will do and ask first. They sign in with your `az login` se
 | Command | What it does | Then costs | Back in |
 | --- | --- | --- | --- |
 | `make azure-up` | Creates or updates the data group, makes the two certificates once, then creates the compute group | $0.98 an hour | about 20 minutes |
+| `make azure-platform` | Deploys the services onto the cluster: images, Key Vault values, cert-manager, the Collector, databases, migrations | no more | about 25 minutes |
 | `make azure-down` | Deletes the compute group and stops PostgreSQL. Data, images and secrets stay | about $20 a month | `make azure-up` |
 | `make azure-destroy` | Deletes both groups, after asking to confirm by typing the name | $0 | rebuilds from scratch |
 
-- **PostgreSQL restarts itself after 7 days stopped.** Azure starts a stopped server again after 7 days. Until a
-  scheduled GitHub Actions job, signed in with OIDC rather than a stored secret, stops it again each day (planned
-  with the platform's deployment), run `make azure-down` again within a week. Left running, PostgreSQL costs $29 a
-  month, and the budget alert would catch it.
+- **PostgreSQL restarts itself after 7 days stopped.** Azure starts a stopped server again after 7 days, and left
+  running it costs $29 a month. A second Azure DevOps pipeline,
+  [azure-postgres-stop.yml](../infrastructure/azure/pipelines/azure-postgres-stop.yml), runs `make
+  azure-stop-postgres` every night, and stops it again unless the compute group exists. It signs in the same way,
+  with no secret, and uses about 3 of the free tier's minutes a night.
 - **Key Vault keeps deleted secrets for 90 days.** With purge protection, a deleted vault's name stays reserved for
   that time. `azure-destroy` says so, and the Bicep takes the vault's name as a parameter.
 

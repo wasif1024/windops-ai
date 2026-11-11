@@ -3,7 +3,10 @@
 
     make azure-plan      # what would change, creating nothing (COMPUTE=1 adds AKS)
     make azure-up        # the data group, then the compute group
+    make azure-platform  # the services onto the cluster (scripts/setup/azure_platform.py)
+    make azure-prove     # the nodes, Service Bus, and the services with Workload ID and telemetry
     make azure-down      # delete the compute group and stop PostgreSQL: data stays
+    make azure-stop-postgres  # stop PostgreSQL if no cluster uses it: Azure restarts it weekly
     make azure-destroy   # delete both groups and the budget
 
 docs/azure-plan.md sizes and prices what this creates.
@@ -370,6 +373,7 @@ def up(config: dict[str, Any], assume_yes: bool) -> int:
     operator = operator_object_id(config)
     register_providers(config["subscription"])
     recover_deleted_vault(config)
+    start_postgres(config)
     print("Creating the data resource group")
     outputs = deploy(config, operator, what_if=False, deployCompute=False)
     vault = outputs["keyVaultName"]
@@ -409,6 +413,43 @@ def down(config: dict[str, Any], assume_yes: bool) -> int:
     # Only the configured ranges stay: an agent's address is needed only while it deploys.
     kept = {**config, "ranges": config["configured_ranges"] or config["ranges"]}
     deploy(kept, operator_object_id(config), what_if=False, deployCompute=False)
+    stop_postgres(config)
+    print("Done: about $20 a month until `make azure-up`.")
+    return 0
+
+
+def start_postgres(config: dict[str, Any]) -> None:
+    """Start PostgreSQL if `down` stopped it: Azure refuses changes to a stopped server, and the
+    services need it running."""
+    data, subscription = f"rg-windops-{config['environment']}-data", config["subscription"]
+    if az("group", "exists", "--name", data, "--subscription", subscription) != "true":
+        return
+    servers = az_json(
+        "postgres", "flexible-server", "list", "--resource-group", data,
+        "--subscription", subscription, "--query", "[].{n:name, s:state}",
+    ) or []  # fmt: skip
+    for server in servers:
+        if server["s"] == "Stopped":
+            print(f"Starting PostgreSQL {server['n']}: about 5 minutes")
+            az("postgres", "flexible-server", "start", "--resource-group", data,
+               "--name", server["n"], "--subscription", subscription)  # fmt: skip
+
+
+def stop_postgres(config: dict[str, Any]) -> int:
+    """Stop PostgreSQL if it runs with no cluster to use it.
+
+    Azure starts a stopped server again after 7 days, so the daily pipeline runs this. While the
+    compute is up, the server is in use, so it is left running.
+    """
+    environment, subscription = config["environment"], config["subscription"]
+    data = f"rg-windops-{environment}-data"
+    if az("group", "exists", "--name", data, "--subscription", subscription) != "true":
+        print(f"{data} does not exist: nothing to stop.")
+        return 0
+    compute = f"rg-windops-{environment}-compute"
+    if az("group", "exists", "--name", compute, "--subscription", subscription) == "true":
+        print(f"{compute} exists, so PostgreSQL is in use: left running.")
+        return 0
     servers = az_json(
         "postgres", "flexible-server", "list", "--resource-group", data,
         "--subscription", subscription, "--query", "[].{n:name, s:state}",
@@ -418,7 +459,8 @@ def down(config: dict[str, Any], assume_yes: bool) -> int:
             print(f"Stopping {server['n']}. Azure starts it again after 7 days")
             az("postgres", "flexible-server", "stop", "--resource-group", data,
                "--name", server["n"], "--subscription", subscription)  # fmt: skip
-    print("Done: about $20 a month until `make azure-up`.")
+        else:
+            print(f"{server['n']} is {server['s']}")
     return 0
 
 
@@ -470,11 +512,63 @@ def use_cluster(config: dict[str, Any], outputs: dict[str, Any]) -> str:
     return context
 
 
+def host_ranges(addresses: Sequence[str]) -> set[str]:
+    """Addresses as single-host or wider networks, so 1.2.3.4 and 1.2.3.4/32 compare equal."""
+    return {str(ipaddress.ip_network(item, strict=False)) for item in addresses}
+
+
+def allow_this_machine(config: dict[str, Any], outputs: dict[str, Any]) -> None:
+    """Let this machine through the cluster API's, Key Vault's and Service Bus's firewalls.
+
+    Each pipeline stage runs on a new agent, with a new address, and only `up`'s was allowed.
+    `make azure-down` removes the address again, keeping only AZURE_OPERATOR_IP_RANGES.
+    """
+    address = public_ip()
+    if any(ipaddress.ip_address(address) in ipaddress.ip_network(r)
+           for r in config["configured_ranges"]):  # fmt: skip
+        return
+    cidr = f"{address}/32"
+    common = ["--subscription", config["subscription"]]
+    cluster = [
+        "--resource-group",
+        outputs["computeResourceGroup"],
+        "--name",
+        outputs["clusterName"],
+    ]
+    vault = ["--name", outputs["keyVaultName"]]
+    bus = [
+        "--resource-group", outputs["dataResourceGroup"],
+        "--namespace-name", outputs["serviceBusNamespace"].split(".", 1)[0],
+    ]  # fmt: skip
+
+    allowed = az_json("aks", "show", *common, *cluster,
+                      "--query", "apiServerAccessProfile.authorizedIpRanges") or []  # fmt: skip
+    if cidr not in host_ranges(allowed):
+        print(f"Allowing {address} to the cluster API: about 3 minutes")
+        az("aks", "update", *common, *cluster,
+           "--api-server-authorized-ip-ranges", ",".join([*allowed, cidr]))  # fmt: skip
+    rules = az_json("keyvault", "network-rule", "list", *common, *vault,
+                    "--query", "ipRules[].value") or []  # fmt: skip
+    if cidr not in host_ranges(rules):
+        print(f"Allowing {address} to Key Vault")
+        az("keyvault", "network-rule", "add", *common, *vault, "--ip-address", cidr)
+    rules = az_json("servicebus", "namespace", "network-rule-set", "show", *common, *bus,
+                    "--query", "ipRules[].ipMask") or []  # fmt: skip
+    if cidr not in host_ranges(rules):
+        print(f"Allowing {address} to Service Bus")
+        az("servicebus", "namespace", "network-rule-set", "ip-rule", "add", *common, *bus,
+           "--ip-rule", f"ip-address={address}", "action=Allow")  # fmt: skip
+    # Network rules take a little while to reach each service.
+    time.sleep(30)
+
+
 def prove(config: dict[str, Any]) -> int:
-    """What the pipeline checks once the compute is up: the nodes, and events on Service Bus."""
+    """What the pipeline checks once the platform is up: the nodes, events on Service Bus, and
+    the services, with Workload ID, Key Vault, mutual TLS and Application Insights."""
     outputs = deployed_outputs(config)
     if not outputs.get("clusterName"):
         raise AzureError("No cluster in the last deployment: run `make azure-up` first")
+    allow_this_machine(config, outputs)
     context = use_cluster(config, outputs)
     nodes = subprocess.run(
         ["kubectl", "--context", context, "get", "nodes", "--no-headers"],
@@ -492,7 +586,21 @@ def prove(config: dict[str, Any]) -> int:
     )  # fmt: skip
     if check.returncode != 0:
         raise AzureError("Events on the deployed Service Bus failed their contract")
+    from scripts.setup.azure_platform import prove_platform
+
+    prove_platform(outputs, context)
     return 0
+
+
+def platform(config: dict[str, Any]) -> int:
+    """Deploy the services onto the cluster `up` made (scripts/setup/azure_platform.py)."""
+    from scripts.setup.azure_platform import deploy_platform
+
+    outputs = deployed_outputs(config)
+    if not outputs.get("clusterName"):
+        raise AzureError("No cluster in the last deployment: run `make azure-up` first")
+    allow_this_machine(config, outputs)
+    return deploy_platform(config, outputs, use_cluster(config, outputs))
 
 
 def destroy(config: dict[str, Any], confirmed: str = "") -> int:
@@ -522,7 +630,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     plan_parser.add_argument("--compute", action="store_true", help="include the compute group")
     for name in ("up", "down"):
         commands.add_parser(name).add_argument("--yes", action="store_true", help="do not ask")
-    commands.add_parser("prove", help="check the deployed nodes and Service Bus")
+    commands.add_parser("platform", help="deploy the services onto the cluster")
+    commands.add_parser("prove", help="check the deployed platform")
+    commands.add_parser("stop-postgres", help="stop PostgreSQL when no cluster uses it")
     commands.add_parser("destroy").add_argument(
         "--confirm", default="", metavar="ENVIRONMENT", help="the environment's name, to not ask"
     )
@@ -536,8 +646,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             return up(config, arguments.yes)
         if arguments.command == "down":
             return down(config, arguments.yes)
+        if arguments.command == "platform":
+            return platform(config)
         if arguments.command == "prove":
             return prove(config)
+        if arguments.command == "stop-postgres":
+            return stop_postgres(config)
         return destroy(config, arguments.confirm)
     except (AzureError, RuntimeError, ValueError) as error:
         print(error, file=sys.stderr)

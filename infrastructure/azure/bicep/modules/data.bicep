@@ -745,5 +745,7 @@ output workloadClientIds array = [
   for (workload, index) in workloads: {
     name: workload.name
     clientId: workloadIdentities[index].properties.clientId
+    // Each service's PostgreSQL login is made for this, not the name (windops_migrations.provision).
+    principalId: workloadIdentities[index].properties.principalId
   }
 ]
