@@ -48,16 +48,21 @@ again, keeping only `AZURE_OPERATOR_IP_RANGES`.
    private project named `windops-ai`. Under **Organization settings, Billing**, link the Azure subscription, which
    turns on the free tier of parallel jobs.
 2. **Create the service connection.** In **Project settings, Service connections**, create a new **Azure Resource
-   Manager** connection. Choose **Workload identity federation (manual)** and name it `windops-staging`. Azure DevOps
-   shows an **Issuer** and a **Subject identifier**: leave the page open.
-3. **Create the pipeline's identity in Azure.** Signed in with `az login`, run:
+   Manager** connection. Choose **App registration or managed identity (manual)** with **Workload identity
+   federation**, and name it `windops-staging`. Use the **Azure Cloud** environment and the **Subscription** scope
+   level, with your subscription's ID and name. Azure DevOps then shows an **Issuer** and a **Subject identifier**:
+   leave the page open. New connections show Entra's issuer, `https://login.microsoftonline.com/<tenant>/v2.0`,
+   with a `/eid1/...` subject; older ones showed `https://vstoken.dev.azure.com/...` with `sc://...`. Both work.
+3. **Create the pipeline's identity in Azure.** Put the two values in `.env` as `AZURE_PIPELINE_ISSUER` and
+   `AZURE_PIPELINE_SUBJECT`, then, signed in with `az login`, run:
 
    ```bash
-   make azure-pipeline-identity ISSUER=<issuer> SUBJECT=<subject identifier>
+   make azure-pipeline-identity
    ```
 
-   It asks first, creates the free identity and its two roles, and prints the subscription, client and tenant IDs.
-   Enter them in the service connection, then select **Verify and save**.
+   It checks the issuer is your subscription's tenant, asks first, creates the free identity and its two roles, and
+   prints the subscription, client and tenant IDs. Enter them in the service connection, then select **Verify and
+   save**.
 4. **Create the variable group.** In **Pipelines, Library**, add a variable group named `windops-staging` with the
    values the command printed, plus:
 

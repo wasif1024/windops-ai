@@ -213,6 +213,28 @@ def test_the_pipeline_may_grant_only_the_roles_the_bicep_uses() -> None:
     assert condition.count("ForAnyOfAnyValues:GuidEquals") == 2  # writes and deletes
 
 
+def test_the_pipeline_trusts_only_a_service_connection_in_its_own_tenant() -> None:
+    from scripts.setup.azure_deploy import AzureError
+    from scripts.setup.azure_pipeline import federation
+
+    tenant, other = "00000000-1111-2222-3333-444444444444", "11111111-2222-3333-4444-555555555555"
+    connection = "22222222-3333-4444-5555-666666666666/33333333-4444-5555-6666-777777777777"
+    entra = f"https://login.microsoftonline.com/{tenant}/v2.0"
+    subject = f"/eid1/c/pub/t/AAAAAAAAAAAAAAAAAAAAAA/a/BBBBBBBBBBBBBBBBBBBBBB/sc/{connection}"
+    assert federation(f" {entra} ", subject, tenant) == (entra, subject)
+    vstoken = f"https://vstoken.dev.azure.com/{other}/"
+    older = federation(vstoken, "sc://org/windops-ai/windops-staging", tenant)
+    assert older[0] == vstoken.rstrip("/")
+    for issuer, wrong in (
+        (f"https://login.microsoftonline.com/{other}/v2.0", subject),  # another tenant
+        ("https://token.actions.githubusercontent.com", subject),  # not Azure DevOps
+        (entra, "repo:wasif1024/windops-ai:ref:refs/heads/main"),  # not a service connection
+        (entra, subject + "/extra"),
+    ):
+        with pytest.raises(AzureError):
+            federation(issuer, wrong, tenant)
+
+
 def test_staging_is_an_azure_environment_and_test_is_not() -> None:
     from windops_events.backend import ON_AZURE as EVENTS_ON_AZURE
     from windops_migrations.connection import ON_AZURE as DATABASE_ON_AZURE
