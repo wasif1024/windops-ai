@@ -1,4 +1,4 @@
-"""The same events on Azure Service Bus, for `dev` and `live` (ADR 0006).
+"""The same events on Azure Service Bus, for `dev`, `staging` and `live` (ADR 0006).
 
 Each JetStream stream becomes a topic, with the same subjects, lifetime and two-minute duplicate
 window, so the outbox can resend safely. Each consumer reads its own subscription, which keeps

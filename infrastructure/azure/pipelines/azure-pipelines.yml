@@ -1,0 +1,137 @@
+# Azure DevOps: deploy WindOps AI's staging environment on Azure, prove it, then remove the compute
+# (docs/azure-devops.md). GitHub Actions keeps checking pull requests; this deploys what is merged.
+#
+#   Validate         the Azure tests, and a what-if of every change
+#   Deploy           make azure-up, once someone approves the windops-staging environment
+#   Prove            the AKS nodes are Ready, and events pass their contract on Service Bus
+#   Remove compute   make azure-down, even if Prove failed, so nothing is left running
+#
+# It signs in to Azure through the windops-staging service connection, with workload identity
+# federation: no secret is stored in Azure DevOps or here.
+
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - infrastructure/azure
+      - infrastructure/kubernetes/overlays/azure
+      - scripts/setup/azure_deploy.py
+      - scripts/generate/azure_foundation.py
+
+# Pull requests are GitHub Actions' to check.
+pr: none
+
+parameters:
+  - name: keepRunning
+    displayName: Keep the compute running after the proof, for a live demo ($0.98 an hour)
+    type: boolean
+    default: false
+  - name: destroy
+    displayName: Delete everything instead of deploying
+    type: boolean
+    default: false
+
+variables:
+  # AZURE_SUBSCRIPTION_ID, AZURE_OPERATOR_OBJECT_ID, AZURE_PIPELINE_PRINCIPAL_ID,
+  # AZURE_ALERT_EMAIL and AZURE_OPERATOR_IP_RANGES. None is a secret.
+  - group: windops-staging
+  - name: AZURE_ENVIRONMENT
+    value: staging
+  - name: serviceConnection
+    value: windops-staging
+  - name: UV_VERSION
+    value: 0.12.18
+
+pool:
+  vmImage: ubuntu-24.04
+
+stages:
+  - ${{ if not(parameters.destroy) }}:
+      - stage: Validate
+        jobs:
+          - job: validate
+            steps:
+              - template: templates/setup.yml
+              - script: uv run pytest -q tests/test_azure_foundation.py tests/test_azure_overlay.py tests/test_azure_monitoring.py
+                displayName: The Azure files are made from the code, and keep the plan's settings
+              - task: AzureCLI@2
+                displayName: What would change (creates nothing)
+                inputs:
+                  azureSubscription: $(serviceConnection)
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: uv run python -m scripts.setup.azure_deploy plan --compute
+
+      - stage: Deploy
+        dependsOn: Validate
+        jobs:
+          - deployment: deploy
+            # Its Approvals check is where someone agrees to the cost.
+            environment: windops-staging
+            # The free tier's limit for one job. A deploy takes about 30 to 45 minutes.
+            timeoutInMinutes: 60
+            strategy:
+              runOnce:
+                deploy:
+                  steps:
+                    - checkout: self
+                    - template: templates/setup.yml
+                    - task: AzureCLI@2
+                      displayName: Create the data and compute groups
+                      inputs:
+                        azureSubscription: $(serviceConnection)
+                        scriptType: bash
+                        scriptLocation: inlineScript
+                        inlineScript: uv run python -m scripts.setup.azure_deploy up --yes
+
+      - stage: Prove
+        dependsOn: Deploy
+        jobs:
+          - job: prove
+            steps:
+              - template: templates/setup.yml
+              - task: AzureCLI@2
+                displayName: The nodes are Ready, and events pass their contract on Service Bus
+                inputs:
+                  azureSubscription: $(serviceConnection)
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: uv run python -m scripts.setup.azure_deploy prove
+
+      - ${{ if not(parameters.keepRunning) }}:
+          - stage: RemoveCompute
+            displayName: Remove compute
+            dependsOn: [Deploy, Prove]
+            # Even when Prove failed, so no vCPU is left running. Not when nothing was deployed.
+            condition: and(not(canceled()), in(dependencies.Deploy.result, 'Succeeded', 'SucceededWithIssues', 'Failed'))
+            jobs:
+              - job: down
+                steps:
+                  - template: templates/setup.yml
+                  - task: AzureCLI@2
+                    displayName: Delete the compute group and stop PostgreSQL
+                    inputs:
+                      azureSubscription: $(serviceConnection)
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: uv run python -m scripts.setup.azure_deploy down --yes
+
+  - ${{ if parameters.destroy }}:
+      - stage: Destroy
+        jobs:
+          - deployment: destroy
+            environment: windops-staging
+            strategy:
+              runOnce:
+                deploy:
+                  steps:
+                    - checkout: self
+                    - template: templates/setup.yml
+                    - task: AzureCLI@2
+                      displayName: Delete both groups and the budget
+                      inputs:
+                        azureSubscription: $(serviceConnection)
+                        scriptType: bash
+                        scriptLocation: inlineScript
+                        inlineScript: uv run python -m scripts.setup.azure_deploy destroy --confirm staging

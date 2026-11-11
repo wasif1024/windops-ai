@@ -31,7 +31,7 @@ exist, and Microsoft's Service Bus emulator needs about 2 GB more than the local
   | `WINDOPS_ENVIRONMENT` | Events | Identity to data stores | Telemetry |
   | --- | --- | --- | --- |
   | `local` | NATS JetStream | Passwords from Kubernetes Secrets | The self-hosted stack |
-  | `dev`, `live` | Azure Service Bus | Entra Workload ID, with no stored password | Azure Monitor, managed Prometheus, Managed Grafana and Application Insights |
+  | `dev`, `staging`, `live` | Azure Service Bus | Entra Workload ID, with no stored password | Azure Monitor, managed Prometheus, Managed Grafana and Application Insights |
 
   `WINDOPS_EVENTS_BACKEND` can override the choice of events, so a laptop can be pointed at a real Service Bus to test
   it.

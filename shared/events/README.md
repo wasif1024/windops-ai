@@ -18,7 +18,7 @@ Publishes and consumes the durable events in SRS 7.6, through NATS JetStream or 
 | `WINDOPS_ENVIRONMENT` | Events | Sign-in |
 | --- | --- | --- |
 | `local`, `ci`, `test` | NATS JetStream, in the cluster | Its own login, from Kubernetes Secrets |
-| `dev`, `live` | Azure Service Bus, at `WINDOPS_SERVICEBUS_NAMESPACE` | No stored secret: Workload ID on AKS, the Azure CLI's session on a developer's machine |
+| `dev`, `staging`, `live` | Azure Service Bus, at `WINDOPS_SERVICEBUS_NAMESPACE` | No stored secret: Workload ID on AKS, the Azure CLI's session on a developer's machine |
 
 `WINDOPS_EVENTS_BACKEND` overrides the choice when it is `nats` or `servicebus`. `auto`, the default, follows
 `WINDOPS_ENVIRONMENT`.

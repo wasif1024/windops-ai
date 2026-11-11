@@ -163,3 +163,67 @@ def test_the_gateway_name_matches_edge_bicep() -> None:
         "windops-dev-abcde.swedencentral.cloudapp.azure.com"
     )
     assert "domainNameLabel: 'windops-${environment}-${suffix}'" in bicep_source()
+
+
+# ------------------------------------------------------------------------- Azure DevOps (M4A.6)
+
+PIPELINE = ROOT / "infrastructure" / "azure" / "pipelines" / "azure-pipelines.yml"
+
+
+def pipeline_text() -> str:
+    return PIPELINE.read_text() + (PIPELINE.parent / "templates" / "setup.yml").read_text()
+
+
+def test_the_pipeline_validates_deploys_after_approval_proves_and_removes_compute() -> None:
+    text = PIPELINE.read_text()
+    order = [
+        text.index(f"- stage: {name}") for name in ("Validate", "Deploy", "Prove", "RemoveCompute")
+    ]
+    assert order == sorted(order)
+    # Deploying and destroying run as deployment jobs on the environment with the approval.
+    assert text.count("environment: windops-staging") == 2
+    assert "azure_deploy up --yes" in text and "azure_deploy prove" in text
+    # The compute goes even when Prove fails, but not when nothing was deployed.
+    assert "in(dependencies.Deploy.result, 'Succeeded', 'SucceededWithIssues', 'Failed')" in text
+    assert "azure_deploy down --yes" in text
+    assert "destroy --confirm staging" in text
+    assert "pr: none" in text  # GitHub Actions checks pull requests
+
+
+def test_the_pipeline_signs_in_with_federation_and_holds_no_secret() -> None:
+    text = pipeline_text()
+    assert "azureSubscription: $(serviceConnection)" in text
+    assert not re.search(r"(?i)(password|client_?secret|AZURE_CLIENT_SECRET|\bkey\s*:)", text)
+    assert "AZURE_ENVIRONMENT\n    value: staging" in text
+    # Tools are pinned: uv to a version, and the packages to the lock.
+    assert "uv sync --frozen" in text and "UV_VERSION" in text
+
+
+def test_the_pipeline_may_grant_only_the_roles_the_bicep_uses() -> None:
+    from scripts.setup.azure_pipeline import RBAC_ADMINISTRATOR, assignment_condition, bicep_roles
+
+    roles = bicep_roles()
+    assert set(roles) == ROLE_GUIDS
+    condition = assignment_condition(roles)
+    owner, user_access_administrator = (
+        "8e3af657-a8ff-443c-a75c-2fe8c4bcb635", "18d7d88d-d35e-4fb5-a5c3-7773c20a72d9",
+    )  # fmt: skip
+    assert owner not in condition and user_access_administrator not in condition
+    assert RBAC_ADMINISTRATOR not in condition
+    assert condition.count("ForAnyOfAnyValues:GuidEquals") == 2  # writes and deletes
+
+
+def test_staging_is_an_azure_environment_and_test_is_not() -> None:
+    from windops_events.backend import ON_AZURE as EVENTS_ON_AZURE
+    from windops_migrations.connection import ON_AZURE as DATABASE_ON_AZURE
+
+    assert EVENTS_ON_AZURE == DATABASE_ON_AZURE == {"dev", "staging", "live"}
+    assert "@allowed(['dev', 'staging', 'live'])" in bicep_source()
+
+
+def test_a_run_allows_its_own_address_once() -> None:
+    from scripts.setup.azure_deploy import merged_ranges
+
+    assert merged_ranges("203.0.113.7", "198.51.100.9") == ["203.0.113.7", "198.51.100.9"]
+    assert merged_ranges("198.51.100.0/24", "198.51.100.9") == ["198.51.100.0/24"]
+    assert merged_ranges("", "198.51.100.9") == ["198.51.100.9"]

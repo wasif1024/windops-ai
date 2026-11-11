@@ -42,6 +42,8 @@ from windops_resilience import BreakerState
         ({"WINDOPS_ENVIRONMENT": "ci"}, "nats"),
         ({"WINDOPS_ENVIRONMENT": "dev"}, "servicebus"),
         ({"WINDOPS_ENVIRONMENT": "live"}, "servicebus"),
+        ({"WINDOPS_ENVIRONMENT": "staging"}, "servicebus"),
+        ({"WINDOPS_ENVIRONMENT": "test"}, "nats"),
         ({"WINDOPS_ENVIRONMENT": "live", "WINDOPS_EVENTS_BACKEND": "auto"}, "servicebus"),
         ({"WINDOPS_ENVIRONMENT": "local", "WINDOPS_EVENTS_BACKEND": "servicebus"}, "servicebus"),
         ({"WINDOPS_ENVIRONMENT": "live", "WINDOPS_EVENTS_BACKEND": "NATS"}, "nats"),

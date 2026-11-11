@@ -18,7 +18,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check simulator-check telemetry-storage-check cms-check data-quality-check servicebus-provision servicebus-check azure-overlay azure-monitoring azure-foundation azure-plan azure-up azure-down azure-destroy $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check simulator-check telemetry-storage-check cms-check data-quality-check servicebus-provision servicebus-check azure-overlay azure-monitoring azure-foundation azure-plan azure-up azure-down azure-destroy azure-prove azure-pipeline-identity $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -220,6 +220,13 @@ azure-down: ## Delete the Azure compute and stop PostgreSQL, keeping the data: a
 
 azure-destroy: ## Delete every Azure resource and the budget, after asking you to type it
 	uv run python -m scripts.setup.azure_deploy destroy
+
+azure-prove: ## Prove the deployed Azure cluster's nodes, and events on its Service Bus
+	uv run python -m scripts.setup.azure_deploy prove
+
+azure-pipeline-identity: ## Create the Azure DevOps pipeline's identity once: ISSUER=... SUBJECT=... (docs/azure-devops.md)
+	@test -n "$(ISSUER)" -a -n "$(SUBJECT)" || { echo 'Usage: make azure-pipeline-identity ISSUER=https://vstoken.dev.azure.com/... SUBJECT=sc://org/project/windops-staging' >&2; exit 1; }
+	uv run python -m scripts.setup.azure_pipeline --issuer "$(ISSUER)" --subject "$(SUBJECT)"
 
 tenant-check: ## Prove tenants, branding and row-level security on the cluster
 	uv run python -m scripts.checks.identity.tenant

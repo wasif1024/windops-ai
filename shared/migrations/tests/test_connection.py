@@ -23,6 +23,8 @@ DATABASE = {
         ({}, "password"),
         ({"WINDOPS_ENVIRONMENT": "local"}, "password"),
         ({"WINDOPS_ENVIRONMENT": "dev"}, "entra"),
+        ({"WINDOPS_ENVIRONMENT": "staging"}, "entra"),
+        ({"WINDOPS_ENVIRONMENT": "test"}, "password"),
         ({"WINDOPS_ENVIRONMENT": "live", "WINDOPS_DATABASE_AUTH": "auto"}, "entra"),
         ({"WINDOPS_ENVIRONMENT": "live", "WINDOPS_DATABASE_AUTH": "password"}, "password"),
         ({"WINDOPS_ENVIRONMENT": "local", "WINDOPS_DATABASE_AUTH": "ENTRA"}, "entra"),

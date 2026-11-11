@@ -8,7 +8,10 @@ param tags object
 param allowedIpRanges array
 @description('Allowed to Key Vault from outside the network: the operator only.')
 param operatorIpRanges array
+@description('The operator, who signs in to Managed Grafana.')
 param operatorObjectId string
+@description('Each as { principalId, principalType }: the operator, and the pipeline when it deploys.')
+param admins array
 param alertEmail string
 
 // Made from the code by scripts/generate/azure_foundation.py, so Azure matches the cluster.
@@ -306,16 +309,18 @@ module receivers 'receiver.bicep' = [
   }
 ]
 
-// The operator runs make servicebus-check from outside the cluster.
-resource operatorServiceBus 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(serviceBus.id, operatorObjectId, roles.serviceBusOwner)
-  scope: serviceBus
-  properties: {
-    principalId: operatorObjectId
-    principalType: 'User'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.serviceBusOwner)
+// The operator and the pipeline run make servicebus-check from outside the cluster.
+resource adminServiceBus 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
+  for admin in admins: {
+    name: guid(serviceBus.id, admin.principalId, roles.serviceBusOwner)
+    scope: serviceBus
+    properties: {
+      principalId: admin.principalId
+      principalType: admin.principalType
+      roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.serviceBusOwner)
+    }
   }
-}
+]
 
 // ------------------------------------------------------------------------------------ PostgreSQL
 
@@ -432,14 +437,20 @@ resource gatewaySecrets 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-resource operatorSecrets 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
-  for role in [roles.vaultWriter, roles.vaultCertificateWriter]: {
-    name: guid(vault.id, operatorObjectId, role)
+// Each admin, for each of the two vault roles: they make the CA and App Gateway's certificate.
+var vaultGrants = flatten(map(admins, admin => [
+  { admin: admin, role: roles.vaultWriter }
+  { admin: admin, role: roles.vaultCertificateWriter }
+]))
+
+resource adminSecrets 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
+  for grant in vaultGrants: {
+    name: guid(vault.id, grant.admin.principalId, grant.role)
     scope: vault
     properties: {
-      principalId: operatorObjectId
-      principalType: 'User'
-      roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', role)
+      principalId: grant.admin.principalId
+      principalType: grant.admin.principalType
+      roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', grant.role)
     }
   }
 ]
