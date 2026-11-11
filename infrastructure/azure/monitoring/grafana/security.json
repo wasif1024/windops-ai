@@ -1,0 +1,451 @@
+{
+  "uid": "windops-security",
+  "title": "Security",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "tags": [
+    "windops"
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Failed sign-ins",
+      "description": "In the last hour. Keycloak refused a sign-in, for any reason: a wrong password or code, or an unknown user.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum(increase(keycloak_user_events_total{realm=\"windops\",event=\"login\",error!=\"\"}[1h])))",
+          "legendFormat": "failed"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Wrong passwords",
+      "description": "In the last hour. Keycloak checked a password, and it did not match.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum(increase(keycloak_credentials_password_hashing_validations_total{realm=\"windops\",outcome=\"invalid\"}[1h])))",
+          "legendFormat": "wrong"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "MFA failures",
+      "description": "In the last hour. Wrong authenticator or recovery codes: refused credentials less wrong passwords. Keycloak counts both as the same error, and every wrong password also fails its password check.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(clamp_min(sum(increase(keycloak_user_events_total{realm=\"windops\",event=\"login\",error=\"invalid_user_credentials\"}[1h])) - (sum(increase(keycloak_credentials_password_hashing_validations_total{realm=\"windops\",outcome=\"invalid\"}[1h])) or vector(0)), 0))",
+          "legendFormat": "wrong code"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Access denials",
+      "description": "In the last hour. Refusals the Authorization Service recorded in the audit trail. The administrator console lists who and what.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum(increase(windops_audit_records_total{action=\"authorization.denied\"}[1h])))",
+          "legendFormat": "denied"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Failed sign-ins by reason",
+      "description": "Every 5 minutes, from Keycloak's user events.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (error) (increase(keycloak_user_events_total{realm=\"windops\",event=\"login\",error!=\"\"}[5m]))",
+          "legendFormat": "{{error}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Access denials by service",
+      "description": "Every 5 minutes, from the audit trail.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (producer) (increase(windops_audit_records_total{action=\"authorization.denied\"}[5m]))",
+          "legendFormat": "{{producer}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Rate-limited at the gateway, by route",
+      "description": "Per-address limits from SRS 7.5, such as 5 sign-ins a minute.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (route) (increase(apisix_http_status{code=\"429\"}[5m]))",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Rate-limited at Web BFF, by traffic class",
+      "description": "Per-user limits from SRS 7.5.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (traffic_class) (increase(windops_web_bff_rate_limited_total[5m]))",
+          "legendFormat": "{{traffic_class}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Tokens refused at Web BFF, by reason",
+      "description": "Missing, invalid or tenantless tokens that got past the gateway, or reached Web BFF another way.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (reason) (increase(windops_web_bff_tokens_refused_total[5m]))",
+          "legendFormat": "{{reason}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Administrator changes, last 24 hours",
+      "description": "Changes to users, roles, permissions, break-glass and tenants, from the audit trail (SRS 9.4).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "sortBy": [
+          {
+            "displayName": "Value",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "Value": "count"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum by (action) (increase(windops_audit_records_total{action=~\"authorization\\\\.(role|role_permissions|break_glass)\\\\..*|identity\\\\.(user|sessions|organization)\\\\..*|tenant\\\\..*\"}[24h]))) > 0",
+          "legendFormat": "",
+          "instant": true,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "text",
+      "title": "Suspicious tool calls",
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 3
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Agents arrive in Phase 8, with the MCP tool-call counts this panel will show (SRS 10.3)."
+      }
+    }
+  ]
+}
