@@ -375,8 +375,8 @@ RUNTIMES = (
 )
 # From docs/azure-plan.md: compute runs only while it is used.
 AZURE_COSTS = (
-    ("Idle", "data only, between demos", "$19"),
-    ("Demo", "compute for 60 hours, the plan", "$84"),
+    ("Idle", "data only, between demos", "$20"),
+    ("Demo", "compute for 60 hours, the plan", "$85"),
     ("Always on", "everything, all month", "$778"),
 )
 GUARDRAILS = (

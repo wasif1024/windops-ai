@@ -89,14 +89,14 @@ The [Azure deployment plan](docs/azure-plan.md) sizes and prices every resource 
 down by splitting the deployment in two:
 
 - **A data resource group** holds Service Bus, PostgreSQL, Key Vault, the registry and monitoring. It exists all
-  the time, for about **$19 a month**.
+  the time, for about **$20 a month**.
 - **A compute resource group** holds AKS, the Application Gateway and their addresses. It is created for a demo and
   deleted after, at about **$0.98 an hour**.
 
 | Profile | What runs | Per month |
 | --- | --- | --- |
-| Idle | The data resource group only | about $19 |
-| **Demo (planned)** | The compute for about 60 hours a month | **about $84** |
+| Idle | The data resource group only | about $20 |
+| **Demo (planned)** | The compute for about 60 hours a month | **about $85** |
 | Always on | Everything, all month | about $778 |
 | Live, later | Production grade: zone redundant, with SLAs | about $1,800 |
 

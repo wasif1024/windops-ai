@@ -1,0 +1,31 @@
+{
+  "topics": [
+    {
+      "name": "windops-telemetry",
+      "duplicateWindow": "PT2M",
+      "messageTimeToLive": "P1D",
+      "maxSizeInMegabytes": 1024
+    },
+    {
+      "name": "windops-events",
+      "duplicateWindow": "PT2M",
+      "messageTimeToLive": "P7D",
+      "maxSizeInMegabytes": 1024
+    },
+    {
+      "name": "windops-audit",
+      "duplicateWindow": "PT2M",
+      "messageTimeToLive": "P30D",
+      "maxSizeInMegabytes": 1024
+    }
+  ],
+  "subscriptions": [
+    {
+      "topic": "windops-audit",
+      "name": "audit",
+      "filter": "sys.Label LIKE 'audit.requested.%'",
+      "maxDeliveryCount": 100,
+      "lockDuration": "PT30S"
+    }
+  ]
+}

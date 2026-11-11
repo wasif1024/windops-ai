@@ -1,0 +1,165 @@
+"""The Azure Bicep is made from the code's own facts, and keeps the plan's security (M4A.6)."""
+
+import json
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+import yaml
+from cryptography import x509
+from windops_events.servicebus import SUBSCRIPTIONS, filter_for, topics
+
+from scripts.generate.azure_foundation import OUT, generate, iso_seconds
+from scripts.setup.azure_deploy import (
+    certificate_der_base64,
+    gateway_fqdn,
+    ip_ranges,
+    make_ca,
+    parameters,
+)
+
+ROOT = Path(__file__).resolve().parent.parent
+BICEP = ROOT / "infrastructure" / "azure" / "bicep"
+OVERLAY = ROOT / "infrastructure" / "kubernetes" / "overlays" / "azure" / "workload-identity.yaml"
+
+
+def bicep_source() -> str:
+    return "\n".join(path.read_text() for path in sorted(BICEP.rglob("*.bicep")))
+
+
+def test_the_generated_files_are_up_to_date() -> None:
+    """When this fails, run: make azure-foundation"""
+    for path, text in generate().items():
+        assert path.read_text() == text, path
+
+
+def test_every_overlay_service_account_has_an_identity_to_federate() -> None:
+    accounts = {
+        (d["metadata"]["namespace"], d["metadata"]["name"])
+        for d in yaml.safe_load_all(OVERLAY.read_text())
+        if d and d["kind"] == "ServiceAccount"
+    }
+    workloads = json.loads((OUT / "workloads.json").read_text())
+    federated = {(w["namespace"], w["name"]) for w in workloads}
+    assert accounts <= federated
+    assert ("windops-observability", "windops-otel-collector") in federated
+
+
+def test_only_the_audit_consumer_may_receive_and_only_its_own_subscription() -> None:
+    workloads = {w["name"]: w for w in json.loads((OUT / "workloads.json").read_text())}
+    receivers = {name: w["receives"] for name, w in workloads.items() if w["receives"]}
+    assert receivers == {"windops-audit": [{"topic": "windops-audit", "subscription": "audit"}]}
+    # A workload that never reads the events settings gets no Service Bus role at all.
+    assert not workloads["windops-web-bff"]["events"]
+    assert not workloads["windops-otel-collector"]["database"]
+
+
+def test_the_topology_is_the_one_the_code_creates() -> None:
+    topology = json.loads((OUT / "servicebus.json").read_text())
+    assert [t["name"] for t in topology["topics"]] == [name for name, _ in topics()]
+    assert all(t["duplicateWindow"] == "PT2M" for t in topology["topics"])
+    assert [(s["topic"], s["name"], s["filter"]) for s in topology["subscriptions"]] == [
+        (s.topic, s.durable, filter_for(s.subject)) for s in SUBSCRIPTIONS
+    ]
+
+
+def test_durations_are_iso_8601() -> None:
+    assert [iso_seconds(s) for s in (30, 120, 3600, 86400, 90061)] == [
+        "PT30S", "PT2M", "PT1H", "P1D", "P1DT1H1M1S",
+    ]  # fmt: skip
+
+
+@pytest.mark.skipif(shutil.which("az") is None, reason="needs the Azure CLI's Bicep")
+def test_the_bicep_builds_without_a_warning() -> None:
+    result = subprocess.run(
+        ["az", "bicep", "build", "--file", str(BICEP / "main.bicep"), "--stdout"],
+        capture_output=True, text=True, check=False,
+    )  # fmt: skip
+    problems = [
+        line for line in result.stderr.splitlines()
+        if ("Warning" in line or "Error" in line) and "new Bicep release" not in line
+    ]  # fmt: skip
+    assert result.returncode == 0 and not problems, problems
+    json.loads(result.stdout)
+
+
+@pytest.mark.parametrize(
+    "setting",
+    [
+        "disableLocalAuth: true",  # Service Bus: Entra only, no shared keys
+        "passwordAuth: 'Disabled'",  # PostgreSQL: Entra only
+        "publicNetworkAccess: 'Disabled'",  # PostgreSQL: private access only
+        "enablePurgeProtection: true",
+        "enableRbacAuthorization: true",
+        "adminUserEnabled: false",  # the registry
+        "disableLocalAccounts: true",  # AKS: Entra and Azure RBAC only
+        "mode: 'Prevention'",  # the WAF blocks, not only logs
+        "networkDataplane: 'cilium'",
+        "workloadIdentity: {",
+        "minimumTlsVersion: '1.2'",
+        "tier: 'Free'",  # the plan's Free-tier control plane
+        "dailyQuotaGb: 2",  # the log cap
+    ],
+)
+def test_the_bicep_keeps_the_plans_security_and_cost_settings(setting: str) -> None:
+    assert setting in bicep_source()
+
+
+def test_the_bicep_holds_no_secret_or_subscription() -> None:
+    """The only IDs written down are Azure's built-in roles; the rest come from parameters."""
+    source = bicep_source()
+    guids = set(re.findall(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", source))
+    assert guids <= ROLE_GUIDS
+    assert not re.search(r"(?i)\b(password|secret|key)\s*:\s*'", source)
+
+
+# Built-in role definitions are public IDs, the same in every tenant.
+ROLE_GUIDS = {
+    "69a216fc-b8fb-44d8-bc22-1f3c2cd27a39",
+    "4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0",
+    "090c5cfd-751d-490a-894a-3ce6f1109419",
+    "4633458b-17de-408a-b874-0445c86b69e6",
+    "b86a8fe4-44ce-4948-aee5-eccb2c155cd7",
+    "a4417e6f-fecd-4de8-b567-7b0420556985",
+    "4d97b98b-1d4f-4787-a291-c67834d212e7",
+    "b0d8363b-8ddd-447d-831f-62ca05bff136",
+    "43d0d8ad-25c7-4714-9337-8ba259a9fe05",
+    "22926164-76b3-42b3-bc55-97df8dab3e41",
+    "b1ff04bb-8a4e-4dc4-8eb5-8693973ce19b",
+    "7f951dda-4ed3-4680-a7ca-43fe172d538d",
+}
+
+
+def test_operator_ranges_must_be_ipv4() -> None:
+    assert ip_ranges(" 203.0.113.7, 198.51.100.0/24 ") == ["203.0.113.7", "198.51.100.0/24"]
+    with pytest.raises(ValueError):
+        ip_ranges("2001:db8::1")
+
+
+def test_parameters_pass_arrays_and_booleans_as_json() -> None:
+    config = {
+        "location": "swedencentral", "environment": "dev", "ranges": ["203.0.113.7"],
+        "email": "operator@example.com", "budget": 100,
+    }  # fmt: skip
+    found = parameters(config, "operator-id", deployCompute=True)
+    assert 'operatorIpRanges=["203.0.113.7"]' in found
+    assert "deployCompute=true" in found
+    assert "budgetAmount=100" in found
+
+
+def test_the_internal_ca_is_a_ca_and_app_gateway_can_read_it() -> None:
+    pem = make_ca("dev")
+    certificate = x509.load_pem_x509_certificate(pem.encode())
+    assert certificate.extensions.get_extension_for_class(x509.BasicConstraints).value.ca
+    assert "PRIVATE KEY" in pem
+    der = certificate_der_base64(pem)
+    assert x509.load_der_x509_certificate(__import__("base64").b64decode(der)) == certificate
+
+
+def test_the_gateway_name_matches_edge_bicep() -> None:
+    assert gateway_fqdn("kv-windops-dev-abcde", "swedencentral", "dev") == (
+        "windops-dev-abcde.swedencentral.cloudapp.azure.com"
+    )
+    assert "domainNameLabel: 'windops-${environment}-${suffix}'" in bicep_source()
