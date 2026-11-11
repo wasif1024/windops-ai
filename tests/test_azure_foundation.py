@@ -183,8 +183,12 @@ def test_the_pipeline_validates_deploys_after_approval_proves_and_removes_comput
     # Deploying and destroying run as deployment jobs on the environment with the approval.
     assert text.count("environment: windops-staging") == 2
     assert "azure_deploy up --yes" in text and "azure_deploy prove" in text
-    # The compute goes even when Prove fails, but not when nothing was deployed.
-    assert "in(dependencies.Deploy.result, 'Succeeded', 'SucceededWithIssues', 'Failed')" in text
+    # The compute goes when Prove or Deploy failed and when the run was cancelled, but not when
+    # Validate stopped the run. always() is what lets a stage run after a cancel.
+    assert (
+        "condition: and(always(), in(dependencies.Deploy.result, "
+        "'Succeeded', 'SucceededWithIssues', 'Failed', 'Canceled'))"
+    ) in text
     assert "azure_deploy down --yes" in text
     assert "destroy --confirm staging" in text
     assert "pr: none" in text  # GitHub Actions checks pull requests
@@ -233,6 +237,41 @@ def test_the_pipeline_trusts_only_a_service_connection_in_its_own_tenant() -> No
     ):
         with pytest.raises(AzureError):
             federation(issuer, wrong, tenant)
+
+
+class FakeAz:
+    """Answers az commands from a table, and records them, so down runs without Azure."""
+
+    def __init__(self, answers: dict[str, list[str]]) -> None:
+        self.answers, self.calls = answers, list[str]()
+
+    def __call__(self, *arguments: str, capture: bool = True) -> str:
+        command = " ".join(arguments[:3])
+        self.calls.append(command)
+        replies = self.answers.get(command, [""])
+        return replies.pop(0) if len(replies) > 1 else replies[0]
+
+
+def test_down_creates_nothing_when_nothing_was_deployed(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scripts.setup import azure_deploy
+
+    fake = FakeAz({"group exists --name": ["false"], "deployment sub list": [""]})
+    monkeypatch.setattr(azure_deploy, "az", fake)
+    monkeypatch.setattr(azure_deploy, "deploy", lambda *_, **__: pytest.fail("deployed"))
+    config = {"environment": "staging", "subscription": "s", "ranges": [], "configured_ranges": []}
+    assert azure_deploy.down(config, assume_yes=True) == 0
+    assert "group delete --name" not in fake.calls and "deployment sub cancel" not in fake.calls
+
+
+def test_down_first_cancels_a_deployment_still_running(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scripts.setup import azure_deploy
+
+    fake = FakeAz({"deployment sub list": ["Running", "Canceling", "Canceled"]})
+    monkeypatch.setattr(azure_deploy, "az", fake)
+    monkeypatch.setattr("time.sleep", lambda _: None)
+    azure_deploy.stop_deployment({"environment": "staging", "subscription": "s"})
+    assert fake.calls.count("deployment sub cancel") == 1
+    assert fake.calls.count("deployment sub list") == 3
 
 
 def test_staging_is_an_azure_environment_and_test_is_not() -> None:

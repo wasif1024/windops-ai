@@ -4,7 +4,7 @@
 #   Validate         the Azure tests, and a what-if of every change
 #   Deploy           make azure-up, once someone approves the windops-staging environment
 #   Prove            the AKS nodes are Ready, and events pass their contract on Service Bus
-#   Remove compute   make azure-down, even if Prove failed, so nothing is left running
+#   Remove compute   make azure-down, even if Prove or Deploy failed or the run was cancelled
 #
 # It signs in to Azure through the windops-staging service connection, with workload identity
 # federation: no secret is stored in Azure DevOps or here.
@@ -103,8 +103,10 @@ stages:
           - stage: RemoveCompute
             displayName: Remove compute
             dependsOn: [Deploy, Prove]
-            # Even when Prove failed, so no vCPU is left running. Not when nothing was deployed.
-            condition: and(not(canceled()), in(dependencies.Deploy.result, 'Succeeded', 'SucceededWithIssues', 'Failed'))
+            # Whenever Deploy was reached, so no vCPU is left running: when Prove failed, when Deploy
+            # failed, and when the run was cancelled. always() is what lets it run after a cancel.
+            # Not when Validate stopped the run: then Deploy was skipped and nothing was created.
+            condition: and(always(), in(dependencies.Deploy.result, 'Succeeded', 'SucceededWithIssues', 'Failed', 'Canceled'))
             jobs:
               - job: down
                 steps:

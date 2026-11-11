@@ -108,11 +108,67 @@ down by splitting the deployment in two:
 | Secure | No stored secrets. A WAF in Prevention mode, PostgreSQL with private access and Entra sign-in only, local auth off on Service Bus and ACR, and Defender for Containers |
 | Efficient | Managed monitoring replaces six self-hosted pods, with collection limited to what the dashboards and alerts use |
 
-Azure Pipelines deploys it: it validates, waits for an approval, deploys the `staging` environment, proves the
-cluster and Service Bus, and removes the compute again ([docs/azure-devops.md](docs/azure-devops.md)). It signs in
-through workload identity federation, so no secret is stored. The Bicep is in
+Azure Pipelines deploys it, as [CI/CD](#cicd) describes. The Bicep is in
 [infrastructure/azure/bicep](infrastructure/azure/bicep), and nothing is created until the plan and its price are
 approved.
+
+## CI/CD
+
+Two systems share the work. **GitHub Actions checks** every pull request and every merge to `main`. **Azure
+Pipelines deploys** what is merged to Azure. Pull requests never deploy, and the deploy never runs unchecked code.
+
+```text
+pull request ──► GitHub Actions: check, frontend, dependency-audit, image-scan, secrets, CodeQL, pr-status
+      │
+   merge to main (by the maintainer)
+      │
+      ▼
+Azure Pipelines ──► Validate ──► approval ──► Deploy ──► Prove ──► Remove compute
+                    what-if      you agree    staging    nodes,    always: back to
+                    (free)       to the cost  on Azure   events    about $20 a month
+```
+
+### GitHub Actions: checks
+
+[.github/workflows](.github/workflows) holds three workflows. Every action is pinned to a commit, and each job gets
+only read access unless it needs more.
+
+| Job | What it proves |
+| --- | --- |
+| `check` | `make check`: lint, formatting, types, tests, contracts and generated files match the code |
+| `frontend` | The web app's lint, types, tests and build, and `npm audit` |
+| `dependency-audit` | No Python dependency has a known vulnerability |
+| `image-scan` | A service built from the scaffold has no fixable high or critical CVE (Trivy) |
+| `secrets` | Gitleaks finds no secret in the history |
+| `codeql` | CodeQL's security analysis of the Python, also weekly |
+| `pr-status` | The pull request's status label, and that it is ready to merge |
+
+### Azure Pipelines: the deploy
+
+The pipeline is [infrastructure/azure/pipelines/azure-pipelines.yml](infrastructure/azure/pipelines/azure-pipelines.yml),
+in an Azure DevOps project, `windops-ai`, connected to this repository. It starts when a merge changes the Azure
+files, or by hand with **Run pipeline**.
+
+| Stage | What it does |
+| --- | --- |
+| Validate | The Azure tests, and a `what-if` listing every resource it would change. Creates nothing |
+| Deploy | Waits for an approval on the `windops-staging` environment, then `make azure-up` |
+| Prove | The AKS nodes are Ready, and events pass their contract on the deployed Service Bus |
+| Remove compute | `make azure-down`. It runs when Prove fails, when Deploy fails and when the run is cancelled, so no vCPU is left running |
+
+A run costs about $1: the cluster runs for about an hour. **Keep the compute running** leaves it up for a live demo,
+and **Delete everything** removes both resource groups instead.
+
+How it is connected to Azure:
+
+| Piece | In Azure DevOps | What it is |
+| --- | --- | --- |
+| Service connection `windops-staging` | Project settings | Signs in with **workload identity federation**: Azure trusts tokens from only this connection, so no password or key exists anywhere |
+| Identity `id-windops-pipeline` | (in Azure, `rg-windops-pipeline`) | A managed identity with Contributor, and with role granting limited to the roles the Bicep uses, so it can never make anyone an Owner |
+| Variable group `windops-staging` | Pipelines, Library | The subscription, the operator's and pipeline's IDs, the alert email and allowed IPs. None is a secret |
+| Environment `windops-staging` | Pipelines, Environments | Its approval check is where someone agrees to the cost before each deploy |
+
+[docs/azure-devops.md](docs/azure-devops.md) explains each piece and the one-time setup.
 
 ## Project status
 

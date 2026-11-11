@@ -17,7 +17,11 @@ only value that allows plaintext gRPC.
 | Validate | The Azure tests, and a `what-if` of every change. Creates nothing | $0 |
 | Deploy | `make azure-up`, after someone approves the `windops-staging` environment | $0.98 an hour from here |
 | Prove | The AKS nodes are Ready, and events pass their five-scenario contract on the deployed Service Bus | |
-| Remove compute | `make azure-down`, even when Prove failed, so no vCPU is left running | back to about $20 a month |
+| Remove compute | `make azure-down`, when Prove or Deploy failed and when the run was cancelled, so no vCPU is left running | back to about $20 a month |
+
+Cancelling a run stops only the agent: Azure Resource Manager keeps creating resources. So Remove compute still runs
+after a cancel, cancels any deployment still running in Azure, and then deletes the compute. When a run is rejected
+or cancelled before anything was deployed, it finds no resource group and creates nothing.
 
 A run takes about an hour, so it costs about $1. To keep the compute for a live demo, tick **Keep the compute running**
 when starting the run, and run `make azure-down` afterwards. The **Delete everything** option runs `make
