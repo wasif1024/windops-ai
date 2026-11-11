@@ -49,7 +49,7 @@ animation illustrates the specified workflow, not a recording.
 
 ## Architecture
 
-[![WindOps AI platform architecture: AI-assisted fault investigation for renewable assets. Operators reach the React frontend, and the telemetry simulator sends device samples, both over HTTPS through the APISIX API Gateway, which checks sign-in with Keycloak. In the windops-system namespace, Web BFF calls the Identity, Authorization and Tenant services over gRPC. In windops-application, the Agent Runtime runs a Supervisor and five specialist agents, which reach services only through four MCP servers in windops-mcp. Twenty domain services, grouped by capability, call each other over gRPC with mutual TLS, a signed identity and circuit breakers, and publish durable events to four NATS JetStream streams. Each service owns its PostgreSQL database with row-level security, alongside Redis and Qdrant in windops-data, and external providers are reached through breakers. Every workload sends logs, metrics and traces to the observability stack. A side column lists the security controls on each hop, in place or planned with their module, the circuit breaker's states and failure behaviors, the agent guardrails and where the system runs. A strip shows delivery progress across every phase.](docs/assets/platform-architecture.png)](docs/assets/platform-architecture.png)
+[![WindOps AI platform architecture: AI-assisted fault investigation for renewable assets. Operators reach the React frontend, and the telemetry simulator sends device samples, both over HTTPS through the APISIX API Gateway, which checks sign-in with Keycloak. In the windops-system namespace, Web BFF calls the Identity, Authorization and Tenant services over gRPC. In windops-application, the Agent Runtime runs a Supervisor and five specialist agents, which reach services only through four MCP servers in windops-mcp. Twenty domain services, grouped by capability, call each other over gRPC with mutual TLS, a signed identity and circuit breakers, and publish durable events through four streams: NATS JetStream locally, and Azure Service Bus topics on Azure. Each service owns its PostgreSQL database with row-level security, alongside Redis and Qdrant in windops-data, and external providers are reached through breakers. Every workload sends logs, metrics and traces to the observability stack: Loki, Prometheus, Tempo and Grafana locally; Log Analytics, managed Prometheus, Application Insights and Managed Grafana on Azure. An Azure panel shows what the platform runs on in Sweden Central: Application Gateway WAF, AKS powered by Cilium, Service Bus, Azure Database for PostgreSQL, Key Vault, Entra Workload ID, Container Registry and Azure Monitor. A side column lists the security controls on each hop, in place or planned with their module, the circuit breaker's states and failure behaviors, the agent guardrails, where the system runs and its monthly Azure cost. A strip shows delivery progress across every phase.](docs/assets/platform-architecture.png)](docs/assets/platform-architecture.png)
 
 <sub>Select the diagram to view it full size. A green dot marks a service running today. Security controls marked
 planned name the module that delivers them; tests fail if a control is still shown as planned once its modules are
@@ -60,15 +60,55 @@ finished, so the diagram cannot drift from the [implementation tracker](docs/pha
 
 | Concern | Decision |
 | --- | --- |
-| Entry | Apache APISIX is the only way into the cluster: TLS, OIDC token checks, CORS allowlists and per-route rate limits. Devices use a separate route with their own credentials |
+| Entry | Apache APISIX is the only way into the cluster: TLS, OIDC token checks, CORS allowlists and per-route rate limits. Devices use a separate route with their own credentials. On Azure, Application Gateway's WAF stands in front of it |
 | Identity and access | Keycloak for sign-in, with MFA for administrators. Eight roles, scoped to a tenant, wind farm or turbine; the Authorization Service decides every action and denies by default |
 | Service communication | 23 services, each with its own image, contracts and data. Synchronous calls use gRPC with versioned Protobuf, mutual TLS, a signed identity and a deadline |
-| Events | NATS JetStream, published through a transactional outbox in each service, so a change and its event commit together. Failed messages go to a dead-letter stream |
+| Events | Published through a transactional outbox in each service, so a change and its event commit together. NATS JetStream locally and Azure Service Bus on Azure, behind one interface and chosen by `WINDOPS_ENVIRONMENT`. Failed messages go to dead letters |
 | Data | PostgreSQL with one database and login per service, and forced row-level security on every tenant table. Telemetry is partitioned by day (ADR 0003). Redis for cache and rate limits, Qdrant for vector search |
 | Agents | LangGraph and Claude. Agents reach services only through authenticated, schema-validated MCP servers with per-agent allowlists, and can draft but never approve |
 | Resilience | A circuit breaker per caller and dependency, bounded retries for idempotent calls only, and a documented fallback for every dependency (ADR 0004) |
-| Observability | OpenTelemetry traces in Tempo, metrics in Prometheus with Alertmanager, logs through Fluent Bit to Loki, and Grafana dashboards |
-| Deployment | Kubernetes with Kustomize overlays. Minikube locally (ADR 0001); Azure in the final phase (ADR 0005) |
+| Observability | Locally, OpenTelemetry traces in Tempo, metrics in Prometheus with Alertmanager, logs through Fluent Bit to Loki, and Grafana dashboards. On Azure, the same signals go to Application Insights, Log Analytics, managed Prometheus and Managed Grafana |
+| Deployment | Kubernetes with Kustomize overlays and Cilium networking. Minikube locally (ADR 0001); AKS on Azure, with Entra Workload ID and Key Vault in place of stored secrets (ADR 0006) |
+
+## Azure deployment plan
+
+WindOps AI is built for Azure and runs the same platform on a laptop. Each workload keeps its code, and only the
+back ends behind it change, chosen by `WINDOPS_ENVIRONMENT` ([ADR 0006](docs/adr/0006-azure-aligned-platform-services.md)):
+
+| Concern | Locally (`local`, `ci`) | On Azure (`dev`, `live`) |
+| --- | --- | --- |
+| Cluster | Minikube with Cilium | AKS with Azure CNI Overlay, powered by Cilium |
+| Way in | APISIX | Application Gateway WAF v2, then APISIX |
+| Events | NATS JetStream | Azure Service Bus: topics, filtered subscriptions and dead-letter queues |
+| Database | PostgreSQL pod, a password per service | Azure Database for PostgreSQL, Entra sign-in with no password |
+| Secrets | Kubernetes Secrets | Key Vault, through Entra Workload ID and the Secrets Store CSI driver |
+| Images | Built into Minikube | Azure Container Registry |
+| Monitoring | Prometheus, Loki, Tempo and Grafana | Managed Prometheus, Log Analytics, Application Insights and Managed Grafana |
+
+The [Azure deployment plan](docs/azure-plan.md) sizes and prices every resource in Sweden Central. It keeps cost
+down by splitting the deployment in two:
+
+- **A data resource group** holds Service Bus, PostgreSQL, Key Vault, the registry and monitoring. It exists all
+  the time, for about **$19 a month**.
+- **A compute resource group** holds AKS, the Application Gateway and their addresses. It is created for a demo and
+  deleted after, at about **$0.98 an hour**.
+
+| Profile | What runs | Per month |
+| --- | --- | --- |
+| Idle | The data resource group only | about $19 |
+| **Demo (planned)** | The compute for about 60 hours a month | **about $84** |
+| Always on | Everything, all month | about $778 |
+| Live, later | Production grade: zone redundant, with SLAs | about $1,800 |
+
+| Goal | How the plan meets it |
+| --- | --- |
+| Cost-effective | Compute runs only while it is used. Free-tier AKS, Burstable PostgreSQL, ephemeral OS disks, and a $100 budget with alerts |
+| Reliable | Managed state, with point-in-time restore and durable events. Every resource is in Bicep, so `make azure-up` rebuilds the same platform |
+| Secure | No stored secrets. A WAF in Prevention mode, PostgreSQL with private access and Entra sign-in only, local auth off on Service Bus and ACR, and Defender for Containers |
+| Efficient | Managed monitoring replaces six self-hosted pods, with collection limited to what the dashboards and alerts use |
+
+The plan is awaiting approval. M4A.6 writes it in Bicep, and creates nothing until the plan and its price are
+approved.
 
 ## Project status
 
@@ -78,7 +118,9 @@ Phases 1 to 3 are complete, each closed by an exit gate run on a real cluster:
 - **Phase 2:** data and events.
 - **Phase 3:** identity and tenancy.
 
-Phase 4, assets and telemetry, is in progress.
+Phase 4, assets and telemetry, is in progress. It waits on Phase 4A, which aligns the platform with Azure's
+reference architecture: Service Bus, Entra Workload ID, Cilium and Azure Monitor are built and tested, and the
+Azure deployment comes next.
 
 | Running today | |
 | --- | --- |
@@ -101,6 +143,7 @@ The [implementation tracker](docs/phases/README.md) lists every phase and module
 | [Security](docs/security.md) and [roles and permissions](docs/rbac.md) | Identities, tenants, data protection and the API, and who may do what |
 | [Observability](docs/observability.md) | Data flow, dashboards, alerts and retention |
 | [Deployment](docs/deployment.md) | Bootstrapping and running on Kubernetes |
+| [Azure deployment plan](docs/azure-plan.md) | Every Azure resource with its size and monthly price, and how to stop paying for it |
 | [Coding standards](docs/coding-standards.md) | Naming, commits, pull requests, merge rules and automated enforcement |
 
 ### Architecture decision records

@@ -242,6 +242,7 @@ HOP_CONTROLS = (
             Control("Sign-in through Keycloak (OIDC), with MFA for administrators"),
             Control("Token checks, CORS allowlists and SRS rate limits on every route"),
             Control("Each device has its own credential, for one tenant and turbine"),
+            Control("On Azure, a WAF in Prevention mode in front of the gateway", "M4A.6"),
         ),
     ),
     (
@@ -277,6 +278,7 @@ HOP_CONTROLS = (
             Control("Non-root pods, read-only filesystems, memory limits and probes"),
             Control("Deny all traffic between namespaces by default", "M13.3"),
             Control("Every change passes lint, types, tests, CodeQL and secret scans"),
+            Control("On Azure, no stored secrets: Workload ID and Key Vault", "M4A.6"),
             Control("Signed container images", "M14.2"),
         ),
     ),
@@ -318,7 +320,25 @@ OVERVIEW_GROUPS = (
     ("Identity and tenancy", "service", tuple((name, "service") for name in ENTRY_SERVICES[2:])),
     *APPLICATION_GROUPS,
 )
-STREAM_NAMES = ("WINDOPS_EVENTS", "WINDOPS_TELEMETRY", "WINDOPS_AUDIT", "WINDOPS_DEAD_LETTER")
+# Each stream locally, and its Service Bus topic on Azure (ADR 0006).
+STREAM_NAMES = (
+    "WINDOPS_EVENTS / windops-events",
+    "WINDOPS_TELEMETRY / windops-telemetry",
+    "WINDOPS_AUDIT / windops-audit",
+    "WINDOPS_DEAD_LETTER / dead-letter queues",
+)
+# What M4A.6 creates, from docs/azure-plan.md.
+AZURE_RESOURCES = (
+    ("Application Gateway", "WAF v2 in front of APISIX"),
+    ("AKS", "Azure CNI Overlay, powered by Cilium"),
+    ("Azure Service Bus", "topics, subscriptions, dead letters"),
+    ("Azure Database for PostgreSQL", "Entra sign-in, private access"),
+    ("Key Vault", "secrets through the CSI driver"),
+    ("Entra Workload ID", "an identity per workload"),
+    ("Container Registry", "pulled with the cluster's identity"),
+    ("Azure Monitor", "Insights, logs, Prometheus, Grafana"),
+)
+AZURE_PANEL_HEIGHT = 138.0
 SPECIALISTS = (
     "SCADA Analyst",
     "Reliability Engineer",
@@ -343,12 +363,21 @@ PROVIDERS = (
 BREAKER_OUTCOMES = (
     ("Refuse", RED, "Authorization, Policy, Production Impact, Keycloak, PostgreSQL"),
     ("Pause", AMBER, "Claude API, Knowledge, Telemetry, Approval, forecasts"),
-    ("Continue", GREEN, "Tavily, Sandbox, Audit, Notification, JetStream"),
+    ("Continue", GREEN, "Tavily, Sandbox, Audit, Notification, events"),
 )
 RUNTIMES = (
-    ("Local", "Minikube: 6 CPUs, 10 GB (ADR 0001)"),
+    ("Local", "Minikube with Cilium: 6 CPUs, 10 GB (ADR 0001)"),
     ("CI", "Checks, scans and image builds"),
-    ("Azure", "AKS, managed PostgreSQL, Key Vault (ADR 0005)"),
+    (
+        "Azure",
+        "AKS in Sweden Central, with managed data, events and monitoring (ADR 0006)",
+    ),
+)
+# From docs/azure-plan.md: compute runs only while it is used.
+AZURE_COSTS = (
+    ("Idle", "data only, between demos", "$19"),
+    ("Demo", "compute for 60 hours, the plan", "$84"),
+    ("Always on", "everything, all month", "$778"),
 )
 GUARDRAILS = (
     "Agents recommend and draft. Policy, Approval and people decide.",
@@ -475,7 +504,10 @@ def draw_edge(c: Canvas) -> None:
 
     namespace(c, 40, 186, 1080, 336, "windops-system", "")
     gateway, bff = (60, 214, 380, 266), (440, 214, 640, 266)
-    c.node(*gateway, "API Gateway", "Apache APISIX: the only way in", "service", 14, 11.5)
+    c.node(
+        *gateway, "API Gateway", "Apache APISIX: the only way in. On Azure, behind a WAF",
+        "service", 14, 11.5,
+    )  # fmt: skip
     c.node(60, 280, 380, 322, "Keycloak", "sign-in, MFA and tokens", "external", 13, 11.5)
     c.node(*bff, "Web BFF", "REST and SSE only", "service", 14, 11.5)
     for name, box in (("API Gateway", gateway), ("Web BFF", bff)):
@@ -544,17 +576,19 @@ def draw_services(c: Canvas) -> tuple[float, float]:
 def draw_events_and_data(c: Canvas, services_bottom: float) -> None:
     y0, y1 = services_bottom + 24, services_bottom + 76
     c.box(40, y0, 1080, y1, fill=mix(BG, EVENT, 0.12), outline=EVENT, radius=10)
-    c.text(56, y0 + 16, "NATS JetStream", 13, True, EVENT)
+    title = "NATS JetStream locally, Azure Service Bus on Azure"
+    c.text(56, y0 + 16, title, 13, True, EVENT)
     c.text(
-        56 + c.text_width("NATS JetStream", 13, True) + 10, y0 + 16,
-        "durable events from each service's transactional outbox: the sender never waits",
+        56 + c.text_width(title, 13, True) + 10, y0 + 16,
+        "durable events from each service's outbox: the sender never waits",
         12, color=MUTED,
     )  # fmt: skip
     width = (1040 - 3 * 8 - 24) / 4
     for index, name in enumerate(STREAM_NAMES):
         x0 = 52 + index * (width + 8)
         c.box(x0, y0 + 28, x0 + width, y1 - 6, fill=BG, outline=mix(EVENT, BG, 0.4), radius=6)
-        c.text(x0 + width / 2, (y0 + 28 + y1 - 6) / 2, name, 11.5, True, EVENT, "mm")
+        size = 11 if c.text_width(name, 11, True) <= width - 8 else 10
+        c.text(x0 + width / 2, (y0 + 28 + y1 - 6) / 2, name, size, True, EVENT, "mm")
     dashed(c, [(420, services_bottom), (420, y0)], EVENT)
     dashed(c, [(700, y0), (700, services_bottom)], EVENT)
 
@@ -568,7 +602,7 @@ def draw_events_and_data(c: Canvas, services_bottom: float) -> None:
         "20 databases, one per service, each with its own login",
         "Forced row-level security on every tenant table",
         "Telemetry partitioned by day (ADR 0003)",
-        "Locally one pod; in production, primaries and standbys",
+        "Locally one pod; on Azure, Flexible Server with Entra sign-in",
     )
     for index, value in enumerate(lines):
         c.dot(72, top + 68 + index * 18, 2.5, GREEN)
@@ -586,19 +620,37 @@ def draw_events_and_data(c: Canvas, services_bottom: float) -> None:
 
     top += 172
     observability = (
-        ("Logs", "Fluent Bit, Loki"),
-        ("Metrics and alerts", "Prometheus, Alertmanager"),
-        ("Traces", "OpenTelemetry, Tempo"),
-        ("Dashboards", "Grafana, behind a login"),
+        ("Logs", "Loki locally, Log Analytics on Azure"),
+        ("Metrics and alerts", "Prometheus, or managed Prometheus"),
+        ("Traces", "Tempo, or Application Insights"),
+        ("Dashboards", "Grafana, or Managed Grafana"),
     )
-    namespace(
-        c, 40, top, 1080, top + 92, "windops-observability", "from every workload, one trace ID"
-    )
+    namespace(c, 40, top, 1080, top + 92, "Observability", "from every workload, one trace ID")
     width = (1040 - 3 * 10 - 24) / 4
     for index, (name, note) in enumerate(observability):
         x0 = 52 + index * (width + 10)
         c.box(x0, top + 30, x0 + width, top + 80, fill=mix(BG, SIGNAL, 0.12), outline=SIGNAL)
         c.label(x0, top + 30, x0 + width, top + 80, name, note, TEXT, MUTED, 13, 11.5)
+
+    draw_azure(c, top + 112)
+
+
+def draw_azure(c: Canvas, top: float) -> None:
+    """What the platform runs on in Azure, as docs/azure-plan.md sizes and prices it."""
+    azure = KINDS["external"][0]
+    c.box(40, top, 1080, top + AZURE_PANEL_HEIGHT, fill=mix(BG, azure, 0.08), outline=azure,
+          radius=10)  # fmt: skip
+    c.text(54, top + 16, "On Azure (ADR 0006)", 13, True, azure)
+    c.text(
+        64 + c.text_width("On Azure (ADR 0006)", 13, True), top + 16,
+        "Sweden Central. Created in M4A.6 once its plan and price are approved",
+        12, color=MUTED,
+    )  # fmt: skip
+    width = (1040 - 3 * 10 - 24) / 4
+    for index, (name, note) in enumerate(AZURE_RESOURCES):
+        x0 = 52 + (index % 4) * (width + 10)
+        y0 = top + 30 + (index // 4) * 52
+        c.node(x0, y0, x0 + width, y0 + 44, name, note, "external", 12.5, 11)
 
 
 def controls_height(c: Canvas, controls: tuple[Control, ...], width: float) -> float:
@@ -663,7 +715,16 @@ def draw_side(c: Canvas, x0: float, x1: float, bottom: float) -> None:
         for index, row in enumerate(c.wrap(note, 12.5, x1 - x0 - 120)):
             c.text(x0 + 104, y + index * 17, row, 12.5, color=MUTED)
         y += 17 * len(c.wrap(note, 12.5, x1 - x0 - 120)) + 8
-    if y > bottom:
+    c.line([(x0 + 16, y), (x1 - 16, y)], LINE, 1)
+    c.text(x0 + 16, y + 18, "Azure, per month", 13, True)
+    c.text(x1 - 16, y + 18, "docs/azure-plan.md", 11.5, color=MUTED, anchor="rm")
+    y += 40
+    for name, note, price in AZURE_COSTS:
+        c.text(x0 + 16, y, name, 12.5, True, KINDS["external"][0])
+        c.text(x0 + 104, y, note, 12.5, color=MUTED)
+        c.text(x1 - 16, y, price, 13, True, GREEN if name == "Demo" else TEXT, "rm")
+        y += 21
+    if y - 8 > bottom:
         print("WARNING: the side column overflows")
 
 
@@ -695,12 +756,12 @@ def draw_roadmap(c: Canvas, y: float, x0: float, x1: float) -> float:
 
 
 def build_platform_architecture() -> None:
-    c = Canvas(1600, 1480)
+    c = Canvas(1600, 1700)
     c.text(40, 40, "WindOps AI: AI-Assisted Fault Investigation for Renewable Assets", 28, True)
     c.text(
         40, 74,
-        "Platform architecture, the target design from SRS v1.1. A green dot marks a service "
-        "running today; the rest arrive phase by phase.",
+        "Platform architecture from SRS v1.1, locally and on Azure (ADR 0006). A green dot "
+        "marks a service running today.",
         15, color=MUTED,
     )  # fmt: skip
     legend = (
@@ -729,9 +790,9 @@ def build_platform_architecture() -> None:
     draw_agents(c)
     _, services_bottom = draw_services(c)
     draw_events_and_data(c, services_bottom)
-    observability_bottom = services_bottom + 76 + 22 + 172 + 92
-    draw_side(c, 1104, 1560, observability_bottom)
-    y = draw_roadmap(c, observability_bottom + 20, 40, 1560) + 30
+    left_bottom = services_bottom + 76 + 22 + 172 + 92 + 20 + AZURE_PANEL_HEIGHT
+    draw_side(c, 1104, 1560, left_bottom)
+    y = draw_roadmap(c, left_bottom + 20, 40, 1560) + 30
     c.text(
         800, y,
         "Agents recommend. Deterministic services and authorized humans decide. "
