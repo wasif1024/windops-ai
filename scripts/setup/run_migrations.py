@@ -22,9 +22,11 @@ class MigrationError(RuntimeError):
     """A migration Job failed, so nothing after it should run."""
 
 
-def _kubectl(*arguments: str, stdin: str | None = None) -> subprocess.CompletedProcess[str]:
+def _kubectl(
+    *arguments: str, stdin: str | None = None, context: str | None = None
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["kubectl", "--context", CONTEXT, *arguments],
+        ["kubectl", "--context", context or CONTEXT, *arguments],
         input=stdin, capture_output=True, text=True, check=False,
     )  # fmt: skip
 
@@ -34,11 +36,11 @@ def job_manifests(root: Path = REPOSITORY) -> list[Path]:
     return sorted(root.glob("services/*/deploy/migrate-job.yaml"))
 
 
-def job_state(name: str, namespace: str) -> str | None:
+def job_state(name: str, namespace: str, context: str | None = None) -> str | None:
     """Return "Complete" or "Failed" once a Job has finished, and None until then."""
     result = _kubectl(
         "get", "job", name, f"--namespace={namespace}",
-        "--output=jsonpath={.status.conditions[?(@.status==\"True\")].type}",
+        "--output=jsonpath={.status.conditions[?(@.status==\"True\")].type}", context=context,
     )  # fmt: skip
     if result.returncode != 0:
         raise MigrationError(f"Could not read Job {name}: {result.stderr}")
@@ -49,23 +51,34 @@ def job_state(name: str, namespace: str) -> str | None:
     return None
 
 
-def run_job(manifest: str, *, timeout_seconds: float = TIMEOUT_SECONDS) -> None:
-    """Replace a finished Job with a new run of it, and wait for the result."""
+def run_job(
+    manifest: str, *, timeout_seconds: float = TIMEOUT_SECONDS, context: str | None = None
+) -> None:
+    """Replace a finished Job with a new run of it, and wait for the result.
+
+    `context` is the cluster's kubectl context: the local one unless another is given, as the
+    Azure deployment gives its own.
+    """
     metadata = yaml.safe_load(manifest)["metadata"]
     name, namespace = metadata["name"], metadata["namespace"]
     # A Job cannot be changed once created, and an old one would hide this release's result.
-    _kubectl("delete", "job", name, f"--namespace={namespace}", "--ignore-not-found", "--wait=true")
-    applied = _kubectl("apply", "--filename=-", stdin=manifest)
+    _kubectl(
+        "delete", "job", name, f"--namespace={namespace}", "--ignore-not-found", "--wait=true",
+        context=context,
+    )  # fmt: skip
+    applied = _kubectl("apply", "--filename=-", stdin=manifest, context=context)
     if applied.returncode != 0:
         raise MigrationError(f"Could not create Job {name}: {applied.stderr}")
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
-        state = job_state(name, namespace)
+        state = job_state(name, namespace, context)
         if state == "Complete":
             print(f"{name} finished")
             return
         if state == "Failed":
-            logs = _kubectl("logs", f"job/{name}", f"--namespace={namespace}", "--tail=20")
+            logs = _kubectl(
+                "logs", f"job/{name}", f"--namespace={namespace}", "--tail=20", context=context
+            )
             raise MigrationError(f"{name} failed. Its last log lines:\n{logs.stdout}")
         time.sleep(1)
     raise MigrationError(f"{name} did not finish within {timeout_seconds} seconds")

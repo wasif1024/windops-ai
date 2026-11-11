@@ -16,20 +16,44 @@ only value that allows plaintext gRPC.
 | --- | --- | --- |
 | Validate | The Azure tests, and a `what-if` of every change. Creates nothing | $0 |
 | Deploy | `make azure-up`, after someone approves the `windops-staging` environment | $0.98 an hour from here |
-| Prove | The AKS nodes are Ready, and events pass their five-scenario contract on the deployed Service Bus | |
+| Platform | `make azure-platform`: builds the services' images and pushes them to the registry, writes their settings to Key Vault, installs cert-manager with the internal CA, deploys the Collector, gives each service its database and Entra login, runs the migrations, then deploys the services | |
+| Prove | The AKS nodes are Ready, events pass their five-scenario contract on Service Bus, and the services prove Workload ID, Key Vault, mutual TLS and Application Insights (below) | |
 | Remove compute | `make azure-down`, when Prove or Deploy failed and when the run was cancelled, so no vCPU is left running | back to about $20 a month |
 
 Cancelling a run stops only the agent: Azure Resource Manager keeps creating resources. So Remove compute still runs
 after a cancel, cancels any deployment still running in Azure, and then deletes the compute. When a run is rejected
 or cancelled before anything was deployed, it finds no resource group and creates nothing.
 
-A run takes about an hour, so it costs about $1. To keep the compute for a live demo, tick **Keep the compute running**
+A run takes about two hours, so it costs about $2. To keep the compute for a live demo, tick **Keep the compute running**
 when starting the run, and run `make azure-down` afterwards. The **Delete everything** option runs `make
 azure-destroy` instead, after the same approval.
 
 Azure DevOps itself is free here. Its free tier gives one Microsoft-hosted job at a time, up to 60 minutes each, and
 1,800 minutes a month. Enabling it needs the organization linked to the Azure subscription for billing, which costs
 nothing on the free tier.
+
+## What Prove checks
+
+The services deployed are those that need only Azure's services: asset, audit, authorization, tenant, and the sample
+caller and responder. Those that need Keycloak, Redis or the gateway's etcd in the cluster come with the full
+deployment in Phase 15.
+
+| Check | What it proves |
+| --- | --- |
+| Two nodes are Ready | AKS is up |
+| Events pass their contract on the deployed Service Bus | The same five scenarios NATS passes (M4A.3) |
+| Every service is Available | Each read its Secrets from Key Vault through the CSI driver, and its certificate from cert-manager |
+| Each service's migrations completed | It signed in to PostgreSQL as its own Entra identity, with no password |
+| No Workload ID pod is given a password | Nothing stored replaces Workload ID |
+| The sample caller answers, verified against the internal CA | The caller called the responder over mutual TLS, with a signed identity |
+| Application Insights has the echo's request | Traces reach Azure Monitor through the Collector |
+
+## Stopping PostgreSQL every night
+
+Azure starts a stopped PostgreSQL server again after 7 days. A second pipeline,
+[azure-postgres-stop.yml](../infrastructure/azure/pipelines/azure-postgres-stop.yml), runs every night at 02:00 UTC
+and stops it again, unless the compute group exists because a demo is using it. It needs no approval, as it only
+ever stops things, and takes about 3 minutes.
 
 ## Signing in with no secret
 
@@ -86,5 +110,8 @@ again, keeping only `AZURE_OPERATOR_IP_RANGES`.
    `wasif1024/windops-ai`. This installs the Azure Pipelines app on the repository. Then choose **Existing Azure
    Pipelines YAML file** and `infrastructure/azure/pipelines/azure-pipelines.yml`. Grant it the service connection and
    variable group when the first run asks.
+
+7. **Create the nightly pipeline.** The same way, choose
+   `infrastructure/azure/pipelines/azure-postgres-stop.yml`, then **Save**. Its schedule starts it each night.
 
 After that, a merge that changes the Azure files starts a run, and **Run pipeline** starts one by hand.

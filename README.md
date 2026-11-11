@@ -96,7 +96,7 @@ down by splitting the deployment in two:
 | Profile | What runs | Per month |
 | --- | --- | --- |
 | Idle | The data resource group only | about $20 |
-| **Proof run (planned)** | Azure DevOps deploys staging, proves it and removes the compute | **about $1 a run** |
+| **Proof run (planned)** | Azure DevOps deploys staging and its services, proves them and removes the compute | **about $2 a run** |
 | Demo | The compute for about 60 hours a month | about $85 |
 | Always on | Everything, all month | about $778 |
 | Live, later | Production grade: zone redundant, with SLAs | about $1,800 |
@@ -123,9 +123,9 @@ pull request ──► GitHub Actions: check, frontend, dependency-audit, image-
    merge to main (by the maintainer)
       │
       ▼
-Azure Pipelines ──► Validate ──► approval ──► Deploy ──► Prove ──► Remove compute
-                    what-if      you agree    staging    nodes,    always: back to
-                    (free)       to the cost  on Azure   events    about $20 a month
+Azure Pipelines ──► Validate ──► approval ──► Deploy ──► Platform ──► Prove ──► Remove compute
+                    what-if      you agree    staging    services    Workload   always: back to
+                    (free)       to the cost  on Azure   on AKS      ID, traces about $20 a month
 ```
 
 ### GitHub Actions: checks
@@ -153,10 +153,11 @@ files, or by hand with **Run pipeline**.
 | --- | --- |
 | Validate | The Azure tests, and a `what-if` listing every resource it would change. Creates nothing |
 | Deploy | Waits for an approval on the `windops-staging` environment, then `make azure-up` |
-| Prove | The AKS nodes are Ready, and events pass their contract on the deployed Service Bus |
+| Platform | `make azure-platform`: the services' images to the registry, their settings in Key Vault, cert-manager with the internal CA, each service's database and Entra login, migrations, then the services |
+| Prove | Nodes Ready, events on Service Bus, and the services: Workload ID to PostgreSQL with no password, Key Vault, mutual TLS, and traces in Application Insights |
 | Remove compute | `make azure-down`. It runs when Prove fails, when Deploy fails and when the run is cancelled, so no vCPU is left running |
 
-A run costs about $1: the cluster runs for about an hour. **Keep the compute running** leaves it up for a live demo,
+A run costs about $2: the cluster runs for about two hours. **Keep the compute running** leaves it up for a live demo,
 and **Delete everything** removes both resource groups instead.
 
 How it is connected to Azure:
@@ -167,6 +168,7 @@ How it is connected to Azure:
 | Identity `id-windops-pipeline` | (in Azure, `rg-windops-pipeline`) | A managed identity with Contributor, and with role granting limited to the roles the Bicep uses, so it can never make anyone an Owner |
 | Variable group `windops-staging` | Pipelines, Library | The subscription, the operator's and pipeline's IDs, the alert email and allowed IPs. None is a secret |
 | Environment `windops-staging` | Pipelines, Environments | Its approval check is where someone agrees to the cost before each deploy |
+| Nightly pipeline | Pipelines | [azure-postgres-stop.yml](infrastructure/azure/pipelines/azure-postgres-stop.yml) stops PostgreSQL each night unless a cluster uses it, as Azure restarts a stopped server after 7 days |
 
 [docs/azure-devops.md](docs/azure-devops.md) explains each piece and the one-time setup.
 
