@@ -4,8 +4,9 @@ The plan for M4A.6: what WindOps AI runs on in Azure, its size and its price, an
 [ADR 0006](adr/0006-azure-aligned-platform-services.md): the AKS baseline, the advanced AKS microservices
 architecture, and Application Gateway with a WAF in front of the API gateway.
 
-**Status: awaiting approval.** Nothing in this plan exists in Azure yet. M4A.6 writes it in Bicep, shows a `what-if`
-of every change, and creates it only after the plan and price are approved.
+**Status: written in Bicep, awaiting approval to create.** Nothing in this plan exists in Azure yet. The Bicep is in
+[infrastructure/azure/bicep](../infrastructure/azure/bicep), and `make azure-plan` shows a `what-if` of all 93
+resources without creating any. `make azure-up` creates them only after the plan and price are approved.
 
 Prices are pay-as-you-go list prices in USD, excluding tax, from the Azure Retail Prices API on 2026-11-11, for
 Sweden Central. A month is 730 hours.
@@ -14,7 +15,7 @@ Sweden Central. A month is 730 hours.
 
 | Goal | How |
 | --- | --- |
-| **Cost-effective** | Compute runs only while it is used. It lives in its own resource group, created for a demo and deleted after, so an idle month costs about **$19**. Burstable PostgreSQL, Free-tier AKS, no self-hosted monitoring, and a budget alert |
+| **Cost-effective** | Compute runs only while it is used. It lives in its own resource group, created for a demo and deleted after, so an idle month costs about **$20**. Burstable PostgreSQL, Free-tier AKS, no self-hosted monitoring, and a budget alert |
 | **Reliable** | Managed services for state: Service Bus, PostgreSQL with point-in-time restore, Key Vault with purge protection. Everything is Bicep, so the compute comes back the same each time. The services' own breakers, retries and outbox are unchanged |
 | **Secure** | No stored secrets: every workload signs in with Entra Workload ID. A WAF in front of the gateway, PostgreSQL with no public address and no passwords, local auth off on Service Bus and ACR, and Defender for Containers |
 | **Efficient** | Managed Prometheus, Application Insights and Log Analytics replace six self-hosted pods. Ephemeral OS disks, a cluster autoscaler, and collection limited to what the dashboards and alerts use |
@@ -38,7 +39,7 @@ single Bicep parameter, so changing it later is one line.
 Two resource groups, so a demo's compute can be deleted without touching data.
 
 ```text
-rg-windops-data      exists the whole time: about $19 a month
+rg-windops-data      exists the whole time: about $20 a month
 ├── vnet-windops       10.40.0.0/16, its subnets and network security groups
 ├── Service Bus        sb-windops-dev, Standard
 ├── PostgreSQL         psql-windops-dev, Flexible Server B2s, private access only
@@ -58,7 +59,7 @@ rg-windops-compute   exists only while the platform runs: about $0.98 an hour
 └── Public IPs         the gateway's address, and the cluster's outbound address
 ```
 
-### Data resource group: about $19 a month, running or not
+### Data resource group: about $20 a month, running or not
 
 | Resource | Size and settings | Per month |
 | --- | --- | --- |
@@ -68,8 +69,9 @@ rg-windops-compute   exists only while the platform runs: about $0.98 an hour
 | Key Vault | Standard, at $0.03 per 10,000 operations | under $0.50 |
 | Log Analytics and Application Insights | Pay as you go, 30 days kept. The first 5 GB a month is free, which a demo month stays under | $0 |
 | Managed Grafana | Essential, at $6 for each user who signs in that month | $0 to $6 |
+| Private DNS zone | PostgreSQL's private name, so the cluster finds it with no public address | $0.50 |
 | Network, identities and budget | The network, security groups, managed identities, Workload ID and Cost Management have no charge | $0 |
-| **Total** | | **$19.26 to $25.26** |
+| **Total** | | **$19.76 to $25.76** |
 
 ### Compute resource group: about $0.98 an hour, only while it runs
 
@@ -93,8 +95,8 @@ monitoring pods are not deployed.
 
 | Profile | What runs | Per month |
 | --- | --- | --- |
-| **Idle** | The data resource group only, between demos | **about $19** |
-| **Demo (recommended)** | The compute for about 60 hours a month, such as 15 sessions of 4 hours | **about $84** |
+| **Idle** | The data resource group only, between demos | **about $20** |
+| **Demo (recommended)** | The compute for about 60 hours a month, such as 15 sessions of 4 hours | **about $85** |
 | Always on, gateway for demos | The cluster and database all month, App Gateway for 60 hours, and about 15 GB of logs | about $455 |
 | Always on | Everything all month | about $778 |
 | Live, later (Phase 15) | Production grade, as below | about $1,800 |
@@ -104,17 +106,20 @@ long before then.
 
 ## How to stop paying
 
-These commands come with M4A.6. Each one shows a `what-if` before it changes anything.
+`make azure-plan` shows a `what-if` of every change and creates nothing (`COMPUTE=1` adds the compute group). The
+others say what they will do and ask first. They sign in with your `az login` session, and read `AZURE_*` settings from
+`.env`, with `AZURE_ALERT_EMAIL` required.
 
 | Command | What it does | Then costs | Back in |
 | --- | --- | --- | --- |
-| `make azure-up` | Creates the compute group, deploys the platform, and seeds the demo data | $0.98 an hour | about 20 minutes |
-| `make azure-down` | Deletes the compute group and stops PostgreSQL. Data, images and secrets stay | about $19 a month | `make azure-up` |
+| `make azure-up` | Creates or updates the data group, makes the two certificates once, then creates the compute group | $0.98 an hour | about 20 minutes |
+| `make azure-down` | Deletes the compute group and stops PostgreSQL. Data, images and secrets stay | about $20 a month | `make azure-up` |
 | `make azure-destroy` | Deletes both groups, after asking to confirm by typing the name | $0 | rebuilds from scratch |
 
-- **PostgreSQL restarts itself after 7 days stopped.** Azure starts a stopped server again after 7 days. A
-  scheduled GitHub Actions job, signed in with OIDC rather than a stored secret, stops it again every day it is
-  not needed. Without that job, PostgreSQL would cost $29 a month, and the budget alert would catch it.
+- **PostgreSQL restarts itself after 7 days stopped.** Azure starts a stopped server again after 7 days. Until a
+  scheduled GitHub Actions job, signed in with OIDC rather than a stored secret, stops it again each day (planned
+  with the platform's deployment), run `make azure-down` again within a week. Left running, PostgreSQL costs $29 a
+  month, and the budget alert would catch it.
 - **Key Vault keeps deleted secrets for 90 days.** With purge protection, a deleted vault's name stays reserved for
   that time. `azure-destroy` says so, and the Bicep takes the vault's name as a parameter.
 

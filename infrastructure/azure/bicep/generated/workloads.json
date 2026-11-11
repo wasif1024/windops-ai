@@ -1,0 +1,95 @@
+[
+  {
+    "name": "windops-asset",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
+    "name": "windops-audit",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": [
+      {
+        "topic": "windops-audit",
+        "subscription": "audit"
+      }
+    ]
+  },
+  {
+    "name": "windops-authorization",
+    "namespace": "windops-system",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
+    "name": "windops-gateway",
+    "namespace": "windops-system",
+    "events": false,
+    "database": false,
+    "keyVault": true,
+    "receives": []
+  },
+  {
+    "name": "windops-identity",
+    "namespace": "windops-system",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
+    "name": "windops-sample-caller",
+    "namespace": "windops-application",
+    "events": false,
+    "database": false,
+    "keyVault": true,
+    "receives": []
+  },
+  {
+    "name": "windops-sample-responder",
+    "namespace": "windops-application",
+    "events": false,
+    "database": false,
+    "keyVault": true,
+    "receives": []
+  },
+  {
+    "name": "windops-telemetry",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
+    "name": "windops-tenant",
+    "namespace": "windops-system",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
+    "name": "windops-web-bff",
+    "namespace": "windops-system",
+    "events": false,
+    "database": false,
+    "keyVault": true,
+    "receives": []
+  },
+  {
+    "name": "windops-otel-collector",
+    "namespace": "windops-observability",
+    "events": false,
+    "database": false,
+    "keyVault": true,
+    "receives": []
+  }
+]

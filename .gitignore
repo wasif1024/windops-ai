@@ -26,3 +26,6 @@ coverage/
 .vscode/
 .DS_Store
 *.log
+
+# Azure deployment outputs (scripts/setup/azure_deploy.py)
+.azure/
