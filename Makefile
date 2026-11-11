@@ -95,11 +95,11 @@ images: ## Build an image for every service, into the cluster's image store
 scaffold-check: ## Generate, build and run a throwaway service to prove the template works
 	uv run python -m scripts.checks.foundation.scaffold $(SCAFFOLD_ARGS)
 
-cluster: ## Start the local cluster, with SRS 11.4 settings for a 16 GB laptop
+cluster: ## Start the local cluster on Cilium, with SRS 11.4 settings for a 16 GB laptop
 	@# Restarting a stopped cluster switches kubectl's context, despite --keep-context, so restore it.
 	@previous="$$(kubectl config current-context 2>/dev/null || true)"; \
 	minikube start -p $(CLUSTER) --driver=docker --container-runtime=docker \
-		--kubernetes-version=v1.35.1 --cpus=6 --memory=10240 --cni=calico --keep-context || exit 1; \
+		--kubernetes-version=v1.35.1 --cpus=6 --memory=10240 --cni=cilium --keep-context || exit 1; \
 	minikube -p $(CLUSTER) addons enable metrics-server || exit 1; \
 	if [ -n "$$previous" ]; then kubectl config use-context "$$previous" >/dev/null; fi
 

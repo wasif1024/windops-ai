@@ -957,7 +957,7 @@ Every service, MCP server, data store and platform component runs as its own con
 
 ```bash
 # local profile, for a 16 GB laptop; the recommended full size is --cpus=8 --memory=24576
-minikube start --cpus=6 --memory=10240 --cni=calico
+minikube start --cpus=6 --memory=10240 --cni=cilium   # Cilium, as on AKS (ADR 0006)
 minikube addons enable metrics-server
 # APISIX is the only ingress
 

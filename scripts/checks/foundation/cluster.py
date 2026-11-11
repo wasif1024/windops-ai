@@ -38,6 +38,23 @@ spec:
       app.kubernetes.io/name: {WORKLOAD}
   policyTypes: [Ingress]
 """
+# Cilium's own policy, as Azure CNI powered by Cilium also enforces (ADR 0006): only pods in the
+# workload's own namespace may reach it, so the check's client, in default, is refused.
+SAME_NAMESPACE_ONLY = f"""
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {WORKLOAD}-same-namespace-check
+  namespace: {NAMESPACE}
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: {WORKLOAD}
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {NAMESPACE}
+"""
 PRIVILEGED_POD = f"""
 apiVersion: v1
 kind: Pod
@@ -132,18 +149,48 @@ def check_pod_security() -> None:
     print("A privileged pod was refused, as Pod Security requires")
 
 
+def check_cilium() -> None:
+    """The cluster's network plugin is Cilium (ADR 0006), with every agent ready."""
+    found = kubectl(
+        "get", "daemonset", "cilium", "--namespace=kube-system", "--ignore-not-found",
+        "--output=jsonpath={.status.numberReady}/{.status.desiredNumberScheduled}",
+        check=False,
+    ).stdout.strip()  # fmt: skip
+    ready, _, wanted = found.partition("/")
+    if not found or ready != wanted or ready in ("", "0"):
+        raise RuntimeError(
+            f"Cilium is not the cluster's network plugin, or is not ready ({found or 'absent'}). "
+            "Rebuild it on Cilium: make cluster-delete, then make cluster"
+        )
+    print(f"Cilium is the network plugin, with {ready} of {wanted} agents ready")
+
+
+def _refused_while(policy: str, kind: str, name: str, url: str) -> None:
+    kubectl("apply", "--filename=-", stdin=policy)
+    try:
+        # A policy takes a moment to reach the data plane.
+        for _ in range(5):
+            time.sleep(2)
+            if not client_request(url):
+                break
+        else:
+            raise RuntimeError(f"Cilium did not enforce the {kind}")
+    finally:
+        kubectl("delete", kind.lower(), name, f"--namespace={NAMESPACE}")
+    if not client_request(url):
+        raise RuntimeError(f"Removing the {kind} did not restore access")
+
+
 def check_network_policy() -> None:
     url = f"http://{WORKLOAD}.{NAMESPACE}.svc.cluster.local:8080/health/live"
     if not client_request(url):
         raise RuntimeError("Another pod could not reach the service")
-    kubectl("apply", "--filename=-", stdin=DENY_INGRESS)
-    try:
-        time.sleep(3)
-        if client_request(url):
-            raise RuntimeError("Calico did not enforce the NetworkPolicy")
-    finally:
-        kubectl("delete", "networkpolicy", f"{WORKLOAD}-deny-check", f"--namespace={NAMESPACE}")
-    print("Calico enforced a NetworkPolicy, and removing it restored access")
+    _refused_while(DENY_INGRESS, "NetworkPolicy", f"{WORKLOAD}-deny-check", url)
+    print("Cilium enforced a Kubernetes NetworkPolicy, and removing it restored access")
+    _refused_while(
+        SAME_NAMESPACE_ONLY, "CiliumNetworkPolicy", f"{WORKLOAD}-same-namespace-check", url
+    )
+    print("Cilium enforced a CiliumNetworkPolicy, allowing only the workload's own namespace")
 
 
 def measure_memory() -> str:
@@ -192,6 +239,7 @@ def check_deployment(root: Path) -> None:
             raise RuntimeError(f"The pod is unhealthy: {container}")
         print("The pod is ready, with passing probes and no restarts")
         check_pod_security()
+        check_cilium()
         check_network_policy()
         print(f"Measured: {measure_memory()}")
 
