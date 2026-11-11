@@ -514,7 +514,9 @@ def free_port() -> int:
         return int(probe.getsockname()[1])
 
 
-def echo_through_mutual_tls(context: str, ca_file: Path, attempts: int = 30) -> dict[str, Any]:
+def echo_through_mutual_tls(
+    context: str, ca_certificate: str, attempts: int = 30
+) -> dict[str, Any]:
     """The caller answers over HTTPS, after a signed gRPC call to the responder over mutual TLS.
 
     The caller's certificate is checked against the CA, for the name the cluster gives it.
@@ -529,7 +531,7 @@ def echo_through_mutual_tls(context: str, ca_file: Path, attempts: int = 30) -> 
          "deployment/windops-sample-caller", f"{port}:8443"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )  # fmt: skip
-    trust = ssl.create_default_context(cafile=str(ca_file))
+    trust = ssl.create_default_context(cadata=ca_certificate)
     host = "windops-sample-caller.windops-application.svc"
     last: Any = None
     try:
@@ -603,10 +605,8 @@ def prove_platform(outputs: dict[str, Any], context: str) -> None:
     check(not passwords, f"No Workload ID pod is given a password ({len(pods)} pods)")
     pem = az("keyvault", "secret", "show", "--vault-name", outputs["keyVaultName"],
              "--name", CA_SECRET, "--query", "value", "--output", "tsv")  # fmt: skip
-    with tempfile.TemporaryDirectory() as directory:
-        ca_file = Path(directory) / "ca.crt"
-        ca_file.write_text(certificate_only(pem))
-        body = echo_through_mutual_tls(context, ca_file)
+    # In memory only: nothing from the vault's secret is written anywhere.
+    body = echo_through_mutual_tls(context, certificate_only(pem))
     check(
         body == {"message": "hello", "tenant_id": "sample"},
         "The caller reached the responder over mutual TLS with a signed identity",
