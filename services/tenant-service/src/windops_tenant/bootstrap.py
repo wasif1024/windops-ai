@@ -11,8 +11,7 @@ import sys
 from datetime import UTC, datetime
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import create_async_engine
-from windops_migrations import database_url, in_tenant
+from windops_migrations import create_service_engine, in_tenant
 
 from windops_tenant import branding as rules
 from windops_tenant.branding import BrandingError
@@ -25,7 +24,7 @@ ACTOR = "bootstrap"
 async def bootstrap(tenant: str, name: str) -> bool:
     """Return True if this added the tenant, and False if it was already recorded."""
     rules.check_tenant_id(tenant)
-    engine = create_async_engine(database_url())
+    engine = create_service_engine()
     try:
         async with engine.begin() as connection:
             await in_tenant(connection, tenant)

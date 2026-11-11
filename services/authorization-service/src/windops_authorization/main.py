@@ -6,11 +6,11 @@ import logging
 
 import grpc
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 from windops.authorization.v1 import authorization_pb2_grpc
 from windops_events import EventsUnavailableError, open_events
 from windops_grpc import run_service
-from windops_migrations import database_url
+from windops_migrations import create_service_engine
 from windops_outbox import OutboxRelay
 
 from windops_authorization.service import AuthorizationService
@@ -42,7 +42,7 @@ async def relay_audit_records(engine: AsyncEngine, stop: asyncio.Event) -> None:
 
 
 def main() -> None:
-    engine = create_async_engine(database_url(), pool_size=5, max_overflow=5, pool_pre_ping=True)
+    engine = create_service_engine(pool_size=5, max_overflow=5, pool_pre_ping=True)
 
     async def database_ready() -> bool:
         async with engine.connect() as connection:

@@ -69,6 +69,7 @@ BUILT_TARGETS = {
     "cross-tenant-check",
     "edge-check",
     "openapi",
+    "azure-overlay",
     "bff-check",
     "gateway-policy-check",
     "token-exchange-check",

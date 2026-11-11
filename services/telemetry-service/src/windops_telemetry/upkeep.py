@@ -14,15 +14,14 @@ import json
 import sys
 from datetime import date
 
-from sqlalchemy.ext.asyncio import create_async_engine
-from windops_migrations import database_url
+from windops_migrations import create_service_engine
 
 from windops_telemetry import partitions
 from windops_telemetry.summaries import Summarizer
 
 
 async def run(arguments: argparse.Namespace) -> list[dict[str, object]]:
-    engine = create_async_engine(database_url())
+    engine = create_service_engine()
     out: list[dict[str, object]] = []
     try:
         if arguments.partitions:
