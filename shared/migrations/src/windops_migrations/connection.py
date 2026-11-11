@@ -5,11 +5,12 @@
 | `password` | Its own login and password, from its Kubernetes Secret, verified against our CA |
 | `entra` | Azure Database for PostgreSQL with Microsoft Entra: no stored password |
 
-`auto`, the default, is `entra` when `WINDOPS_ENVIRONMENT` is `dev` or `live`, and `password`
-otherwise. With Entra, each new connection presents a token from `DefaultAzureCredential`, which
-uses Microsoft Entra Workload ID on AKS. Tokens last about an hour, so one is kept until shortly
-before it ends, and the pool's connections are recycled before then. The server's certificate is
-public, so it is verified against the system's public roots, never skipped.
+`auto`, the default, is `entra` when `WINDOPS_ENVIRONMENT` is `dev`, `staging` or `live`, and
+`password` otherwise. With Entra, each new connection presents a token from
+`DefaultAzureCredential`, which uses Microsoft Entra Workload ID on AKS. Tokens last about an hour,
+so one is kept until shortly before it ends, and the pool's connections are recycled before then.
+The server's certificate is public, so it is verified against the system's public roots, never
+skipped.
 """
 
 import os
@@ -25,7 +26,8 @@ from windops_migrations.runner import database_url
 
 PASSWORD, ENTRA = "password", "entra"
 AUTO = "auto"
-ON_AZURE = frozenset({"dev", "live"})
+# The Azure environments. `test` is not one: it is the unit tests' own (windops_grpc.settings).
+ON_AZURE = frozenset({"dev", "staging", "live"})
 # The scope Azure Database for PostgreSQL accepts tokens for.
 POSTGRES_SCOPE = "https://ossrdbms-aad.database.windows.net/.default"
 # A token is renewed this long before it ends, and pooled connections live no longer than this.

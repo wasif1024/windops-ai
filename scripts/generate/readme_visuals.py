@@ -367,7 +367,7 @@ BREAKER_OUTCOMES = (
 )
 RUNTIMES = (
     ("Local", "Minikube with Cilium: 6 CPUs, 10 GB (ADR 0001)"),
-    ("CI", "Checks, scans and image builds"),
+    ("CI/CD", "GitHub Actions checks; Azure Pipelines deploys staging"),
     (
         "Azure",
         "AKS in Sweden Central, with managed data, events and monitoring (ADR 0006)",
@@ -375,9 +375,9 @@ RUNTIMES = (
 )
 # From docs/azure-plan.md: compute runs only while it is used.
 AZURE_COSTS = (
-    ("Idle", "data only, between demos", "$20"),
-    ("Demo", "compute for 60 hours, the plan", "$85"),
-    ("Always on", "everything, all month", "$778"),
+    ("Idle", "data only, between demos", "$20 a month"),
+    ("Proof run", "deploy, prove, remove: the plan", "$1 a run"),
+    ("Demo", "compute for 60 hours a month", "$85"),
 )
 GUARDRAILS = (
     "Agents recommend and draft. Policy, Approval and people decide.",
@@ -716,13 +716,13 @@ def draw_side(c: Canvas, x0: float, x1: float, bottom: float) -> None:
             c.text(x0 + 104, y + index * 17, row, 12.5, color=MUTED)
         y += 17 * len(c.wrap(note, 12.5, x1 - x0 - 120)) + 8
     c.line([(x0 + 16, y), (x1 - 16, y)], LINE, 1)
-    c.text(x0 + 16, y + 18, "Azure, per month", 13, True)
+    c.text(x0 + 16, y + 18, "Azure cost", 13, True)
     c.text(x1 - 16, y + 18, "docs/azure-plan.md", 11.5, color=MUTED, anchor="rm")
     y += 40
     for name, note, price in AZURE_COSTS:
         c.text(x0 + 16, y, name, 12.5, True, KINDS["external"][0])
         c.text(x0 + 104, y, note, 12.5, color=MUTED)
-        c.text(x1 - 16, y, price, 13, True, GREEN if name == "Demo" else TEXT, "rm")
+        c.text(x1 - 16, y, price, 13, True, GREEN if name == "Proof run" else TEXT, "rm")
         y += 21
     if y - 8 > bottom:
         print("WARNING: the side column overflows")

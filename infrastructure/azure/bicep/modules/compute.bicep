@@ -5,7 +5,8 @@ param environment string
 param tags object
 param kubernetesVersion string
 param operatorIpRanges array
-param operatorObjectId string
+@description('Each as { principalId, principalType }: the operator, and the pipeline when it deploys.')
+param admins array
 param aksSubnetId string
 param appGatewaySubnetId string
 param controlPlaneIdentityId string
@@ -175,15 +176,17 @@ resource containerInsightsLink 'Microsoft.Insights/dataCollectionRuleAssociation
   }
 }
 
-resource operatorAdmin 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(cluster.id, operatorObjectId, clusterAdmin)
-  scope: cluster
-  properties: {
-    principalId: operatorObjectId
-    principalType: 'User'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', clusterAdmin)
+resource adminCluster 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
+  for admin in admins: {
+    name: guid(cluster.id, admin.principalId, clusterAdmin)
+    scope: cluster
+    properties: {
+      principalId: admin.principalId
+      principalType: admin.principalType
+      roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', clusterAdmin)
+    }
   }
-}
+]
 
 // ----------------------------------------------------------------------------------- App Gateway
 

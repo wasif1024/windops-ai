@@ -1,0 +1,15 @@
+# The tools every stage needs: Python and the locked packages, kubectl and kubelogin.
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.13"
+  - script: |
+      python -m pip install --quiet "uv==$(UV_VERSION)"
+      uv sync --frozen
+    displayName: Install the locked packages
+  - script: |
+      mkdir -p "$HOME/.local/bin"
+      az aks install-cli --install-location "$HOME/.local/bin/kubectl" \
+        --kubelogin-install-location "$HOME/.local/bin/kubelogin" --only-show-errors
+      echo "##vso[task.prependpath]$HOME/.local/bin"
+    displayName: Install kubectl and kubelogin

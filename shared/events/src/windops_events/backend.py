@@ -3,7 +3,7 @@
 | `WINDOPS_ENVIRONMENT` | Events |
 | --- | --- |
 | `local`, `ci`, `test` | NATS JetStream, in the cluster |
-| `dev`, `live` | Azure Service Bus |
+| `dev`, `staging`, `live` | Azure Service Bus |
 
 `WINDOPS_EVENTS_BACKEND` overrides the choice when it is `nats` or `servicebus`, so a laptop can
 be pointed at a real Service Bus to test it. `auto`, the default, follows the environment.
@@ -37,7 +37,8 @@ from windops_events.envelope import Event
 NATS, SERVICE_BUS = "nats", "servicebus"
 BACKENDS = (NATS, SERVICE_BUS)
 AUTO = "auto"
-ON_AZURE = frozenset({"dev", "live"})
+# The Azure environments. `test` is not one: it is the unit tests' own (windops_grpc.settings).
+ON_AZURE = frozenset({"dev", "staging", "live"})
 Handler = Callable[[Event], Awaitable[None]]
 
 
