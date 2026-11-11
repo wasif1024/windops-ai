@@ -1857,6 +1857,7 @@ version = "0.1.0"
 source = { editable = "shared/migrations" }
 dependencies = [
     { name = "alembic" },
+    { name = "azure-identity" },
     { name = "psycopg", extra = ["binary"] },
     { name = "sqlalchemy" },
 ]
@@ -1864,6 +1865,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.20.1" },
+    { name = "azure-identity", specifier = ">=1.23" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.8" },
     { name = "sqlalchemy", specifier = ">=2.1.8" },
 ]

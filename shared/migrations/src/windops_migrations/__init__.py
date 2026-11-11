@@ -1,6 +1,12 @@
 """Run each service's Alembic migrations as a Kubernetes Job (DAT-001, DAT-002)."""
 
 from windops_migrations.check import MigrationViolation, find_violations
+from windops_migrations.connection import (
+    EntraTokens,
+    create_service_engine,
+    create_sync_service_engine,
+    database_auth,
+)
 from windops_migrations.runner import (
     MissingSettingError,
     create_revision,
@@ -12,10 +18,14 @@ from windops_migrations.runner import (
 from windops_migrations.tenancy import across_tenants, enable_tenant_isolation, in_tenant
 
 __all__ = [
+    "EntraTokens",
     "MigrationViolation",
     "MissingSettingError",
     "across_tenants",
     "create_revision",
+    "create_service_engine",
+    "create_sync_service_engine",
+    "database_auth",
     "database_url",
     "enable_tenant_isolation",
     "find_violations",

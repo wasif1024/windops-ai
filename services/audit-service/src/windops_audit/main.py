@@ -15,7 +15,7 @@ from nats.js.errors import APIError
 from opentelemetry import metrics
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 from windops.audit.v1 import audit_pb2, audit_pb2_grpc
 from windops.authorization.v1 import authorization_pb2, authorization_pb2_grpc
 from windops_auth import current_identity_token
@@ -36,7 +36,7 @@ from windops_grpc import (
     current_identity,
     run_service,
 )
-from windops_migrations import database_url
+from windops_migrations import create_service_engine
 from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, BreakerOpenError, CircuitBreaker
@@ -293,7 +293,7 @@ class LazyAuthorizer:
 
 
 def main() -> None:
-    engine = create_async_engine(database_url(), pool_size=5, max_overflow=5, pool_pre_ping=True)
+    engine = create_service_engine(pool_size=5, max_overflow=5, pool_pre_ping=True)
     authorizer = LazyAuthorizer(
         os.environ["WINDOPS_AUTHORIZATION_ADDRESS"], Path(os.environ["WINDOPS_TLS_DIR"])
     )

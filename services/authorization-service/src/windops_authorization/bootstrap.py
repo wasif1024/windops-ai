@@ -11,8 +11,7 @@ import asyncio
 import sys
 from datetime import UTC, datetime
 
-from sqlalchemy.ext.asyncio import create_async_engine
-from windops_migrations import database_url
+from windops_migrations import create_service_engine
 
 from windops_authorization import policy
 from windops_authorization.policy import RuleError, Scope
@@ -24,7 +23,7 @@ ACTOR = "bootstrap"
 async def bootstrap(tenant: str, user: str, role: str) -> bool:
     """Return True if this added the grant, and False if it already existed."""
     policy.check_grantable(tenant, role, Scope())
-    engine = create_async_engine(database_url())
+    engine = create_service_engine()
     try:
         async with engine.begin() as connection:
             if await find_active_grant(connection, tenant, user, role, Scope()):

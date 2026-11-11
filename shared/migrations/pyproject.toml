@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "alembic>=1.20.1",
+    "azure-identity>=1.23",
     "psycopg[binary]>=3.3.8",
     "sqlalchemy>=2.1.8",
 ]

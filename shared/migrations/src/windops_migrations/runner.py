@@ -7,7 +7,7 @@ from pathlib import Path
 
 from alembic import command, context
 from alembic.config import Config
-from sqlalchemy import URL, create_engine, select, text
+from sqlalchemy import URL, select, text
 from sqlalchemy import func as sql_func
 from sqlalchemy.pool import NullPool
 
@@ -53,7 +53,10 @@ def database_url() -> URL:
 
 def run_migrations() -> None:
     """Alembic's entry point, called from each service's migrations/env.py."""
-    engine = create_engine(database_url(), poolclass=NullPool)
+    # A password locally, or Entra on Azure, as WINDOPS_DATABASE_AUTH chooses (ADR 0006).
+    from windops_migrations.connection import create_sync_service_engine
+
+    engine = create_sync_service_engine(poolclass=NullPool)
     with engine.connect() as connection:
         # Held until this connection closes. Another Job waits here, then finds nothing to do.
         connection.execute(select(sql_func.pg_advisory_lock(MIGRATION_LOCK_ID)))

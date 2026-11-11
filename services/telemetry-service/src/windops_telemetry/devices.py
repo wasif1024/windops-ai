@@ -16,8 +16,7 @@ import sys
 from datetime import UTC, datetime
 
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import create_async_engine
-from windops_migrations import database_url, in_tenant
+from windops_migrations import create_service_engine, in_tenant
 
 from windops_telemetry import credentials
 from windops_telemetry.store import DEVICE_CREDENTIALS, audit
@@ -26,7 +25,7 @@ ACTOR = "bootstrap"
 
 
 async def make(pairs: list[tuple[str, str]], replace: bool) -> list[dict[str, str]]:
-    engine = create_async_engine(database_url())
+    engine = create_service_engine()
     made = []
     try:
         for tenant, turbine in pairs:

@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy import Select, select
-from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
-from windops_migrations import database_url, in_tenant
+from sqlalchemy.ext.asyncio import AsyncConnection
+from windops_migrations import create_service_engine, in_tenant
 
 from windops_asset.store import COMPONENTS, TURBINES, WIND_FARMS, record_change
 
@@ -188,7 +188,7 @@ async def seed_farm(connection: AsyncConnection, farm: Farm, now: datetime) -> i
 
 
 async def seed() -> int:
-    engine = create_async_engine(database_url())
+    engine = create_service_engine()
     added = 0
     try:
         for farm in FARMS:

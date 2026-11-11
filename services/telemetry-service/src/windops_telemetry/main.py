@@ -10,7 +10,7 @@ from typing import Any
 import grpc
 from opentelemetry import metrics
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 from windops.asset.v1 import asset_pb2_grpc
 from windops.authorization.v1 import authorization_pb2_grpc
 from windops.telemetry.v1 import telemetry_pb2_grpc
@@ -18,7 +18,7 @@ from windops_auth import current_identity_token
 from windops_cache import connect as redis_connect
 from windops_events import EventsUnavailableError, open_events
 from windops_grpc import ServiceClient, create_channel, run_service
-from windops_migrations import database_url
+from windops_migrations import create_service_engine
 from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, CircuitBreaker
@@ -77,7 +77,7 @@ def _client(dependency: str) -> ServiceClient:
 
 
 def main() -> None:
-    engine = create_async_engine(database_url(), pool_size=10, max_overflow=5, pool_pre_ping=True)
+    engine = create_service_engine(pool_size=10, max_overflow=5, pool_pre_ping=True)
     tls = Path(os.environ["WINDOPS_TLS_DIR"])
     redis = redis_connect(
         host=os.environ["WINDOPS_CACHE_HOST"],
