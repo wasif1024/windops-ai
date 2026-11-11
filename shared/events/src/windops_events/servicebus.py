@@ -235,13 +235,19 @@ class ServiceBusConsumer:
         )
 
     async def start(self) -> None:
-        """Open the receiver. The subscription itself is made by provisioning, not here."""
+        """Open the receiver's link. The subscription itself is made by provisioning, not here.
+
+        The link opens here, in full, as `async with` would open it. Left to the first receive, it
+        would have to open within that receive's short wait, and a link that is slow to open would
+        time out on every round, never receiving at all.
+        """
         try:
-            self._receiver = self._client.get_subscription_receiver(
+            receiver = self._client.get_subscription_receiver(
                 self._subscription.topic, self._subscription.durable,
                 receive_mode=ServiceBusReceiveMode.PEEK_LOCK,
             )  # fmt: skip
-        except (ServiceBusError, AzureError) as error:
+            self._receiver = await receiver.__aenter__()
+        except (ServiceBusError, AzureError, OSError) as error:
             raise _unavailable(error) from error
 
     async def run_once(self, *, batch: int = 10, timeout: float = 1.0) -> int:
@@ -277,7 +283,8 @@ class ServiceBusConsumer:
             )
             return
         except Exception as error:
-            if (message.delivery_count or 1) >= self._max_attempts:
+            # Service Bus counts redeliveries: 0 on the first delivery, unlike JetStream's 1.
+            if (message.delivery_count or 0) + 1 >= self._max_attempts:
                 await self._dead_letter(message, "failed", error)
             else:
                 logger.warning(

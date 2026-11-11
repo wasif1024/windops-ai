@@ -9,7 +9,7 @@ a module of the `scripts` package, so it runs from the repository root as, for e
 | `lib/` | Code many scripts share: settings from `.env`, and TLS clients that trust the cluster's CA | `settings.py`, `tls_client.py` |
 | `setup/` | What builds and seeds the local cluster: secrets, certificates, data store logins, migrations, settings, gateway routes and the demo users. Checks reuse these too | `make secrets`, `make infra`, `make config`, `make gateway-routes`, `make identity-seed` |
 | `checks/foundation/` | Phase 1: the cluster, the service template, the gateway, observability and migrations | `make cluster-check`, `make gateway-check` |
-| `checks/data/` | Phase 2: PostgreSQL, Redis, Qdrant, NATS, events, the outbox, the Audit Service and TLS on every store | `make audit-check`, `make data-tls-check` |
+| `checks/data/` | Phase 2: PostgreSQL, Redis, Qdrant, NATS, events, the outbox, the Audit Service and TLS on every store, and Azure Service Bus (Phase 4A) | `make audit-check`, `make data-tls-check`, `make servicebus-check` |
 | `checks/identity/` | Phase 3: Keycloak, MFA, mTLS, Authorization, Identity, Tenant, cross-tenant isolation and token exchange | `make mfa-check`, `make cross-tenant-check` |
 | `checks/fleet/` | Phase 4: assets, the simulator and telemetry | `make asset-check`, `make telemetry-check`, `make simulator-check`, `make telemetry-storage-check`, `make cms-check`, `make data-quality-check` |
 | `checks/edge/` | The gateway's policy, Web BFF, and the sweep of every route | `make bff-check`, `make route-sweep` |

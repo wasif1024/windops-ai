@@ -18,12 +18,15 @@ from azure.servicebus.aio.management import ServiceBusAdministrationClient
 from windops_events.servicebus import SUBSCRIPTIONS, SubscriptionSpec, ensure_topology, topics
 
 from scripts.lib.settings import get
+from scripts.lib.tls_client import trust_public_roots
 
 
 async def provision(namespace: str, extra: tuple[SubscriptionSpec, ...] = ()) -> None:
     credential = AzureCliCredential()
     try:
-        async with ServiceBusAdministrationClient(namespace, credential) as admin:
+        async with ServiceBusAdministrationClient(
+            namespace, credential, connection_verify=trust_public_roots()
+        ) as admin:
             await ensure_topology(admin, SUBSCRIPTIONS + extra)
     finally:
         await credential.close()

@@ -203,13 +203,19 @@ class FakeReceived:
         self.stored = stored
         self.subject = stored.subject
         self.body = iter([stored.data])
-        self.delivery_count = stored.deliveries
+        # As real Service Bus counts it, and as it showed live: 0 on the first delivery.
+        self.delivery_count = stored.deliveries - 1
 
 
 @dataclass
 class FakeReceiver:
     bus: FakeServiceBus
     topic: str
+    opened: bool = False
+
+    async def __aenter__(self) -> "FakeReceiver":
+        self.opened = True
+        return self
 
     async def receive_messages(self, max_message_count: int, max_wait_time: float) -> list[Any]:
         # A message left locked, as RetryLater leaves it, comes back here, as when its lock ends.
@@ -327,3 +333,34 @@ def test_a_service_bus_message_carries_the_event_id_subject_and_tenant() -> None
     assert message.application_properties == {b"tenant_id": "north-sea", b"producer": "alarm"} or (
         message.application_properties == {"tenant_id": "north-sea", "producer": "alarm"}
     )
+
+
+def test_start_opens_the_receivers_link_before_any_receive() -> None:
+    """A link left to open inside the first short receive timed out on every round, live."""
+    bus = FakeServiceBus()
+    consumer = ServiceBusConsumer(bus, subject="audit.requested.*", durable="audit",
+                                  handler=lambda event: asyncio.sleep(0))  # fmt: skip
+
+    async def scenario() -> FakeReceiver:
+        await consumer.start()
+        receiver: FakeReceiver = consumer._receiver
+        return receiver
+
+    assert asyncio.run(scenario()).opened is True
+
+
+def test_a_service_bus_outage_while_receiving_is_reported() -> None:
+    bus = FakeServiceBus()
+    consumer = ServiceBusConsumer(bus, subject="audit.requested.*", durable="audit",
+                                  handler=lambda event: asyncio.sleep(0))  # fmt: skip
+
+    async def down(**_: Any) -> list[Any]:
+        raise ServiceBusConnectionError(message="down")
+
+    async def scenario() -> None:
+        await consumer.start()
+        consumer._receiver.receive_messages = down
+        with pytest.raises(EventsUnavailableError):
+            await consumer.run_once()
+
+    asyncio.run(scenario())

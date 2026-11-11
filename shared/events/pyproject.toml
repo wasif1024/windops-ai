@@ -5,6 +5,7 @@ description = "Durable, tenant-carrying JetStream events for WindOps services (S
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    "aiohttp>=3.12",
     "azure-identity>=1.23",
     "azure-servicebus>=7.14",
     "nats-py>=2.16.0",

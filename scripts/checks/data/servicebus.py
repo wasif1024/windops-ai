@@ -35,6 +35,7 @@ from windops_events.servicebus import (
 from windops_events.streams import AUDIT_REQUEST_SUBJECTS, audit_request_subject
 
 from scripts.lib.settings import load
+from scripts.lib.tls_client import trust_public_roots
 from scripts.setup.provision_servicebus import provision
 
 CONTRACT = SubscriptionSpec(AUDIT_REQUEST_SUBJECTS, "contract")
@@ -76,13 +77,15 @@ async def check_the_switch(settings: dict[str, str], client: Any) -> None:
 
 
 async def run(namespace: str) -> None:
-    settings = {**load(), "WINDOPS_EVENTS_BACKEND": "servicebus"}
+    settings = {
+        **load(), "WINDOPS_EVENTS_BACKEND": "servicebus", "SSL_CERT_FILE": trust_public_roots(),
+    }  # fmt: skip
     check(events_backend(settings) == "servicebus",
           "WINDOPS_EVENTS_BACKEND=servicebus chooses Service Bus")  # fmt: skip
     await provision(namespace, (CONTRACT,))
     check(True, "The topics and subscriptions are provisioned")
     credential = AzureCliCredential()
-    client = ServiceBusClient(namespace, credential)
+    client = ServiceBusClient(namespace, credential, connection_verify=trust_public_roots())
 
     def publisher(producer: str) -> Any:
         return ServiceBusPublisher(client, producer=producer, breaker=events_breaker())
@@ -115,13 +118,16 @@ async def run(namespace: str) -> None:
         await client.close()
         await credential.close()
         cleanup = AzureCliCredential()
-        async with ServiceBusAdministrationClient(namespace, cleanup) as admin:
+        async with ServiceBusAdministrationClient(
+            namespace, cleanup, connection_verify=trust_public_roots()
+        ) as admin:
             with contextlib.suppress(ResourceNotFoundError):
                 await admin.delete_subscription(CONTRACT.topic, CONTRACT.durable)
         await cleanup.close()
 
 
 def main() -> int:
+    trust_public_roots()
     namespace = load().get("WINDOPS_SERVICEBUS_NAMESPACE", "")
     try:
         asyncio.run(run(namespace))

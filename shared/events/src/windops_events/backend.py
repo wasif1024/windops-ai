@@ -128,7 +128,10 @@ async def _service_bus(producer: str, breaker: CircuitBreaker, env: Mapping[str,
         raise ValueError("WINDOPS_SERVICEBUS_NAMESPACE is a namespace's host name, such as "
                          "windops-dev.servicebus.windows.net")  # fmt: skip
     credential = DefaultAzureCredential()
-    client = ServiceBusClient(namespace, credential)
+    # A machine whose Python has no root certificates of its own names a bundle here. Verification
+    # is never turned off.
+    bundle = env.get("SSL_CERT_FILE") or None
+    client = ServiceBusClient(namespace, credential, connection_verify=bundle)
     publisher = ServiceBusPublisher(client, producer=producer, breaker=breaker)
 
     def consumer(**options: Any) -> Consumer:

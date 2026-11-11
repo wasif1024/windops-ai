@@ -120,3 +120,17 @@ def async_channel(port: int, service: str, bundle: ClientBundle) -> grpc.aio.Cha
     return grpc.aio.secure_channel(
         f"127.0.0.1:{port}", credentials(bundle), options=_options(service)
     )
+
+
+def trust_public_roots() -> str:
+    """Verify public services, such as Azure, against certifi's public roots.
+
+    The python.org build of Python for macOS has no root certificates of its own, and aiohttp,
+    which the Azure SDKs use, reads only those. Verification stays on: this gives it the standard
+    public roots, unless SSL_CERT_FILE already names a bundle.
+    """
+    import os
+
+    import certifi
+
+    return os.environ.setdefault("SSL_CERT_FILE", certifi.where())
