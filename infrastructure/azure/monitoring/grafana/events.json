@@ -1,0 +1,255 @@
+{
+  "uid": "windops-events",
+  "title": "Events",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "tags": [
+    "windops"
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Dead-letter messages stored",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(jetstream_stream_total_messages{stream_name=\"WINDOPS_DEAD_LETTER\"})",
+          "legendFormat": "stored"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Dead letters by consumer and reason",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (consumer, reason) (increase(windops_events_dead_lettered_total[1h]))",
+          "legendFormat": "{{consumer}} {{reason}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Consumer lag",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (stream_name, consumer_name) (jetstream_consumer_num_pending)",
+          "legendFormat": "{{stream_name}} {{consumer_name}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Messages waiting for acknowledgement",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (stream_name, consumer_name) (jetstream_consumer_num_ack_pending)",
+          "legendFormat": "{{stream_name}} {{consumer_name}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Outbox backlog",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (workload) (windops_outbox_waiting)",
+          "legendFormat": "{{workload}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Oldest waiting outbox event",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (workload) (windops_outbox_oldest_waiting_seconds)",
+          "legendFormat": "{{workload}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Outbox rows set aside",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (workload) (windops_outbox_failed)",
+          "legendFormat": "{{workload}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Messages stored by stream",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (stream_name) (jetstream_stream_total_messages)",
+          "legendFormat": "{{stream_name}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Storage used by stream",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${AZURE_PROMETHEUS_DATASOURCE_UID}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (stream_name) (jetstream_stream_total_bytes)",
+          "legendFormat": "{{stream_name}}"
+        }
+      ]
+    }
+  ]
+}

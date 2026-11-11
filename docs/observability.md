@@ -35,6 +35,29 @@ Sign in as `admin`. The password is in `infrastructure/minikube/secrets.local.gr
 The other SRS 10.3 dashboards arrive with the components they describe. Panels stay empty until something produces the
 data, such as a breaker opening.
 
+## On Azure (ADR 0006)
+
+The services send the same signals on Azure. Only where they go changes, so no service code differs:
+
+| Signal | On Azure | Made from |
+| --- | --- | --- |
+| Traces | The same OTel Collector, in its contrib build, exporting to **Application Insights** | The local Collector, with its exporter swapped |
+| Logs | **Container insights** reads each container's JSON stdout into **Log Analytics** | Nothing to run: no Fluent Bit or Loki |
+| Metrics | **Azure Monitor managed Prometheus** scrapes the annotated pods | The local `pods` scrape job, unchanged |
+| Alerts | **Azure Prometheus rule groups**, and **Service Bus metric alerts** for dead letters, backlog and server errors | The local rules; the JetStream ones move to Service Bus's own metrics |
+| Dashboards | **Azure Managed Grafana**, on the Azure Monitor workspace | The local dashboards: every panel already uses Prometheus |
+
+`make azure-monitoring` writes it all from the local files:
+- `infrastructure/monitoring/azure/`, for the cluster;
+- `infrastructure/azure/monitoring/`, for the Azure deployment in M4A.6.
+
+A test fails until it runs again after a change. The Collector reads Application Insights' connection string from
+Key Vault, signed in as its own workload identity. Values only Azure knows are `${AZURE_...}` placeholders, filled by
+the deployment.
+
+On Azure, the Events dashboard's JetStream panels show no data, as there is no JetStream. The Service Bus alerts cover
+the same failures, and Service Bus panels from Azure Monitor's own metrics arrive with M4A.6.
+
 ## Policies by environment (OBS-004)
 
 | Policy | `local` | `ci` | Production-style |

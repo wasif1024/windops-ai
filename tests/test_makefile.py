@@ -70,6 +70,7 @@ BUILT_TARGETS = {
     "edge-check",
     "openapi",
     "azure-overlay",
+    "azure-monitoring",
     "bff-check",
     "gateway-policy-check",
     "token-exchange-check",

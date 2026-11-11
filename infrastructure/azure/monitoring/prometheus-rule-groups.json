@@ -1,0 +1,175 @@
+{
+  "generatedBy": "scripts/generate/azure_monitoring.py",
+  "groups": [
+    {
+      "name": "windops-platform",
+      "interval": "PT1M",
+      "rules": [
+        {
+          "alert": "WindopsTargetDown",
+          "expression": "up == 0",
+          "for": "PT5M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "{{ $labels.workload }} in {{ $labels.namespace }} cannot be scraped"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsCircuitBreakerOpen",
+          "expression": "max by (workload, dependency) (windops_circuit_breaker_state) == 2",
+          "for": "PT5M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "{{ $labels.workload }} has an open breaker for {{ $labels.dependency }}"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsPodRestarting",
+          "expression": "sum by (namespace, pod) (increase(kube_pod_container_status_restarts_total{namespace=~\"windops-.*\"}[6h])) >= 3",
+          "for": "PT0M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "{{ $labels.pod }} in {{ $labels.namespace }} has restarted repeatedly"
+          },
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "name": "windops-events",
+      "interval": "PT1M",
+      "rules": [
+        {
+          "alert": "WindopsOutboxBacklog",
+          "expression": "max by (workload) (windops_outbox_oldest_waiting_seconds) > 300",
+          "for": "PT5M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "{{ $labels.workload }} has outbox events waiting for over 5 minutes"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsOutboxRowsSetAside",
+          "expression": "max by (workload) (windops_outbox_failed) > 0",
+          "for": "PT0M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "{{ $labels.workload }} has outbox rows it cannot read"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsDataStoreDown",
+          "expression": "kube_statefulset_status_replicas_ready{namespace=\"windops-data\"} == 0 or kube_deployment_status_replicas_available{namespace=\"windops-data\"} == 0",
+          "for": "PT2M",
+          "severity": 1,
+          "labels": {
+            "severity": "critical"
+          },
+          "annotations": {
+            "summary": "A data store in windops-data has no ready replica"
+          },
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "name": "windops-security",
+      "interval": "PT1M",
+      "rules": [
+        {
+          "alert": "WindopsManyFailedSignIns",
+          "expression": "sum(increase(keycloak_user_events_total{realm=\"windops\",event=\"login\",error!=\"\"}[10m])) > 20",
+          "for": "PT0M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning",
+            "category": "security"
+          },
+          "annotations": {
+            "summary": "More than 20 failed sign-ins in 10 minutes. See the Security dashboard"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsManyAccessDenials",
+          "expression": "sum(increase(windops_audit_records_total{action=\"authorization.denied\"}[10m])) > 20",
+          "for": "PT0M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning",
+            "category": "security"
+          },
+          "annotations": {
+            "summary": "More than 20 access denials in 10 minutes. The administrator console lists who and what"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsSustainedRateLimiting",
+          "expression": "sum(increase(apisix_http_status{code=\"429\"}[10m])) > 100",
+          "for": "PT0M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning",
+            "category": "security"
+          },
+          "annotations": {
+            "summary": "The gateway refused more than 100 requests for their rate in 10 minutes"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsBreakGlassStarted",
+          "expression": "sum(increase(windops_audit_records_total{action=\"authorization.break_glass.started\"}[5m])) > 0",
+          "for": "PT0M",
+          "severity": 3,
+          "labels": {
+            "severity": "info",
+            "category": "security"
+          },
+          "annotations": {
+            "summary": "A Platform Administrator started break-glass access to a tenant (RBAC-003)"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsAdministratorRoleGranted",
+          "expression": "sum by (action) (increase(windops_audit_records_total{action=~\"authorization\\\\.role\\\\.granted\\\\.(tenant|platform)-administrator\"}[5m])) > 0",
+          "for": "PT0M",
+          "severity": 3,
+          "labels": {
+            "severity": "info",
+            "category": "security"
+          },
+          "annotations": {
+            "summary": "An administrator role was granted: {{ $labels.action }}"
+          },
+          "enabled": true
+        }
+      ]
+    }
+  ],
+  "coveredByServiceBusAlerts": [
+    "WindopsDeadLetterMessages",
+    "WindopsConsumerLag"
+  ]
+}
