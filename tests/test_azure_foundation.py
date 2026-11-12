@@ -310,3 +310,48 @@ def test_the_environment_overrides_every_azure_setting(monkeypatch: pytest.Monke
     for name in ("AZURE_OPERATOR_OBJECT_ID", "AZURE_PIPELINE_PRINCIPAL_ID", "AZURE_ALERT_EMAIL"):
         monkeypatch.setenv(name, f"from-the-pipeline-{name}")
         assert settings.load()[name] == f"from-the-pipeline-{name}"
+
+
+# Azure's own limits on the names the Bicep builds, for the longest name each environment gives.
+NAME_LIMITS = {
+    "Microsoft.Dashboard/grafana": 23,
+    "Microsoft.KeyVault/vaults": 24,
+    "Microsoft.ContainerRegistry/registries": 50,
+    "Microsoft.ServiceBus/namespaces": 50,
+    "Microsoft.DBforPostgreSQL/flexibleServers": 63,
+    "Microsoft.Monitor/accounts": 44,
+    "Microsoft.Insights/dataCollectionEndpoints": 44,
+    "Microsoft.ContainerService/managedClusters": 63,
+    "Microsoft.OperationalInsights/workspaces": 63,
+}
+
+
+def test_every_name_fits_azures_limit_in_every_environment() -> None:
+    """what-if does not check name lengths, so a Grafana name 2 characters too long passed it and
+    failed the first deploy. This checks each name the way Azure will."""
+    source = "\n".join(
+        path.read_text() for path in (ROOT / "infrastructure/azure/bicep").rglob("*.bicep")
+    )
+    variables = dict(re.findall(r"^var (\w+) = '([^']*)'", source, re.M))
+    environments = re.search(r"@allowed\(\[([^\]]*)\]\)\s*param environment", source)
+    assert environments
+    names = re.findall(r"'([^']+)'", environments.group(1))
+    checked = 0
+    for kind, limit in NAME_LIMITS.items():
+        declaration = rf"resource \w+ '{re.escape(kind)}@[^']+' = \{{\s*(?://[^\n]*\s*)*"
+        found = re.search(declaration + r"name: (\S+)", source)
+        assert found, kind
+        template = found.group(1).strip("'")
+        template = variables.get(template, template)
+        for environment in names:
+            name = template.replace("${environment}", environment).replace("${suffix}", "x" * 5)
+            assert "${" not in name, name
+            assert len(name) <= limit, f"{kind}: {name} is {len(name)}, over {limit}"
+            checked += 1
+    assert checked == len(NAME_LIMITS) * len(names)
+
+
+def test_plan_runs_azures_preflight_validation_before_what_if() -> None:
+    source = (ROOT / "scripts" / "setup" / "azure_deploy.py").read_text()
+    plan = source[source.index("def plan(") : source.index("def up(")]
+    assert "validate=True" in plan

@@ -28,7 +28,7 @@ pr: none
 
 parameters:
   - name: keepRunning
-    displayName: Keep the compute running after the proof, for a live demo ($0.98 an hour)
+    displayName: Keep the compute running after the proof, for a live demo ($1.03 an hour)
     type: boolean
     default: false
   - name: destroy

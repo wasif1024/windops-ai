@@ -377,7 +377,7 @@ RUNTIMES = (
 AZURE_COSTS = (
     ("Idle", "data only, between demos", "$20 a month"),
     ("Proof run", "deploy, prove, remove: the plan", "$2 a run"),
-    ("Demo", "compute for 60 hours a month", "$85"),
+    ("Demo", "compute for 60 hours a month", "$88"),
 )
 GUARDRAILS = (
     "Agents recommend and draft. Policy, Approval and people decide.",
@@ -850,7 +850,7 @@ DATA_RESOURCES = (
     ("Key Vault", "RBAC, purge protection, firewall; holds the internal CA"),
     ("Container Registry", "Basic, admin user off"),
     ("Application Insights", "with Log Analytics: 30 days, 2 GB a day cap"),
-    ("Monitor workspace", "managed Prometheus, with Managed Grafana"),
+    ("Monitor workspace", "managed Prometheus; Grafana, in the compute group, reads it"),
     ("Managed identities", "one per workload, federated to its service account"),
     ("Budget and alerts", "$100 a month, email at 50, 80 and 100%"),
 )  # fmt: skip
@@ -923,7 +923,8 @@ def draw_compute_group(c: Canvas, top: float, bottom: float) -> list[float]:
     amber = KINDS["human"][0]
     c.box(56, top, 560, bottom, fill=mix(BG, amber, 0.05), outline=amber, radius=10)
     c.text(70, top + 17, "rg-windops-staging-compute", 13, True, amber)
-    c.text(70, top + 35, "about $0.98 an hour, deleted after each run", 12, color=MUTED)
+    note = "about $1.03 an hour with Managed Grafana, deleted after each run"
+    c.text(70, top + 35, note, 12, color=MUTED)
     c.node(
         72,
         top + 52,
@@ -1019,7 +1020,7 @@ def draw_local_and_azure(c: Canvas, x0: float, top: float, x1: float) -> float:
 
 
 def draw_azure_costs(c: Canvas, x0: float, top: float, x1: float) -> float:
-    costs = (*AZURE_COSTS, ("Always on", "everything, all month", "$778"))
+    costs = (*AZURE_COSTS, ("Always on", "everything, all month", "$809"))
     height = 40 + len(costs) * 24
     c.frame(x0, top, x1, top + height, "Cost, from docs/azure-plan.md")
     for index, (name, note, price) in enumerate(costs):

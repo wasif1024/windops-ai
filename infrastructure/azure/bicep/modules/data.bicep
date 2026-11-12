@@ -8,8 +8,6 @@ param tags object
 param allowedIpRanges array
 @description('Allowed to Key Vault from outside the network: the operator only.')
 param operatorIpRanges array
-@description('The operator, who signs in to Managed Grafana.')
-param operatorObjectId string
 @description('Each as { principalId, principalType }: the operator, and the pipeline when it deploys.')
 param admins array
 param alertEmail string
@@ -30,9 +28,6 @@ var roles = {
   vaultWriter: 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
   vaultCertificateWriter: 'a4417e6f-fecd-4de8-b567-7b0420556985'
   networkContributor: '4d97b98b-1d4f-4787-a291-c67834d212e7'
-  monitoringDataReader: 'b0d8363b-8ddd-447d-831f-62ca05bff136'
-  monitoringReader: '43d0d8ad-25c7-4714-9337-8ba259a9fe05'
-  grafanaAdmin: '22926164-76b3-42b3-bc55-97df8dab3e41'
 }
 var keyVaultName = 'kv-windops-${environment}-${suffix}'
 
@@ -672,58 +667,6 @@ resource serviceBusMetricAlerts 'Microsoft.Insights/metricAlerts@2018-03-01' = [
   }
 ]
 
-resource grafana 'Microsoft.Dashboard/grafana@2024-10-01' = {
-  name: 'amg-windops-${environment}-${suffix}'
-  location: location
-  tags: tags
-  sku: {
-    name: 'Essential'
-  }
-  identity: {
-    type: 'SystemAssigned'
-  }
-  properties: {
-    apiKey: 'Disabled'
-    publicNetworkAccess: 'Enabled'
-    zoneRedundancy: 'Disabled'
-    grafanaIntegrations: {
-      azureMonitorWorkspaceIntegrations: [
-        { azureMonitorWorkspaceResourceId: prometheus.id }
-      ]
-    }
-  }
-}
-
-resource grafanaReadsPrometheus 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(prometheus.id, grafana.id, roles.monitoringDataReader)
-  scope: prometheus
-  properties: {
-    principalId: grafana.identity.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.monitoringDataReader)
-  }
-}
-
-// For Service Bus's metrics and the logs, on this group only.
-resource grafanaReadsGroup 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, grafana.id, roles.monitoringReader)
-  properties: {
-    principalId: grafana.identity.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.monitoringReader)
-  }
-}
-
-resource operatorGrafana 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(grafana.id, operatorObjectId, roles.grafanaAdmin)
-  scope: grafana
-  properties: {
-    principalId: operatorObjectId
-    principalType: 'User'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.grafanaAdmin)
-  }
-}
-
 // --------------------------------------------------------------------------------------- outputs
 
 output aksSubnetId string = network.properties.subnets[1].id
@@ -740,7 +683,7 @@ output serviceBusHost string = '${serviceBus.name}.servicebus.windows.net'
 output postgresHost string = postgres.properties.fullyQualifiedDomainName
 output postgresAdminClientId string = postgresAdmin.properties.clientId
 output applicationInsightsName string = insights.name
-output grafanaEndpoint string = grafana.properties.endpoint
+output prometheusWorkspaceName string = prometheus.name
 output workloadClientIds array = [
   for (workload, index) in workloads: {
     name: workload.name

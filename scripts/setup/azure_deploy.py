@@ -72,7 +72,7 @@ PROVIDERS = (
 )
 # Azure Resource Manager's states for a deployment that has not finished.
 RUNNING = {"Accepted", "Running", "Canceling"}
-COST = "Compute costs about $0.98 an hour while it runs; the data group about $20 a month."
+COST = "Compute costs about $1.03 an hour while it runs; the data group about $20 a month."
 # Key Vault's data-plane roles take a few minutes to reach a new vault.
 ROLE_WAIT_SECONDS, ROLE_ATTEMPTS = 15, 20
 
@@ -173,7 +173,11 @@ def parameters(config: dict[str, Any], operator: str, **extra: Any) -> list[str]
     return out
 
 
-def deploy(config: dict[str, Any], operator: str, what_if: bool, **extra: Any) -> dict[str, Any]:
+def deploy(
+    config: dict[str, Any], operator: str, what_if: bool, validate: bool = False, **extra: Any
+) -> dict[str, Any]:
+    """Create the deployment, or show what it would change. `validate` also runs Azure's own
+    preflight checks, such as name lengths, which what-if does not."""
     command = "what-if" if what_if else "create"
     arguments = [
         "deployment", "sub", command,
@@ -184,6 +188,11 @@ def deploy(config: dict[str, Any], operator: str, what_if: bool, **extra: Any) -
         "--parameters", *parameters(config, operator, **extra),
     ]  # fmt: skip
     if what_if:
+        if validate:
+            checked = [*arguments]
+            checked[2] = "validate"
+            az(*checked, "--output", "none")
+            print("Azure's preflight validation passed")
         az(*arguments, "--result-format", "ResourceIdOnly", capture=False)
         return {}
     result = az_json(*arguments)
@@ -357,7 +366,7 @@ def plan(config: dict[str, Any], compute: bool) -> int:
         for name in missing:
             print(f"  {name}")
     # Two kinds of change show as unsupported: those named after an identity made in the same run.
-    deploy(config, operator, what_if=True, deployCompute=compute)
+    deploy(config, operator, what_if=True, validate=True, deployCompute=compute)
     print(COST if compute else "The data group alone costs about $20 a month.")
     return 0
 
@@ -402,6 +411,7 @@ def down(config: dict[str, Any], assume_yes: bool) -> int:
     subscription = config["subscription"]
     stop_deployment(config)
     if az("group", "exists", "--name", compute, "--subscription", subscription) == "true":
+        remove_grafana_access(subscription, compute)
         print(f"Deleting {compute}: about 10 minutes")
         az("group", "delete", "--name", compute, "--subscription", subscription, "--yes")
     data = f"rg-windops-{environment}-data"
@@ -416,6 +426,21 @@ def down(config: dict[str, Any], assume_yes: bool) -> int:
     stop_postgres(config)
     print("Done: about $20 a month until `make azure-up`.")
     return 0
+
+
+def remove_grafana_access(subscription: str, compute: str) -> None:
+    """Grafana's read roles are in the data group, but Grafana goes with the compute: remove them
+    first, or each run would leave two more behind for an identity that no longer exists."""
+    principals = az_json(
+        "resource", "list", "--subscription", subscription, "--resource-group", compute,
+        "--resource-type", "Microsoft.Dashboard/grafana", "--query", "[].identity.principalId",
+    ) or []  # fmt: skip
+    for principal in principals:
+        ids = az_json("role", "assignment", "list", "--subscription", subscription, "--all",
+                      "--assignee", principal, "--query", "[].id") or []  # fmt: skip
+        if ids:
+            print(f"Removing Grafana's {len(ids)} role assignments")
+            az("role", "assignment", "delete", "--subscription", subscription, "--ids", *ids)
 
 
 def start_postgres(config: dict[str, Any]) -> None:

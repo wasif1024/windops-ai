@@ -47,15 +47,15 @@ rg-windops-data      exists the whole time: about $20 a month
 ├── Container Registry acrwindopsdev, Basic
 ├── Log Analytics      log-windops-dev, with Application Insights on top
 ├── Azure Monitor      amw-windops-dev, the managed Prometheus workspace
-├── Managed Grafana    amg-windops-dev, Essential
 ├── Managed identities one per workload, federated to its Kubernetes service account
 └── Budget             $100 a month, with alerts
 
-rg-windops-compute   exists only while the platform runs: about $0.98 an hour
+rg-windops-compute   exists only while the platform runs: about $1.03 an hour
 ├── AKS                aks-windops-dev, Free tier, Azure CNI Overlay powered by Cilium
 │   ├── system pool    1 × Standard_D2ads_v5
 │   └── user pool      1 × Standard_D4ads_v5, autoscaling to 2
 ├── App Gateway        agw-windops-dev, WAF v2, in front of APISIX
+├── Managed Grafana    amg-dev-<suffix>, Standard, on the Monitor workspace's metrics
 └── Public IPs         the gateway's address, and the cluster's outbound address
 ```
 
@@ -68,12 +68,11 @@ rg-windops-compute   exists only while the platform runs: about $0.98 an hour
 | Container Registry | Basic, with 10 GiB of images included | $5.07 |
 | Key Vault | Standard, at $0.03 per 10,000 operations | under $0.50 |
 | Log Analytics and Application Insights | Pay as you go, 30 days kept. The first 5 GB a month is free, which a demo month stays under | $0 |
-| Managed Grafana | Essential, at $6 for each user who signs in that month | $0 to $6 |
 | Private DNS zone | PostgreSQL's private name, so the cluster finds it with no public address | $0.50 |
 | Network, identities and budget | The network, security groups, managed identities, Workload ID and Cost Management have no charge | $0 |
-| **Total** | | **$19.76 to $25.76** |
+| **Total** | | **$19.76** |
 
-### Compute resource group: about $0.98 an hour, only while it runs
+### Compute resource group: about $1.03 an hour, only while it runs
 
 | Resource | Size and settings | Per hour |
 | --- | --- | --- |
@@ -85,7 +84,8 @@ rg-windops-compute   exists only while the platform runs: about $0.98 an hour
 | Load balancers and IPs | 2 Standard load balancers (outbound, and the internal one in front of APISIX), and 2 static IPs | $0.060 |
 | Defender for Containers | 6 vCores at $0.0094 each | $0.056 |
 | Managed Prometheus | About 10,000 series every 30 seconds, at $0.11 per 10 million samples | $0.015 |
-| **Total** | | **$0.983** |
+| Managed Grafana | Standard, one instance. Azure offers only Standard here: the Essential SKU is not available. Each user who signs in that month adds $6 | $0.043 |
+| **Total** | | **$1.026** |
 
 The two disks Qdrant and the APISIX etcd store use (5 and 1 GiB, on Standard SSD) cost under $0.01 an hour. They
 are deleted with the cluster, and both are reseeded on start. On Azure, NATS, the PostgreSQL pod and the six
@@ -97,15 +97,20 @@ monitoring pods are not deployed.
 | --- | --- | --- |
 | **Idle** | The data resource group only, between demos | **about $20** |
 | **Proof run (recommended)** | The pipeline deploys staging and its services, proves them and removes the compute: about two hours | **about $2 a run, plus $20** |
-| Demo | The compute for about 60 hours a month, such as 15 sessions of 4 hours | **about $85** |
-| Always on, gateway for demos | The cluster and database all month, App Gateway for 60 hours, and about 15 GB of logs | about $455 |
-| Always on | Everything all month | about $778 |
+| Demo | The compute for about 60 hours a month, such as 15 sessions of 4 hours, and one Grafana user | **about $88** |
+| Always on, gateway for demos | The cluster and database all month, App Gateway for 60 hours, and about 15 GB of logs | about $486 |
+| Always on | Everything all month | about $809 |
 | Live, later (Phase 15) | Production grade, as below | about $1,800 |
 
 The proof run is what M4A.6 asks to approve: the Azure DevOps pipeline deploys the `staging` environment, proves
 it, and removes the compute, so vCPUs run only for those two hours ([docs/azure-devops.md](azure-devops.md)). A live demo
-keeps the compute for its length, at $0.98 an hour. The $100 budget leaves room for a busy month, and its alerts warn
+keeps the compute for its length, at $1.03 an hour. The $100 budget leaves room for a busy month, and its alerts warn
 long before then.
+
+Managed Grafana is in the compute group, so it exists only while the platform runs. Azure offers it only as
+Standard, at about $31 a month always on, so keeping it in the data group would raise the idle cost from $20 to
+about $51. The dashboards are code, imported on each deploy, and the metrics they show stay in the data group's
+Monitor workspace between runs.
 
 ## How to stop paying
 
@@ -115,7 +120,7 @@ others say what they will do and ask first. They sign in with your `az login` se
 
 | Command | What it does | Then costs | Back in |
 | --- | --- | --- | --- |
-| `make azure-up` | Creates or updates the data group, makes the two certificates once, then creates the compute group | $0.98 an hour | about 20 minutes |
+| `make azure-up` | Creates or updates the data group, makes the two certificates once, then creates the compute group | $1.03 an hour | about 20 minutes |
 | `make azure-platform` | Deploys the services onto the cluster: images, Key Vault values, cert-manager, the Collector, databases, migrations | no more | about 25 minutes |
 | `make azure-down` | Deletes the compute group and stops PostgreSQL. Data, images and secrets stay | about $20 a month | `make azure-up` |
 | `make azure-destroy` | Deletes both groups, after asking to confirm by typing the name | $0 | rebuilds from scratch |
