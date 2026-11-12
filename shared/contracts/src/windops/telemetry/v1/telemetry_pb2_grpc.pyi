@@ -37,9 +37,20 @@ class TelemetryServiceStub:
     @_typing.overload
     def __new__(cls, channel: _aio.Channel) -> TelemetryServiceAsyncStub: ...
     StreamTurbineTelemetry: _grpc.UnaryStreamMultiCallable[_telemetry_pb2.StreamTurbineTelemetryRequest, _telemetry_pb2.TelemetryPoint]
-    """Arrives with M4.7."""
+    """A turbine's points in a window of at most 24 hours, in event order, with each one's unit and
+    quality. A duplicate is left out, as the first copy stays. Needs telemetry.read for the turbine.
+    """
     CreateTelemetrySnapshot: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.CreateTelemetrySnapshotRequest, _telemetry_pb2.TelemetrySnapshot]
-    """Arrives with M4.7."""
+    """Freezes a window for an investigation (FR-TEL-006, SRS 8.4): which samples it held and their
+    quality at this moment, a content hash over them, and a manifest of their sources and versions.
+    Its data is kept past retention until it is released. Needs telemetry.read and an idempotency key.
+    """
+    GetTelemetrySnapshot: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.GetTelemetrySnapshotRequest, _telemetry_pb2.GetTelemetrySnapshotResponse]
+    """A snapshot and its manifest, with its data read again and hashed again: verified when it matches."""
+    StreamTelemetrySnapshot: _grpc.UnaryStreamMultiCallable[_telemetry_pb2.StreamTelemetrySnapshotRequest, _telemetry_pb2.StreamTelemetrySnapshotResponse]
+    """A snapshot's frozen points, the same however much data arrives late for its window."""
+    ReleaseTelemetrySnapshot: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.ReleaseTelemetrySnapshotRequest, _telemetry_pb2.ReleaseTelemetrySnapshotResponse]
+    """Lets its data go at the end of normal retention. The snapshot stays readable until then."""
     CreateDeviceCredential: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.CreateDeviceCredentialRequest, _telemetry_pb2.CreateDeviceCredentialResponse]
     """A new credential for one turbine's device. Its secret is in this answer only, and is never
     stored, only its hash. Needs asset.manage for the turbine and a recent second factor.
@@ -58,9 +69,20 @@ class TelemetryServiceAsyncStub(TelemetryServiceStub):
 
     def __init__(self, channel: _aio.Channel) -> None: ...
     StreamTurbineTelemetry: _aio.UnaryStreamMultiCallable[_telemetry_pb2.StreamTurbineTelemetryRequest, _telemetry_pb2.TelemetryPoint]  # type: ignore[assignment]
-    """Arrives with M4.7."""
+    """A turbine's points in a window of at most 24 hours, in event order, with each one's unit and
+    quality. A duplicate is left out, as the first copy stays. Needs telemetry.read for the turbine.
+    """
     CreateTelemetrySnapshot: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.CreateTelemetrySnapshotRequest, _telemetry_pb2.TelemetrySnapshot]  # type: ignore[assignment]
-    """Arrives with M4.7."""
+    """Freezes a window for an investigation (FR-TEL-006, SRS 8.4): which samples it held and their
+    quality at this moment, a content hash over them, and a manifest of their sources and versions.
+    Its data is kept past retention until it is released. Needs telemetry.read and an idempotency key.
+    """
+    GetTelemetrySnapshot: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.GetTelemetrySnapshotRequest, _telemetry_pb2.GetTelemetrySnapshotResponse]  # type: ignore[assignment]
+    """A snapshot and its manifest, with its data read again and hashed again: verified when it matches."""
+    StreamTelemetrySnapshot: _aio.UnaryStreamMultiCallable[_telemetry_pb2.StreamTelemetrySnapshotRequest, _telemetry_pb2.StreamTelemetrySnapshotResponse]  # type: ignore[assignment]
+    """A snapshot's frozen points, the same however much data arrives late for its window."""
+    ReleaseTelemetrySnapshot: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.ReleaseTelemetrySnapshotRequest, _telemetry_pb2.ReleaseTelemetrySnapshotResponse]  # type: ignore[assignment]
+    """Lets its data go at the end of normal retention. The snapshot stays readable until then."""
     CreateDeviceCredential: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.CreateDeviceCredentialRequest, _telemetry_pb2.CreateDeviceCredentialResponse]  # type: ignore[assignment]
     """A new credential for one turbine's device. Its secret is in this answer only, and is never
     stored, only its hash. Needs asset.manage for the turbine and a recent second factor.
@@ -82,7 +104,9 @@ class TelemetryServiceServicer(metaclass=_abc_1.ABCMeta):
         request: _telemetry_pb2.StreamTurbineTelemetryRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_abc.Iterator[_telemetry_pb2.TelemetryPoint], _abc.AsyncIterator[_telemetry_pb2.TelemetryPoint]]:
-        """Arrives with M4.7."""
+        """A turbine's points in a window of at most 24 hours, in event order, with each one's unit and
+        quality. A duplicate is left out, as the first copy stays. Needs telemetry.read for the turbine.
+        """
 
     @_abc_1.abstractmethod
     def CreateTelemetrySnapshot(
@@ -90,7 +114,34 @@ class TelemetryServiceServicer(metaclass=_abc_1.ABCMeta):
         request: _telemetry_pb2.CreateTelemetrySnapshotRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_telemetry_pb2.TelemetrySnapshot, _abc.Awaitable[_telemetry_pb2.TelemetrySnapshot]]:
-        """Arrives with M4.7."""
+        """Freezes a window for an investigation (FR-TEL-006, SRS 8.4): which samples it held and their
+        quality at this moment, a content hash over them, and a manifest of their sources and versions.
+        Its data is kept past retention until it is released. Needs telemetry.read and an idempotency key.
+        """
+
+    @_abc_1.abstractmethod
+    def GetTelemetrySnapshot(
+        self,
+        request: _telemetry_pb2.GetTelemetrySnapshotRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_telemetry_pb2.GetTelemetrySnapshotResponse, _abc.Awaitable[_telemetry_pb2.GetTelemetrySnapshotResponse]]:
+        """A snapshot and its manifest, with its data read again and hashed again: verified when it matches."""
+
+    @_abc_1.abstractmethod
+    def StreamTelemetrySnapshot(
+        self,
+        request: _telemetry_pb2.StreamTelemetrySnapshotRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_abc.Iterator[_telemetry_pb2.StreamTelemetrySnapshotResponse], _abc.AsyncIterator[_telemetry_pb2.StreamTelemetrySnapshotResponse]]:
+        """A snapshot's frozen points, the same however much data arrives late for its window."""
+
+    @_abc_1.abstractmethod
+    def ReleaseTelemetrySnapshot(
+        self,
+        request: _telemetry_pb2.ReleaseTelemetrySnapshotRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_telemetry_pb2.ReleaseTelemetrySnapshotResponse, _abc.Awaitable[_telemetry_pb2.ReleaseTelemetrySnapshotResponse]]:
+        """Lets its data go at the end of normal retention. The snapshot stays readable until then."""
 
     @_abc_1.abstractmethod
     def CreateDeviceCredential(

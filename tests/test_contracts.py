@@ -99,7 +99,7 @@ def test_breaking_check_accepts_a_new_field(tmp_path: Path) -> None:
     proto = copy / TELEMETRY
     proto.write_text(
         proto.read_text().replace(
-            "string content_hash = 2;", "string content_hash = 2;\n  string source = 3;"
+            "string content_hash = 2;", "string content_hash = 2;\n  string source = 99;"
         )
     )
     result = buf("breaking", str(copy), "--against", str(MODULE))

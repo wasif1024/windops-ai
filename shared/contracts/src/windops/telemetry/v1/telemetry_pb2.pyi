@@ -28,15 +28,40 @@ class _MetricEnumTypeWrapper(_enum_type_wrapper._EnumTypeWrapper[_Metric.ValueTy
     DESCRIPTOR: _descriptor.EnumDescriptor
     METRIC_UNSPECIFIED: _Metric.ValueType  # 0
     METRIC_GEARBOX_TEMPERATURE: _Metric.ValueType  # 1
+    """Gearbox oil."""
     METRIC_BEARING_TEMPERATURE: _Metric.ValueType  # 2
+    """The gearbox's bearing."""
     METRIC_VIBRATION_RMS: _Metric.ValueType  # 3
+    """The nacelle's vibration, as an RMS velocity."""
+    METRIC_WIND_SPEED: _Metric.ValueType  # 4
+    METRIC_WIND_DIRECTION: _Metric.ValueType  # 5
+    METRIC_ROTOR_SPEED: _Metric.ValueType  # 6
+    METRIC_GENERATOR_SPEED: _Metric.ValueType  # 7
+    METRIC_POWER: _Metric.ValueType  # 8
+    METRIC_PITCH_ANGLE: _Metric.ValueType  # 9
+    METRIC_AMBIENT_TEMPERATURE: _Metric.ValueType  # 10
+    METRIC_MAIN_BEARING_TEMPERATURE: _Metric.ValueType  # 11
+    METRIC_GENERATOR_BEARING_TEMPERATURE: _Metric.ValueType  # 12
 
-class Metric(_Metric, metaclass=_MetricEnumTypeWrapper): ...
+class Metric(_Metric, metaclass=_MetricEnumTypeWrapper):
+    """Each reading an operational sample carries (SRS 4.2)."""
 
 METRIC_UNSPECIFIED: Metric.ValueType  # 0
 METRIC_GEARBOX_TEMPERATURE: Metric.ValueType  # 1
+"""Gearbox oil."""
 METRIC_BEARING_TEMPERATURE: Metric.ValueType  # 2
+"""The gearbox's bearing."""
 METRIC_VIBRATION_RMS: Metric.ValueType  # 3
+"""The nacelle's vibration, as an RMS velocity."""
+METRIC_WIND_SPEED: Metric.ValueType  # 4
+METRIC_WIND_DIRECTION: Metric.ValueType  # 5
+METRIC_ROTOR_SPEED: Metric.ValueType  # 6
+METRIC_GENERATOR_SPEED: Metric.ValueType  # 7
+METRIC_POWER: Metric.ValueType  # 8
+METRIC_PITCH_ANGLE: Metric.ValueType  # 9
+METRIC_AMBIENT_TEMPERATURE: Metric.ValueType  # 10
+METRIC_MAIN_BEARING_TEMPERATURE: Metric.ValueType  # 11
+METRIC_GENERATOR_BEARING_TEMPERATURE: Metric.ValueType  # 12
 Global___Metric: _TypeAlias = Metric  # noqa: Y015
 
 class _Quality:
@@ -293,21 +318,323 @@ class TelemetrySnapshot(_message.Message):
 
     SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
     CONTENT_HASH_FIELD_NUMBER: _builtins.int
+    TURBINE_ID_FIELD_NUMBER: _builtins.int
+    FROM_TIME_FIELD_NUMBER: _builtins.int
+    TO_TIME_FIELD_NUMBER: _builtins.int
+    CREATED_AT_FIELD_NUMBER: _builtins.int
+    CREATED_BY_FIELD_NUMBER: _builtins.int
+    SAMPLE_COUNT_FIELD_NUMBER: _builtins.int
+    MANIFEST_FIELD_NUMBER: _builtins.int
+    RELEASED_AT_FIELD_NUMBER: _builtins.int
+    VERIFIED_FIELD_NUMBER: _builtins.int
     snapshot_id: _builtins.str
     content_hash: _builtins.str
+    """sha256, in hex, over the frozen samples, written as SnapshotManifest.hash_format says."""
+    turbine_id: _builtins.str
+    created_by: _builtins.str
+    """The user, or the service, that asked for it."""
+    sample_count: _builtins.int
+    """Distinct samples frozen, by sequence."""
+    verified: _builtins.bool
+    """Only from GetTelemetrySnapshot: its data, read again now, hashes to content_hash."""
+    @_builtins.property
+    def from_time(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def to_time(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def created_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def manifest(self) -> Global___SnapshotManifest: ...
+    @_builtins.property
+    def released_at(self) -> _timestamp_pb2.Timestamp:
+        """Unset until it is released."""
+
     def __init__(
         self,
         *,
         snapshot_id: _builtins.str = ...,
         content_hash: _builtins.str = ...,
+        turbine_id: _builtins.str = ...,
+        from_time: _timestamp_pb2.Timestamp | None = ...,
+        to_time: _timestamp_pb2.Timestamp | None = ...,
+        created_at: _timestamp_pb2.Timestamp | None = ...,
+        created_by: _builtins.str = ...,
+        sample_count: _builtins.int = ...,
+        manifest: Global___SnapshotManifest | None = ...,
+        released_at: _timestamp_pb2.Timestamp | None = ...,
+        verified: _builtins.bool = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "from_time", b"from_time", "manifest", b"manifest", "released_at", b"released_at", "to_time", b"to_time"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["content_hash", b"content_hash", "snapshot_id", b"snapshot_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["content_hash", b"content_hash", "created_at", b"created_at", "created_by", b"created_by", "from_time", b"from_time", "manifest", b"manifest", "released_at", b"released_at", "sample_count", b"sample_count", "snapshot_id", b"snapshot_id", "to_time", b"to_time", "turbine_id", b"turbine_id", "verified", b"verified"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___TelemetrySnapshot: _TypeAlias = TelemetrySnapshot  # noqa: Y015
+
+@_typing.final
+class SnapshotManifest(_message.Message):
+    """What an investigation needs to reproduce the snapshot (FR-TEL-006, EVD-002)."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    INGESTED_BEFORE_FIELD_NUMBER: _builtins.int
+    SERVICE_VERSION_FIELD_NUMBER: _builtins.int
+    HASH_FORMAT_FIELD_NUMBER: _builtins.int
+    SOURCES_FIELD_NUMBER: _builtins.int
+    QUALITY_FIELD_NUMBER: _builtins.int
+    GAPS_FIELD_NUMBER: _builtins.int
+    REJECTED_FIELD_NUMBER: _builtins.int
+    FIRST_SEQUENCE_FIELD_NUMBER: _builtins.int
+    LAST_SEQUENCE_FIELD_NUMBER: _builtins.int
+    service_version: _builtins.str
+    """The Telemetry Service release that made it."""
+    hash_format: _builtins.str
+    """How the content hash is written, so it can be checked again: "windops-telemetry-snapshot-v1"."""
+    rejected: _builtins.int
+    """Samples in the window the service refused as malformed, with a readable sequence."""
+    first_sequence: _builtins.int
+    last_sequence: _builtins.int
+    @_builtins.property
+    def ingested_before(self) -> _timestamp_pb2.Timestamp:
+        """Only samples stored by then are in it: data arriving later never changes it."""
+
+    @_builtins.property
+    def sources(self) -> _containers.RepeatedCompositeFieldContainer[Global___SnapshotSource]: ...
+    @_builtins.property
+    def quality(self) -> _containers.RepeatedCompositeFieldContainer[Global___QualityCount]: ...
+    @_builtins.property
+    def gaps(self) -> _containers.RepeatedCompositeFieldContainer[Global___SnapshotGap]: ...
+    def __init__(
+        self,
+        *,
+        ingested_before: _timestamp_pb2.Timestamp | None = ...,
+        service_version: _builtins.str = ...,
+        hash_format: _builtins.str = ...,
+        sources: _abc.Iterable[Global___SnapshotSource] | None = ...,
+        quality: _abc.Iterable[Global___QualityCount] | None = ...,
+        gaps: _abc.Iterable[Global___SnapshotGap] | None = ...,
+        rejected: _builtins.int = ...,
+        first_sequence: _builtins.int = ...,
+        last_sequence: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["ingested_before", b"ingested_before"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["first_sequence", b"first_sequence", "gaps", b"gaps", "hash_format", b"hash_format", "ingested_before", b"ingested_before", "last_sequence", b"last_sequence", "quality", b"quality", "rejected", b"rejected", "service_version", b"service_version", "sources", b"sources"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SnapshotManifest: _TypeAlias = SnapshotManifest  # noqa: Y015
+
+@_typing.final
+class SnapshotSource(_message.Message):
+    """One source, schema and model behind some of its samples."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SOURCE_FIELD_NUMBER: _builtins.int
+    SCHEMA_VERSION_FIELD_NUMBER: _builtins.int
+    MODEL_VERSION_FIELD_NUMBER: _builtins.int
+    SYNTHETIC_FIELD_NUMBER: _builtins.int
+    SAMPLES_FIELD_NUMBER: _builtins.int
+    source: _builtins.str
+    schema_version: _builtins.str
+    model_version: _builtins.str
+    synthetic: _builtins.bool
+    samples: _builtins.int
+    def __init__(
+        self,
+        *,
+        source: _builtins.str = ...,
+        schema_version: _builtins.str = ...,
+        model_version: _builtins.str = ...,
+        synthetic: _builtins.bool = ...,
+        samples: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["model_version", b"model_version", "samples", b"samples", "schema_version", b"schema_version", "source", b"source", "synthetic", b"synthetic"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SnapshotSource: _TypeAlias = SnapshotSource  # noqa: Y015
+
+@_typing.final
+class QualityCount(_message.Message):
+    """How many samples had each data-quality label (FR-TEL-003) when it was frozen."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    LABEL_FIELD_NUMBER: _builtins.int
+    SAMPLES_FIELD_NUMBER: _builtins.int
+    label: _builtins.str
+    samples: _builtins.int
+    def __init__(
+        self,
+        *,
+        label: _builtins.str = ...,
+        samples: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["label", b"label", "samples", b"samples"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___QualityCount: _TypeAlias = QualityCount  # noqa: Y015
+
+@_typing.final
+class SnapshotGap(_message.Message):
+    """Sequences the turbine never sent, inside the window."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    FIRST_SEQUENCE_FIELD_NUMBER: _builtins.int
+    LAST_SEQUENCE_FIELD_NUMBER: _builtins.int
+    MISSING_FIELD_NUMBER: _builtins.int
+    first_sequence: _builtins.int
+    last_sequence: _builtins.int
+    missing: _builtins.int
+    def __init__(
+        self,
+        *,
+        first_sequence: _builtins.int = ...,
+        last_sequence: _builtins.int = ...,
+        missing: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["first_sequence", b"first_sequence", "last_sequence", b"last_sequence", "missing", b"missing"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SnapshotGap: _TypeAlias = SnapshotGap  # noqa: Y015
+
+@_typing.final
+class GetTelemetrySnapshotRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    snapshot_id: _builtins.str
+    def __init__(
+        self,
+        *,
+        snapshot_id: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["snapshot_id", b"snapshot_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetTelemetrySnapshotRequest: _TypeAlias = GetTelemetrySnapshotRequest  # noqa: Y015
+
+@_typing.final
+class GetTelemetrySnapshotResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SNAPSHOT_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def snapshot(self) -> Global___TelemetrySnapshot: ...
+    def __init__(
+        self,
+        *,
+        snapshot: Global___TelemetrySnapshot | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["snapshot", b"snapshot"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["snapshot", b"snapshot"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetTelemetrySnapshotResponse: _TypeAlias = GetTelemetrySnapshotResponse  # noqa: Y015
+
+@_typing.final
+class StreamTelemetrySnapshotRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    METRICS_FIELD_NUMBER: _builtins.int
+    snapshot_id: _builtins.str
+    @_builtins.property
+    def metrics(self) -> _containers.RepeatedScalarFieldContainer[Global___Metric.ValueType]:
+        """Empty for every metric."""
+
+    def __init__(
+        self,
+        *,
+        snapshot_id: _builtins.str = ...,
+        metrics: _abc.Iterable[Global___Metric.ValueType] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["metrics", b"metrics", "snapshot_id", b"snapshot_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___StreamTelemetrySnapshotRequest: _TypeAlias = StreamTelemetrySnapshotRequest  # noqa: Y015
+
+@_typing.final
+class StreamTelemetrySnapshotResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    POINT_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def point(self) -> Global___TelemetryPoint: ...
+    def __init__(
+        self,
+        *,
+        point: Global___TelemetryPoint | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["point", b"point"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["point", b"point"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___StreamTelemetrySnapshotResponse: _TypeAlias = StreamTelemetrySnapshotResponse  # noqa: Y015
+
+@_typing.final
+class ReleaseTelemetrySnapshotRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    snapshot_id: _builtins.str
+    idempotency_key: _builtins.str
+    def __init__(
+        self,
+        *,
+        snapshot_id: _builtins.str = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["idempotency_key", b"idempotency_key", "snapshot_id", b"snapshot_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ReleaseTelemetrySnapshotRequest: _TypeAlias = ReleaseTelemetrySnapshotRequest  # noqa: Y015
+
+@_typing.final
+class ReleaseTelemetrySnapshotResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SNAPSHOT_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def snapshot(self) -> Global___TelemetrySnapshot: ...
+    def __init__(
+        self,
+        *,
+        snapshot: Global___TelemetrySnapshot | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["snapshot", b"snapshot"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["snapshot", b"snapshot"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ReleaseTelemetrySnapshotResponse: _TypeAlias = ReleaseTelemetrySnapshotResponse  # noqa: Y015
 
 @_typing.final
 class TelemetryPoint(_message.Message):
@@ -318,10 +645,19 @@ class TelemetryPoint(_message.Message):
     VALUE_FIELD_NUMBER: _builtins.int
     UNIT_FIELD_NUMBER: _builtins.int
     QUALITY_FIELD_NUMBER: _builtins.int
+    SEQUENCE_FIELD_NUMBER: _builtins.int
+    QUALITY_LABEL_FIELD_NUMBER: _builtins.int
     metric: Global___Metric.ValueType
     value: _builtins.float
+    """0 when quality is QUALITY_MISSING: the sensor sent nothing."""
     unit: _builtins.str
     quality: Global___Quality.ValueType
+    sequence: _builtins.int
+    """The device's sequence for the sample this point came from."""
+    quality_label: _builtins.str
+    """Its data-quality label (FR-TEL-003): ok, delayed, out_of_order, or received when not yet
+    checked. Quality is GOOD for ok, and SUSPECT for the others.
+    """
     @_builtins.property
     def event_time(self) -> _timestamp_pb2.Timestamp: ...
     def __init__(
@@ -332,10 +668,12 @@ class TelemetryPoint(_message.Message):
         value: _builtins.float = ...,
         unit: _builtins.str = ...,
         quality: Global___Quality.ValueType = ...,
+        sequence: _builtins.int = ...,
+        quality_label: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["event_time", b"event_time"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["event_time", b"event_time", "metric", b"metric", "quality", b"quality", "unit", b"unit", "value", b"value"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["event_time", b"event_time", "metric", b"metric", "quality", b"quality", "quality_label", b"quality_label", "sequence", b"sequence", "unit", b"unit", "value", b"value"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

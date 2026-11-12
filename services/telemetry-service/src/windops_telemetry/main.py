@@ -110,7 +110,10 @@ def main() -> None:
 
     def register(server: grpc.aio.Server) -> None:
         telemetry_pb2_grpc.add_TelemetryServiceServicer_to_server(
-            TelemetryService(engine, authorizer, turbines), server
+            TelemetryService(
+                engine, authorizer, turbines, version=os.environ.get("WINDOPS_VERSION", "")
+            ),
+            server,
         )
 
     async def relay(stop: asyncio.Event) -> None:

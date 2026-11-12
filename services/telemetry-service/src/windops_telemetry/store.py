@@ -205,6 +205,39 @@ RETENTION_HOLDS = Table(
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("released_at", DateTime(timezone=True)),
 )
+# A snapshot of one turbine's window, frozen for an investigation (FR-TEL-006, SRS 8.4). Immutable
+# once made, but for released_at. Its manifest is the SnapshotManifest message, serialized.
+TELEMETRY_SNAPSHOTS = Table(
+    "telemetry_snapshots",
+    METADATA,
+    Column("tenant_id", Text, nullable=False),
+    Column("snapshot_id", Text, primary_key=True),
+    Column("turbine_id", Text, nullable=False),
+    Column("from_time", DateTime(timezone=True), nullable=False),
+    Column("to_time", DateTime(timezone=True), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("created_by", Text, nullable=False),
+    # Only samples stored before this are in it.
+    Column("ingested_before", DateTime(timezone=True), nullable=False),
+    Column("sample_count", Integer, nullable=False),
+    Column("content_hash", Text, nullable=False),
+    Column("manifest", LargeBinary, nullable=False),
+    # The retention hold on its window, released with it.
+    Column("hold_id", Text, nullable=False),
+    Column("released_at", DateTime(timezone=True)),
+)
+# Which stored samples a snapshot holds, and each one's data-quality label when it was frozen. A
+# sample's sequence, time of arrival and place in its batch find the very row it was.
+SNAPSHOT_SAMPLES = Table(
+    "snapshot_samples",
+    METADATA,
+    Column("tenant_id", Text, nullable=False),
+    Column("snapshot_id", Text, primary_key=True),
+    Column("sequence", BigInteger, primary_key=True),
+    Column("ingested_at", DateTime(timezone=True), nullable=False),
+    Column("arrival_index", Integer, nullable=False),
+    Column("label", Text, nullable=False),
+)
 # How far the summarizer has read, by ingestion time. Platform upkeep, not tenant data.
 SUMMARY_WATERMARKS = Table(
     "summary_watermarks",
@@ -222,6 +255,8 @@ TENANT_TABLES = (
     "scada_summaries",
     "retention_holds",
     "data_gaps",
+    "telemetry_snapshots",
+    "snapshot_samples",
 )
 EXCERPT_CHARACTERS = 500
 
