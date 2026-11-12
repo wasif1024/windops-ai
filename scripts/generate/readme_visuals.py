@@ -804,6 +804,265 @@ def build_platform_architecture() -> None:
     cropped.save(ASSETS / "platform-architecture.png", optimize=True)
 
 
+# ------------------------------------------------------------ azure architecture
+
+# The pipeline's stages, from infrastructure/azure/pipelines/azure-pipelines.yml.
+PIPELINE_STAGES = (
+    ("Validate", "tests and what-if, free", "service"),
+    ("Approval", "you agree to the cost", "human"),
+    ("Deploy", "make azure-up", "service"),
+    ("Platform", "make azure-platform", "service"),
+    ("Prove", "make azure-prove", "rule"),
+    ("Remove compute", "always, even on failure", "service"),
+)
+# Each namespace's workloads on AKS: (name, deployment, in the pipeline's deploy now). The ones
+# deployed now are scripts/setup/azure_platform.py's WORKLOADS, which a test holds them to.
+AKS_NAMESPACES = (
+    ("windops-system", (
+        ("Authorization", "windops-authorization", True),
+        ("Tenant", "windops-tenant", True),
+        ("APISIX gateway", "windops-gateway", False),
+        ("Keycloak", "windops-keycloak", False),
+    )),
+    ("windops-application", (
+        ("Asset", "windops-asset", True),
+        ("Audit", "windops-audit", True),
+        ("Sample caller", "windops-sample-caller", True),
+        ("Sample responder", "windops-sample-responder", True),
+    )),
+    ("windops-data", (
+        ("Database setup", "windops-postgres-provision", True),
+        ("Redis", "windops-redis", False),
+        ("Qdrant", "windops-qdrant", False),
+    )),
+    ("windops-observability", (
+        ("Collector", "windops-otel-collector", True),
+    )),
+)  # fmt: skip
+AKS_ADD_ONS = (
+    "Workload ID webhook, Key Vault CSI driver, managed Prometheus agent, Defender, Azure Policy, "
+    "Image Cleaner, and our cert-manager issuing from the CA in Key Vault"
+)
+# The data group, from infrastructure/azure/bicep/modules/data.bicep.
+DATA_RESOURCES = (
+    ("Azure Database for PostgreSQL", "B2s, PostgreSQL 18, private access, Entra sign-in only"),
+    ("Azure Service Bus", "Standard: topics, subscriptions, dead letters, no keys"),
+    ("Key Vault", "RBAC, purge protection, firewall; holds the internal CA"),
+    ("Container Registry", "Basic, admin user off"),
+    ("Application Insights", "with Log Analytics: 30 days, 2 GB a day cap"),
+    ("Monitor workspace", "managed Prometheus, with Managed Grafana"),
+    ("Managed identities", "one per workload, federated to its service account"),
+    ("Budget and alerts", "$100 a month, email at 50, 80 and 100%"),
+)  # fmt: skip
+# Entra Workload ID, as every workload on AKS uses it (ADR 0006).
+SIGN_IN_STEPS = (
+    "Kubernetes gives the pod a short-lived token for its own service account.",
+    "Entra trusts that one service account, and swaps the token for its managed identity's.",
+    "With it, the pod reads Key Vault and signs in to PostgreSQL and Service Bus.",
+    "Each identity holds only its own roles, so a service reaches only its own data.",
+)
+# Each concern locally and on Azure (ADR 0006), as the README's table has them.
+LOCAL_AND_AZURE = (
+    ("Cluster", "Minikube with Cilium", "AKS, Azure CNI Overlay with Cilium"),
+    ("Way in", "APISIX", "App Gateway WAF v2, then APISIX"),
+    ("Events", "NATS JetStream", "Azure Service Bus"),
+    ("Database", "PostgreSQL pod, a password each", "Flexible Server, an Entra login each"),
+    ("Secrets", "Kubernetes Secrets", "Key Vault, through the CSI driver"),
+    ("Certificates", "cert-manager, self-signed CA", "cert-manager, CA from Key Vault"),
+    ("Images", "built into Minikube", "Container Registry"),
+    ("Traces", "Tempo", "Application Insights"),
+    ("Metrics", "Prometheus", "managed Prometheus"),
+    ("Logs", "Fluent Bit to Loki", "Container insights to Log Analytics"),
+    ("Dashboards", "Grafana", "Managed Grafana, the same dashboards"),
+    ("Deploys", "make dev", "Azure Pipelines, after approval"),
+)  # fmt: skip
+
+
+CHIPS_PER_ROW = 3
+
+
+def namespace_height(workloads: tuple[tuple[str, str, bool], ...]) -> float:
+    return 26 + ((len(workloads) + CHIPS_PER_ROW - 1) // CHIPS_PER_ROW) * 36
+
+
+def azure_workload_chip(
+    c: Canvas, x0: float, y0: float, x1: float, y1: float, name: str, now: bool
+) -> None:
+    accent, fill = KINDS["service"]
+    c.box(x0, y0, x1, y1, fill=fill, outline=accent, width=1.25)
+    draw_control_marker(c, x0 + 13, (y0 + y1) / 2, planned=not now)
+    c.text(x0 + 26, (y0 + y1) / 2, name, 11.5, True)
+
+
+def draw_delivery(c: Canvas, top: float) -> float:
+    c.frame(40, top, 1560, top + 118, "Delivery: GitHub checks, Azure Pipelines deploys")
+    c.node(56, top + 34, 236, top + 84, "GitHub", "pull requests checked by Actions",
+           "external", 13, 11)  # fmt: skip
+    edge_label(c, 266, top + 49, "merge")
+    x, width, gap = 300, 148, 16
+    c.arrow([(238, top + 59), (x - 2, top + 59)])
+    for index, (name, note, kind) in enumerate(PIPELINE_STAGES):
+        x0 = x + index * (width + gap)
+        c.node(x0, top + 34, x0 + width, top + 84, name, note, kind, 13, 11)
+        if index:
+            c.arrow([(x0 - gap, top + 59), (x0 - 2, top + 59)])
+    nightly = x + len(PIPELINE_STAGES) * (width + gap) + 10
+    c.node(nightly, top + 34, 1544, top + 84, "Nightly", "stops PostgreSQL if no cluster",
+           "rule", 13, 11)  # fmt: skip
+    c.text(
+        300, top + 102,
+        "Signs in as id-windops-pipeline by workload identity federation: no password, key or "
+        "certificate exists. It may grant only the roles the Bicep uses.",
+        12, color=MUTED,
+    )  # fmt: skip
+    return top + 118
+
+
+def draw_compute_group(c: Canvas, top: float, bottom: float) -> list[float]:
+    """App Gateway and AKS, and the y of each row a data resource is reached from."""
+    amber = KINDS["human"][0]
+    c.box(56, top, 560, bottom, fill=mix(BG, amber, 0.05), outline=amber, radius=10)
+    c.text(70, top + 17, "rg-windops-staging-compute", 13, True, amber)
+    c.text(70, top + 35, "about $0.98 an hour, deleted after each run", 12, color=MUTED)
+    c.node(
+        72,
+        top + 52,
+        544,
+        top + 98,
+        "Application Gateway WAF v2",
+        "public HTTPS; Prevention mode, DRS 2.1; re-encrypts to APISIX",
+        "external",
+        13,
+        11,
+    )
+    c.arrow([(308, top + 98), (308, top + 120)])  # fmt: skip
+    aks_top = top + 122
+    c.frame(72, aks_top, 544, bottom - 16, "AKS 1.35, Free tier", KINDS["external"][0])
+    c.text(
+        92 + c.text_width("AKS 1.35, Free tier", 14, True), aks_top + 17,
+        "system: one D2ads_v5; user: one or two D4ads_v5", 11.5, color=MUTED,
+    )  # fmt: skip
+    y = aks_top + 34
+    for name, workloads in AKS_NAMESPACES:
+        height = namespace_height(workloads)
+        namespace(c, 84, y, 532, y + height, name, "")
+        width = (448 - 24 - (CHIPS_PER_ROW - 1) * 8) / CHIPS_PER_ROW
+        for index, (label, _, now) in enumerate(workloads):
+            x0 = 96 + (index % CHIPS_PER_ROW) * (width + 8)
+            y0 = y + 26 + (index // CHIPS_PER_ROW) * 36
+            azure_workload_chip(c, x0, y0, x0 + width, y0 + 30, label, now)
+        y += height + 8
+    rows = c.wrap(AKS_ADD_ONS, 11.5, 430)
+    c.text(92, y + 8, "Add-ons", 12, True, MUTED)
+    for index, row in enumerate(rows):
+        c.text(92, y + 26 + index * 15, row, 11.5, color=MUTED)
+    return [aks_top]
+
+
+def draw_data_group(c: Canvas, top: float, bottom: float, aks_top: float) -> None:
+    green = GREEN
+    c.box(580, top, 1084, bottom, fill=mix(BG, green, 0.04), outline=green, radius=10)
+    c.text(594, top + 17, "rg-windops-staging-data", 13, True, green)
+    c.text(594, top + 35, "always there, about $20 a month", 12, color=MUTED)
+    c.node(
+        596,
+        top + 52,
+        1068,
+        top + 98,
+        "VNet 10.40.0.0/16",
+        "App Gateway /24, AKS /22, PostgreSQL /28 delegated; an NSG on each",
+        "service",
+        13,
+        11,
+    )
+    width, height = (472 - 10) / 2, 60  # fmt: skip
+    for index, (name, note) in enumerate(DATA_RESOURCES):
+        x0 = 596 + (index % 2) * (width + 10)
+        y0 = top + 112 + (index // 2) * (height + 10)
+        c.node(x0, y0, x0 + width, y0 + height, name, note, "external", 12.5, 10.5)
+    y = top + 112 + 4 * (height + 10) + 6
+    c.frame(596, y, 1068, bottom - 16, "How a pod signs in, with no secret", KINDS["external"][0])
+    for index, step in enumerate(SIGN_IN_STEPS):
+        rows = c.wrap(step, 12, 430)
+        line = y + 44 + index * 40
+        c.dot(612, line, 9, mix(BG, KINDS["external"][0], 0.4))
+        c.text(612, line, str(index + 1), 11, True, anchor="mm")
+        for offset, row in enumerate(rows):
+            c.text(630, line + offset * 16, row, 12, color=MUTED)
+    # One arrow across: everything the cluster uses is in the data group.
+    middle = (aks_top + bottom) / 2
+    c.arrow([(546, middle), (594, middle)], KINDS["external"][0], 2)
+
+
+def draw_local_and_azure(c: Canvas, x0: float, top: float, x1: float) -> float:
+    concern, local = x0 + 16, x0 + 108
+    azure = local + 128
+    rows: list[tuple[str, list[str], list[str], int]] = []
+    for name, here, there in LOCAL_AND_AZURE:
+        lines_here = c.wrap(here, 11.5, azure - local - 10)
+        lines_there = c.wrap(there, 11.5, x1 - azure - 14)
+        rows.append((name, lines_here, lines_there, max(len(lines_here), len(lines_there))))
+    height = 54 + sum(r[3] * 15 + 9 for r in rows)
+    c.frame(x0, top, x1, top + height, "Locally and on Azure (ADR 0006)")
+    c.text(local, top + 40, "Locally", 11.5, True, MUTED)
+    c.text(azure, top + 40, "On Azure", 11.5, True, KINDS["external"][0])
+    y = top + 58
+    for name, local_lines, azure_lines, count in rows:
+        c.line([(concern, y - 6), (x1 - 14, y - 6)], LINE, 0.75)
+        c.text(concern, y + 3, name, 11.5, True)
+        for index, line in enumerate(local_lines):
+            c.text(local, y + 3 + index * 15, line, 11.5, color=MUTED)
+        for index, line in enumerate(azure_lines):
+            c.text(azure, y + 3 + index * 15, line, 11.5)
+        y += count * 15 + 9
+    return top + height
+
+
+def draw_azure_costs(c: Canvas, x0: float, top: float, x1: float) -> float:
+    costs = (*AZURE_COSTS, ("Always on", "everything, all month", "$778"))
+    height = 40 + len(costs) * 24
+    c.frame(x0, top, x1, top + height, "Cost, from docs/azure-plan.md")
+    for index, (name, note, price) in enumerate(costs):
+        y = top + 44 + index * 24
+        c.text(x0 + 16, y, name, 12.5, True, KINDS["external"][0])
+        c.text(x0 + 100, y, note, 12, color=MUTED)
+        c.text(x1 - 16, y, price, 12.5, True, GREEN if name == "Proof run" else TEXT, "rm")
+    return top + height
+
+
+def build_azure_architecture() -> None:
+    c = Canvas(1600, 1200)
+    c.text(40, 40, "WindOps AI on Azure: the staging deployment", 28, True)
+    c.text(
+        40, 74,
+        "Sweden Central, from infrastructure/azure/bicep. Nothing exists until an approved "
+        "pipeline run creates it, and the compute is removed after.",
+        15, color=MUTED,
+    )  # fmt: skip
+    draw_control_marker(c, 1206, 74, planned=False)
+    c.text(1216, 74, "deployed by the pipeline", 12.5, color=MUTED)
+    draw_control_marker(c, 1386, 74, planned=True)
+    c.text(1396, 74, "full deployment (Phase 15)", 12.5, color=MUTED)
+    y = draw_delivery(c, 104) + 16
+    groups_top = y + 34
+    namespaces_height = sum(namespace_height(w) + 8 for _, w in AKS_NAMESPACES)
+    bottom = groups_top + 122 + 34 + namespaces_height + 92
+    c.frame(40, y, 1100, bottom + 16, "Azure subscription, Sweden Central", KINDS["external"][0])
+    (aks_top,) = draw_compute_group(c, groups_top, bottom)
+    draw_data_group(c, groups_top, bottom, aks_top)
+    side = draw_local_and_azure(c, 1120, y, 1560)
+    draw_azure_costs(c, 1120, side + 16, 1560)
+    end = bottom + 16 + 34
+    c.text(
+        800, end,
+        "Every service keeps its code: WINDOPS_ENVIRONMENT chooses the back ends behind it.",
+        16, True, AMBER, "mm",
+    )  # fmt: skip
+    cropped = c.image.crop((0, 0, 1600 * c.s, int(end + 26) * c.s))
+    ASSETS.mkdir(parents=True, exist_ok=True)
+    cropped.save(ASSETS / "azure-architecture.png", optimize=True)
+
+
 # --------------------------------------------------------------- orchestration
 
 W, H = 1000, 640
@@ -1165,4 +1424,5 @@ def build_animation() -> None:
 
 if __name__ == "__main__":
     build_platform_architecture()
+    build_azure_architecture()
     build_animation()

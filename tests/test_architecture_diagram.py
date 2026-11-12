@@ -62,9 +62,29 @@ def test_roadmap_progress_counts_ticked_modules(tmp_path: Path) -> None:
     assert read_phase_progress(tracker) == [("1", "First", 1, 2), ("2", "Second", 0, 1)]
 
 
-def test_readme_shows_the_one_architecture_diagram() -> None:
+def test_readme_shows_the_platform_and_azure_diagrams() -> None:
     readme = (ROOT / "README.md").read_text()
     assert "docs/assets/platform-architecture.png" in readme
+    assert "docs/assets/azure-architecture.png" in readme
+
+
+def test_the_azure_diagram_marks_exactly_what_the_pipeline_deploys() -> None:
+    from scripts.generate.readme_visuals import AKS_NAMESPACES
+    from scripts.setup.azure_platform import WORKLOADS
+
+    deployed = {name for _, workloads in AKS_NAMESPACES for _, name, now in workloads if now}
+    assert deployed == {*WORKLOADS, "windops-postgres-provision", "windops-otel-collector"}
+
+
+def test_the_azure_diagram_draws_the_pipeline_stages_in_order() -> None:
+    from scripts.generate.readme_visuals import PIPELINE_STAGES
+
+    pipeline = (ROOT / "infrastructure" / "azure" / "pipelines" / "azure-pipelines.yml").read_text()
+    stages = [name for name, _, _ in PIPELINE_STAGES if name != "Approval"]
+    # "Remove compute" is the stage RemoveCompute.
+    ids = ["".join(word[0].upper() + word[1:] for word in name.split()) for name in stages]
+    found = [pipeline.index(f"- stage: {stage}") for stage in ids]
+    assert found == sorted(found)
 
 
 def test_a_service_runs_once_it_has_an_image_or_a_deployment() -> None:
