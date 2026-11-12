@@ -24,6 +24,7 @@ from scripts.checks.data.audit import (
     check,
     clean_up_database,
     clean_up_events,
+    grant_reader,
     kubectl,
     nats_client,
     request_record,
@@ -60,6 +61,13 @@ def bootstrap() -> None:
     for workload, namespace in WORKLOADS:
         kubectl("rollout", "status", workload, f"--namespace={namespace}", "--timeout=300s")
     print("The documented commands deployed the data stores and the Audit Service", flush=True)
+    # Reading the trail needs audit.read since Phase 3 (SRS 3.2), so the gate's reader is made
+    # an Auditor in its test tenants, as the audit check does.
+    kubectl(
+        "rollout", "status", "deployment/windops-authorization", "--namespace=windops-system",
+        "--timeout=300s",
+    )  # fmt: skip
+    grant_reader()
 
 
 def stop_audit() -> None:
@@ -267,6 +275,11 @@ def main() -> int:
         code = 1
     finally:
         kubectl("scale", DEPLOYMENT, "--replicas=1", f"--namespace={APPLICATION}", required=False)
+        # Ready before the next check: the Web BFF answers 503 while the Audit Service starts.
+        kubectl(
+            "rollout", "status", DEPLOYMENT, f"--namespace={APPLICATION}", "--timeout=240s",
+            required=False,
+        )  # fmt: skip
         clean_up_database()
         with port_forward(f"pod/{NATS_POD}", DATA, 4222) as port:
             asyncio.run(clean_up_events(port, passwords))

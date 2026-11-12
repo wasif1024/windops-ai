@@ -17,16 +17,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import grpc
 import httpx
+from windops.tenant.v1 import tenant_pb2 as tenant_pb
 
+from scripts.checks.identity import tenant as tenant_check
 from scripts.checks.identity.identity import Realm, create_user, delete_user
 from scripts.lib.settings import KUBE_CONTEXT
+from scripts.lib.tls_client import blocking_channel, client_bundle
+from scripts.setup.gateway_routes import port_forward
 from scripts.setup.identity_seed import (
     ADMIN_SECRET_FILE,
     PUBLIC_URL,
     REALM,
     TENANTS,
     admin_client,
+    demo_admin_email,
     demo_email,
     ensure_member,
     ensure_tenant,
@@ -166,6 +172,21 @@ def fill(text: str, member_id: str, tenant: str = OTHER_TENANT) -> str:
     )
 
 
+def give_logo(admin_id: str) -> None:
+    """The public logo route needs a logo to serve. tenant-check uploads one, but runs after this
+    in the Phase 3 gate, so a new cluster has none yet. Only a missing logo is set."""
+    with (
+        port_forward(tenant_check.DEPLOYMENT, tenant_check.SYSTEM, 50051) as port,
+        blocking_channel(port, tenant_check.HOST, client_bundle()) as channel,
+    ):
+        caller = tenant_check.Caller(channel, tenant_check.signing_key())
+        found = caller.code("GetLogo", tenant_pb.GetLogoRequest(), None, TENANT)
+        if found is grpc.StatusCode.NOT_FOUND:
+            logo = tenant_pb.SetLogoRequest(image=PNG, content_type="image/png")
+            caller.call("SetLogo", logo, admin_id, TENANT)
+            print(f"Gave {TENANT} a logo, so its public logo route has one to serve", flush=True)
+
+
 def call(method: str, path: str, token: str | None, member_id: str) -> httpx.Response:
     headers = {"Idempotency-Key": uuid.uuid4().hex}
     if token:
@@ -219,6 +240,8 @@ def main() -> int:
                             f"/{REALM}/users", params={"email": demo_email(TENANT), "exact": "true"}
                         ).json()[0]["id"]
                     )
+                    tenant_admin_id = tenant_check.user_id(api, demo_admin_email(TENANT))
+                give_logo(tenant_admin_id)
                 subprocess.run(
                     [
                         "kubectl", "--context", KUBE_CONTEXT, "--namespace=windops-system",
@@ -251,7 +274,13 @@ def main() -> int:
             finally:
                 with admin_client(base, admin_password) as api:
                     delete_user(api, ADMIN_EMAIL)
-    except (RuntimeError, OSError, httpx.HTTPError, subprocess.CalledProcessError) as error:
+    except (
+        RuntimeError,
+        OSError,
+        httpx.HTTPError,
+        subprocess.CalledProcessError,
+        grpc.RpcError,
+    ) as error:
         print(f"{type(error).__name__}: {error}", file=sys.stderr)
         return 1
     print("Route sweep passed")

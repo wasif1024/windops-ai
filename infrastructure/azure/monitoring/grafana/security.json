@@ -65,7 +65,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "round(sum(increase(keycloak_user_events_total{realm=\"windops\",event=\"login\",error!=\"\"}[1h])))",
+          "expr": "round(sum((increase(keycloak_user_events_total{realm=\"windops\",event=\"login\",error!=\"\"}[1h]) and keycloak_user_events_total{realm=\"windops\",event=\"login\",error!=\"\"} offset 1h or keycloak_user_events_total{realm=\"windops\",event=\"login\",error!=\"\"})))",
           "legendFormat": "failed"
         }
       ]
@@ -122,7 +122,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "round(sum(increase(keycloak_credentials_password_hashing_validations_total{realm=\"windops\",outcome=\"invalid\"}[1h])))",
+          "expr": "round(sum((increase(keycloak_credentials_password_hashing_validations_total{realm=\"windops\",outcome=\"invalid\"}[1h]) and keycloak_credentials_password_hashing_validations_total{realm=\"windops\",outcome=\"invalid\"} offset 1h or keycloak_credentials_password_hashing_validations_total{realm=\"windops\",outcome=\"invalid\"})))",
           "legendFormat": "wrong"
         }
       ]
@@ -179,7 +179,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "round(clamp_min(sum(increase(keycloak_user_events_total{realm=\"windops\",event=\"login\",error=\"invalid_user_credentials\"}[1h])) - (sum(increase(keycloak_credentials_password_hashing_validations_total{realm=\"windops\",outcome=\"invalid\"}[1h])) or vector(0)), 0))",
+          "expr": "round(clamp_min(sum((increase(keycloak_user_events_total{realm=\"windops\",event=\"login\",error=\"invalid_user_credentials\"}[1h]) and keycloak_user_events_total{realm=\"windops\",event=\"login\",error=\"invalid_user_credentials\"} offset 1h or keycloak_user_events_total{realm=\"windops\",event=\"login\",error=\"invalid_user_credentials\"})) - (sum((increase(keycloak_credentials_password_hashing_validations_total{realm=\"windops\",outcome=\"invalid\"}[1h]) and keycloak_credentials_password_hashing_validations_total{realm=\"windops\",outcome=\"invalid\"} offset 1h or keycloak_credentials_password_hashing_validations_total{realm=\"windops\",outcome=\"invalid\"})) or vector(0)), 0))",
           "legendFormat": "wrong code"
         }
       ]
@@ -236,7 +236,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "round(sum(increase(windops_audit_records_total{action=\"authorization.denied\"}[1h])))",
+          "expr": "round(sum((increase(windops_audit_records_total{action=\"authorization.denied\"}[1h]) and windops_audit_records_total{action=\"authorization.denied\"} offset 1h or windops_audit_records_total{action=\"authorization.denied\"})))",
           "legendFormat": "denied"
         }
       ]
@@ -421,7 +421,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "round(sum by (action) (increase(windops_audit_records_total{action=~\"authorization\\\\.(role|role_permissions|break_glass)\\\\..*|identity\\\\.(user|sessions|organization)\\\\..*|tenant\\\\..*\"}[24h]))) > 0",
+          "expr": "round(sum by (action) ((increase(windops_audit_records_total{action=~\"authorization\\\\.(role|role_permissions|break_glass)\\\\..*|identity\\\\.(user|sessions|organization)\\\\..*|tenant\\\\..*\"}[24h]) and windops_audit_records_total{action=~\"authorization\\\\.(role|role_permissions|break_glass)\\\\..*|identity\\\\.(user|sessions|organization)\\\\..*|tenant\\\\..*\"} offset 24h or windops_audit_records_total{action=~\"authorization\\\\.(role|role_permissions|break_glass)\\\\..*|identity\\\\.(user|sessions|organization)\\\\..*|tenant\\\\..*\"}))) > 0",
           "legendFormat": "",
           "instant": true,
           "format": "table"

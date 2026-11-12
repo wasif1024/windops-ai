@@ -289,7 +289,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (namespace, pod) (increase(kube_pod_container_status_restarts_total{namespace=~\"windops-.*\"}[1h]))",
+          "expr": "sum by (namespace, pod) ((increase(kube_pod_container_status_restarts_total{namespace=~\"windops-.*\"}[1h]) and kube_pod_container_status_restarts_total{namespace=~\"windops-.*\"} offset 1h or kube_pod_container_status_restarts_total{namespace=~\"windops-.*\"}))",
           "legendFormat": "{{pod}}"
         }
       ]
@@ -425,7 +425,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (pod) (increase(kube_pod_container_status_restarts_total{namespace=\"windops-data\"}[1h]))",
+          "expr": "sum by (pod) ((increase(kube_pod_container_status_restarts_total{namespace=\"windops-data\"}[1h]) and kube_pod_container_status_restarts_total{namespace=\"windops-data\"} offset 1h or kube_pod_container_status_restarts_total{namespace=\"windops-data\"}))",
           "legendFormat": "{{pod}}"
         }
       ]
