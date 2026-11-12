@@ -45,7 +45,7 @@ deployment in Phase 15.
 | Every service is Available | Each read its Secrets from Key Vault through the CSI driver, and its certificate from cert-manager |
 | Each service's migrations completed | It signed in to PostgreSQL as its own Entra identity, with no password |
 | No Workload ID pod is given a password | Nothing stored replaces Workload ID |
-| The sample caller answers, verified against the internal CA | The caller called the responder over mutual TLS, with a signed identity |
+| The sample caller answers through a port-forward | The caller called the responder over gRPC with mutual TLS and a signed identity, which the responder requires |
 | Application Insights has the echo's request | Traces reach Azure Monitor through the Collector |
 
 Application Gateway is created, but its backend shows as unhealthy and its public address returns an error. APISIX, and

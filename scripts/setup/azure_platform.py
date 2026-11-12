@@ -64,6 +64,8 @@ POSTGRES_ADMIN = "windops-postgres-admin"
 SIGNING_KEY = "windops-internal-identity--signing-key"  # a name, not a secret
 PLACEHOLDER = re.compile(r"\$\{(AZURE_[A-Z0-9_]+)\}")
 CSI_DRIVER = "secrets-store.csi.k8s.io"
+# Where the sample caller serves its API: plain HTTP, as the gateway's route reaches it.
+CALLER_PORT = 8080
 # As every service's own pods run.
 RUN_AS_SERVICE = {
     "runAsNonRoot": True,
@@ -501,11 +503,6 @@ def workload_namespaces(documents: Iterable[dict[str, Any]]) -> dict[str, str]:
     }
 
 
-def certificate_only(pem: str) -> str:
-    """The CA's certificate from its PEM, leaving its key behind."""
-    return str(ca_secret(pem)["stringData"]["tls.crt"])
-
-
 def free_port() -> int:
     import socket
 
@@ -514,38 +511,42 @@ def free_port() -> int:
         return int(probe.getsockname()[1])
 
 
-def echo_through_mutual_tls(
-    context: str, ca_certificate: str, attempts: int = 30
-) -> dict[str, Any]:
-    """The caller answers over HTTPS, after a signed gRPC call to the responder over mutual TLS.
-
-    The caller's certificate is checked against the CA, for the name the cluster gives it.
-    """
-    import ssl
+def echo_through_mutual_tls(context: str, attempts: int = 30) -> dict[str, Any]:
+    """The caller answers once it has called the responder over gRPC, with mutual TLS and a signed
+    identity, which the responder requires. The caller serves its API on plain HTTP, port 8080, as
+    the gateway's route reaches it, so this reaches it the same way, through a port-forward."""
+    import socket
 
     import httpx
 
     port = free_port()
     process = subprocess.Popen(
         ["kubectl", "--context", context, "port-forward", "--namespace=windops-application",
-         "deployment/windops-sample-caller", f"{port}:8443"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+         "deployment/windops-sample-caller", f"{port}:{CALLER_PORT}"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
     )  # fmt: skip
-    trust = ssl.create_default_context(cadata=ca_certificate)
-    host = "windops-sample-caller.windops-application.svc"
     last: Any = None
     try:
-        with httpx.Client(verify=trust, timeout=8) as client:
+        # A port-forward takes a moment to listen: wait for it, or for it to stop.
+        for _ in range(100):
+            if process.poll() is not None:
+                reason = process.stderr.read() if process.stderr else ""
+                raise AzureError(f"The port-forward to the caller stopped: {reason}")
+            with socket.socket() as probe:
+                probe.settimeout(0.2)
+                if probe.connect_ex(("127.0.0.1", port)) == 0:
+                    break
+            time.sleep(0.1)
+        with httpx.Client(timeout=8) as client:
             for _ in range(attempts):
                 try:
                     response = client.get(
-                        f"https://127.0.0.1:{port}/sample/echo", params={"message": "hello"},
-                        extensions={"sni_hostname": host},
-                    )  # fmt: skip
+                        f"http://127.0.0.1:{port}/sample/echo", params={"message": "hello"}
+                    )
                     if response.status_code == 200:
                         body: dict[str, Any] = response.json()
                         return body
-                    last = response.status_code
+                    last = f"{response.status_code} {response.text[:200]}"
                 except httpx.HTTPError as error:
                     last = f"{type(error).__name__}: {error}"
                 time.sleep(2)
@@ -603,10 +604,7 @@ def prove_platform(outputs: dict[str, Any], context: str) -> None:
         if item["name"] in ("WINDOPS_DATABASE_PASSWORD", "WINDOPS_EVENTS_PASSWORD")
     ]
     check(not passwords, f"No Workload ID pod is given a password ({len(pods)} pods)")
-    pem = az("keyvault", "secret", "show", "--vault-name", outputs["keyVaultName"],
-             "--name", CA_SECRET, "--query", "value", "--output", "tsv")  # fmt: skip
-    # In memory only: nothing from the vault's secret is written anywhere.
-    body = echo_through_mutual_tls(context, certificate_only(pem))
+    body = echo_through_mutual_tls(context)
     check(
         body == {"message": "hello", "tenant_id": "sample"},
         "The caller reached the responder over mutual TLS with a signed identity",
