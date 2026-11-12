@@ -70,10 +70,13 @@ finished, so the diagram cannot drift from the [implementation tracker](docs/pha
 | Observability | Locally, OpenTelemetry traces in Tempo, metrics in Prometheus with Alertmanager, logs through Fluent Bit to Loki, and Grafana dashboards. On Azure, the same signals go to Application Insights, Log Analytics, managed Prometheus and Managed Grafana |
 | Deployment | Kubernetes with Kustomize overlays and Cilium networking. Minikube locally (ADR 0001); AKS on Azure, with Entra Workload ID and Key Vault in place of stored secrets (ADR 0006) |
 
-## Azure deployment plan
+## On Azure
 
 WindOps AI is built for Azure and runs the same platform on a laptop. Each workload keeps its code, and only the
-back ends behind it change, chosen by `WINDOPS_ENVIRONMENT` ([ADR 0006](docs/adr/0006-azure-aligned-platform-services.md)):
+back ends behind it change, chosen by `WINDOPS_ENVIRONMENT` ([ADR 0006](docs/adr/0006-azure-aligned-platform-services.md)).
+It follows Azure's [advanced AKS microservices architecture](https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/containers/aks-microservices/aks-microservices-advanced).
+
+[![WindOps AI on Azure, the staging deployment in Sweden Central. Delivery: GitHub Actions checks every pull request, and after a merge Azure Pipelines validates with a what-if, waits for an approval of the cost, deploys, deploys the platform onto AKS, proves it and always removes the compute; a nightly pipeline stops PostgreSQL when no cluster uses it. The pipeline signs in by workload identity federation, with no stored secret. In the subscription, the compute resource group, about $0.98 an hour and deleted after each run, holds Application Gateway WAF v2 in Prevention mode, re-encrypting to APISIX, and AKS 1.35 with a D2ads system pool and a D4ads user pool. Its namespaces show what the pipeline deploys now, Authorization, Tenant, Asset, Audit, the sample caller and responder, the database setup Job and the Collector, and what the full deployment adds in Phase 15, APISIX, Keycloak, Redis and Qdrant. Add-ons include the Workload ID webhook, the Key Vault CSI driver, managed Prometheus, Defender, Azure Policy, Image Cleaner and cert-manager issuing from the CA in Key Vault. The data resource group, always there for about $20 a month, holds the VNet and its subnets, Azure Database for PostgreSQL with private access and Entra sign-in only, Service Bus Standard, Key Vault, Container Registry, Application Insights with Log Analytics, the Monitor workspace with Managed Grafana, one managed identity per workload, and the budget with its alerts. A panel explains how a pod signs in with no secret. A side table compares each concern locally and on Azure, and a cost table lists idle, proof run, demo and always-on prices.](docs/assets/azure-architecture.png)](docs/assets/azure-architecture.png)
 
 | Concern | Locally (`local`, `ci`) | On Azure (`dev`, `staging`, `live`) |
 | --- | --- | --- |
