@@ -48,6 +48,10 @@ deployment in Phase 15.
 | The sample caller answers, verified against the internal CA | The caller called the responder over mutual TLS, with a signed identity |
 | Application Insights has the echo's request | Traces reach Azure Monitor through the Collector |
 
+Application Gateway is created, but its backend shows as unhealthy and its public address returns an error. APISIX, and
+the internal load balancer at `10.40.7.250` that App Gateway sends traffic to, come in M15.7, so the public address
+is not part of the proof yet.
+
 ## Stopping PostgreSQL every night
 
 Azure starts a stopped PostgreSQL server again after 7 days. A second pipeline,

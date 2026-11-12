@@ -251,7 +251,7 @@ Phase 4A builds the Azure services, Workload ID, monitoring and their Bicep firs
 - [ ] **M15.4 AKS cluster:** Azure Kubernetes Service in Bicep, with network policy enforced, and an `azure` overlay with real image tags and storage classes.
 - [ ] **M15.5 Managed PostgreSQL:** per-service databases and logins, private network access, TLS and backups.
 - [ ] **M15.6 Cloud secrets:** Key Vault replaces the local secret files for every workload.
-- [ ] **M15.7 WAF and TLS:** Application Gateway WAF v2 in front of APISIX, with a domain and public TLS.
+- [ ] **M15.7 WAF and TLS:** Application Gateway WAF v2 in front of APISIX, with a domain and public TLS. Includes APISIX and its etcd on AKS, its Service as an Azure internal load balancer at `10.40.7.250` (`service.beta.kubernetes.io/azure-load-balancer-internal`), which App Gateway's backend already points at, its routes loaded with the admin key from Key Vault, and a check through the public address. Until then, M4A.6 creates App Gateway, but its backend shows as unhealthy, because nothing listens at that address yet.
 - [ ] **M15.8 Delivery pipeline:** migrations, then a rolling deployment, with a manual approval and a rollback path.
 - [ ] **M15.9 Cost and operations:** stop and start commands, cost record and a cloud runbook.
 - [ ] **M15.10 Exit gate:** the pipeline deploys from a clean subscription, and the smoke and end-to-end tests pass through the WAF.
