@@ -275,3 +275,27 @@ def test_a_stopped_postgresql_is_started_before_it_is_deployed_to(
     source = (ROOT / "scripts" / "setup" / "azure_deploy.py").read_text()
     up = source[source.index("def up(") : source.index("def down(")]
     assert up.index("start_postgres(config)") < up.index("deployCompute=False")
+
+
+def test_down_removes_grafanas_roles_before_deleting_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def az(*arguments: str, capture: bool = True) -> str:
+        calls.append(arguments)
+        return ""
+
+    def az_json(*arguments: str) -> Any:
+        if arguments[:2] == ("resource", "list"):
+            return ["grafana-principal"]
+        return ["/assignment/one", "/assignment/two"]
+
+    monkeypatch.setattr(azure_deploy, "az", az)
+    monkeypatch.setattr(azure_deploy, "az_json", az_json)
+    azure_deploy.remove_grafana_access("s", "rg-windops-staging-compute")
+    assert calls == [
+        ("role", "assignment", "delete", "--subscription", "s", "--ids",
+         "/assignment/one", "/assignment/two"),
+    ]  # fmt: skip
+    source = (ROOT / "scripts" / "setup" / "azure_deploy.py").read_text()
+    down = source[source.index("def down(") : source.index("def stop_postgres(")]
+    assert down.index("remove_grafana_access(") < down.index('"group", "delete"')

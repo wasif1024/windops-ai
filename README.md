@@ -98,14 +98,14 @@ down by splitting the deployment in two:
 - **A data resource group** holds Service Bus, PostgreSQL, Key Vault, the registry and monitoring. It exists all
   the time, for about **$20 a month**.
 - **A compute resource group** holds AKS, the Application Gateway and their addresses. It is created for a demo and
-  deleted after, at about **$0.98 an hour**.
+  deleted after, at about **$1.03 an hour**.
 
 | Profile | What runs | Per month |
 | --- | --- | --- |
 | Idle | The data resource group only | about $20 |
 | **Proof run (planned)** | Azure DevOps deploys staging and its services, proves them and removes the compute | **about $2 a run** |
-| Demo | The compute for about 60 hours a month | about $85 |
-| Always on | Everything, all month | about $778 |
+| Demo | The compute for about 60 hours a month | about $88 |
+| Always on | Everything, all month | about $809 |
 | Live, later | Production grade: zone redundant, with SLAs | about $1,800 |
 
 | Goal | How the plan meets it |

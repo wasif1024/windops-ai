@@ -5,7 +5,7 @@
 // - rg-windops-<env>-data exists the whole time: the network, Service Bus, PostgreSQL, Key Vault,
 //   the registry, monitoring, every managed identity, and their roles. About $19 a month.
 // - rg-windops-<env>-compute exists only while the platform runs: AKS, App Gateway and their
-//   public addresses. About $0.98 an hour. deployCompute=false leaves it out.
+//   public addresses and Managed Grafana. About $1.03 an hour. deployCompute=false leaves it out.
 //
 // Deploy through make azure-plan, azure-up and azure-down, which show a what-if first. Nothing
 // here holds a secret: every workload signs in with Microsoft Entra Workload ID.
@@ -104,7 +104,6 @@ module data 'modules/data.bicep' = {
     tags: tags
     allowedIpRanges: concat(operatorIpRanges, deployCompute ? [edge!.outputs.outboundIpAddress] : [])
     operatorIpRanges: operatorIpRanges
-    operatorObjectId: operatorObjectId
     admins: admins
     alertEmail: alertEmail
   }
@@ -134,6 +133,31 @@ module compute 'modules/compute.bicep' = if (deployCompute) {
     gatewayCertificateUri: gatewayCertificateUri
     gatewayTrustedRootCertificate: gatewayTrustedRootCertificate
     gatewayInternalIp: gatewayInternalIp
+  }
+}
+
+// Grafana runs only with the compute: Azure offers it only as Standard, about $31 a month always on.
+module grafana 'modules/grafana.bicep' = if (deployCompute) {
+  name: 'windops-grafana'
+  scope: computeGroup
+  params: {
+    location: location
+    environment: environment
+    suffix: suffix
+    tags: tags
+    operatorObjectId: operatorObjectId
+    prometheusWorkspaceId: resourceId(
+      subscription().subscriptionId, dataGroupName, 'Microsoft.Monitor/accounts', data.outputs.prometheusWorkspaceName
+    )
+  }
+}
+
+module grafanaAccess 'modules/grafana-access.bicep' = if (deployCompute) {
+  name: 'windops-grafana-access'
+  scope: dataGroup
+  params: {
+    grafanaPrincipalId: grafana!.outputs.principalId
+    prometheusWorkspaceName: data.outputs.prometheusWorkspaceName
   }
 }
 
@@ -172,4 +196,4 @@ output tenantId string = tenant().tenantId
 output workloadClientIds array = data.outputs.workloadClientIds
 output postgresAdminClientId string = data.outputs.postgresAdminClientId
 output applicationInsightsName string = data.outputs.applicationInsightsName
-output grafanaEndpoint string = data.outputs.grafanaEndpoint
+output grafanaEndpoint string = deployCompute ? grafana!.outputs.endpoint : ''
