@@ -72,7 +72,7 @@ PROVIDERS = (
 )
 # Azure Resource Manager's states for a deployment that has not finished.
 RUNNING = {"Accepted", "Running", "Canceling"}
-COST = "Compute costs about $1.03 an hour while it runs; the data group about $20 a month."
+COST = "Compute costs about $1.17 an hour while it runs; the data group about $20 a month."
 # Key Vault's data-plane roles take a few minutes to reach a new vault.
 ROLE_WAIT_SECONDS, ROLE_ATTEMPTS = 15, 20
 

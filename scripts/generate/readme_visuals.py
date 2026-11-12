@@ -376,8 +376,8 @@ RUNTIMES = (
 # From docs/azure-plan.md: compute runs only while it is used.
 AZURE_COSTS = (
     ("Idle", "data only, between demos", "$20 a month"),
-    ("Proof run", "deploy, prove, remove: the plan", "$2 a run"),
-    ("Demo", "compute for 60 hours a month", "$88"),
+    ("Proof run", "deploy, prove, remove: the plan", "$2.50 a run"),
+    ("Demo", "compute for 60 hours a month", "$96"),
 )
 GUARDRAILS = (
     "Agents recommend and draft. Policy, Approval and people decide.",
@@ -845,7 +845,7 @@ AKS_ADD_ONS = (
 )
 # The data group, from infrastructure/azure/bicep/modules/data.bicep.
 DATA_RESOURCES = (
-    ("Azure Database for PostgreSQL", "B2s, PostgreSQL 18, private access, Entra sign-in only"),
+    ("Azure Database for PostgreSQL", "D2ds_v5, PostgreSQL 18, private access, Entra only"),
     ("Azure Service Bus", "Standard: topics, subscriptions, dead letters, no keys"),
     ("Key Vault", "RBAC, purge protection, firewall; holds the internal CA"),
     ("Container Registry", "Basic, admin user off"),
@@ -923,7 +923,7 @@ def draw_compute_group(c: Canvas, top: float, bottom: float) -> list[float]:
     amber = KINDS["human"][0]
     c.box(56, top, 560, bottom, fill=mix(BG, amber, 0.05), outline=amber, radius=10)
     c.text(70, top + 17, "rg-windops-staging-compute", 13, True, amber)
-    note = "about $1.03 an hour with Managed Grafana, deleted after each run"
+    note = "about $1.17 an hour with Managed Grafana, deleted after each run"
     c.text(70, top + 35, note, 12, color=MUTED)
     c.node(
         72,
@@ -1020,7 +1020,7 @@ def draw_local_and_azure(c: Canvas, x0: float, top: float, x1: float) -> float:
 
 
 def draw_azure_costs(c: Canvas, x0: float, top: float, x1: float) -> float:
-    costs = (*AZURE_COSTS, ("Always on", "everything, all month", "$809"))
+    costs = (*AZURE_COSTS, ("Always on", "everything, all month", "$916"))
     height = 40 + len(costs) * 24
     c.frame(x0, top, x1, top + height, "Cost, from docs/azure-plan.md")
     for index, (name, note, price) in enumerate(costs):

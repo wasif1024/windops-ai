@@ -47,6 +47,20 @@ def placeholder(name: str) -> str:
     return "${" + name + "}"
 
 
+def azure_for(value: str | None) -> str:
+    """How long a rule must hold before it fires. Azure's least is 1 minute, the rule groups'
+    evaluation interval, so a local rule that fires at once, or within a minute, waits that long."""
+    if not value or duration_seconds(value) < 60:
+        return "PT1M"
+    return iso_duration(value)
+
+
+def duration_seconds(value: str) -> int:
+    """Prometheus's 30s, 5m, 1h or 1d, in seconds."""
+    units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+    return int(value[:-1]) * units[value[-1]]
+
+
 def iso_duration(value: str) -> str:
     """5m is PT5M, as Azure Monitor writes durations."""
     found = re.fullmatch(r"(\d+)([smhd])", value)
@@ -166,7 +180,7 @@ def rule_groups() -> tuple[list[dict[str, Any]], list[str]]:
                 {
                     "alert": rule["alert"],
                     "expression": rule["expr"],
-                    "for": iso_duration(rule["for"]) if "for" in rule else "PT0M",
+                    "for": azure_for(rule.get("for")),
                     "severity": SEVERITY[labels.get("severity", "warning")],
                     "labels": labels,
                     "annotations": rule.get("annotations", {}),
