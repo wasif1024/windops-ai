@@ -31,6 +31,7 @@ Sign in as `admin`. The password is in `infrastructure/minikube/secrets.local.gr
 | Microservice Health | Request rate, latency percentiles, gRPC failures and breaker state |
 | [Events](events.md) | Consumer lag, outbox backlog, dead letters and stream storage |
 | [Security](security.md#seeing-it-the-security-dashboard) | Failed sign-ins, wrong passwords, MFA failures, access denials, rate limiting, refused tokens and administrator changes |
+| [Data Freshness](../services/telemetry-service/README.md#freshness-m49-srs-103) | Turbines live, delayed, stale and silent, telemetry delay percentiles, each turbine's newest sample age, and samples stored and refused. Weather, documents and provider status arrive with their services |
 
 The other SRS 10.3 dashboards arrive with the components they describe. Panels stay empty until something produces the
 data, such as a breaker opening.

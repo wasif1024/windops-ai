@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from windops_migrations import in_tenant
 
 from windops_telemetry import credentials, spectra
+from windops_telemetry.freshness import IngestMetrics
 from windops_telemetry.limits import LimitUnavailableError
 from windops_telemetry.schema import MalformedError, parse, parse_cms
 from windops_telemetry.store import (
@@ -134,9 +135,12 @@ def create_ingest_router(
     limiter: Any,
     clock: Callable[[], datetime] | None = None,
     raw_every_hours: int = 6,
+    measures: IngestMetrics | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix=PREFIX)
     now = clock or (lambda: datetime.now(UTC))
+    # Delay and outcome of each sample, for the Data Freshness dashboard (M4.9).
+    measured = measures or IngestMetrics()
 
     async def device_for(header: str | None) -> Device:
         """The device a credential belongs to. Every way of failing gets the same answer."""
@@ -237,6 +241,7 @@ def create_ingest_router(
                         excerpt=_excerpt(_without_values(document)),
                     )
                 )  # fmt: skip
+            measured.rejected(device.tenant_id, "cms", [f"cms_{reason}"])
             return Receipt(accepted=0, rejected=[Rejected(index=0, reason=f"cms_{reason}")])
         # The transforms take a few tens of milliseconds each, so they run off the event loop.
         computed = await asyncio.to_thread(
@@ -293,6 +298,7 @@ def create_ingest_router(
                             values_f32le=struct.pack(f"<{len(window.values)}f", *window.values),
                         )
                     )  # fmt: skip
+        measured.accepted(device.tenant_id, "cms", received, [batch.event_time] * stored)
         return Receipt(accepted=stored, rejected=[], duplicates=duplicates)
 
     async def store(device: Device, items: list[Any]) -> Receipt:
@@ -354,6 +360,8 @@ def create_ingest_router(
                 await connection.execute(OPERATIONAL_SAMPLES.insert(), rows)
             if rejections:
                 await connection.execute(INGEST_REJECTIONS.insert(), rejections)
+        measured.accepted(device.tenant_id, "samples", received, [r["event_time"] for r in rows])
+        measured.rejected(device.tenant_id, "samples", [r.reason for r in receipts])
         return Receipt(accepted=len(rows), rejected=receipts)
 
     return router

@@ -92,6 +92,64 @@
       ]
     },
     {
+      "name": "windops-telemetry",
+      "interval": "PT1M",
+      "rules": [
+        {
+          "alert": "WindopsTelemetryStale",
+          "expression": "max by (tenant_id, turbine_id) (windops_telemetry_sample_age_seconds) > 300",
+          "for": "PT2M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "{{ $labels.turbine_id }} in {{ $labels.tenant_id }} has sent no telemetry for over 5 minutes"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsTelemetrySilent",
+          "expression": "max by (tenant_id) (windops_telemetry_turbines{state=\"silent\"}) > 0",
+          "for": "PT15M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "{{ $value }} turbines in {{ $labels.tenant_id }} have a device credential but sent nothing for a day"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsTelemetryDelayed",
+          "expression": "histogram_quantile(0.95, sum by (tenant_id, le) (rate(windops_telemetry_ingest_delay_seconds_bucket{kind=\"samples\"}[10m]))) > 30",
+          "for": "PT10M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "Telemetry from {{ $labels.tenant_id }} arrives over 30 seconds late"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsTelemetryRejected",
+          "expression": "sum by (tenant_id, reason) (increase(windops_telemetry_ingest_samples_total{outcome=\"rejected\"}[10m]) and windops_telemetry_ingest_samples_total{outcome=\"rejected\"} offset 10m or windops_telemetry_ingest_samples_total{outcome=\"rejected\"}) > 50",
+          "for": "PT1M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "The device route refused many samples from {{ $labels.tenant_id }}: {{ $labels.reason }}"
+          },
+          "enabled": true
+        }
+      ]
+    },
+    {
       "name": "windops-security",
       "interval": "PT1M",
       "rules": [
