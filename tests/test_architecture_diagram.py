@@ -66,6 +66,16 @@ def test_readme_shows_the_platform_and_azure_diagrams() -> None:
     readme = (ROOT / "README.md").read_text()
     assert "docs/assets/platform-architecture.png" in readme
     assert "docs/assets/azure-architecture.png" in readme
+    assert "docs/assets/kubernetes-on-azure.png" in readme
+    # The Kubernetes view comes first, as the overview, then the detail.
+    assert readme.index("kubernetes-on-azure.png") < readme.index("azure-architecture.png")
+
+
+def test_the_kubernetes_view_draws_every_domain_service_as_a_pod() -> None:
+    from scripts.generate.kubernetes_view import BACK_END
+
+    drawn = [name for _, _, members in APPLICATION_GROUPS for name, _ in members]
+    assert list(BACK_END) == drawn
 
 
 def test_the_azure_diagram_marks_exactly_what_the_pipeline_deploys() -> None:
