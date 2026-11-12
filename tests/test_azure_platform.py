@@ -299,3 +299,12 @@ def test_down_removes_grafanas_roles_before_deleting_it(monkeypatch: pytest.Monk
     source = (ROOT / "scripts" / "setup" / "azure_deploy.py").read_text()
     down = source[source.index("def down(") : source.index("def stop_postgres(")]
     assert down.index("remove_grafana_access(") < down.index('"group", "delete"')
+
+
+def test_logs_read_the_workloads_from_log_analytics_and_refuse_injection() -> None:
+    query = azure_deploy.logs_query("2h", "windops-postgres-provision")
+    assert query.startswith("ContainerLogV2 | where TimeGenerated > ago(2h)")
+    assert "PodName startswith 'windops-postgres-provision'" in query
+    for since, pod in (("2h; drop", ""), ("2h", "x' or 1==1 //"), ("forever", "")):
+        with pytest.raises(azure_deploy.AzureError):
+            azure_deploy.logs_query(since, pod)

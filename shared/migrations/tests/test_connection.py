@@ -5,7 +5,12 @@ from typing import Any
 
 import pytest
 from windops_migrations import EntraTokens, create_service_engine, database_auth
-from windops_migrations.connection import POSTGRES_SCOPE, RECYCLE_SECONDS, RENEW_SECONDS
+from windops_migrations.connection import (
+    POSTGRES_SCOPE,
+    RECYCLE_SECONDS,
+    RENEW_SECONDS,
+    public_roots,
+)
 
 DATABASE = {
     "WINDOPS_DATABASE_HOST": "windops-postgres.example",
@@ -89,8 +94,9 @@ def test_entra_sign_in_stores_no_password_and_hands_each_connection_a_token(
     )
     url = engine.url
     assert url.password is None
-    # Azure's certificate is public, so it is verified against the system's roots, never skipped.
-    assert (url.query["sslmode"], url.query["sslrootcert"]) == ("verify-full", "system")
+    # Azure's certificate is public, so it is verified against certifi's public roots, never
+    # skipped. Not libpq's "system", which psycopg's own OpenSSL cannot find on Azure.
+    assert (url.query["sslmode"], url.query["sslrootcert"]) == ("verify-full", public_roots())
     assert engine.sync_engine.pool._recycle == RECYCLE_SECONDS
     cparams: dict[str, Any] = {}
     # do_connect is the dialect's event, so the listener lives there.
@@ -103,3 +109,17 @@ def test_entra_sign_in_needs_the_database_settings(monkeypatch: pytest.MonkeyPat
     monkeypatch.delenv("WINDOPS_DATABASE_HOST", raising=False)
     with pytest.raises(ValueError, match="WINDOPS_DATABASE_HOST"):
         create_service_engine(auth="entra", tokens=EntraTokens(FakeCredential()))
+
+
+def test_the_public_roots_hold_the_authorities_azure_postgresql_chains_to() -> None:
+    """Azure Database for PostgreSQL's certificates chain to these (Microsoft's TLS guidance)."""
+    from pathlib import Path
+
+    # certifi labels each certificate with its subject.
+    subjects = [
+        line
+        for line in Path(public_roots()).read_text().splitlines()
+        if line.startswith("# Subject:")
+    ]
+    for root in ("DigiCert Global Root G2", "Microsoft RSA Root Certificate Authority 2017"):
+        assert any(f"CN={root}" in subject for subject in subjects), root

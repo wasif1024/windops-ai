@@ -91,6 +91,8 @@ def database_statements(role: Role) -> list[str]:
 def _connect(host: str, admin: str, database: str, token: str) -> Any:
     import psycopg
 
+    from windops_migrations.connection import public_roots
+
     return psycopg.connect(
         host=host,
         port=5432,
@@ -98,7 +100,7 @@ def _connect(host: str, admin: str, database: str, token: str) -> Any:
         user=admin,
         password=token,
         sslmode="verify-full",
-        sslrootcert="system",
+        sslrootcert=public_roots(),
         autocommit=True,
         connect_timeout=15,
     )

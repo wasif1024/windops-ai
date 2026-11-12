@@ -9,8 +9,9 @@
 `password` otherwise. With Entra, each new connection presents a token from
 `DefaultAzureCredential`, which uses Microsoft Entra Workload ID on AKS. Tokens last about an hour,
 so one is kept until shortly before it ends, and the pool's connections are recycled before then.
-The server's certificate is public, so it is verified against the system's public roots, never
-skipped.
+The server's certificate is public, so it is verified against Mozilla's public roots from certifi,
+never skipped. Not libpq's "system": psycopg's binary build has its own OpenSSL, which does not find
+the image's certificates, so every server failed verification on Azure.
 """
 
 import os
@@ -68,6 +69,13 @@ class EntraTokens:
             return self._token
 
 
+def public_roots() -> str:
+    """A file of the public certificate authorities, which Azure's server certificates chain to."""
+    import certifi
+
+    return str(certifi.where())
+
+
 def _url(auth: str) -> URL:
     if auth == PASSWORD:
         return database_url()
@@ -85,7 +93,7 @@ def _url(auth: str) -> URL:
         database=values["name"],
         # The Entra principal's name, as the database knows it: no password, a token instead.
         username=values["username"],
-        query={"sslmode": "verify-full", "sslrootcert": "system"},
+        query={"sslmode": "verify-full", "sslrootcert": public_roots()},
     )
 
 
