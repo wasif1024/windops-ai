@@ -44,7 +44,7 @@ rg-windops-data      exists the whole time: about $20 a month
 ├── vnet-windops       10.40.0.0/16, its subnets and network security groups
 ├── Service Bus        sb-windops-dev, Standard
 ├── PostgreSQL         psql-windops-dev, Flexible Server D2ds_v5, private access only
-├── Key Vault          kv-windops-dev, RBAC, purge protection
+├── Key Vault          kv-windops-dev, RBAC, purge protection, firewall (trusted services for App Gateway)
 ├── Container Registry acrwindopsdev, Basic
 ├── Log Analytics      log-windops-dev, with Application Insights on top
 ├── Azure Monitor      amw-windops-dev, the managed Prometheus workspace
