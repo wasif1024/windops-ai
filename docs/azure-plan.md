@@ -4,9 +4,9 @@ The plan for M4A.6: what WindOps AI runs on in Azure, its size and its price, an
 [ADR 0006](adr/0006-azure-aligned-platform-services.md): the AKS baseline, the advanced AKS microservices
 architecture, and Application Gateway with a WAF in front of the API gateway.
 
-**Status: written in Bicep, awaiting approval to create.** Nothing in this plan exists in Azure yet. The Bicep is in
-[infrastructure/azure/bicep](../infrastructure/azure/bicep), and `make azure-plan` shows a `what-if` of all 93
-resources without creating any. `make azure-up` creates them only after the plan and price are approved.
+**Status: deployed and proven on 2026-11-12.** The Azure DevOps pipeline created everything below from the Bicep in
+[infrastructure/azure/bicep](../infrastructure/azure/bicep), deployed and proved the platform, then removed the compute
+([evidence](phases/phase-04a-exit-gate.md)). Between runs only the data group exists, at about $20 a month.
 
 Prices are pay-as-you-go list prices in USD, excluding tax, from the Azure Retail Prices API on 2026-11-11, for
 Sweden Central. A month is 730 hours.

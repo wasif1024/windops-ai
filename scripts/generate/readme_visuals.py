@@ -242,7 +242,7 @@ HOP_CONTROLS = (
             Control("Sign-in through Keycloak (OIDC), with MFA for administrators"),
             Control("Token checks, CORS allowlists and SRS rate limits on every route"),
             Control("Each device has its own credential, for one tenant and turbine"),
-            Control("On Azure, a WAF in Prevention mode in front of the gateway", "M4A.6"),
+            Control("On Azure, a WAF in Prevention mode in front of the gateway", "M15.7"),
         ),
     ),
     (
@@ -278,7 +278,7 @@ HOP_CONTROLS = (
             Control("Non-root pods, read-only filesystems, memory limits and probes"),
             Control("Deny all traffic between namespaces by default", "M13.3"),
             Control("Every change passes lint, types, tests, CodeQL and secret scans"),
-            Control("On Azure, no stored secrets: Workload ID and Key Vault", "M4A.6"),
+            Control("On Azure, no stored secrets: Workload ID and Key Vault"),
             Control("Signed container images", "M14.2"),
         ),
     ),
@@ -643,7 +643,7 @@ def draw_azure(c: Canvas, top: float) -> None:
     c.text(54, top + 16, "On Azure (ADR 0006)", 13, True, azure)
     c.text(
         64 + c.text_width("On Azure (ADR 0006)", 13, True), top + 16,
-        "Sweden Central. Created in M4A.6 once its plan and price are approved",
+        "Sweden Central. Deployed and proven by the pipeline in M4A.6",
         12, color=MUTED,
     )  # fmt: skip
     width = (1040 - 3 * 10 - 24) / 4
