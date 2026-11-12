@@ -391,3 +391,14 @@ def test_quota_is_checked_before_anything_is_created() -> None:
     assert up.index("check_quota(config)") < up.index("deployCompute=False")
     plan = source[source.index("def plan(") : source.index("def up(")]
     assert "check_quota(config)" in plan
+
+
+def test_key_vault_lets_only_trusted_services_past_its_firewall() -> None:
+    """App Gateway was refused its certificate with bypass None: it reads it from Azure's side.
+    A trusted service still needs a role, and only App Gateway's identity reads the certificate."""
+    data = (ROOT / "infrastructure" / "azure" / "bicep" / "modules" / "data.bicep").read_text()
+    vault = data[data.index("resource vault 'Microsoft.KeyVault/vaults") :]
+    acls = vault[vault.index("networkAcls: {") : vault.index("virtualNetworkRules")]
+    assert "defaultAction: 'Deny'" in acls
+    assert "bypass: 'AzureServices'" in acls
+    assert "guid(vault.id, gatewayIdentity.id, roles.vaultReader)" in data

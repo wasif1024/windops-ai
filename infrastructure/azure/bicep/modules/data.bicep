@@ -402,7 +402,10 @@ resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     publicNetworkAccess: 'Enabled'
     networkAcls: {
       defaultAction: 'Deny'
-      bypass: 'None'
+      // App Gateway reads its HTTPS certificate from Azure's side, not from its subnet, so it is let
+      // through as a trusted Microsoft service. It still needs a role to read anything, and only its
+      // own identity has one: Key Vault Secrets User.
+      bypass: 'AzureServices'
       ipRules: [for range in operatorIpRanges: { value: range }]
       virtualNetworkRules: [
         { id: network.properties.subnets[0].id }
