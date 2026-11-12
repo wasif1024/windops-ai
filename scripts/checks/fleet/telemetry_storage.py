@@ -113,10 +113,13 @@ def check_live_summaries() -> None:
     )
 
 
-def insert_samples(event_times: list[datetime], arrived: datetime) -> None:
+def insert_samples(event_times: list[datetime], arrived: datetime | None = None) -> None:
+    """Samples as if just stored. Arriving now is the database's own time, as the summarizer
+    reads by it: a time taken here, before the insert, could fall behind its watermark."""
+    at = "now()" if arrived is None else f"'{arrived.isoformat()}'"
     values = ", ".join(
         f"('{TENANT}', '{TURBINE}', '{moment.isoformat()}', {int(moment.timestamp())}, "
-        f"'dev_check', '{arrived.isoformat()}', '{SOURCE}', '2', 'check', true, 'producing', "
+        f"'dev_check', {at}, '{SOURCE}', '2', 'check', true, 'producing', "
         f"true, 'received', 1000)"
         for moment in event_times
     )
@@ -134,17 +137,23 @@ def check_late_data() -> None:
     start = (now - timedelta(minutes=40)).replace(second=0, microsecond=0)
     start = start.replace(minute=start.minute - start.minute % 10)
     seconds = [start + timedelta(seconds=n) for n in range(600)]
-    insert_samples(seconds[:300], now)
+    insert_samples(seconds[:300])
     upkeep("--summaries")
     summary = f"FROM scada_summaries WHERE {CHECK_ROWS} AND period_start = '{start.isoformat()}'"
     first = as_tenant(TENANT, f"SELECT revision, sample_count, late_samples {summary}")
     check(first == "1|300|0", "Half a period summarizes as revision 1, with its 300 samples")
-    insert_samples(seconds[300:], datetime.now(UTC))
-    upkeep("--summaries")
-    again = as_tenant(
-        TENANT,
-        f"SELECT revision, sample_count, late_samples, quality_status {summary}",
-    )
+    insert_samples(seconds[300:])
+    # The service summarizes every minute too, and a run skips while another holds the lock.
+    again = ""
+    for _ in range(8):
+        upkeep("--summaries")
+        again = as_tenant(
+            TENANT,
+            f"SELECT revision, sample_count, late_samples, quality_status {summary}",
+        )
+        if again == "2|600|300|complete":
+            break
+        time.sleep(10)
     check(
         again == "2|600|300|complete",
         "Late samples recalculate it as revision 2, complete, counting the 300 late ones",
