@@ -24,6 +24,7 @@ from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, CircuitBreaker
 
 from windops_telemetry import partitions, summaries
+from windops_telemetry.freshness import FreshnessWatcher
 from windops_telemetry.ingest import create_ingest_router
 from windops_telemetry.limits import DeviceLimiter
 from windops_telemetry.service import AssetClient, AuthorizationClient, TelemetryService
@@ -125,6 +126,9 @@ def main() -> None:
     async def keep_summaries(stop: asyncio.Event) -> None:
         await summaries.keep_summarizing(engine, stop)
 
+    async def watch_freshness(stop: asyncio.Event) -> None:
+        await FreshnessWatcher(engine).keep_watching(stop)
+
     asyncio.run(
         run_service(
             SERVICE_NAME,
@@ -137,7 +141,7 @@ def main() -> None:
             ),
             # Devices reach it only over TLS, through the gateway. Plain HTTP serves health.
             api_over_https=True,
-            background=(relay, keep_partitions, keep_summaries),
+            background=(relay, keep_partitions, keep_summaries, watch_freshness),
         )
     )
 

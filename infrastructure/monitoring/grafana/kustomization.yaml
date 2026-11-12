@@ -17,3 +17,4 @@ configMapGenerator:
       - dashboards/microservice-health.json
       - dashboards/events.json
       - dashboards/security.json
+      - dashboards/data-freshness.json

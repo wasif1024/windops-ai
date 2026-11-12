@@ -205,6 +205,29 @@ per sample in event order: its time, sequence, label and the 12 readings in a fi
 `null` for a missing reading. Anyone with the samples can write it again to check a snapshot. Making and releasing
 one each queue an audit record.
 
+## Freshness (M4.9, SRS 10.3)
+
+The Data Freshness dashboard and its alerts read two measures:
+
+| Metric | What it is |
+| --- | --- |
+| `windops_telemetry_ingest_delay_seconds` | A histogram, by tenant: how long after it was measured each accepted sample was stored |
+| `windops_telemetry_sample_age_seconds` | A gauge, by tenant and turbine: how old the turbine's newest sample is now |
+| `windops_telemetry_turbines` | A gauge, by tenant and state: turbines `live`, `delayed`, `stale` or `silent` |
+| `windops_telemetry_ingest_samples_total` | A counter: samples accepted, and refused by reason |
+
+Each turbine with an active device credential is expected to send. Every 15 seconds the service reads each one's
+newest event time through its `(tenant, turbine, event time)` index. The gauge works out the age when Prometheus reads
+it, so a turbine that stops sending keeps getting older, which the delay alone cannot show. The steps match the
+console: `live` up to a minute, `delayed` up to five minutes, then `stale`, and `silent` after a day with nothing.
+
+| Alert | Fires when |
+| --- | --- |
+| `WindopsTelemetryStale` | A turbine's newest sample has been over 5 minutes old for 2 minutes |
+| `WindopsTelemetrySilent` | A turbine with a device credential has sent nothing for a day |
+| `WindopsTelemetryDelayed` | The 95th-percentile delay stays over 30 seconds for 10 minutes |
+| `WindopsTelemetryRejected` | Over 50 samples are refused for one reason in 10 minutes |
+
 ## Run the tests
 
 ```bash
@@ -214,4 +237,5 @@ make telemetry-storage-check   # partitions, summaries, late data and retention
 make cms-check                 # live CMS features, a worn bearing's signature, raw windows
 make data-quality-check        # one of each data problem, sent and labelled
 make snapshot-check            # a live minute streamed, frozen, held, and unchanged by late data
+make freshness-check           # live, stale and silent turbines, delay, refusals, and the dashboard
 ```
