@@ -51,10 +51,10 @@ rg-windops-data      exists the whole time: about $20 a month
 ├── Managed identities one per workload, federated to its Kubernetes service account
 └── Budget             $100 a month, with alerts
 
-rg-windops-compute   exists only while the platform runs: about $1.17 an hour
+rg-windops-compute   exists only while the platform runs: about $1.20 an hour
 ├── AKS                aks-windops-dev, Free tier, Azure CNI Overlay powered by Cilium
-│   ├── system pool    1 × Standard_D2ads_v5
-│   └── user pool      1 × Standard_D4ads_v5, autoscaling to 2
+│   ├── system pool    1 × Standard_D2ds_v4
+│   └── user pool      1 × Standard_D4ds_v4, autoscaling to 2
 ├── App Gateway        agw-windops-dev, WAF v2, in front of APISIX
 ├── Managed Grafana    amg-dev-<suffix>, Standard, on the Monitor workspace's metrics
 └── Public IPs         the gateway's address, and the cluster's outbound address
@@ -73,20 +73,20 @@ rg-windops-compute   exists only while the platform runs: about $1.17 an hour
 | Network, identities and budget | The network, security groups, managed identities, Workload ID and Cost Management have no charge | $0 |
 | **Total** | | **$19.76** |
 
-### Compute resource group: about $1.17 an hour, only while it runs
+### Compute resource group: about $1.20 an hour, only while it runs
 
 | Resource | Size and settings | Per hour |
 | --- | --- | --- |
 | AKS control plane | Free tier: no uptime SLA, enough for a demo | $0 |
-| System node pool | 1 × D2ads_v5: 2 vCPUs, 8 GiB, ephemeral OS disk, so no disk charge | $0.110 |
-| User node pool | 1 × D4ads_v5: 4 vCPUs, 16 GiB, ephemeral OS disk. The autoscaler adds a second node only if needed, at $0.22 an hour | $0.220 |
+| System node pool | 1 × D2ds_v4: 2 vCPUs, 8 GiB, ephemeral OS disk, so no disk charge. Ddsv4, as a new subscription has no vCPU quota for the v5 families in Sweden Central | $0.120 |
+| User node pool | 1 × D4ds_v4: 4 vCPUs, 16 GiB, ephemeral OS disk. The autoscaler adds a second node only if needed, at $0.24 an hour | $0.240 |
 | PostgreSQL compute | General Purpose D2ds_v5: 2 vCores, 8 GiB. New subscriptions in Europe may not create Burstable servers, and Azure refused B2s for this one. It stops along with the compute | $0.187 |
 | App Gateway | WAF v2: the fixed price, plus about 1 capacity unit | $0.482 |
 | Load balancers and IPs | 2 Standard load balancers (outbound, and the internal one in front of APISIX), and 2 static IPs | $0.060 |
 | Defender for Containers | 6 vCores at $0.0094 each | $0.056 |
 | Managed Prometheus | About 10,000 series every 30 seconds, at $0.11 per 10 million samples | $0.015 |
 | Managed Grafana | Standard, one instance. Azure offers only Standard here: the Essential SKU is not available. Each user who signs in that month adds $6 | $0.043 |
-| **Total** | | **$1.173** |
+| **Total** | | **$1.203** |
 
 The two disks Qdrant and the APISIX etcd store use (5 and 1 GiB, on Standard SSD) cost under $0.01 an hour. They
 are deleted with the cluster, and both are reseeded on start. On Azure, NATS, the PostgreSQL pod and the six
@@ -98,14 +98,14 @@ monitoring pods are not deployed.
 | --- | --- | --- |
 | **Idle** | The data resource group only, between demos | **about $20** |
 | **Proof run (recommended)** | The pipeline deploys staging and its services, proves them and removes the compute: about two hours | **about $2.50 a run, plus $20** |
-| Demo | The compute for about 60 hours a month, such as 15 sessions of 4 hours, and one Grafana user | **about $96** |
-| Always on, gateway for demos | The cluster and database all month, App Gateway for 60 hours, and about 15 GB of logs | about $593 |
-| Always on | Everything all month | about $916 |
+| Demo | The compute for about 60 hours a month, such as 15 sessions of 4 hours, and one Grafana user | **about $98** |
+| Always on, gateway for demos | The cluster and database all month, App Gateway for 60 hours, and about 15 GB of logs | about $615 |
+| Always on | Everything all month | about $938 |
 | Live, later (Phase 15) | Production grade, as below | about $1,800 |
 
 The proof run is what M4A.6 asks to approve: the Azure DevOps pipeline deploys the `staging` environment, proves
 it, and removes the compute, so vCPUs run only for those two hours ([docs/azure-devops.md](azure-devops.md)). A live demo
-keeps the compute for its length, at $1.17 an hour. The $100 budget leaves room for a busy month, and its alerts warn
+keeps the compute for its length, at $1.20 an hour. The $100 budget leaves room for a busy month, and its alerts warn
 long before then.
 
 Managed Grafana is in the compute group, so it exists only while the platform runs. Azure offers it only as
@@ -121,7 +121,7 @@ others say what they will do and ask first. They sign in with your `az login` se
 
 | Command | What it does | Then costs | Back in |
 | --- | --- | --- | --- |
-| `make azure-up` | Creates or updates the data group, makes the two certificates once, then creates the compute group | $1.17 an hour | about 20 minutes |
+| `make azure-up` | Creates or updates the data group, makes the two certificates once, then creates the compute group | $1.20 an hour | about 20 minutes |
 | `make azure-platform` | Deploys the services onto the cluster: images, Key Vault values, cert-manager, the Collector, databases, migrations | no more | about 25 minutes |
 | `make azure-down` | Deletes the compute group and stops PostgreSQL. Data, images and secrets stay | about $20 a month | `make azure-up` |
 | `make azure-destroy` | Deletes both groups, after asking to confirm by typing the name | $0 | rebuilds from scratch |

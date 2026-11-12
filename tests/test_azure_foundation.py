@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -355,3 +356,38 @@ def test_plan_runs_azures_preflight_validation_before_what_if() -> None:
     source = (ROOT / "scripts" / "setup" / "azure_deploy.py").read_text()
     plan = source[source.index("def plan(") : source.index("def up(")]
     assert "validate=True" in plan
+
+
+def test_every_node_size_is_in_the_quota_table() -> None:
+    from scripts.setup.azure_deploy import NODE_SIZES, node_pools
+
+    pools = node_pools()
+    assert pools == [("Standard_D2ds_v4", 1), ("Standard_D4ds_v4", 2)]  # the user pool at its most
+    assert {size for size, _ in pools} <= set(NODE_SIZES)
+
+
+def test_the_quota_check_finds_a_family_with_no_quota() -> None:
+    """The first full deploy failed this way: no vCPUs at all for the v5 families."""
+    from scripts.setup.azure_deploy import quota_shortfalls, vcpus_needed
+
+    def usage(family: str, limit: int, used: int = 0) -> dict[str, Any]:
+        return {"name": {"value": family}, "limit": str(limit), "currentValue": str(used)}
+
+    needed = vcpus_needed([("Standard_D2ds_v4", 1), ("Standard_D4ds_v4", 2)])
+    assert needed == {"standardDDSv4Family": 10}
+    assert quota_shortfalls(needed, [usage("standardDDSv4Family", 10), usage("cores", 10)]) == []
+    assert quota_shortfalls(needed, [usage("standardDDSv4Family", 0), usage("cores", 10)]) == [
+        "standardDDSv4Family: 10 vCPUs needed, 0 left"
+    ]
+    # The regional total counts too, and vCPUs already in use reduce what is left.
+    assert quota_shortfalls(needed, [usage("standardDDSv4Family", 10), usage("cores", 10, 4)]) == [
+        "cores: 10 vCPUs needed, 6 left"
+    ]
+
+
+def test_quota_is_checked_before_anything_is_created() -> None:
+    source = (ROOT / "scripts" / "setup" / "azure_deploy.py").read_text()
+    up = source[source.index("def up(") : source.index("def down(")]
+    assert up.index("check_quota(config)") < up.index("deployCompute=False")
+    plan = source[source.index("def plan(") : source.index("def up(")]
+    assert "check_quota(config)" in plan

@@ -29,6 +29,7 @@ import datetime
 import ipaddress
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -72,7 +73,7 @@ PROVIDERS = (
 )
 # Azure Resource Manager's states for a deployment that has not finished.
 RUNNING = {"Accepted", "Running", "Canceling"}
-COST = "Compute costs about $1.17 an hour while it runs; the data group about $20 a month."
+COST = "Compute costs about $1.20 an hour while it runs; the data group about $20 a month."
 # Key Vault's data-plane roles take a few minutes to reach a new vault.
 ROLE_WAIT_SECONDS, ROLE_ATTEMPTS = 15, 20
 
@@ -358,6 +359,67 @@ def save_outputs(environment: str, outputs: dict[str, Any]) -> Path:
     return path
 
 
+COMPUTE_BICEP = REPOSITORY / "infrastructure" / "azure" / "bicep" / "modules" / "compute.bicep"
+
+
+def node_pools(source: str | None = None) -> list[tuple[str, int]]:
+    """Each AKS pool's VM size and the most nodes it can have, from compute.bicep."""
+    text = source if source is not None else COMPUTE_BICEP.read_text()
+    pools = []
+    for block in text.split("vmSize: ")[1:]:
+        pool = block.split("}")[0]
+        nodes = re.search(r"maxCount: (\d+)", pool) or re.search(r"\bcount: (\d+)", pool)
+        if nodes is None:
+            raise AzureError(f"No node count in compute.bicep for {pool.split()[0]}")
+        pools.append((pool.split("'")[1], int(nodes.group(1))))
+    return pools
+
+
+# Each size the node pools use: its VM family, as Azure's quotas name it, and its vCPUs. A test
+# holds compute.bicep's sizes to this table. Looking them up instead takes minutes a size.
+NODE_SIZES = {
+    "Standard_D2ds_v4": ("standardDDSv4Family", 2),
+    "Standard_D4ds_v4": ("standardDDSv4Family", 4),
+}
+
+
+def vcpus_needed(pools: list[tuple[str, int]]) -> dict[str, int]:
+    """vCPUs needed per VM family with every pool at its most nodes."""
+    needed: dict[str, int] = {}
+    for size, nodes in pools:
+        family, vcpus = NODE_SIZES[size]
+        needed[family] = needed.get(family, 0) + vcpus * nodes
+    return needed
+
+
+def quota_shortfalls(needed: dict[str, int], usage: list[dict[str, Any]]) -> list[str]:
+    """Families, and the regional total, without enough vCPU quota left."""
+    left = {
+        item["name"]["value"].lower(): int(item["limit"]) - int(item["currentValue"])
+        for item in usage
+    }
+    short = []
+    for family, count in [*needed.items(), ("cores", sum(needed.values()))]:
+        if left.get(family.lower(), 0) < count:
+            short.append(f"{family}: {count} vCPUs needed, {left.get(family.lower(), 0)} left")
+    return short
+
+
+def check_quota(config: dict[str, Any]) -> None:
+    """AKS fails late, after the data group, when a node pool's VM family has no quota. New
+    subscriptions have none for some families, so this checks first, creating nothing."""
+    needed = vcpus_needed(node_pools())
+    usage = az_json("vm", "list-usage", "--location", config["location"],
+                    "--subscription", config["subscription"]) or []  # fmt: skip
+    short = quota_shortfalls(needed, usage)
+    if short:
+        raise AzureError(
+            f"Not enough vCPU quota for AKS in {config['location']} ({'; '.join(short)}). "
+            "Ask for more under Quotas in the Azure portal, or use another VM family."
+        )
+    print(f"vCPU quota is enough for AKS at its most nodes: {needed}")
+
+
 def plan(config: dict[str, Any], compute: bool) -> int:
     operator = operator_object_id(config)
     missing = unregistered_providers(config["subscription"])
@@ -366,6 +428,8 @@ def plan(config: dict[str, Any], compute: bool) -> int:
         for name in missing:
             print(f"  {name}")
     # Two kinds of change show as unsupported: those named after an identity made in the same run.
+    if compute and not missing:
+        check_quota(config)
     deploy(config, operator, what_if=True, validate=True, deployCompute=compute)
     print(COST if compute else "The data group alone costs about $20 a month.")
     return 0
@@ -383,6 +447,7 @@ def up(config: dict[str, Any], assume_yes: bool) -> int:
     register_providers(config["subscription"])
     recover_deleted_vault(config)
     start_postgres(config)
+    check_quota(config)
     print("Creating the data resource group")
     outputs = deploy(config, operator, what_if=False, deployCompute=False)
     vault = outputs["keyVaultName"]
