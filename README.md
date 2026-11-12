@@ -163,7 +163,7 @@ only read access unless it needs more.
 | 2. Data and events | Done, [exit gate](docs/phases/phase-02-exit-gate.md) |
 | 3. Identity and tenancy | Done, with a sweep of every route and 17 checks at its gate |
 | 4A. Azure alignment | Done, [deployed and proven on Azure](docs/phases/phase-04a-exit-gate.md) |
-| 4. Assets and telemetry | In progress: 7 of 10 modules, M4.8 next |
+| 4. Assets and telemetry | In progress: 8 of 10 modules, M4.9 next |
 
 | Running today | |
 | --- | --- |

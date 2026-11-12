@@ -51,6 +51,10 @@ class TelemetryServiceStub:
     """A snapshot's frozen points, the same however much data arrives late for its window."""
     ReleaseTelemetrySnapshot: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.ReleaseTelemetrySnapshotRequest, _telemetry_pb2.ReleaseTelemetrySnapshotResponse]
     """Lets its data go at the end of normal retention. The snapshot stays readable until then."""
+    GetLatestTelemetry: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.GetLatestTelemetryRequest, _telemetry_pb2.GetLatestTelemetryResponse]
+    """Each turbine's newest sample in the last day, for the fleet screens and data freshness. A
+    turbine the caller may not read, or with no sample in that day, is left out.
+    """
     CreateDeviceCredential: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.CreateDeviceCredentialRequest, _telemetry_pb2.CreateDeviceCredentialResponse]
     """A new credential for one turbine's device. Its secret is in this answer only, and is never
     stored, only its hash. Needs asset.manage for the turbine and a recent second factor.
@@ -83,6 +87,10 @@ class TelemetryServiceAsyncStub(TelemetryServiceStub):
     """A snapshot's frozen points, the same however much data arrives late for its window."""
     ReleaseTelemetrySnapshot: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.ReleaseTelemetrySnapshotRequest, _telemetry_pb2.ReleaseTelemetrySnapshotResponse]  # type: ignore[assignment]
     """Lets its data go at the end of normal retention. The snapshot stays readable until then."""
+    GetLatestTelemetry: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.GetLatestTelemetryRequest, _telemetry_pb2.GetLatestTelemetryResponse]  # type: ignore[assignment]
+    """Each turbine's newest sample in the last day, for the fleet screens and data freshness. A
+    turbine the caller may not read, or with no sample in that day, is left out.
+    """
     CreateDeviceCredential: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.CreateDeviceCredentialRequest, _telemetry_pb2.CreateDeviceCredentialResponse]  # type: ignore[assignment]
     """A new credential for one turbine's device. Its secret is in this answer only, and is never
     stored, only its hash. Needs asset.manage for the turbine and a recent second factor.
@@ -142,6 +150,16 @@ class TelemetryServiceServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_telemetry_pb2.ReleaseTelemetrySnapshotResponse, _abc.Awaitable[_telemetry_pb2.ReleaseTelemetrySnapshotResponse]]:
         """Lets its data go at the end of normal retention. The snapshot stays readable until then."""
+
+    @_abc_1.abstractmethod
+    def GetLatestTelemetry(
+        self,
+        request: _telemetry_pb2.GetLatestTelemetryRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_telemetry_pb2.GetLatestTelemetryResponse, _abc.Awaitable[_telemetry_pb2.GetLatestTelemetryResponse]]:
+        """Each turbine's newest sample in the last day, for the fleet screens and data freshness. A
+        turbine the caller may not read, or with no sample in that day, is left out.
+        """
 
     @_abc_1.abstractmethod
     def CreateDeviceCredential(

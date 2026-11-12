@@ -678,3 +678,87 @@ class TelemetryPoint(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___TelemetryPoint: _TypeAlias = TelemetryPoint  # noqa: Y015
+
+@_typing.final
+class GetLatestTelemetryRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TURBINE_IDS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def turbine_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """From 1 to 100 turbines."""
+
+    def __init__(
+        self,
+        *,
+        turbine_ids: _abc.Iterable[_builtins.str] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["turbine_ids", b"turbine_ids"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetLatestTelemetryRequest: _TypeAlias = GetLatestTelemetryRequest  # noqa: Y015
+
+@_typing.final
+class GetLatestTelemetryResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TURBINES_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def turbines(self) -> _containers.RepeatedCompositeFieldContainer[Global___LatestTelemetry]: ...
+    def __init__(
+        self,
+        *,
+        turbines: _abc.Iterable[Global___LatestTelemetry] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["turbines", b"turbines"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetLatestTelemetryResponse: _TypeAlias = GetLatestTelemetryResponse  # noqa: Y015
+
+@_typing.final
+class LatestTelemetry(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TURBINE_ID_FIELD_NUMBER: _builtins.int
+    EVENT_TIME_FIELD_NUMBER: _builtins.int
+    INGESTED_AT_FIELD_NUMBER: _builtins.int
+    OPERATING_STATE_FIELD_NUMBER: _builtins.int
+    AVAILABLE_FIELD_NUMBER: _builtins.int
+    POINTS_FIELD_NUMBER: _builtins.int
+    turbine_id: _builtins.str
+    operating_state: _builtins.str
+    """"producing", "idle" and so on, as the device reports it."""
+    available: _builtins.bool
+    @_builtins.property
+    def event_time(self) -> _timestamp_pb2.Timestamp:
+        """When it was measured, and when it was stored: the difference is its delay."""
+
+    @_builtins.property
+    def ingested_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def points(self) -> _containers.RepeatedCompositeFieldContainer[Global___TelemetryPoint]:
+        """One point a metric, in the fixed order."""
+
+    def __init__(
+        self,
+        *,
+        turbine_id: _builtins.str = ...,
+        event_time: _timestamp_pb2.Timestamp | None = ...,
+        ingested_at: _timestamp_pb2.Timestamp | None = ...,
+        operating_state: _builtins.str = ...,
+        available: _builtins.bool = ...,
+        points: _abc.Iterable[Global___TelemetryPoint] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["event_time", b"event_time", "ingested_at", b"ingested_at"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["available", b"available", "event_time", b"event_time", "ingested_at", b"ingested_at", "operating_state", b"operating_state", "points", b"points", "turbine_id", b"turbine_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___LatestTelemetry: _TypeAlias = LatestTelemetry  # noqa: Y015

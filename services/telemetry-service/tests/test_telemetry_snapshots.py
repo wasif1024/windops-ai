@@ -392,3 +392,37 @@ def test_the_content_hash_can_be_written_again_from_its_documented_format() -> N
     by_hand.update(("|".join([START.isoformat(), "7", "ok", *numbers]) + "\n").encode())
     assert snapshots.content_hash("t", "turbine", START, end, [sample]) == by_hand.hexdigest()
     assert list(snapshots.first_copies([sample, sample])) == [sample]
+
+
+def test_the_latest_sample_of_each_readable_turbine() -> None:
+    async def scenario(world: World) -> None:
+        async with world.engine.begin() as connection:
+            # Recent samples, as the fixture's are a day old by now.
+            recent = datetime.now(UTC) - timedelta(seconds=30)
+            rows = []
+            for n, at in ((100, recent), (101, recent + timedelta(seconds=1))):
+                row = stored(n)
+                row["event_time"], row["ingested_at"] = at, at + timedelta(seconds=2)
+                rows.append(row)
+            await connection.execute(OPERATIONAL_SAMPLES.insert(), rows)
+        request = pb.GetLatestTelemetryRequest(turbine_ids=[TURBINE, "nowhere-t01"])
+        answer = await world.stub.GetLatestTelemetry(
+            request, metadata=as_user("u-reader"), timeout=10
+        )
+        (latest,) = answer.turbines  # the unknown turbine is left out, not named
+        assert latest.turbine_id == TURBINE and latest.available
+        assert [p.sequence for p in latest.points] == [101] * len(snapshots.METRICS)
+        assert latest.ingested_at.ToDatetime() - latest.event_time.ToDatetime() == timedelta(
+            seconds=2
+        )
+        denied = await world.stub.GetLatestTelemetry(
+            pb.GetLatestTelemetryRequest(turbine_ids=[TURBINE]),
+            metadata=as_user("u-other"),
+            timeout=10,
+        )
+        assert list(denied.turbines) == []
+        too_many = pb.GetLatestTelemetryRequest(turbine_ids=[f"t{n}" for n in range(101)])
+        call = world.stub.GetLatestTelemetry(too_many, metadata=as_user("u-reader"), timeout=10)
+        assert await code_of(call) == grpc.StatusCode.INVALID_ARGUMENT
+
+    with_service(scenario)

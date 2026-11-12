@@ -24,6 +24,7 @@ from windops_resilience import BreakerOpenError
 from windops_web_bff.admin import add_admin_routes
 from windops_web_bff.branding import add_branding_routes
 from windops_web_bff.errors import from_grpc, problem
+from windops_web_bff.fleet import add_fleet_routes
 from windops_web_bff.limits import LimitUnavailableError, RateLimiter, traffic_class
 from windops_web_bff.platform import add_platform_routes
 from windops_web_bff.security_metrics import SecurityCounters
@@ -96,6 +97,9 @@ class Dependencies:
     authorization: Callable[..., Awaitable[Any]]
     identity: Callable[..., Awaitable[Any]]
     audit: Callable[..., Awaitable[Any]]
+    # The fleet screens' services (M4.8). A streamed answer comes back as a list.
+    asset: Callable[..., Awaitable[Any]] | None = None
+    telemetry: Callable[..., Awaitable[Any]] | None = None
     # For the Security dashboard. main.py starts them as the service starts.
     counters: SecurityCounters | None = None
     # Only for tests, when there are no counters: the global provider when unset.
@@ -192,6 +196,8 @@ def create_router(deps: Dependencies) -> APIRouter:
         "identity": deps.identity,
         "authorization": deps.authorization,
         "audit": deps.audit,
+        **({"asset": deps.asset} if deps.asset else {}),
+        **({"telemetry": deps.telemetry} if deps.telemetry else {}),
     }
 
     async def call_as(
@@ -302,6 +308,12 @@ def create_router(deps: Dependencies) -> APIRouter:
     add_admin_routes(router, caller, call_as)
     add_branding_routes(router, caller, call_as, ApiError)
     add_platform_routes(router, caller, call_as)
+    add_fleet_routes(
+        router,
+        caller,
+        call_as,
+        unavailable=lambda error: isinstance(error, ApiError) and error.response.status_code == 503,
+    )
 
     @router.get("/openapi.json", include_in_schema=False)
     async def openapi() -> JSONResponse:

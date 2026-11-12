@@ -9,9 +9,11 @@ from typing import Any
 
 import grpc
 from opentelemetry import metrics
+from windops.asset.v1 import asset_pb2_grpc
 from windops.audit.v1 import audit_pb2_grpc
 from windops.authorization.v1 import authorization_pb2_grpc
 from windops.identity.v1 import identity_pb2_grpc
+from windops.telemetry.v1 import telemetry_pb2_grpc
 from windops.tenant.v1 import tenant_pb2_grpc
 from windops_cache import connect as redis_connect
 from windops_grpc import ServiceClient, create_channel, run_service
@@ -26,6 +28,16 @@ from windops_web_bff.tokens import TokenSettings, TokenVerifier
 SERVICE_NAME = "web-bff"
 # The identity for the call in progress. Each request sets its own, so calls never share one.
 _outgoing: ContextVar[str | None] = ContextVar("windops_bff_identity", default=None)
+
+
+def _collected(method: Callable[..., Any]) -> Callable[..., Awaitable[list[Any]]]:
+    """A server-streaming method as one awaited call, so its answer passes the same breaker and
+    deadline as any other. The fleet's streams are bounded, at most an hour of a few metrics."""
+
+    async def collect(request: Any, *, timeout: float, metadata: Any) -> list[Any]:
+        return [item async for item in method(request, timeout=timeout, metadata=metadata)]
+
+    return collect
 
 
 def register(server: grpc.aio.Server) -> None:
@@ -59,6 +71,8 @@ def main() -> None:
         ),
         "identity": (identity_pb2_grpc.IdentityServiceStub, "WINDOPS_IDENTITY_ADDRESS"),
         "audit": (audit_pb2_grpc.AuditServiceStub, "WINDOPS_AUDIT_ADDRESS"),
+        "asset": (asset_pb2_grpc.AssetServiceStub, "WINDOPS_ASSET_ADDRESS"),
+        "telemetry": (telemetry_pb2_grpc.TelemetryServiceStub, "WINDOPS_TELEMETRY_ADDRESS"),
     }
 
     def client_for(service: str) -> tuple[Any, ServiceClient]:
@@ -81,9 +95,12 @@ def main() -> None:
         async def call(method: str, request: Any, identity: str, *, retry: bool = True) -> Any:
             stub, client = client_for(service)
             reset = _outgoing.set(identity)
+            target = getattr(stub, method)
+            if method.startswith("Stream"):
+                target = _collected(target)
             try:
                 return await client.call(
-                    getattr(stub, method),
+                    target,
                     request,
                     # A change is never retried here. The browser resends it with the same key.
                     idempotent=retry,
@@ -110,6 +127,8 @@ def main() -> None:
             authorization=caller_for("authorization"),
             identity=caller_for("identity"),
             audit=caller_for("audit"),
+            asset=caller_for("asset"),
+            telemetry=caller_for("telemetry"),
             counters=counters,
         )
     )

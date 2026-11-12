@@ -6,7 +6,7 @@ day's 86,400 samples are never held at once.
 
 import secrets
 from collections.abc import AsyncIterator, Callable, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
 import grpc
@@ -56,6 +56,9 @@ MANAGE = "asset.manage"
 READ = "telemetry.read"
 # Rows written at once when a snapshot freezes its samples.
 INSERT_BATCH = 2000
+# GetLatestTelemetry: at most this many turbines a call, each one's newest sample in this time.
+MAXIMUM_LATEST = 100
+LATEST_WITHIN = timedelta(days=1)
 DEADLINE_SECONDS = 3.0
 MAXIMUM_KEY = 64
 
@@ -508,6 +511,65 @@ class TelemetryService(telemetry_pb2_grpc.TelemetryServiceServicer):
                 method="ReleaseTelemetrySnapshot", request=request, response=response, now=now,
             )  # fmt: skip
         return response
+
+    async def GetLatestTelemetry(  # noqa: N802  # The name comes from the contract.
+        self, request: telemetry_pb2.GetLatestTelemetryRequest, context: Any
+    ) -> telemetry_pb2.GetLatestTelemetryResponse:
+        turbines = list(dict.fromkeys(request.turbine_ids))
+        if not 1 <= len(turbines) <= MAXIMUM_LATEST:
+            raise InvalidRequestError(f"Name from 1 to {MAXIMUM_LATEST} turbines")
+        readable = await self._readable(turbines)
+        tenant = current_identity().tenant_id
+        since = datetime.now(UTC) - LATEST_WITHIN
+        wanted = snapshots.readings_for([])
+        found = []
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            for turbine in readable:
+                row = (
+                    await connection.execute(
+                        select(OPERATIONAL_SAMPLES)
+                        .where(
+                            OPERATIONAL_SAMPLES.c.tenant_id == tenant,
+                            OPERATIONAL_SAMPLES.c.turbine_id == turbine,
+                            # Only the last day's partitions are read.
+                            OPERATIONAL_SAMPLES.c.event_time >= since,
+                            OPERATIONAL_SAMPLES.c.quality_status != DUPLICATE,
+                        )
+                        .order_by(OPERATIONAL_SAMPLES.c.event_time.desc())
+                        .limit(1)
+                    )
+                ).one_or_none()
+                if row is None:
+                    continue
+                sample = _sample(row, row.quality_status)
+                found.append(
+                    telemetry_pb2.LatestTelemetry(
+                        turbine_id=turbine,
+                        event_time=_timestamp(sample.event_time),
+                        ingested_at=_timestamp(sample.ingested_at),
+                        operating_state=row.operating_state,
+                        available=bool(row.available),
+                        points=list(snapshots.points([sample], wanted)),
+                    )
+                )
+        return telemetry_pb2.GetLatestTelemetryResponse(turbines=found)
+
+    async def _readable(self, turbines: Sequence[str]) -> list[str]:
+        """The turbines the caller may read: all of them when they may read the whole tenant.
+
+        A turbine that does not exist, or that they may not read, is left out, never named.
+        """
+        if await self._authorizer.allowed(READ):
+            return list(turbines)
+        readable = []
+        for turbine in turbines:
+            try:
+                await self._require_read(turbine)
+            except (NotFoundError, PermissionDeniedError):
+                continue
+            readable.append(turbine)
+        return readable
 
     async def CreateDeviceCredential(  # noqa: N802  # The name comes from the contract.
         self, request: telemetry_pb2.CreateDeviceCredentialRequest, context: Any
