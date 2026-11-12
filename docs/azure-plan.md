@@ -143,7 +143,7 @@ policies, non-root read-only pods, and tenant isolation in the database. Azure a
 
 | Layer | Controls |
 | --- | --- |
-| **Coming in** | **App Gateway WAF v2** in Prevention mode, with the Microsoft Default Rule Set 2.1 and the Bot Manager rules. HTTP redirects to HTTPS. TLS ends at the gateway, with its certificate in Key Vault, and starts again to APISIX, which is reachable only on an internal load balancer |
+| **Coming in** | **App Gateway WAF v2** in Prevention mode, with the Microsoft Default Rule Set 2.1 and the Bot Manager rules. HTTP redirects to HTTPS. TLS ends at the gateway, with its certificate in Key Vault, and starts again to APISIX, which is reachable only on an internal load balancer. APISIX and that load balancer arrive in M15.7; until then the gateway's backend is unhealthy |
 | **Identity** | **Entra Workload ID** for every workload: one managed identity each, federated to its own service account, with roles on only what it uses. There are no connection strings, keys or passwords in the cluster. Kubernetes access is through Entra ID and Azure RBAC, with local accounts disabled |
 | **Data** | **PostgreSQL** has private access only, in a delegated subnet with no public address. It accepts Entra sign-in only (password sign-in is off) and TLS 1.2 or later. Each service's identity maps to its own database role. **Key Vault** uses Azure RBAC, purge protection and a firewall that allows only the cluster's subnet |
 | **Events and images** | **Service Bus** has local (SAS key) sign-in disabled, requires TLS 1.2, and allows only the cluster's outbound IP. **ACR** has its admin user and anonymous pull disabled, and the cluster pulls with its own identity (`AcrPull`) |
