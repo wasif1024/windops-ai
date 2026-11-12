@@ -227,6 +227,24 @@ def test_security_dashboard_has_the_srs_indicators() -> None:
         assert metric in exprs
 
 
+def test_hour_and_day_totals_count_a_counter_that_is_new_in_the_window() -> None:
+    """increase() ignores a series' first sample, so after a restart the first events vanish.
+
+    The Phase 4A gate found this: Keycloak restarted, its wrong-password counter appeared at 2,
+    and the panel showed 0. Each total uses a series' full value when it is new in the window.
+    """
+    import re
+
+    window_total = re.compile(r"increase\(([a-z_]+\{[^{}]*\})\[(1h|24h)\]\)")
+    for path in sorted(DASHBOARDS.glob("*.json")):
+        for panel in json.loads(path.read_text())["panels"]:
+            for target in panel.get("targets", []):
+                expr = target["expr"]
+                for selector, window in window_total.findall(expr):
+                    guarded = f"[{window}]) and {selector} offset {window} or {selector})"
+                    assert guarded in expr, f"{path.name}: {panel['title']} misses new series"
+
+
 def test_security_dashboard_panels_do_not_overlap() -> None:
     board = json.loads((DASHBOARDS / "security.json").read_text())
     cells: set[tuple[int, int]] = set()
