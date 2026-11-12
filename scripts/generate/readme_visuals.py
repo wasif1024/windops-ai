@@ -377,7 +377,7 @@ RUNTIMES = (
 AZURE_COSTS = (
     ("Idle", "data only, between demos", "$20 a month"),
     ("Proof run", "deploy, prove, remove: the plan", "$2.50 a run"),
-    ("Demo", "compute for 60 hours a month", "$96"),
+    ("Demo", "compute for 60 hours a month", "$98"),
 )
 GUARDRAILS = (
     "Agents recommend and draft. Policy, Approval and people decide.",
@@ -923,7 +923,7 @@ def draw_compute_group(c: Canvas, top: float, bottom: float) -> list[float]:
     amber = KINDS["human"][0]
     c.box(56, top, 560, bottom, fill=mix(BG, amber, 0.05), outline=amber, radius=10)
     c.text(70, top + 17, "rg-windops-staging-compute", 13, True, amber)
-    note = "about $1.17 an hour with Managed Grafana, deleted after each run"
+    note = "about $1.20 an hour with Managed Grafana, deleted after each run"
     c.text(70, top + 35, note, 12, color=MUTED)
     c.node(
         72,
@@ -941,7 +941,7 @@ def draw_compute_group(c: Canvas, top: float, bottom: float) -> list[float]:
     c.frame(72, aks_top, 544, bottom - 16, "AKS 1.35, Free tier", KINDS["external"][0])
     c.text(
         92 + c.text_width("AKS 1.35, Free tier", 14, True), aks_top + 17,
-        "system: one D2ads_v5; user: one or two D4ads_v5", 11.5, color=MUTED,
+        "system: one D2ds_v4; user: one or two D4ds_v4", 11.5, color=MUTED,
     )  # fmt: skip
     y = aks_top + 34
     for name, workloads in AKS_NAMESPACES:
@@ -1020,7 +1020,7 @@ def draw_local_and_azure(c: Canvas, x0: float, top: float, x1: float) -> float:
 
 
 def draw_azure_costs(c: Canvas, x0: float, top: float, x1: float) -> float:
-    costs = (*AZURE_COSTS, ("Always on", "everything, all month", "$916"))
+    costs = (*AZURE_COSTS, ("Always on", "everything, all month", "$938"))
     height = 40 + len(costs) * 24
     c.frame(x0, top, x1, top + height, "Cost, from docs/azure-plan.md")
     for index, (name, note, price) in enumerate(costs):

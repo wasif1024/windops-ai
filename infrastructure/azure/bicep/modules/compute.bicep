@@ -47,10 +47,12 @@ resource cluster 'Microsoft.ContainerService/managedClusters@2025-05-01' = {
     nodeResourceGroup: 'rg-windops-${environment}-nodes'
     agentPoolProfiles: [
       {
-        // System pods only: everything of ours runs on the user pool.
+        // System pods only: everything of ours runs on the user pool. Ddsv4, as a new subscription
+        // has no vCPU quota for the v5 families in Sweden Central, and 10 for this one. Its local
+        // temp disk holds the ephemeral OS disk, as v5's did. azure_deploy checks the quota first.
         name: 'system'
         mode: 'System'
-        vmSize: 'Standard_D2ads_v5'
+        vmSize: 'Standard_D2ds_v4'
         count: 1
         osType: 'Linux'
         osSKU: 'AzureLinux'
@@ -63,7 +65,7 @@ resource cluster 'Microsoft.ContainerService/managedClusters@2025-05-01' = {
       {
         name: 'user'
         mode: 'User'
-        vmSize: 'Standard_D4ads_v5'
+        vmSize: 'Standard_D4ds_v4'
         count: 1
         enableAutoScaling: true
         minCount: 1

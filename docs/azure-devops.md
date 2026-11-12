@@ -15,7 +15,7 @@ only value that allows plaintext gRPC.
 | Stage | What it does | Cost |
 | --- | --- | --- |
 | Validate | The Azure tests, and a `what-if` of every change. Creates nothing | $0 |
-| Deploy | `make azure-up`, after someone approves the `windops-staging` environment | $1.17 an hour from here |
+| Deploy | `make azure-up`, after someone approves the `windops-staging` environment | $1.20 an hour from here |
 | Platform | `make azure-platform`: builds the services' images and pushes them to the registry, writes their settings to Key Vault, installs cert-manager with the internal CA, deploys the Collector, gives each service its database and Entra login, runs the migrations, then deploys the services | |
 | Prove | The AKS nodes are Ready, events pass their five-scenario contract on Service Bus, and the services prove Workload ID, Key Vault, mutual TLS and Application Insights (below) | |
 | Remove compute | `make azure-down`, when Prove or Deploy failed and when the run was cancelled, so no vCPU is left running | back to about $20 a month |
