@@ -275,6 +275,11 @@ def main() -> int:
         code = 1
     finally:
         kubectl("scale", DEPLOYMENT, "--replicas=1", f"--namespace={APPLICATION}", required=False)
+        # Ready before the next check: the Web BFF answers 503 while the Audit Service starts.
+        kubectl(
+            "rollout", "status", DEPLOYMENT, f"--namespace={APPLICATION}", "--timeout=240s",
+            required=False,
+        )  # fmt: skip
         clean_up_database()
         with port_forward(f"pod/{NATS_POD}", DATA, 4222) as port:
             asyncio.run(clean_up_events(port, passwords))
