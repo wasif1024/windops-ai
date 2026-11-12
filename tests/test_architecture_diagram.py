@@ -122,6 +122,17 @@ def test_end_to_end_diagram_draws_every_srs_service_once() -> None:
     assert sorted(drawn) == expected
 
 
+def test_readme_shows_the_console_as_it_runs() -> None:
+    """Two screens of the real console, each a file in the repository, after the diagrams."""
+    readme = (ROOT / "README.md").read_text()
+    screens = re.findall(r"docs/assets/screens/[\w-]+\.png", readme)
+    assert sorted(set(screens)) == [
+        "docs/assets/screens/fleet-overview.png", "docs/assets/screens/turbine-detail.png",
+    ]  # fmt: skip
+    assert all((ROOT / screen).is_file() for screen in screens)
+    assert readme.index("agent-orchestration.gif") < readme.index("## The console today")
+
+
 def test_readme_shows_the_industry_images() -> None:
     readme = (ROOT / "README.md").read_text()
     for image in (

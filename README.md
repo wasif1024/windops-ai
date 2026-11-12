@@ -65,6 +65,23 @@ deterministic rule raises the fault; the Supervisor delegates to five specialist
 allowlisted tools; the Policy Service checks the result; and a person approves or rejects the draft work order. The
 animation illustrates the specified workflow, not a recording.
 
+## The console today
+
+The operations console as it runs now, against the simulator's live demo fleet. All the data is synthetic.
+
+<table>
+  <tr>
+    <td width="50%"><a href="docs/assets/screens/fleet-overview.png"><img src="docs/assets/screens/fleet-overview.png" alt="The Fleet overview for the North Sea Wind tenant. Two offshore wind farms, Dogger East and Hornsea West, each show four operating turbines as cards, with each turbine's power, its share of rated power, wind speed and a green Live badge a few seconds old."></a></td>
+    <td width="50%"><a href="docs/assets/screens/turbine-detail.png"><img src="docs/assets/screens/turbine-detail.png" alt="A turbine's page for Dogger East T01. It shows the turbine's model, rated power and location, its twelve latest readings, and live line charts over the last five minutes for power, wind speed, gearbox oil temperature, main bearing temperature and nacelle vibration."></a></td>
+  </tr>
+  <tr>
+    <td><b>Fleet overview:</b> every wind farm and turbine, with its status, latest power and wind, and how fresh the reading is.</td>
+    <td><b>Turbine detail:</b> the model, the latest readings, and live charts over 5, 15 or 60 minutes.</td>
+  </tr>
+</table>
+
+The screens are responsive and work at phone size. `make frontend-check` captures them in a real browser on each run.
+
 ## Design principles
 
 | Principle | What it means in the system |
