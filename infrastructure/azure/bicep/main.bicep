@@ -5,7 +5,7 @@
 // - rg-windops-<env>-data exists the whole time: the network, Service Bus, PostgreSQL, Key Vault,
 //   the registry, monitoring, every managed identity, and their roles. About $19 a month.
 // - rg-windops-<env>-compute exists only while the platform runs: AKS, App Gateway and their
-//   public addresses and Managed Grafana. About $1.03 an hour. deployCompute=false leaves it out.
+//   public addresses and Managed Grafana. About $1.17 an hour. deployCompute=false leaves it out.
 //
 // Deploy through make azure-plan, azure-up and azure-down, which show a what-if first. Nothing
 // here holds a secret: every workload signs in with Microsoft Entra Workload ID.

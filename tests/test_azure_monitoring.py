@@ -14,6 +14,7 @@ from scripts.generate.azure_monitoring import (
     MONITORING,
     SERVICE_BUS_ALERTS,
     SEVERITY,
+    azure_for,
     generate,
     iso_duration,
 )
@@ -50,11 +51,21 @@ def test_every_alert_is_kept_on_azure_or_covered_by_service_bus() -> None:
                 continue
             mine = converted[rule["alert"]]
             assert mine["expression"] == rule["expr"]
-            assert mine["for"] == (iso_duration(rule["for"]) if "for" in rule else "PT0M")
+            assert mine["for"] == azure_for(rule.get("for"))
             assert mine["severity"] == SEVERITY[rule.get("labels", {}).get("severity", "warning")]
     assert not [r for r in converted.values() if "jetstream_" in r["expression"]]
     metrics = {alert["criterion"]["metricName"] for alert in SERVICE_BUS_ALERTS}
     assert "DeadletteredMessages" in metrics
+
+
+def test_every_rule_waits_at_least_azures_least_one_minute() -> None:
+    """Azure refused PT0M for a rule that fires at once, in the first deploy."""
+    azure = json.loads((AZURE_OUT / "prometheus-rule-groups.json").read_text())
+    waits = [rule["for"] for group in azure["groups"] for rule in group["rules"]]
+    assert waits and "PT0M" not in waits
+    assert [azure_for(v) for v in (None, "0s", "30s", "1m", "5m")] == [
+        "PT1M", "PT1M", "PT1M", "PT1M", "PT5M",
+    ]  # fmt: skip
 
 
 def test_durations_are_written_as_azure_writes_them() -> None:

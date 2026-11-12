@@ -339,9 +339,11 @@ resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
   name: 'psql-windops-${environment}-${suffix}'
   location: location
   tags: tags
+  // General Purpose, as new subscriptions in Europe may not create Burstable servers: Azure refused
+  // B2s here. It runs only with the compute, as `make azure-down` and the nightly pipeline stop it.
   sku: {
-    name: 'Standard_B2s'
-    tier: 'Burstable'
+    name: 'Standard_D2ds_v5'
+    tier: 'GeneralPurpose'
   }
   properties: {
     version: '18'
