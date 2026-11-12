@@ -236,6 +236,64 @@
         "title": "BreakGlassGrants",
         "type": "object"
       },
+      "Component": {
+        "properties": {
+          "component_id": {
+            "title": "Component Id",
+            "type": "string"
+          },
+          "installed_on": {
+            "title": "Installed On",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "manufacturer": {
+            "title": "Manufacturer",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_component_id": {
+            "title": "Parent Component Id",
+            "type": "string"
+          },
+          "serial_number": {
+            "title": "Serial Number",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_reason": {
+            "title": "Status Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "parent_component_id",
+          "kind",
+          "name",
+          "manufacturer",
+          "model",
+          "serial_number",
+          "installed_on",
+          "status",
+          "status_reason"
+        ],
+        "title": "Component",
+        "type": "object"
+      },
       "CreatedTenant": {
         "properties": {
           "created": {
@@ -402,6 +460,27 @@
         "title": "EmailTemplates",
         "type": "object"
       },
+      "Fleet": {
+        "properties": {
+          "telemetry_available": {
+            "title": "Telemetry Available",
+            "type": "boolean"
+          },
+          "wind_farms": {
+            "items": {
+              "$ref": "#/components/schemas/WindFarmSummary"
+            },
+            "title": "Wind Farms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "wind_farms",
+          "telemetry_available"
+        ],
+        "title": "Fleet",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -413,6 +492,79 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Latest": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "delay_seconds": {
+            "title": "Delay Seconds",
+            "type": "number"
+          },
+          "event_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Time"
+          },
+          "ingested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ingested At"
+          },
+          "operating_state": {
+            "title": "Operating State",
+            "type": "string"
+          },
+          "readings": {
+            "items": {
+              "$ref": "#/components/schemas/Reading"
+            },
+            "title": "Readings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "event_time",
+          "ingested_at",
+          "delay_seconds",
+          "operating_state",
+          "available",
+          "readings"
+        ],
+        "title": "Latest",
+        "type": "object"
+      },
+      "Location": {
+        "properties": {
+          "latitude": {
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "title": "Longitude",
+            "type": "number"
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ],
+        "title": "Location",
         "type": "object"
       },
       "Me": {
@@ -703,6 +855,71 @@
         "title": "Permissions",
         "type": "object"
       },
+      "Point": {
+        "properties": {
+          "quality": {
+            "title": "Quality",
+            "type": "string"
+          },
+          "time": {
+            "title": "Time",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "time",
+          "value",
+          "quality"
+        ],
+        "title": "Point",
+        "type": "object"
+      },
+      "Reading": {
+        "properties": {
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "quality": {
+            "title": "Quality",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "metric",
+          "value",
+          "unit",
+          "quality"
+        ],
+        "title": "Reading",
+        "type": "object"
+      },
       "RoleGrant": {
         "properties": {
           "grant_id": {
@@ -858,6 +1075,32 @@
         "title": "ScopedRole",
         "type": "object"
       },
+      "Series": {
+        "properties": {
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/Point"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric",
+          "unit",
+          "points"
+        ],
+        "title": "Series",
+        "type": "object"
+      },
       "Session": {
         "properties": {
           "clients": {
@@ -950,6 +1193,37 @@
           "reason"
         ],
         "title": "Suspension",
+        "type": "object"
+      },
+      "TelemetryWindow": {
+        "properties": {
+          "from_time": {
+            "title": "From Time",
+            "type": "string"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/Series"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "to_time": {
+            "title": "To Time",
+            "type": "string"
+          },
+          "turbine_id": {
+            "title": "Turbine Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turbine_id",
+          "from_time",
+          "to_time",
+          "series"
+        ],
+        "title": "TelemetryWindow",
         "type": "object"
       },
       "TemplateChange": {
@@ -1070,6 +1344,175 @@
         "title": "TenantPage",
         "type": "object"
       },
+      "TurbineDetail": {
+        "properties": {
+          "commissioned_on": {
+            "title": "Commissioned On",
+            "type": "string"
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/Component"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Latest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "$ref": "#/components/schemas/Location"
+          },
+          "model": {
+            "$ref": "#/components/schemas/TurbineModel"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "serial_number": {
+            "title": "Serial Number",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_changed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Changed At"
+          },
+          "status_reason": {
+            "title": "Status Reason",
+            "type": "string"
+          },
+          "telemetry_available": {
+            "title": "Telemetry Available",
+            "type": "boolean"
+          },
+          "turbine_id": {
+            "title": "Turbine Id",
+            "type": "string"
+          },
+          "wind_farm_id": {
+            "title": "Wind Farm Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turbine_id",
+          "wind_farm_id",
+          "name",
+          "location",
+          "model",
+          "serial_number",
+          "commissioned_on",
+          "status",
+          "status_reason",
+          "status_changed_at",
+          "components",
+          "latest",
+          "telemetry_available"
+        ],
+        "title": "TurbineDetail",
+        "type": "object"
+      },
+      "TurbineModel": {
+        "properties": {
+          "hub_height_m": {
+            "title": "Hub Height M",
+            "type": "number"
+          },
+          "manufacturer": {
+            "title": "Manufacturer",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "rated_power_kw": {
+            "title": "Rated Power Kw",
+            "type": "number"
+          },
+          "rotor_diameter_m": {
+            "title": "Rotor Diameter M",
+            "type": "number"
+          }
+        },
+        "required": [
+          "manufacturer",
+          "model",
+          "rated_power_kw",
+          "rotor_diameter_m",
+          "hub_height_m"
+        ],
+        "title": "TurbineModel",
+        "type": "object"
+      },
+      "TurbineSummary": {
+        "properties": {
+          "latest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Latest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rated_power_kw": {
+            "title": "Rated Power Kw",
+            "type": "number"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_reason": {
+            "title": "Status Reason",
+            "type": "string"
+          },
+          "turbine_id": {
+            "title": "Turbine Id",
+            "type": "string"
+          },
+          "wind_farm_id": {
+            "title": "Wind Farm Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turbine_id",
+          "wind_farm_id",
+          "name",
+          "status",
+          "status_reason",
+          "rated_power_kw",
+          "latest"
+        ],
+        "title": "TurbineSummary",
+        "type": "object"
+      },
       "User": {
         "properties": {
           "created_at": {
@@ -1174,6 +1617,51 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WindFarmSummary": {
+        "properties": {
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "location": {
+            "$ref": "#/components/schemas/Location"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "offshore": {
+            "title": "Offshore",
+            "type": "boolean"
+          },
+          "time_zone": {
+            "title": "Time Zone",
+            "type": "string"
+          },
+          "turbines": {
+            "items": {
+              "$ref": "#/components/schemas/TurbineSummary"
+            },
+            "title": "Turbines",
+            "type": "array"
+          },
+          "wind_farm_id": {
+            "title": "Wind Farm Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "wind_farm_id",
+          "name",
+          "country",
+          "offshore",
+          "time_zone",
+          "location",
+          "turbines"
+        ],
+        "title": "WindFarmSummary",
         "type": "object"
       },
       "windops_web_bff__api__Tenant": {
@@ -2236,6 +2724,136 @@
           }
         },
         "summary": "The signed-in user's branding"
+      }
+    },
+    "/api/v1/fleet": {
+      "get": {
+        "operationId": "fleet_api_v1_fleet_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Fleet"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "The wind farms and turbines the user may read, each with its latest readings"
+      }
+    },
+    "/api/v1/fleet/turbines/{turbine_id}": {
+      "get": {
+        "operationId": "turbine_api_v1_fleet_turbines__turbine_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "turbine_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Turbine Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurbineDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One turbine: its model, components, status and latest readings"
+      }
+    },
+    "/api/v1/fleet/turbines/{turbine_id}/telemetry": {
+      "get": {
+        "operationId": "telemetry_api_v1_fleet_turbines__turbine_id__telemetry_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "turbine_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Turbine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "minutes",
+            "required": false,
+            "schema": {
+              "default": 15,
+              "maximum": 60,
+              "minimum": 1,
+              "title": "Minutes",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "metric",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 12,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Metric"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryWindow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One turbine's telemetry for the last minutes, for its charts"
       }
     },
     "/api/v1/me": {

@@ -12,8 +12,8 @@ export interface Screen {
 }
 
 export const SCREENS: Screen[] = [
-  { id: "fleet", title: "Fleet overview", anyOf: ["turbine.read"], arrives: "Phase 4" },
-  { id: "telemetry", title: "Telemetry", anyOf: ["telemetry.read"], arrives: "Phase 4" },
+  { id: "fleet", title: "Fleet overview", anyOf: ["turbine.read"], arrives: "M4.8" },
+  { id: "telemetry", title: "Telemetry", anyOf: ["telemetry.read"], arrives: "M4.8" },
   { id: "alarms", title: "Alarm console", anyOf: ["alarm.read"], arrives: "Phase 5" },
   { id: "investigations", title: "Investigations", anyOf: ["investigation.read"], arrives: "Phase 5" },
   { id: "impact", title: "Production impact", anyOf: ["investigation.read"], arrives: "Phase 6" },

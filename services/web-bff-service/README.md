@@ -101,6 +101,17 @@ Every change needs an `Idempotency-Key` header: a new random value per change, a
 (GRP-007). Web BFF never retries a change itself, so a new user's password cannot be lost to a retry. The browser
 may resend with the same key.
 
+### Fleet screens (M4.8)
+
+Read only. The Asset Service lists only the wind farms and turbines the user may read, and the Telemetry Service only
+the telemetry they may read (`telemetry.read`). Web BFF asks both as the user and decides nothing.
+
+| Route | What |
+| --- | --- |
+| `GET /api/v1/fleet` | Every wind farm the user may see, with its turbines' statuses and newest readings. When the Telemetry Service cannot be reached, the fleet still comes back, with `telemetry_available` false and no readings |
+| `GET /api/v1/fleet/turbines/{id}` | One turbine: its model, components, status and newest readings |
+| `GET /api/v1/fleet/turbines/{id}/telemetry?minutes=15&metric=power` | One turbine's points for the last 1 to 60 minutes, for each metric named, each with its quality. The 12 metrics are named as in the contract, such as `power`, `wind_speed` and `gearbox_temperature` |
+
 ## Metrics
 
 For the Security dashboard (SRS 10.3), with fixed labels only:

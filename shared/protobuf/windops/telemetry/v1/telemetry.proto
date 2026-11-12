@@ -20,6 +20,9 @@ service TelemetryService {
   rpc StreamTelemetrySnapshot(StreamTelemetrySnapshotRequest) returns (stream StreamTelemetrySnapshotResponse);
   // Lets its data go at the end of normal retention. The snapshot stays readable until then.
   rpc ReleaseTelemetrySnapshot(ReleaseTelemetrySnapshotRequest) returns (ReleaseTelemetrySnapshotResponse);
+  // Each turbine's newest sample in the last day, for the fleet screens and data freshness. A
+  // turbine the caller may not read, or with no sample in that day, is left out.
+  rpc GetLatestTelemetry(GetLatestTelemetryRequest) returns (GetLatestTelemetryResponse);
 
   // A new credential for one turbine's device. Its secret is in this answer only, and is never
   // stored, only its hash. Needs asset.manage for the turbine and a recent second factor.
@@ -208,4 +211,25 @@ enum Quality {
   QUALITY_GOOD = 1;
   QUALITY_SUSPECT = 2;
   QUALITY_MISSING = 3;
+}
+
+message GetLatestTelemetryRequest {
+  // From 1 to 100 turbines.
+  repeated string turbine_ids = 1;
+}
+
+message GetLatestTelemetryResponse {
+  repeated LatestTelemetry turbines = 1;
+}
+
+message LatestTelemetry {
+  string turbine_id = 1;
+  // When it was measured, and when it was stored: the difference is its delay.
+  google.protobuf.Timestamp event_time = 2;
+  google.protobuf.Timestamp ingested_at = 3;
+  // "producing", "idle" and so on, as the device reports it.
+  string operating_state = 4;
+  bool available = 5;
+  // One point a metric, in the fixed order.
+  repeated TelemetryPoint points = 6;
 }

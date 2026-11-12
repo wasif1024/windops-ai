@@ -62,6 +62,11 @@ class TelemetryServiceStub:
                 request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ReleaseTelemetrySnapshotRequest.SerializeToString,
                 response_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ReleaseTelemetrySnapshotResponse.FromString,
                 _registered_method=True)
+        self.GetLatestTelemetry = channel.unary_unary(
+                '/windops.telemetry.v1.TelemetryService/GetLatestTelemetry',
+                request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.GetLatestTelemetryRequest.SerializeToString,
+                response_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.GetLatestTelemetryResponse.FromString,
+                _registered_method=True)
         self.CreateDeviceCredential = channel.unary_unary(
                 '/windops.telemetry.v1.TelemetryService/CreateDeviceCredential',
                 request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateDeviceCredentialRequest.SerializeToString,
@@ -123,6 +128,14 @@ class TelemetryServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetLatestTelemetry(self, request, context):
+        """Each turbine's newest sample in the last day, for the fleet screens and data freshness. A
+        turbine the caller may not read, or with no sample in that day, is left out.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def CreateDeviceCredential(self, request, context):
         """A new credential for one turbine's device. Its secret is in this answer only, and is never
         stored, only its hash. Needs asset.manage for the turbine and a recent second factor.
@@ -172,6 +185,11 @@ def add_TelemetryServiceServicer_to_server(servicer, server):
                     servicer.ReleaseTelemetrySnapshot,
                     request_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ReleaseTelemetrySnapshotRequest.FromString,
                     response_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ReleaseTelemetrySnapshotResponse.SerializeToString,
+            ),
+            'GetLatestTelemetry': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetLatestTelemetry,
+                    request_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.GetLatestTelemetryRequest.FromString,
+                    response_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.GetLatestTelemetryResponse.SerializeToString,
             ),
             'CreateDeviceCredential': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateDeviceCredential,
@@ -327,6 +345,33 @@ class TelemetryService:
             '/windops.telemetry.v1.TelemetryService/ReleaseTelemetrySnapshot',
             windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ReleaseTelemetrySnapshotRequest.SerializeToString,
             windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ReleaseTelemetrySnapshotResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetLatestTelemetry(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.telemetry.v1.TelemetryService/GetLatestTelemetry',
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.GetLatestTelemetryRequest.SerializeToString,
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.GetLatestTelemetryResponse.FromString,
             options,
             channel_credentials,
             insecure,

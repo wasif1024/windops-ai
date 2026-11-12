@@ -55,9 +55,11 @@ PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 # Each route's class. Public needs no sign-in. Signed-in is for anyone in a tenant. Member reads
 # are console reads any member may make, as nothing in them is sensitive. Admin reads need an
 # administrative permission. Admin changes need one and a recent second factor. Platform is for
-# the Platform Administrator only.
-PUBLIC, SIGNED_IN, MEMBER_READ, ADMIN_READ, ADMIN_CHANGE, PLATFORM = (
+# the Platform Administrator only. Telemetry reads need telemetry.read, which a Tenant
+# Administrator does not hold (SRS 3.2).
+PUBLIC, SIGNED_IN, MEMBER_READ, ADMIN_READ, ADMIN_CHANGE, PLATFORM, TELEMETRY_READ = (
     "public", "signed-in", "member-read", "admin-read", "admin-change", "platform",
+    "telemetry-read",
 )  # fmt: skip
 CLASSES: dict[tuple[str, str], str] = {
     ("GET", "/api/v1/public/branding/{tenant_id}"): PUBLIC,
@@ -66,6 +68,10 @@ CLASSES: dict[tuple[str, str], str] = {
     ("GET", "/api/v1/me/permissions"): SIGNED_IN,
     ("GET", "/api/v1/branding"): SIGNED_IN,
     ("GET", "/api/v1/tenant"): SIGNED_IN,
+    # The fleet each member may see: the Asset Service lists only what they may read.
+    ("GET", "/api/v1/fleet"): MEMBER_READ,
+    ("GET", "/api/v1/fleet/turbines/{turbine_id}"): MEMBER_READ,
+    ("GET", "/api/v1/fleet/turbines/{turbine_id}/telemetry"): TELEMETRY_READ,
     ("GET", "/api/v1/admin/access-denials"): ADMIN_READ,
     ("GET", "/api/v1/admin/branding"): ADMIN_READ,
     # The emails' standard wording, which the Notification Service and every member may read.
@@ -127,17 +133,17 @@ SIGN_IN: tuple[int, str | None] = (401, None)
 # What each caller must get from each class of route, as (status, problem code or None for any).
 NO_TOKEN: Expected = {
     PUBLIC: OK, SIGNED_IN: SIGN_IN, MEMBER_READ: SIGN_IN, ADMIN_READ: SIGN_IN,
-    ADMIN_CHANGE: SIGN_IN, PLATFORM: SIGN_IN,
+    ADMIN_CHANGE: SIGN_IN, PLATFORM: SIGN_IN, TELEMETRY_READ: SIGN_IN,
 }  # fmt: skip
 # No administrative permission: refused everything administrative, never told more.
 OPERATOR: Expected = {
     PUBLIC: OK, SIGNED_IN: OK, MEMBER_READ: OK, ADMIN_READ: FORBIDDEN,
-    ADMIN_CHANGE: FORBIDDEN, PLATFORM: FORBIDDEN,
+    ADMIN_CHANGE: FORBIDDEN, PLATFORM: FORBIDDEN, TELEMETRY_READ: OK,
 }  # fmt: skip
 # A password but no recent second factor: reads, but every change asks for one (SEC-003).
 ADMIN: Expected = {
     PUBLIC: OK, SIGNED_IN: OK, MEMBER_READ: OK, ADMIN_READ: OK,
-    ADMIN_CHANGE: (401, "step_up_required"), PLATFORM: FORBIDDEN,
+    ADMIN_CHANGE: (401, "step_up_required"), PLATFORM: FORBIDDEN, TELEMETRY_READ: FORBIDDEN,
 }  # fmt: skip
 
 
@@ -169,6 +175,8 @@ def fill(text: str, member_id: str, tenant: str = OTHER_TENANT) -> str:
         .replace("{role}", "auditor")
         .replace("{template}", "invitation")
         .replace("{grant_id}", "sweep-grant")
+        # A turbine of the callers' own tenant, which every member may see.
+        .replace("{turbine_id}", "dogger-east-t01")
     )
 
 
