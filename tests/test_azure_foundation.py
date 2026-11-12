@@ -288,3 +288,25 @@ def test_a_run_allows_its_own_address_once() -> None:
     assert merged_ranges("203.0.113.7", "198.51.100.9") == ["203.0.113.7", "198.51.100.9"]
     assert merged_ranges("198.51.100.0/24", "198.51.100.9") == ["198.51.100.0/24"]
     assert merged_ranges("", "198.51.100.9") == ["198.51.100.9"]
+
+
+def test_every_pipeline_variable_is_a_setting_the_scripts_read() -> None:
+    """The settings loader takes from the environment only names .env.example lists. A variable
+    group value missing from it is silently ignored, as AZURE_OPERATOR_OBJECT_ID once was."""
+    from scripts.lib import settings
+
+    known = set(settings.parse(settings.EXAMPLE))
+    guide = (ROOT / "docs" / "azure-devops.md").read_text()
+    group = set(re.findall(r"^\s*\| `(AZURE_[A-Z_]+)` \|", guide, re.M))
+    pipelines = ROOT / "infrastructure" / "azure" / "pipelines"
+    named = set(re.findall(r"\b(AZURE_[A-Z_]+)\b", (pipelines / "azure-pipelines.yml").read_text()))
+    assert group >= {"AZURE_OPERATOR_OBJECT_ID", "AZURE_PIPELINE_PRINCIPAL_ID"}
+    assert group | named <= known, sorted((group | named) - known)
+
+
+def test_the_environment_overrides_every_azure_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scripts.lib import settings
+
+    for name in ("AZURE_OPERATOR_OBJECT_ID", "AZURE_PIPELINE_PRINCIPAL_ID", "AZURE_ALERT_EMAIL"):
+        monkeypatch.setenv(name, f"from-the-pipeline-{name}")
+        assert settings.load()[name] == f"from-the-pipeline-{name}"
