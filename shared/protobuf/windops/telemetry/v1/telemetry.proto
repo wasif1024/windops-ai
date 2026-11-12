@@ -7,10 +7,19 @@ import "google/protobuf/timestamp.proto";
 // with a credential for one tenant and turbine (FR-TEL-005, API-004). These calls manage those
 // credentials, and later read the telemetry. The tenant comes from the caller's verified identity.
 service TelemetryService {
-  // Arrives with M4.7.
+  // A turbine's points in a window of at most 24 hours, in event order, with each one's unit and
+  // quality. A duplicate is left out, as the first copy stays. Needs telemetry.read for the turbine.
   rpc StreamTurbineTelemetry(StreamTurbineTelemetryRequest) returns (stream TelemetryPoint);
-  // Arrives with M4.7.
+  // Freezes a window for an investigation (FR-TEL-006, SRS 8.4): which samples it held and their
+  // quality at this moment, a content hash over them, and a manifest of their sources and versions.
+  // Its data is kept past retention until it is released. Needs telemetry.read and an idempotency key.
   rpc CreateTelemetrySnapshot(CreateTelemetrySnapshotRequest) returns (TelemetrySnapshot);
+  // A snapshot and its manifest, with its data read again and hashed again: verified when it matches.
+  rpc GetTelemetrySnapshot(GetTelemetrySnapshotRequest) returns (GetTelemetrySnapshotResponse);
+  // A snapshot's frozen points, the same however much data arrives late for its window.
+  rpc StreamTelemetrySnapshot(StreamTelemetrySnapshotRequest) returns (stream StreamTelemetrySnapshotResponse);
+  // Lets its data go at the end of normal retention. The snapshot stays readable until then.
+  rpc ReleaseTelemetrySnapshot(ReleaseTelemetrySnapshotRequest) returns (ReleaseTelemetrySnapshotResponse);
 
   // A new credential for one turbine's device. Its secret is in this answer only, and is never
   // stored, only its hash. Needs asset.manage for the turbine and a recent second factor.
@@ -77,22 +86,121 @@ message CreateTelemetrySnapshotRequest {
 
 message TelemetrySnapshot {
   string snapshot_id = 1;
+  // sha256, in hex, over the frozen samples, written as SnapshotManifest.hash_format says.
   string content_hash = 2;
+  string turbine_id = 3;
+  google.protobuf.Timestamp from_time = 4;
+  google.protobuf.Timestamp to_time = 5;
+  google.protobuf.Timestamp created_at = 6;
+  // The user, or the service, that asked for it.
+  string created_by = 7;
+  // Distinct samples frozen, by sequence.
+  int32 sample_count = 8;
+  SnapshotManifest manifest = 9;
+  // Unset until it is released.
+  google.protobuf.Timestamp released_at = 10;
+  // Only from GetTelemetrySnapshot: its data, read again now, hashes to content_hash.
+  bool verified = 11;
+}
+
+// What an investigation needs to reproduce the snapshot (FR-TEL-006, EVD-002).
+message SnapshotManifest {
+  // Only samples stored by then are in it: data arriving later never changes it.
+  google.protobuf.Timestamp ingested_before = 1;
+  // The Telemetry Service release that made it.
+  string service_version = 2;
+  // How the content hash is written, so it can be checked again: "windops-telemetry-snapshot-v1".
+  string hash_format = 3;
+  repeated SnapshotSource sources = 4;
+  repeated QualityCount quality = 5;
+  repeated SnapshotGap gaps = 6;
+  // Samples in the window the service refused as malformed, with a readable sequence.
+  int32 rejected = 7;
+  int64 first_sequence = 8;
+  int64 last_sequence = 9;
+}
+
+// One source, schema and model behind some of its samples.
+message SnapshotSource {
+  string source = 1;
+  string schema_version = 2;
+  string model_version = 3;
+  bool synthetic = 4;
+  int32 samples = 5;
+}
+
+// How many samples had each data-quality label (FR-TEL-003) when it was frozen.
+message QualityCount {
+  string label = 1;
+  int32 samples = 2;
+}
+
+// Sequences the turbine never sent, inside the window.
+message SnapshotGap {
+  int64 first_sequence = 1;
+  int64 last_sequence = 2;
+  int32 missing = 3;
+}
+
+message GetTelemetrySnapshotRequest {
+  string snapshot_id = 1;
+}
+
+message GetTelemetrySnapshotResponse {
+  TelemetrySnapshot snapshot = 1;
+}
+
+message StreamTelemetrySnapshotRequest {
+  string snapshot_id = 1;
+  // Empty for every metric.
+  repeated Metric metrics = 2;
+}
+
+message StreamTelemetrySnapshotResponse {
+  TelemetryPoint point = 1;
+}
+
+message ReleaseTelemetrySnapshotRequest {
+  string snapshot_id = 1;
+  string idempotency_key = 2;
+}
+
+message ReleaseTelemetrySnapshotResponse {
+  TelemetrySnapshot snapshot = 1;
 }
 
 message TelemetryPoint {
   google.protobuf.Timestamp event_time = 1;
   Metric metric = 2;
+  // 0 when quality is QUALITY_MISSING: the sensor sent nothing.
   double value = 3;
   string unit = 4;
   Quality quality = 5;
+  // The device's sequence for the sample this point came from.
+  int64 sequence = 6;
+  // Its data-quality label (FR-TEL-003): ok, delayed, out_of_order, or received when not yet
+  // checked. Quality is GOOD for ok, and SUSPECT for the others.
+  string quality_label = 7;
 }
 
+// Each reading an operational sample carries (SRS 4.2).
 enum Metric {
   METRIC_UNSPECIFIED = 0;
+  // Gearbox oil.
   METRIC_GEARBOX_TEMPERATURE = 1;
+  // The gearbox's bearing.
   METRIC_BEARING_TEMPERATURE = 2;
+  // The nacelle's vibration, as an RMS velocity.
   METRIC_VIBRATION_RMS = 3;
+  METRIC_WIND_SPEED = 4;
+  METRIC_WIND_DIRECTION = 5;
+  METRIC_ROTOR_SPEED = 6;
+  METRIC_GENERATOR_SPEED = 7;
+  METRIC_POWER = 8;
+  METRIC_PITCH_ANGLE = 9;
+  METRIC_AMBIENT_TEMPERATURE = 10;
+  METRIC_MAIN_BEARING_TEMPERATURE = 11;
+  METRIC_GENERATOR_BEARING_TEMPERATURE = 12;
 }
 
 enum Quality {

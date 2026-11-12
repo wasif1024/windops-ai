@@ -47,7 +47,9 @@ per-address limit.
 | `scada_summaries` | A 10-minute SCADA summary per turbine: mean, minimum, maximum and standard deviation of each reading, coverage, quality status, availability, producing time, energy, duplicates, late samples, revision and the versions it came from | A month each, by period | 2 years |
 | `ingest_rejections` | Each refused sample, with its reason, at most 500 characters of what was sent, and its sequence and time if they can be read | None, deleted row by row | 90 days |
 | `data_gaps` | Each run of sequences a turbine never sent, per 10-minute period | None, deleted row by row | 90 days |
-| `retention_holds` | Ranges of data a snapshot references, kept past retention until released. Snapshots write them from M4.7 | None | Until released |
+| `retention_holds` | Ranges of data a snapshot references, kept past retention until released | None | Until released |
+| `telemetry_snapshots` | Each snapshot: its turbine, window, who made it, when, its content hash, sample count and manifest, and when it was released | None | Always |
+| `snapshot_samples` | Which stored samples each snapshot froze, by sequence, ingestion time and place in their batch, with each one's quality label then | None | With its snapshot |
 | `device_credentials` | Each device's turbine, who made it, when, and when it was revoked. Only the secret's SHA-256 is kept | None | Always |
 
 Every table and partition has forced row-level security, and a device's tenant comes from its credential, never from
@@ -170,10 +172,38 @@ credential and keeps the tokens in the Secret `windops-simulator-devices`, for t
 a turbine whose token is in the Secret is skipped. The simulator's workload streams the whole demo fleet through
 this route with those tokens; see [windops-simulator](../../simulator/README.md#streaming-live-m44).
 
-## Still to come
+## Reading telemetry and snapshots (FR-TEL-006, SRS 8.4)
 
-- Reading telemetry and snapshots, `StreamTurbineTelemetry` and `CreateTelemetrySnapshot`, which answer
-  UNIMPLEMENTED until M4.7. Snapshots will write retention holds.
+| Call | Needs | What it does |
+| --- | --- | --- |
+| `StreamTurbineTelemetry` | `telemetry.read` for the turbine | Streams its points for a window of at most 24 hours, in event order, every metric or the ones asked for. A duplicate is left out, as the first copy stays |
+| `CreateTelemetrySnapshot` | `telemetry.read`, an idempotency key, a finished window | Freezes the window: which samples it held and their labels then, a content hash and a manifest, and a retention hold on its data |
+| `GetTelemetrySnapshot` | `telemetry.read` | The snapshot and manifest, with its data read again and hashed again: `verified` when they match |
+| `StreamTelemetrySnapshot` | `telemetry.read` | Its frozen points |
+| `ReleaseTelemetrySnapshot` | `telemetry.read`, an idempotency key | Lets its hold go, so normal retention applies. It stays readable until its data is removed |
+
+Each point has its metric, value, unit and sequence, and its quality: `GOOD` for an `ok` sample, `SUSPECT` for a
+delayed, out-of-order or not-yet-checked one, and `MISSING`, with value 0, when the sensor sent nothing. The 12
+metrics are the 12 readings; the first three are SRS 7.4's.
+
+**What makes a snapshot reproducible.** It records the frozen samples' keys: sequence, ingestion time and place in
+their batch. A stored sample never changes, so the keys find exactly what was read. Only samples stored before it
+was made are in it, so data arriving late for its window reaches live reads, never the snapshot. Each sample's
+quality label is kept as it was then, as later checks can relabel it. Its manifest holds:
+
+| Field | What |
+| --- | --- |
+| `ingested_before` | The moment it was read: nothing stored later is in it |
+| `sources` | Each source, schema version and model version, such as the simulator's, with its sample count |
+| `quality` | How many samples had each data-quality label |
+| `gaps`, `rejected` | Sequences never sent within it, and malformed samples refused for its window |
+| `first_sequence`, `last_sequence` | The range it covers |
+| `service_version`, `hash_format` | The release that made it, and how its hash is written |
+
+The content hash is sha256 over a header line, `windops-telemetry-snapshot-v1|tenant|turbine|from|to`, then one line
+per sample in event order: its time, sequence, label and the 12 readings in a fixed order, `|`-separated, with
+`null` for a missing reading. Anyone with the samples can write it again to check a snapshot. Making and releasing
+one each queue an audit record.
 
 ## Run the tests
 
@@ -183,4 +213,5 @@ make telemetry-check           # on the cluster, after make telemetry-devices
 make telemetry-storage-check   # partitions, summaries, late data and retention
 make cms-check                 # live CMS features, a worn bearing's signature, raw windows
 make data-quality-check        # one of each data problem, sent and labelled
+make snapshot-check            # a live minute streamed, frozen, held, and unchanged by late data
 ```

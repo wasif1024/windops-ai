@@ -47,6 +47,21 @@ class TelemetryServiceStub:
                 request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateTelemetrySnapshotRequest.SerializeToString,
                 response_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.TelemetrySnapshot.FromString,
                 _registered_method=True)
+        self.GetTelemetrySnapshot = channel.unary_unary(
+                '/windops.telemetry.v1.TelemetryService/GetTelemetrySnapshot',
+                request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.GetTelemetrySnapshotRequest.SerializeToString,
+                response_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.GetTelemetrySnapshotResponse.FromString,
+                _registered_method=True)
+        self.StreamTelemetrySnapshot = channel.unary_stream(
+                '/windops.telemetry.v1.TelemetryService/StreamTelemetrySnapshot',
+                request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.StreamTelemetrySnapshotRequest.SerializeToString,
+                response_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.StreamTelemetrySnapshotResponse.FromString,
+                _registered_method=True)
+        self.ReleaseTelemetrySnapshot = channel.unary_unary(
+                '/windops.telemetry.v1.TelemetryService/ReleaseTelemetrySnapshot',
+                request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ReleaseTelemetrySnapshotRequest.SerializeToString,
+                response_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ReleaseTelemetrySnapshotResponse.FromString,
+                _registered_method=True)
         self.CreateDeviceCredential = channel.unary_unary(
                 '/windops.telemetry.v1.TelemetryService/CreateDeviceCredential',
                 request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateDeviceCredentialRequest.SerializeToString,
@@ -71,14 +86,38 @@ class TelemetryServiceServicer:
     """
 
     def StreamTurbineTelemetry(self, request, context):
-        """Arrives with M4.7.
+        """A turbine's points in a window of at most 24 hours, in event order, with each one's unit and
+        quality. A duplicate is left out, as the first copy stays. Needs telemetry.read for the turbine.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def CreateTelemetrySnapshot(self, request, context):
-        """Arrives with M4.7.
+        """Freezes a window for an investigation (FR-TEL-006, SRS 8.4): which samples it held and their
+        quality at this moment, a content hash over them, and a manifest of their sources and versions.
+        Its data is kept past retention until it is released. Needs telemetry.read and an idempotency key.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetTelemetrySnapshot(self, request, context):
+        """A snapshot and its manifest, with its data read again and hashed again: verified when it matches.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StreamTelemetrySnapshot(self, request, context):
+        """A snapshot's frozen points, the same however much data arrives late for its window.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReleaseTelemetrySnapshot(self, request, context):
+        """Lets its data go at the end of normal retention. The snapshot stays readable until then.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -118,6 +157,21 @@ def add_TelemetryServiceServicer_to_server(servicer, server):
                     servicer.CreateTelemetrySnapshot,
                     request_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateTelemetrySnapshotRequest.FromString,
                     response_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.TelemetrySnapshot.SerializeToString,
+            ),
+            'GetTelemetrySnapshot': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetTelemetrySnapshot,
+                    request_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.GetTelemetrySnapshotRequest.FromString,
+                    response_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.GetTelemetrySnapshotResponse.SerializeToString,
+            ),
+            'StreamTelemetrySnapshot': grpc.unary_stream_rpc_method_handler(
+                    servicer.StreamTelemetrySnapshot,
+                    request_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.StreamTelemetrySnapshotRequest.FromString,
+                    response_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.StreamTelemetrySnapshotResponse.SerializeToString,
+            ),
+            'ReleaseTelemetrySnapshot': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReleaseTelemetrySnapshot,
+                    request_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ReleaseTelemetrySnapshotRequest.FromString,
+                    response_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ReleaseTelemetrySnapshotResponse.SerializeToString,
             ),
             'CreateDeviceCredential': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateDeviceCredential,
@@ -192,6 +246,87 @@ class TelemetryService:
             '/windops.telemetry.v1.TelemetryService/CreateTelemetrySnapshot',
             windops_dot_telemetry_dot_v1_dot_telemetry__pb2.CreateTelemetrySnapshotRequest.SerializeToString,
             windops_dot_telemetry_dot_v1_dot_telemetry__pb2.TelemetrySnapshot.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetTelemetrySnapshot(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.telemetry.v1.TelemetryService/GetTelemetrySnapshot',
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.GetTelemetrySnapshotRequest.SerializeToString,
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.GetTelemetrySnapshotResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StreamTelemetrySnapshot(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/windops.telemetry.v1.TelemetryService/StreamTelemetrySnapshot',
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.StreamTelemetrySnapshotRequest.SerializeToString,
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.StreamTelemetrySnapshotResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReleaseTelemetrySnapshot(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.telemetry.v1.TelemetryService/ReleaseTelemetrySnapshot',
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ReleaseTelemetrySnapshotRequest.SerializeToString,
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ReleaseTelemetrySnapshotResponse.FromString,
             options,
             channel_credentials,
             insecure,

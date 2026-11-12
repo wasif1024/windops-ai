@@ -5,7 +5,7 @@ the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into module
 between Phases 4 and 5 by [ADR 0006](../adr/0006-azure-aligned-platform-services.md).
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 4, assets and telemetry, resumes at M4.7. Phase 4A, Azure alignment, is done: the phase gates passed again on Cilium, and the platform was deployed and proven on Azure ([evidence](phase-04a-exit-gate.md)).
+**Current position:** Phase 4, assets and telemetry: M4.8, the fleet screens, is next. Phase 4A, Azure alignment, is done: the phase gates passed again on Cilium, and the platform was deployed and proven on Azure ([evidence](phase-04a-exit-gate.md)).
 
 ## How to use this tracker
 
@@ -113,7 +113,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [x] **M4.4 Telemetry ingestion:** authenticated device route and required metadata (FR-TEL-001, FR-TEL-002, FR-TEL-005, API-004). Done 2026-11-08: the Telemetry Service, device credentials and `/ingest/*` (`make telemetry-check`), and the simulator streaming the demo fleet live from its own workload (`make simulator-check`).
 - [x] **M4.5 Telemetry storage:** PostgreSQL time partitions and summaries, with the SRS 8.3 rates and retention (FR-TEL-004). Done 2026-11-08: 10-minute SCADA summaries, recalculated on late data, and retention by whole partitions with snapshot holds (`make telemetry-storage-check`), and CMS vibration batches with spectral band features and scheduled or triggered raw windows (`make cms-check`).
 - [x] **M4.6 Data-quality detection:** label missing, duplicated, delayed, malformed and out-of-order data (FR-TEL-003). Done 2026-11-09: every sample labelled `ok`, `duplicate`, `delayed` or `out_of_order` as its period is summarized, gaps kept per period, and readable malformed samples kept by sequence, matched to the simulator's ground truth in a test (`make data-quality-check`).
-- [ ] **M4.7 Telemetry snapshots:** the SRS 7.4 streaming and snapshot contract, with reproducible metadata (FR-TEL-006).
+- [x] **M4.7 Telemetry snapshots:** the SRS 7.4 streaming and snapshot contract, with reproducible metadata (FR-TEL-006). Done 2026-11-12: `StreamTurbineTelemetry` streams a window of up to a day with each point's unit and quality, and `CreateTelemetrySnapshot` freezes one with a content hash, a manifest of sources and versions, and a retention hold. `GetTelemetrySnapshot` re-reads and re-hashes it, and `make snapshot-check` proves on the cluster that late data reaches live reads but never a snapshot. Next for the Azure pipeline: deployment settings only from the variable group, and a per-environment settings file for the workloads. Provider keys go to Key Vault, from locked variables, with the agents in Phases 7 and 8.
 - [ ] **M4.8 Fleet screens:** fleet overview, turbine detail and telemetry charts (SRS 4.11).
 - [ ] **M4.9 Freshness visibility:** Data Freshness dashboard, starting with telemetry delay (SRS 10.3).
 - [ ] **M4.10 Exit gate:** a seeded fault profile streams into storage with the correct quality labels.

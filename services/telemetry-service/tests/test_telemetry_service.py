@@ -243,16 +243,6 @@ def test_a_revoked_credential_is_listed_only_when_asked_and_cannot_be_revoked_tw
     with_service(scenario)
 
 
-def test_reading_telemetry_says_it_arrives_later() -> None:
-    async def scenario(world: World) -> None:
-        call = world.stub.CreateTelemetrySnapshot(
-            telemetry_pb2.CreateTelemetrySnapshotRequest(), metadata=as_user(), timeout=5
-        )
-        assert await code_of(call) == grpc.StatusCode.UNIMPLEMENTED
-
-    with_service(scenario)
-
-
 def test_the_migration_creates_every_column_the_service_writes() -> None:
     """The migration spells out its SQL, so this keeps it and the code's table the same."""
     from pathlib import Path
@@ -262,11 +252,16 @@ def test_the_migration_creates_every_column_the_service_writes() -> None:
         CMS_WAVEFORMS,
         OPERATIONAL_SAMPLES,
         SCADA_SUMMARIES,
+        SNAPSHOT_SAMPLES,
+        TELEMETRY_SNAPSHOTS,
     )
 
     versions = Path(__file__).parents[1] / "src" / "windops_telemetry" / "migrations" / "versions"
     text = "".join(path.read_text() for path in versions.glob("rev_*.py"))
-    columns = [*OPERATIONAL_SAMPLES.c, *SCADA_SUMMARIES.c, *CMS_FEATURES.c, *CMS_WAVEFORMS.c]
+    columns = [
+        *OPERATIONAL_SAMPLES.c, *SCADA_SUMMARIES.c, *CMS_FEATURES.c, *CMS_WAVEFORMS.c,
+        *TELEMETRY_SNAPSHOTS.c, *SNAPSHOT_SAMPLES.c,
+    ]  # fmt: skip
     # Written out as SQL, or added later with sa.Column.
     missing = [
         column.name
