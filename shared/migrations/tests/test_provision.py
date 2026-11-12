@@ -93,3 +93,16 @@ def test_provisioning_signs_in_as_the_entra_administrator_with_a_token(
     ]
     created = [values for _, statement, values in log if "pgaadauth" in statement]
     assert created == [("id-windops-audit", OBJECT_ID)]  # the tenant's login already exists
+
+
+def test_provisioning_verifies_the_server_against_the_public_roots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import psycopg
+    from windops_migrations.connection import public_roots
+
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(psycopg, "connect", lambda **options: seen.update(options))
+    provision._connect("server", "id-windops-postgres-admin", "postgres", "token")
+    assert seen["sslmode"] == "verify-full"
+    assert seen["sslrootcert"] == public_roots()

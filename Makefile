@@ -18,7 +18,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check simulator-check telemetry-storage-check cms-check data-quality-check servicebus-provision servicebus-check azure-overlay azure-monitoring azure-foundation azure-plan azure-up azure-down azure-destroy azure-platform azure-prove azure-stop-postgres azure-pipeline-identity $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check simulator-check telemetry-storage-check cms-check data-quality-check servicebus-provision servicebus-check azure-overlay azure-monitoring azure-foundation azure-plan azure-up azure-down azure-destroy azure-platform azure-prove azure-stop-postgres azure-logs azure-pipeline-identity $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -229,6 +229,9 @@ azure-prove: ## Prove the Azure platform: nodes, Service Bus, Workload ID, Key V
 
 azure-stop-postgres: ## Stop Azure PostgreSQL when no cluster uses it, as the daily pipeline does
 	uv run python -m scripts.setup.azure_deploy stop-postgres
+
+azure-logs: ## Show the Azure cluster's logs from Log Analytics, even once it is deleted: SINCE=2h POD=windops-audit
+	uv run python -m scripts.setup.azure_deploy logs --since "$(or $(SINCE),2h)" $(if $(POD),--pod "$(POD)")
 
 azure-pipeline-identity: ## Create the Azure DevOps pipeline's identity once, from AZURE_PIPELINE_ISSUER and _SUBJECT (docs/azure-devops.md)
 	uv run python -m scripts.setup.azure_pipeline $(if $(ISSUER),--issuer "$(ISSUER)") $(if $(SUBJECT),--subject "$(SUBJECT)")

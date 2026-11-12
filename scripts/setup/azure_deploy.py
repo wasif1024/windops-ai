@@ -7,6 +7,7 @@
     make azure-prove     # the nodes, Service Bus, and the services with Workload ID and telemetry
     make azure-down      # delete the compute group and stop PostgreSQL: data stays
     make azure-stop-postgres  # stop PostgreSQL if no cluster uses it: Azure restarts it weekly
+    make azure-logs      # the cluster's container logs, kept in Log Analytics after it is deleted
     make azure-destroy   # delete both groups and the budget
 
 docs/azure-plan.md sizes and prices what this creates.
@@ -119,10 +120,11 @@ def ip_ranges(value: str) -> list[str]:
     return ranges
 
 
-def deployment_settings() -> dict[str, Any]:
+def deployment_settings(deploys: bool = True) -> dict[str, Any]:
+    """`deploys` is False for the commands that only read or stop, which need no alert email."""
     values = settings.load()
     email = values.get("AZURE_ALERT_EMAIL", "")
-    if "@" not in email:
+    if deploys and "@" not in email:
         raise AzureError("Set AZURE_ALERT_EMAIL in .env: budget and alert emails go there")
     return {
         "subscription": settings.get("AZURE_SUBSCRIPTION_ID"),
@@ -693,6 +695,40 @@ def platform(config: dict[str, Any]) -> int:
     return deploy_platform(config, outputs, use_cluster(config, outputs))
 
 
+def logs_query(since: str, pod: str) -> str:
+    """Kusto for the workloads' container logs, which Log Analytics keeps after the cluster goes."""
+    if not re.fullmatch(r"\d+[mhd]", since) or not re.fullmatch(r"[a-z0-9-]*", pod):
+        raise AzureError("--since is like 2h, and --pod is the start of a pod's name")
+    query = (
+        f"ContainerLogV2 | where TimeGenerated > ago({since}) "
+        "| where PodNamespace startswith 'windops-' or PodNamespace == 'cert-manager'"
+    )
+    if pod:
+        query += f" | where PodName startswith '{pod}'"
+    return query + " | project TimeGenerated, PodName, LogMessage | order by TimeGenerated asc"
+
+
+def logs(config: dict[str, Any], since: str = "2h", pod: str = "") -> int:
+    """The cluster's container logs from Log Analytics, kept 30 days, even once it is deleted.
+    Container insights sends them about 5 minutes after they are written."""
+    data = f"rg-windops-{config['environment']}-data"
+    workspace = az("resource", "show", "--subscription", config["subscription"],
+                   "--resource-group", data, "--name", f"log-windops-{config['environment']}",
+                   "--resource-type", "Microsoft.OperationalInsights/workspaces",
+                   "--query", "properties.customerId", "--output", "tsv")  # fmt: skip
+    found = az_json(
+        "rest", "--method", "post",
+        "--url", f"https://api.loganalytics.io/v1/workspaces/{workspace}/query",
+        "--resource", "https://api.loganalytics.io",
+        "--body", json.dumps({"query": logs_query(since, pod)}),
+    )  # fmt: skip
+    rows = found["tables"][0]["rows"]
+    for written, name, message in rows:
+        print(f"{written[11:19]} {name}: {message}")
+    print(f"{len(rows)} lines, the last {since}")
+    return 0
+
+
 def destroy(config: dict[str, Any], confirmed: str = "") -> int:
     environment, subscription = config["environment"], config["subscription"]
     groups = [f"rg-windops-{environment}-compute", f"rg-windops-{environment}-data"]
@@ -723,12 +759,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser("platform", help="deploy the services onto the cluster")
     commands.add_parser("prove", help="check the deployed platform")
     commands.add_parser("stop-postgres", help="stop PostgreSQL when no cluster uses it")
+    logs_parser = commands.add_parser("logs", help="the cluster's logs, kept after it is deleted")
+    logs_parser.add_argument("--since", default="2h", help="how far back, like 30m, 2h or 1d")
+    logs_parser.add_argument("--pod", default="", help="only pods whose names start with this")
     commands.add_parser("destroy").add_argument(
         "--confirm", default="", metavar="ENVIRONMENT", help="the environment's name, to not ask"
     )
     arguments = parser.parse_args(argv)
     try:
-        config = deployment_settings()
+        config = deployment_settings(deploys=arguments.command in ("plan", "up", "down"))
         az("account", "show", "--subscription", config["subscription"], "--output", "none")
         if arguments.command == "plan":
             return plan(config, arguments.compute)
@@ -742,6 +781,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return prove(config)
         if arguments.command == "stop-postgres":
             return stop_postgres(config)
+        if arguments.command == "logs":
+            return logs(config, arguments.since, arguments.pod)
         return destroy(config, arguments.confirm)
     except (AzureError, RuntimeError, ValueError) as error:
         print(error, file=sys.stderr)

@@ -52,6 +52,18 @@ Application Gateway is created, but its backend shows as unhealthy and its publi
 the internal load balancer at `10.40.7.250` that App Gateway sends traffic to, come in M15.7, so the public address
 is not part of the proof yet.
 
+## When a run fails
+
+Remove compute deletes the cluster, but its logs stay. Container insights sends every pod's output to Log Analytics,
+in the data group, about 5 minutes after it is written, and keeps it for 30 days:
+
+```bash
+make azure-logs                                   # the last 2 hours, every WinDops pod
+make azure-logs SINCE=6h POD=windops-postgres-provision
+```
+
+A failed migration or setup Job also prints its last 20 log lines in the Platform step's own log.
+
 ## Stopping PostgreSQL every night
 
 Azure starts a stopped PostgreSQL server again after 7 days. A second pipeline,
