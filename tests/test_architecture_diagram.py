@@ -62,13 +62,22 @@ def test_roadmap_progress_counts_ticked_modules(tmp_path: Path) -> None:
     assert read_phase_progress(tracker) == [("1", "First", 1, 2), ("2", "Second", 0, 1)]
 
 
-def test_readme_shows_the_platform_and_azure_diagrams() -> None:
+def test_readme_shows_one_architecture_diagram_and_the_animation() -> None:
+    """The README is the overview: the Kubernetes view and the agents' animation, nothing more."""
     readme = (ROOT / "README.md").read_text()
-    assert "docs/assets/platform-architecture.png" in readme
-    assert "docs/assets/azure-architecture.png" in readme
-    assert "docs/assets/kubernetes-on-azure.png" in readme
-    # The Kubernetes view comes first, as the overview, then the detail.
-    assert readme.index("kubernetes-on-azure.png") < readme.index("azure-architecture.png")
+    images = re.findall(r"docs/assets/[\w-]+\.(?:png|gif)", readme)
+    assert sorted(set(images)) == [
+        "docs/assets/agent-orchestration.gif", "docs/assets/kubernetes-on-azure.png",
+    ]  # fmt: skip
+    # The architecture comes before the agents, and the detailed diagrams are a link away.
+    assert readme.index("kubernetes-on-azure.png") < readme.index("agent-orchestration.gif")
+    assert "(docs/architecture.md)" in readme
+
+
+def test_the_architecture_document_has_the_detailed_diagrams() -> None:
+    document = (ROOT / "docs" / "architecture.md").read_text()
+    for image in ("assets/platform-architecture.png", "assets/azure-architecture.png"):
+        assert f"]({image})" in document, image
 
 
 def test_the_kubernetes_view_draws_every_domain_service_as_a_pod() -> None:
@@ -134,3 +143,12 @@ def test_the_diagram_draws_every_domain_service_and_its_database() -> None:
     drawn = [name for _, _, members in OVERVIEW_GROUPS for name, _ in members]
     assert len(drawn) == 20
     assert len(SERVICE_NAMESPACES) == 20
+
+
+def test_the_kubernetes_view_marks_what_the_pipeline_deploys_as_on_azure() -> None:
+    from scripts.generate.kubernetes_view import BACK_END, ON_AZURE, PLANNED, status_of
+
+    on_azure = {name for name in BACK_END if status_of(name) == ON_AZURE}
+    assert on_azure == {"Asset", "Audit"}  # Authorization and Tenant are drawn in the front end
+    assert status_of("Authorization") == status_of("Tenant") == ON_AZURE
+    assert status_of("Agent Runtime") == PLANNED

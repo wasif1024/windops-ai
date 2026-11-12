@@ -11,7 +11,7 @@ copied. scripts/generate/readme_visuals.py runs this too.
 
 import math
 
-from scripts.generate.readme_visuals import APPLICATION_GROUPS, ASSETS, Canvas, dashed
+from scripts.generate.readme_visuals import APPLICATION_GROUPS, ASSETS, Canvas, dashed, is_running
 
 WHITE = "#FFFFFF"
 INK = "#1F2937"
@@ -25,6 +25,46 @@ TEAL = ("#99F6E4", "#2DD4BF", "#0F766E")  # a deterministic decision's pod
 AMBER = ("#FDE68A", "#FBBF24", "#B45309")  # a human decision's pod
 GREY = ("#E2E8F0", "#94A3B8", "#475569")  # a pod that supports the others
 GREEN = "#16A34A"
+AMBER_MARK = "#D97706"
+PLANNED_MARK = "#94A3B8"
+
+# What runs where, from the code, so the picture cannot drift. On Azure: the services the pipeline
+# deploys and proves (scripts/setup/azure_platform.py), and the platform pods it installs.
+ON_AZURE_PLATFORM = frozenset({"Collector", "Prometheus agent", "Key Vault CSI", "cert-manager"})
+# Built and running locally, waiting for the full deployment, which brings what they need on AKS.
+LOCAL_PLATFORM = frozenset({"APISIX gateway", "Keycloak", "Redis", "Qdrant", "React frontend"})
+ON_AZURE, LOCALLY, PLANNED = "azure", "local", "planned"
+
+
+def azure_services() -> frozenset[str]:
+    from scripts.setup.azure_platform import WORKLOADS
+
+    return frozenset(
+        workload.removeprefix("windops-").replace("-", " ").title() for workload in WORKLOADS
+    )
+
+
+def status_of(name: str) -> str:
+    """Where a pod runs today: proven on Azure, running locally, or planned."""
+    if name in ON_AZURE_PLATFORM or name in azure_services():
+        return ON_AZURE
+    if name in LOCAL_PLATFORM or is_running(name):
+        return LOCALLY
+    return PLANNED
+
+
+def status_marker(c: Canvas, x: float, y: float, status: str) -> None:
+    """Green: on Azure. An amber ring: running locally, on Azure in Phase 15. Grey: planned."""
+    if status == ON_AZURE:
+        c.dot(x, y, 6.5, WHITE)
+        c.dot(x, y, 5.5, GREEN)
+    elif status == LOCALLY:
+        c.dot(x, y, 6.5, AMBER_MARK)
+        c.dot(x, y, 3.5, WHITE)
+    else:
+        c.dot(x, y, 6.5, PLANNED_MARK)
+        c.dot(x, y, 4.5, WHITE)
+
 
 # Every domain service from the platform diagram, so the two never disagree.
 BACK_END = tuple(name for _, _, members in APPLICATION_GROUPS for name, _ in members)
@@ -74,6 +114,7 @@ def pod(
         width=max(1, round(1.25 * s)),
     )
     cube(c, x, y, 28, faces)
+    status_marker(c, x + 18, y - 18, status_of(name))
     rows = c.wrap(name, 11.5, 104, bold=True)
     for index, row in enumerate(rows):
         c.text(x, y + 36 + index * 14, row, 11.5, True, INK, "mm")
@@ -316,11 +357,19 @@ def build_kubernetes_view() -> None:
     c.text(
         40,
         72,
-        "How a request reaches the pods, and what each pod uses. The target architecture "
-        "(ADR 0006); the detailed diagram below marks what runs today.",
+        "How a request reaches the pods, and what each pod uses: the target architecture "
+        "(ADR 0006), with what runs today.",
         14,
         color=SOFT,
     )
+
+    legend = ((ON_AZURE, "on Azure, proven by the pipeline"),
+              (LOCALLY, "runs locally, on Azure in Phase 15"), (PLANNED, "planned"))  # fmt: skip
+    x = 1560.0
+    for status, label in reversed(legend):
+        x -= c.text_width(label, 12.5) + 30
+        status_marker(c, x, 40, status)
+        c.text(x + 12, 40, label, 12.5, color=SOFT)
 
     # The cluster, inside its virtual network.
     dashed_box(c, 404, 118, 1296, 892, BLUE)
@@ -333,6 +382,7 @@ def build_kubernetes_view() -> None:
     # Front end and identity.
     namespace_box(c, 420, 176, 640, 620, "Front end", "windops-system")
     ingress(c, 530, 240)
+    status_marker(c, 552, 218, status_of("APISIX gateway"))
     c.text(530, 284, "APISIX gateway", 11.5, True, INK, "mm")
     c.text(530, 298, "the ingress", 10.5, color=SOFT, anchor="mm")
     c.arrow([(530, 308), (530, 330)], INK, 1.75)
