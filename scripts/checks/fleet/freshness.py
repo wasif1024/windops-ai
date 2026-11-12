@@ -4,7 +4,7 @@
 Run the platform and the simulator first, as `make dev` does. Needs local port 9443 free. It
 proves what SRS 10.3 asks of telemetry delay and stale data:
 
-- every streaming turbine is live, and its samples arrive within seconds;
+- every demo turbine is live, and its samples arrive within seconds;
 - a sample the device route refuses is counted by reason, for failed ingestion;
 - a turbine whose newest sample is ten minutes old is stale, and raises WindopsTelemetryStale;
 - a turbine with a device credential that never sent anything is counted as silent;
@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from windops_simulator.fleet import DEMO_TURBINES
 
 from scripts.checks.fleet.telemetry import check, device_token, kubectl, samples, send, sql
 from scripts.setup.gateway_routes import port_forward
@@ -36,6 +37,8 @@ OBSERVABILITY = "windops-observability"
 TENANT, TURBINE, OTHER = "north-sea", "dogger-east-t01", "hornsea-west-t01"
 # Check-only turbines, with no assets and no simulator behind them.
 STALE, SILENT = "freshness-check-stale", "freshness-check-silent"
+# The fleet the simulator streams, which must always be live.
+DEMO = {spec.turbine_id for spec in DEMO_TURBINES}
 ALERTS = {
     "WindopsTelemetryStale", "WindopsTelemetrySilent",
     "WindopsTelemetryDelayed", "WindopsTelemetryRejected",
@@ -80,15 +83,6 @@ class Prometheus:
         return alerts
 
 
-def expected_turbines() -> int:
-    """Turbines with an active device credential: the ones that should be streaming."""
-    query = (
-        "SELECT set_config('windops.all_tenants', 'on', false); SELECT count(DISTINCT "
-        "(tenant_id, turbine_id)) FROM device_credentials WHERE revoked_at IS NULL"
-    )
-    return int(sql(query))
-
-
 def add_check_turbines() -> None:
     """A stale turbine, whose one sample is ten minutes old, and a silent one, with none."""
     devices = ", ".join(
@@ -118,18 +112,26 @@ CLEAN_UP = (
 )
 
 
-def check_live(prometheus: Prometheus, expected: int) -> None:
+def check_live(prometheus: Prometheus) -> None:
+    """Every demo turbine the simulator streams is live.
+
+    Other checks' own turbines come and go with their device credentials, and may run at the
+    same time, as in the Phase 4 gate, so only the demo fleet is required to be live.
+    """
     age = "max by (turbine_id) (windops_telemetry_sample_age_seconds)"
-    ages = prometheus.wait_for(age, "turbine_id", lambda found: len(found) >= expected)
+    ages = prometheus.wait_for(
+        age, "turbine_id",
+        lambda found: all(found.get(turbine, 61) <= 60 for turbine in DEMO),
+    )  # fmt: skip
+    oldest = max((ages.get(turbine, float("inf")) for turbine in DEMO), default=0)
     check(
-        len(ages) == expected and max(ages.values()) <= 60,
-        f"All {expected} streaming turbines are live: newest samples at most "
-        f"{max(ages.values(), default=0):.0f} s old",
+        oldest <= 60,
+        f"All {len(DEMO)} demo turbines are live: newest samples at most {oldest:.0f} s old",
     )
     states = prometheus.values(
         "sum by (state) (max by (tenant_id, state) (windops_telemetry_turbines))", "state"
     )
-    check(states.get("live") == expected, f"and counted as live, by tenant: {states}")
+    check(states.get("live", 0) >= len(DEMO), f"and counted as live, by tenant: {states}")
     p95 = (
         "histogram_quantile(0.95, sum by (le) "
         '(rate(windops_telemetry_ingest_delay_seconds_bucket{kind="samples"}[5m])))'
@@ -184,10 +186,7 @@ def check_stale_and_silent(prometheus: Prometheus) -> None:
             break
         time.sleep(5)
     check(firing.get(STALE) == "firing", "WindopsTelemetryStale fires for the stale turbine")
-    check(
-        set(firing) == {STALE},
-        "and for no streaming turbine",
-    )
+    check(not set(firing) & DEMO, "and for no demo turbine")
 
 
 def check_rules(prometheus: Prometheus) -> None:
@@ -228,11 +227,10 @@ def check_grafana() -> None:
 def main() -> int:
     try:
         sql(CLEAN_UP)
-        expected = expected_turbines()
         with port_forward("service/windops-prometheus", OBSERVABILITY, 9090) as port:
             prometheus = Prometheus(port)
             check_rules(prometheus)
-            check_live(prometheus, expected)
+            check_live(prometheus)
             check_refused(prometheus)
             add_check_turbines()
             check_stale_and_silent(prometheus)

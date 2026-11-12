@@ -138,14 +138,16 @@ spec:
               path: /health/live
               port: http
             periodSeconds: 10
-          # Starting values. Replace them with measured figures (SRS 11).
+          # Memory measured on the demo fleet (M4.10): about 170Mi steady, as it summarizes, labels,
+          # transforms CMS windows and watches freshness. Upkeep run by hand in the pod, as the
+          # checks do, adds a second process, and 192Mi was killed for it. CPU is a starting value.
           resources:
             requests:
               cpu: 25m
-              memory: 96Mi
+              memory: 192Mi
             limits:
               cpu: 250m
-              memory: 192Mi
+              memory: 384Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

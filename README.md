@@ -180,7 +180,8 @@ only read access unless it needs more.
 | 2. Data and events | Done, [exit gate](docs/phases/phase-02-exit-gate.md) |
 | 3. Identity and tenancy | Done, with a sweep of every route and 17 checks at its gate |
 | 4A. Azure alignment | Done, [deployed and proven on Azure](docs/phases/phase-04a-exit-gate.md) |
-| 4. Assets and telemetry | In progress: 9 of 10 modules, M4.10 next |
+| 4. Assets and telemetry | Done, [exit gate](docs/phases/phase-04-exit-gate.md) |
+| 5. Alarms, detection and cases | Next: M5.1, the Alarm Service |
 
 | Running today | |
 | --- | --- |
@@ -268,6 +269,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | --- | --- |
 | [Software requirements (SRS v1.1)](docs/srs.md) | Scope, fixed decisions, requirement IDs and acceptance criteria. The source of truth |
 | [Implementation tracker](docs/phases/README.md) | Every phase and its modules, with progress and exit gates |
+| [Phase 4 evidence](docs/phases/phase-04-exit-gate.md) | A seeded fault streamed into storage, every label matched to its ground truth, and every Phase 4 check |
 | [Phase 4A evidence](docs/phases/phase-04a-exit-gate.md) | The platform deployed and proven on Azure, and the phase gates run again on Cilium |
 | [Architecture](docs/architecture.md) | How a request flows, and the detailed diagrams of every service, control and Azure resource |
 | [Microservices](docs/microservices.md) and [service map](docs/service-map.md) | Every service's calls and events, and its behavior when a dependency fails |

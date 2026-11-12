@@ -238,4 +238,5 @@ make cms-check                 # live CMS features, a worn bearing's signature, 
 make data-quality-check        # one of each data problem, sent and labelled
 make snapshot-check            # a live minute streamed, frozen, held, and unchanged by late data
 make freshness-check           # live, stale and silent turbines, delay, refusals, and the dashboard
+make fault-stream-check        # a seeded fault over a poor link, matched to the ground truth
 ```

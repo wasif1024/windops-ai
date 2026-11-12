@@ -37,10 +37,11 @@ def as_tenant(statement: str) -> str:
     return sql(f"SELECT set_config('windops.tenant_id', '{TENANT}', false); {statement}")
 
 
-def device_token() -> str:
+def device_token(tenant: str = TENANT, turbine: str = TURBINE) -> str:
+    """A device credential for a check-only turbine, replacing any earlier one."""
     made = kubectl(
         "exec", "deployment/windops-telemetry", "--", "python", "-m", "windops_telemetry.devices",
-        "--replace", f"{TENANT}:{TURBINE}",
+        "--replace", f"{tenant}:{turbine}",
     )  # fmt: skip
     if made.returncode != 0:
         raise RuntimeError(f"Could not make a device credential: {made.stderr.strip()}")

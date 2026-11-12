@@ -5,7 +5,7 @@ the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into module
 between Phases 4 and 5 by [ADR 0006](../adr/0006-azure-aligned-platform-services.md).
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 4, assets and telemetry: M4.10, the Phase 4 exit gate, is next. Phase 4A, Azure alignment, is done: the phase gates passed again on Cilium, and the platform was deployed and proven on Azure ([evidence](phase-04a-exit-gate.md)).
+**Current position:** Phase 5, alarms, detection and cases: M5.1, the Alarm Service, is next. Phase 4, assets and telemetry, is done: a seeded fault profile streams into storage with the correct quality labels ([evidence](phase-04-exit-gate.md)). Phase 4A, Azure alignment, is done: the phase gates passed again on Cilium, and the platform was deployed and proven on Azure ([evidence](phase-04a-exit-gate.md)).
 
 ## How to use this tracker
 
@@ -38,7 +38,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 | 1 | [Platform foundation](#phase-1-platform-foundation) | 11 | Done |
 | 2 | [Data and events](#phase-2-data-and-events) | 9 | Done |
 | 3 | [Identity and tenancy](#phase-3-identity-and-tenancy) | 12 | Done |
-| 4 | [Assets and telemetry](#phase-4-assets-and-telemetry) | 10 | In progress |
+| 4 | [Assets and telemetry](#phase-4-assets-and-telemetry) | 10 | Done |
 | 4A | [Azure alignment](#phase-4a-azure-alignment) | 7 | Done |
 | 5 | [Alarms, detection and cases](#phase-5-alarms-detection-and-cases) | 7 | Not started |
 | 6 | [Deterministic decisions](#phase-6-deterministic-decisions) | 5 | Not started |
@@ -116,7 +116,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 - [x] **M4.7 Telemetry snapshots:** the SRS 7.4 streaming and snapshot contract, with reproducible metadata (FR-TEL-006). Done 2026-11-12: `StreamTurbineTelemetry` streams a window of up to a day with each point's unit and quality, and `CreateTelemetrySnapshot` freezes one with a content hash, a manifest of sources and versions, and a retention hold. `GetTelemetrySnapshot` re-reads and re-hashes it, and `make snapshot-check` proves on the cluster that late data reaches live reads but never a snapshot. Next for the Azure pipeline: deployment settings only from the variable group, and a per-environment settings file for the workloads. Provider keys go to Key Vault, from locked variables, with the agents in Phases 7 and 8.
 - [x] **M4.8 Fleet screens:** fleet overview, turbine detail and telemetry charts (SRS 4.11). Done 2026-11-12: the Fleet overview shows each wind farm and turbine with its status, latest power and wind, and how fresh they are. A turbine's page shows its model, components, all 12 latest readings, and live charts over 5, 15 or 60 minutes, which mark suspect readings and break at missing ones. The Web BFF reads them as the user, through the Telemetry Service's new `GetLatestTelemetry`, and still shows the fleet when telemetry cannot be reached. `make frontend-check` walks it on desktop and phone.
 - [x] **M4.9 Freshness visibility:** Data Freshness dashboard, starting with telemetry delay (SRS 10.3). Done 2026-11-12: the Telemetry Service records each sample's delay as it arrives, and every 15 seconds reads how old each expected turbine's newest sample is, so a turbine that goes quiet shows as `delayed`, `stale` or `silent`. The Data Freshness dashboard shows them with the samples stored and refused, and four alerts cover stale, silent, delayed and refused telemetry. `make freshness-check` proves it on the cluster with a check-only stale turbine. Weather age, document freshness and provider status arrive with M6.3 and Phases 7 and 8.
-- [ ] **M4.10 Exit gate:** a seeded fault profile streams into storage with the correct quality labels.
+- [x] **M4.10 Exit gate:** a seeded fault profile streams into storage with the correct quality labels. Done 2026-11-12, [evidence](phase-04-exit-gate.md): `make fault-stream-check` runs a seeded gearbox fault in real time over a poor link, through the gateway, and every label, gap, rejection and reading matches the simulator's hidden ground truth. `make phase-4-gate` runs it alongside all 10 other Phase 4 checks, and passed in 14 minutes. The Phase 1 and 2 gates and the Phase 3 checks covering what Phase 4 changed passed again. On the way, the Telemetry Service's memory limit went from 192Mi to 384Mi, as measured. Next for the summarizer: a watermark that trails a little, so a sample committed just after a run starts is never passed by.
 
 ## Phase 4A: Azure alignment
 

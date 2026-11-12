@@ -18,7 +18,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check simulator-check telemetry-storage-check cms-check data-quality-check snapshot-check freshness-check servicebus-provision servicebus-check azure-overlay azure-monitoring azure-foundation azure-plan azure-up azure-down azure-destroy azure-platform azure-prove azure-stop-postgres azure-logs azure-pipeline-identity $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate phase-4-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check simulator-check telemetry-storage-check cms-check data-quality-check snapshot-check freshness-check fault-stream-check servicebus-provision servicebus-check azure-overlay azure-monitoring azure-foundation azure-plan azure-up azure-down azure-destroy azure-platform azure-prove azure-stop-postgres azure-logs azure-pipeline-identity $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -200,6 +200,9 @@ snapshot-check: ## Prove reading telemetry and snapshots on the cluster: frozen,
 freshness-check: ## Prove the Data Freshness dashboard and alerts: live, delayed, stale and refused telemetry
 	uv run python -m scripts.checks.fleet.freshness
 
+fault-stream-check: ## Prove a seeded fault profile streams into storage with the right labels, about 15 minutes
+	uv run python -m scripts.checks.fleet.fault_stream
+
 servicebus-provision: ## Create the Service Bus topics and subscriptions, with your az login (ADR 0006)
 	uv run python -m scripts.setup.provision_servicebus
 
@@ -327,6 +330,9 @@ phase-2-gate: ## Check the Phase 2 exit gate on the cluster
 
 phase-3-gate: ## Check the Phase 3 exit gate on the cluster: every check, about 40 minutes
 	uv run python -m scripts.checks.gates.phase_3
+
+phase-4-gate: ## Check the Phase 4 exit gate on the cluster: a seeded fault, then every check, about an hour
+	uv run python -m scripts.checks.gates.phase_4
 
 route-sweep: ## Call every Web BFF route as callers who must be refused, and require each to be
 	uv run python -m scripts.checks.edge.route_sweep
