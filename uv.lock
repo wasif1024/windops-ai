@@ -13,6 +13,7 @@ members = [
     "windops-cache",
     "windops-contracts",
     "windops-events",
+    "windops-fault-detection",
     "windops-grpc",
     "windops-identity",
     "windops-migrations",
@@ -1597,6 +1598,7 @@ dev = [
     { name = "windops-cache" },
     { name = "windops-contracts" },
     { name = "windops-events" },
+    { name = "windops-fault-detection" },
     { name = "windops-grpc" },
     { name = "windops-identity" },
     { name = "windops-migrations" },
@@ -1637,6 +1639,7 @@ dev = [
     { name = "windops-cache", editable = "shared/cache" },
     { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-events", editable = "shared/events" },
+    { name = "windops-fault-detection", editable = "services/fault-detection-service" },
     { name = "windops-grpc", editable = "shared/grpc" },
     { name = "windops-identity", editable = "services/identity-service" },
     { name = "windops-migrations", editable = "shared/migrations" },
@@ -1818,6 +1821,33 @@ requires-dist = [
     { name = "nats-py", specifier = ">=2.16.0" },
     { name = "opentelemetry-api", specifier = ">=1.45.2" },
     { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-resilience", editable = "shared/resilience" },
+]
+
+[[package]]
+name = "windops-fault-detection"
+version = "0.1.0"
+source = { editable = "services/fault-detection-service" }
+dependencies = [
+    { name = "windops-auth" },
+    { name = "windops-contracts" },
+    { name = "windops-events" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-observability" },
+    { name = "windops-outbox" },
+    { name = "windops-resilience" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-events", editable = "shared/events" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-observability", editable = "shared/observability" },
+    { name = "windops-outbox", editable = "shared/outbox" },
     { name = "windops-resilience", editable = "shared/resilience" },
 ]
 

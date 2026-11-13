@@ -3,6 +3,7 @@
 It says which user or service a call is for. The caller's certificate says which service made it.
 """
 
+import contextlib
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -126,6 +127,10 @@ def identity_scope(
     try:
         yield
     finally:
-        _identity.reset(identity_reset)
-        _token.reset(token_reset)
-        _peer.reset(peer_reset)
+        # A stream a client cancels is closed from another context, where these were never set.
+        with contextlib.suppress(ValueError):
+            _identity.reset(identity_reset)
+        with contextlib.suppress(ValueError):
+            _token.reset(token_reset)
+        with contextlib.suppress(ValueError):
+            _peer.reset(peer_reset)

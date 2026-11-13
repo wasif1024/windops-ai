@@ -42,6 +42,14 @@
     "receives": []
   },
   {
+    "name": "windops-fault-detection",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
     "name": "windops-gateway",
     "namespace": "windops-system",
     "events": false,

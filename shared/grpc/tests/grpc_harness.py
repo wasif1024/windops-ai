@@ -96,6 +96,10 @@ async def running_service(
         yield current_identity().tenant_id.encode()
         if request == b"missing":
             raise NotFoundError("Gone mid-stream")
+        if request == b"flood":
+            # Far more than a client that stops reading can take, so the server waits at a yield.
+            for _ in range(20_000):
+                yield b"x" * 4096
         yield b"second"
 
     def register(server: grpc.aio.Server) -> None:

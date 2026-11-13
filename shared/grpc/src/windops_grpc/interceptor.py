@@ -1,5 +1,6 @@
 """Apply identity, tracing, logging, metrics and error mapping to every incoming call."""
 
+import asyncio
 import logging
 import math
 import time
@@ -171,6 +172,11 @@ class ServerContextInterceptor(grpc.aio.ServerInterceptor):
                             yield response
                         span.set_attribute(_STATUS_ATTRIBUTE, grpc.StatusCode.OK.name)
                         self._record(method, grpc.StatusCode.OK, started, context)
+                except asyncio.CancelledError:
+                    # The client went away, or its deadline passed: there is no call to answer.
+                    span.set_attribute(_STATUS_ATTRIBUTE, grpc.StatusCode.CANCELLED.name)
+                    self._record(method, grpc.StatusCode.CANCELLED, started, context)
+                    raise
                 except Exception as error:
                     await self._fail(error, method, context, span, started)
                     raise

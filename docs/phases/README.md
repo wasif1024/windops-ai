@@ -5,7 +5,7 @@ the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into module
 between Phases 4 and 5 by [ADR 0006](../adr/0006-azure-aligned-platform-services.md).
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 5, alarms, detection and cases: M5.2, fault rules, is next. Phase 4, assets and telemetry, is done: a seeded fault profile streams into storage with the correct quality labels ([evidence](phase-04-exit-gate.md)). Phase 4A, Azure alignment, is done: the phase gates passed again on Cilium, and the platform was deployed and proven on Azure ([evidence](phase-04a-exit-gate.md)).
+**Current position:** Phase 5, alarms, detection and cases: M5.3, detection records, is next. Phase 4, assets and telemetry, is done: a seeded fault profile streams into storage with the correct quality labels ([evidence](phase-04-exit-gate.md)). Phase 4A, Azure alignment, is done: the phase gates passed again on Cilium, and the platform was deployed and proven on Azure ([evidence](phase-04a-exit-gate.md)).
 
 ## How to use this tracker
 
@@ -137,7 +137,7 @@ their plan and monthly price are approved.
 ## Phase 5: Alarms, detection and cases
 
 - [x] **M5.1 Alarm Service:** ingestion, states, acknowledgement and change events, with no LLM severity (FR-ALM-001, FR-ALM-002, FR-ALM-003, FR-ALM-004). Done 2026-11-13: each turbine's simulated controller raises and clears alarms on measured thresholds, and sends them to the device route, which queues them as `alarm.reported` ([ADR 0007](../adr/0007-alarms-arrive-through-the-device-route.md)). The Alarm Service makes one alarm an occurrence, with its history, lets operators acknowledge, shelve and unshelve it, and announces each change as `alarm.changed`. Severity comes from the device or the versioned catalogue, and nothing changes it after. `make alarm-check` proves it on the cluster. On the way, internal identities now allow the same 5 seconds of clock difference for when they were issued as for when they expire.
-- [ ] **M5.2 Fault rules:** versioned, audited thresholds, statistics and correlation (FR-FLT-001, FR-FLT-002, FR-FLT-005).
+- [x] **M5.2 Fault rules:** versioned, audited thresholds, statistics and correlation (FR-FLT-001, FR-FLT-002, FR-FLT-005). Done 2026-11-13: the Fault Detection Service evaluates five kinds of rule, among them normal behaviour models for temperature and vibration, and a tenant starts with a default library of 12. Tuned at 1 Hz, it finds every fault scenario, and nothing on a day of the healthy fleet or the healthy high-load turbine. Each change is a new, hashed version that PostgreSQL refuses to alter, made only by a person with `policy.manage` and a recent second factor, and audited. `make fault-rules-check` proves it, with a dry run on a live turbine. On the way, a client giving up on a long stream crashed the service streaming it: fixed in the shared gRPC and identity libraries.
 - [ ] **M5.3 Detection records:** rule version and telemetry snapshot behind every detection, and `fault.detected` events (FR-FLT-003).
 - [ ] **M5.4 Investigation Service:** case lifecycle, deduplication and investigation start (FR-FLT-004, FR-INV-001).
 - [ ] **M5.5 Evidence snapshots:** immutable, hashed manifests, with retention exemption for referenced data (FR-INV-002, EVD-001, EVD-002, EVD-003, EVD-004, EVD-005, EVD-006).

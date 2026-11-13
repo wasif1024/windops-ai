@@ -186,6 +186,52 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: windops-fault-detection
+  namespace: windops-application
+  labels:
+    app.kubernetes.io/name: windops-fault-detection
+    app.kubernetes.io/part-of: windops
+  annotations:
+    azure.workload.identity/client-id: ${AZURE_CLIENT_ID_WINDOPS_FAULT_DETECTION}
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: windops-fault-detection
+  namespace: windops-application
+spec:
+  provider: azure
+  parameters:
+    clientID: ${AZURE_CLIENT_ID_WINDOPS_FAULT_DETECTION}
+    keyvaultName: ${AZURE_KEYVAULT_NAME}
+    tenantId: ${AZURE_TENANT_ID}
+    objects: "array:\n- 'objectName: windops-fault-detection-database--database\n\n\
+      \  objectType: secret\n\n  '\n- 'objectName: windops-fault-detection-database--host\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-fault-detection-database--port\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-fault-detection-database--username\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-internal-identity--signing-key\n\
+      \n  objectType: secret\n\n  '\n"
+  secretObjects:
+  - secretName: windops-fault-detection-database
+    type: Opaque
+    data:
+    - key: database
+      objectName: windops-fault-detection-database--database
+    - key: host
+      objectName: windops-fault-detection-database--host
+    - key: port
+      objectName: windops-fault-detection-database--port
+    - key: username
+      objectName: windops-fault-detection-database--username
+  - secretName: windops-internal-identity
+    type: Opaque
+    data:
+    - key: signing-key
+      objectName: windops-internal-identity--signing-key
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: windops-gateway
   namespace: windops-system
   labels:
