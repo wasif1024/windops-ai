@@ -23,6 +23,19 @@ service InvestigationService {
   // With its detections and its history.
   rpc GetCase(GetCaseRequest) returns (GetCaseResponse);
   rpc CancelCase(CancelCaseRequest) returns (CancelCaseResponse);
+
+  // A case's evidence, frozen (FR-INV-002, EVD-001 to 004): the turbine, its telemetry window,
+  // its alarms, each detection and the exact rule version behind it, each item hashed, and the
+  // snapshot hashed over them all. It never changes once made. A case gets its first when it is
+  // created, and a new version when detections join it, or on request.
+  //
+  // Requesting one needs investigation.create for the case's turbine, and freezes it as the
+  // caller, who must be able to read what it holds. Reading needs investigation.read.
+  rpc CreateEvidenceSnapshot(CreateEvidenceSnapshotRequest) returns (CreateEvidenceSnapshotResponse);
+  // With every item, and whether its hashes still match what it holds.
+  rpc GetEvidenceSnapshot(GetEvidenceSnapshotRequest) returns (GetEvidenceSnapshotResponse);
+  // A case's snapshots, newest version first, without their items.
+  rpc ListEvidenceSnapshots(ListEvidenceSnapshotsRequest) returns (ListEvidenceSnapshotsResponse);
 }
 
 message Case {
@@ -49,6 +62,12 @@ message Case {
   string case_rules_version = 13;
   string cancel_reason = 14;
   int64 version = 15;
+  // The case's newest evidence snapshot, and its version. Empty until the first is frozen.
+  string evidence_snapshot_id = 16;
+  int64 evidence_version = 17;
+  // "pending" while a snapshot is still to be frozen, as when one of its sources cannot be
+  // reached (SRS 7.7), or "ready".
+  string evidence_status = 18;
 }
 
 message CaseDetection {
@@ -115,4 +134,69 @@ message CancelCaseRequest {
 
 message CancelCaseResponse {
   Case case = 1;
+}
+
+// One record a snapshot holds, as it was when frozen (EVD-002).
+message EvidenceItem {
+  // "asset", "telemetry", "alarm" or "fault-detection".
+  string source_service = 1;
+  // "turbine", "telemetry_snapshot", "alarm", "detection" or "fault_rule_version".
+  string record_type = 2;
+  string record_id = 3;
+  string version = 4;
+  // The window it covers, when it has one.
+  google.protobuf.Timestamp window_start = 5;
+  google.protobuf.Timestamp window_end = 6;
+  google.protobuf.Timestamp retrieved_at = 7;
+  // As JSON: for telemetry, each quality label's count, its gaps and rejections; else "{}".
+  string data_quality_json = 8;
+  // The record, frozen, as canonical JSON.
+  string content_json = 9;
+  // sha256 over content_json.
+  string content_hash = 10;
+}
+
+message EvidenceSnapshot {
+  string snapshot_id = 1;
+  string case_id = 2;
+  int64 version = 3;
+  string turbine_id = 4;
+  // sha256 over its header and every item's hash, as hash_format says.
+  string content_hash = 5;
+  // "windops-evidence-snapshot-v1".
+  string hash_format = 6;
+  google.protobuf.Timestamp created_at = 7;
+  // A user, or the service that froze it.
+  string created_by = 8;
+  google.protobuf.Timestamp window_start = 9;
+  google.protobuf.Timestamp window_end = 10;
+  int64 item_count = 11;
+  repeated EvidenceItem items = 12;
+  // True when every hash still matches what it holds.
+  bool verified = 13;
+}
+
+message CreateEvidenceSnapshotRequest {
+  string case_id = 1;
+  string idempotency_key = 2;
+}
+
+message CreateEvidenceSnapshotResponse {
+  EvidenceSnapshot snapshot = 1;
+}
+
+message GetEvidenceSnapshotRequest {
+  string snapshot_id = 1;
+}
+
+message GetEvidenceSnapshotResponse {
+  EvidenceSnapshot snapshot = 1;
+}
+
+message ListEvidenceSnapshotsRequest {
+  string case_id = 1;
+}
+
+message ListEvidenceSnapshotsResponse {
+  repeated EvidenceSnapshot snapshots = 1;
 }

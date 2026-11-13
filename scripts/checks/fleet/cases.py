@@ -10,6 +10,9 @@ turbine due, and proves:
   holding both detections and their snapshots (FR-FLT-004);
 - every change is announced as case.updated, and the case's opening is audited with the service
   that detected it as the actor;
+- the case is bound to frozen evidence (FR-INV-002, EVD-001 to 004): its turbine, its telemetry
+  window frozen by the Telemetry Service, its alarms, both detections and their exact rule
+  versions, every hash verifying, and PostgreSQL refusing to change it;
 - a Control Room Operator may not cancel it, and a Reliability Engineer does, with a reason;
 - a person opens a case of their own, which stands apart (FR-INV-001);
 - another tenant cannot find the case, and row-level security hides it in PostgreSQL.
@@ -30,17 +33,19 @@ from windops.fault_detection.v1 import fault_detection_pb2 as fd
 from windops.fault_detection.v1 import fault_detection_pb2_grpc
 from windops.investigation.v1 import investigation_pb2 as pb
 from windops.investigation.v1 import investigation_pb2_grpc
+from windops.telemetry.v1 import telemetry_pb2, telemetry_pb2_grpc
 
 from scripts.checks.fleet.asset import Caller, bootstrap, signing_key
 from scripts.checks.fleet.detection import TURBINE, check, make_due
 from scripts.checks.fleet.detection import clean_up as clean_up_rules
-from scripts.checks.fleet.telemetry import kubectl
+from scripts.checks.fleet.telemetry import as_tenant, kubectl
 from scripts.lib.tls_client import blocking_channel, client_bundle
 from scripts.setup.gateway_routes import port_forward
 
 APPLICATION, DATA = "windops-application", "windops-data"
 FAULT_HOST = "windops-fault-detection.windops-application.svc.cluster.local"
 HOST = "windops-investigation.windops-application.svc.cluster.local"
+TELEMETRY_HOST = "windops-telemetry.windops-application.svc.cluster.local"
 DATABASE = "windops_investigation"
 TENANT, OTHER = "north-sea", "atlas-wind"
 ADMIN, ENGINEER, OPERATOR = "case-check-admin", "case-check-engineer", "case-check-operator"
@@ -117,6 +122,63 @@ def check_one_case(cases: Caller) -> Any:
     return found
 
 
+def check_evidence(cases: Caller, bundle: Any, key: str, found: Any) -> None:
+    case = found.case
+    for _ in range(24):
+        got = cases.call("GetCase", pb.GetCaseRequest(case_id=case.case_id), ENGINEER, TENANT)
+        case = got.case
+        if case.evidence_status == "ready" and case.evidence_snapshot_id:
+            break
+        time.sleep(5)
+    check(
+        case.evidence_status == "ready",
+        f"The case is bound to evidence, version {case.evidence_version}",
+    )
+    request = pb.GetEvidenceSnapshotRequest(snapshot_id=case.evidence_snapshot_id)
+    snapshot = cases.call("GetEvidenceSnapshot", request, ENGINEER, TENANT).snapshot
+    kinds = sorted({(i.record_type, i.record_id) for i in snapshot.items
+                    if i.record_type != "alarm"})  # fmt: skip
+    rules = {i.record_id.split("@")[0] for i in snapshot.items
+             if i.record_type == "fault_rule_version"}  # fmt: skip
+    check(
+        snapshot.verified and rules >= set(RULES)
+        and {"turbine", "telemetry_snapshot", "detection"} <= {k for k, _ in kinds},
+        f"It holds the turbine, its telemetry, its alarms, its detections and their exact rule "
+        f"versions: {snapshot.item_count} items, every hash verifying",
+    )  # fmt: skip
+    (telemetry,) = [i for i in snapshot.items if i.record_type == "telemetry_snapshot"]
+    with (
+        port_forward("deployment/windops-telemetry", APPLICATION, 50051) as port,
+        blocking_channel(port, TELEMETRY_HOST, bundle) as channel,
+    ):
+        frozen = Caller(telemetry_pb2_grpc.TelemetryServiceStub(channel), key).call(
+            "GetTelemetrySnapshot", telemetry_pb2.GetTelemetrySnapshotRequest(
+                snapshot_id=telemetry.record_id), ENGINEER, TENANT,
+        ).snapshot  # fmt: skip
+    check(
+        frozen.verified and frozen.content_hash == telemetry.version
+        and frozen.created_by == "service:investigation",
+        f"The Telemetry Service froze its {frozen.sample_count} samples, and they verify",
+    )  # fmt: skip
+    snapshot_id = case.evidence_snapshot_id
+    if not snapshot_id.startswith("evs_") or not snapshot_id[4:].isalnum():
+        raise RuntimeError(f"Unexpected snapshot ID: {snapshot_id!r}")
+    changed = kubectl(
+        "exec", "windops-postgres-0", "--", "psql", "--no-psqlrc", "-q", "-At",
+        f"--username={DATABASE}", f"--dbname={DATABASE}", "--set=ON_ERROR_STOP=1",
+        f"--command=SELECT set_config('windops.tenant_id', '{TENANT}', false); UPDATE "  # noqa: S608  # The ID is checked above.
+        f"evidence_items SET content = '{{}}' WHERE snapshot_id = '{snapshot_id}'",
+        namespace=DATA,
+    )  # fmt: skip
+    check(changed.returncode != 0 and "never changes" in changed.stderr,
+          "PostgreSQL refuses to change it, even for the service's own login")  # fmt: skip
+    hidden = sql(
+        f"SELECT count(*) FROM evidence_snapshots WHERE snapshot_id = '{snapshot_id}'",  # noqa: S608
+        tenant=OTHER,
+    )
+    check(hidden == "0", "and row-level security hides it from another tenant")
+
+
 def check_announced(found: Any) -> None:
     case_id = found.case.case_id
     if not case_id.startswith("case_") or not case_id[5:].isalnum():
@@ -158,6 +220,34 @@ def check_people(cases: Caller, found: Any) -> None:
 
 
 def clean_up() -> None:
+    # The check's evidence, and the telemetry its snapshots froze. Constants and IDs read here.
+    frozen = sql(
+        "SELECT coalesce(string_agg(i.record_id, ','), '') FROM evidence_items i JOIN "  # noqa: S608
+        "evidence_snapshots s USING (tenant_id, snapshot_id) WHERE i.record_type = "
+        "'telemetry_snapshot' AND s.case_id IN (SELECT case_id FROM case_detections WHERE "
+        f"rule_id LIKE '{PREFIX}%' UNION SELECT case_id FROM cases WHERE title LIKE 'Case check %')"
+    )
+    for snapshot_id in filter(None, frozen.split(",")):
+        if snapshot_id.startswith("tsnap_") and snapshot_id[6:].isalnum():
+            as_tenant(TENANT, (
+                f"DELETE FROM snapshot_samples WHERE snapshot_id = '{snapshot_id}'; "  # noqa: S608
+                "DELETE FROM retention_holds WHERE hold_id IN (SELECT hold_id FROM "
+                f"telemetry_snapshots WHERE snapshot_id = '{snapshot_id}'); "
+                f"DELETE FROM telemetry_snapshots WHERE snapshot_id = '{snapshot_id}'; SELECT 1"
+            ))  # fmt: skip
+    mine = (
+        f"(SELECT case_id FROM case_detections WHERE rule_id LIKE '{PREFIX}%' "  # noqa: S608
+        "UNION SELECT case_id FROM cases WHERE title LIKE 'Case check %')"
+    )
+    sql(
+        "ALTER TABLE evidence_items DISABLE TRIGGER evidence_items_never_change; "  # noqa: S608
+        "ALTER TABLE evidence_snapshots DISABLE TRIGGER evidence_snapshots_never_change; "
+        "DELETE FROM evidence_items WHERE snapshot_id IN (SELECT snapshot_id FROM "
+        f"evidence_snapshots WHERE case_id IN {mine}); "
+        f"DELETE FROM evidence_snapshots WHERE case_id IN {mine}; "
+        "ALTER TABLE evidence_items ENABLE TRIGGER evidence_items_never_change; "
+        "ALTER TABLE evidence_snapshots ENABLE TRIGGER evidence_snapshots_never_change; SELECT 1"
+    )
     sql(
         "DELETE FROM case_history WHERE case_id IN (SELECT case_id FROM case_detections "  # noqa: S608
         f"WHERE rule_id LIKE '{PREFIX}%') OR case_id IN (SELECT case_id FROM cases WHERE "
@@ -187,6 +277,7 @@ def main() -> int:
             publish_rules(rules)
             make_due()
             found = check_one_case(cases)
+            check_evidence(cases, bundle, key, found)
             check_announced(found)
             check_people(cases, found)
             for rule_id in RULES:

@@ -66,6 +66,21 @@ class InvestigationServiceStub:
                 request_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CancelCaseRequest.SerializeToString,
                 response_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CancelCaseResponse.FromString,
                 _registered_method=True)
+        self.CreateEvidenceSnapshot = channel.unary_unary(
+                '/windops.investigation.v1.InvestigationService/CreateEvidenceSnapshot',
+                request_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CreateEvidenceSnapshotRequest.SerializeToString,
+                response_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CreateEvidenceSnapshotResponse.FromString,
+                _registered_method=True)
+        self.GetEvidenceSnapshot = channel.unary_unary(
+                '/windops.investigation.v1.InvestigationService/GetEvidenceSnapshot',
+                request_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.GetEvidenceSnapshotRequest.SerializeToString,
+                response_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.GetEvidenceSnapshotResponse.FromString,
+                _registered_method=True)
+        self.ListEvidenceSnapshots = channel.unary_unary(
+                '/windops.investigation.v1.InvestigationService/ListEvidenceSnapshots',
+                request_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ListEvidenceSnapshotsRequest.SerializeToString,
+                response_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ListEvidenceSnapshotsResponse.FromString,
+                _registered_method=True)
 
 
 class InvestigationServiceServicer:
@@ -109,6 +124,33 @@ class InvestigationServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CreateEvidenceSnapshot(self, request, context):
+        """A case's evidence, frozen (FR-INV-002, EVD-001 to 004): the turbine, its telemetry window,
+        its alarms, each detection and the exact rule version behind it, each item hashed, and the
+        snapshot hashed over them all. It never changes once made. A case gets its first when it is
+        created, and a new version when detections join it, or on request.
+
+        Requesting one needs investigation.create for the case's turbine, and freezes it as the
+        caller, who must be able to read what it holds. Reading needs investigation.read.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetEvidenceSnapshot(self, request, context):
+        """With every item, and whether its hashes still match what it holds.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListEvidenceSnapshots(self, request, context):
+        """A case's snapshots, newest version first, without their items.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_InvestigationServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -131,6 +173,21 @@ def add_InvestigationServiceServicer_to_server(servicer, server):
                     servicer.CancelCase,
                     request_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CancelCaseRequest.FromString,
                     response_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CancelCaseResponse.SerializeToString,
+            ),
+            'CreateEvidenceSnapshot': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateEvidenceSnapshot,
+                    request_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CreateEvidenceSnapshotRequest.FromString,
+                    response_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CreateEvidenceSnapshotResponse.SerializeToString,
+            ),
+            'GetEvidenceSnapshot': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetEvidenceSnapshot,
+                    request_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.GetEvidenceSnapshotRequest.FromString,
+                    response_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.GetEvidenceSnapshotResponse.SerializeToString,
+            ),
+            'ListEvidenceSnapshots': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListEvidenceSnapshots,
+                    request_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ListEvidenceSnapshotsRequest.FromString,
+                    response_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ListEvidenceSnapshotsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -253,6 +310,87 @@ class InvestigationService:
             '/windops.investigation.v1.InvestigationService/CancelCase',
             windops_dot_investigation_dot_v1_dot_investigation__pb2.CancelCaseRequest.SerializeToString,
             windops_dot_investigation_dot_v1_dot_investigation__pb2.CancelCaseResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateEvidenceSnapshot(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.investigation.v1.InvestigationService/CreateEvidenceSnapshot',
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.CreateEvidenceSnapshotRequest.SerializeToString,
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.CreateEvidenceSnapshotResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetEvidenceSnapshot(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.investigation.v1.InvestigationService/GetEvidenceSnapshot',
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.GetEvidenceSnapshotRequest.SerializeToString,
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.GetEvidenceSnapshotResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListEvidenceSnapshots(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.investigation.v1.InvestigationService/ListEvidenceSnapshots',
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.ListEvidenceSnapshotsRequest.SerializeToString,
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.ListEvidenceSnapshotsResponse.FromString,
             options,
             channel_credentials,
             insecure,

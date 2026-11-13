@@ -19,6 +19,7 @@ service:
 | Service | Grants |
 | --- | --- |
 | `fault-detection` | `turbine.read`, `telemetry.read`, `alarm.read` |
+| `investigation` | `turbine.read`, `telemetry.read`, `alarm.read`, `policy.read`, `investigation.read`, to freeze each case's evidence (M5.5) |
 
 Every grant is tenant-wide, and only in the tenant the identity names. A service is never allowed across tenants,
 never a `.manage` permission, and never an approval. A test fails if a grant that is not `.read` is ever added. A

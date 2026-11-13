@@ -13,9 +13,12 @@ from nats.js.errors import APIError
 from opentelemetry import metrics
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
+from windops.alarm.v1 import alarm_pb2_grpc
 from windops.asset.v1 import asset_pb2_grpc
 from windops.authorization.v1 import authorization_pb2_grpc
+from windops.fault_detection.v1 import fault_detection_pb2_grpc
 from windops.investigation.v1 import investigation_pb2_grpc
+from windops.telemetry.v1 import telemetry_pb2_grpc
 from windops_auth import current_identity_token
 from windops_events import Event, Events, EventsUnavailableError, open_events
 from windops_grpc import ServiceClient, create_channel, run_service
@@ -25,9 +28,11 @@ from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, CircuitBreaker
 
 from windops_investigation.consumer import SUBJECT, handle
+from windops_investigation.evidence import Builder, keep_building
 from windops_investigation.service import (
     AssetClient,
     AuthorizationClient,
+    EvidenceSources,
     InvestigationService,
 )
 from windops_investigation.store import SERVICE_NAME
@@ -89,10 +94,10 @@ class _Lazy:
         return getattr(self._made, name)
 
 
-def _client(dependency: str) -> ServiceClient:
+def _client(dependency: str, slow_call_seconds: float = 1.0) -> ServiceClient:
     breaker = CircuitBreaker(
         dependency,
-        BreakerConfig(slow_call_seconds=1.0),
+        BreakerConfig(slow_call_seconds=slow_call_seconds),
         on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
     )
     # The caller's own identity goes along, so the other service decides for them.
@@ -119,6 +124,29 @@ def main() -> None:
         )
     )
 
+    def stub(make: Any, setting: str) -> Any:
+        return make(create_channel(os.environ[setting], tls))
+
+    sources = _Lazy(
+        lambda: EvidenceSources(
+            assets,
+            {
+                "telemetry": stub(telemetry_pb2_grpc.TelemetryServiceStub,
+                                  "WINDOPS_TELEMETRY_ADDRESS"),
+                "alarm": stub(alarm_pb2_grpc.AlarmServiceStub, "WINDOPS_ALARM_ADDRESS"),
+                "fault-detection": stub(fault_detection_pb2_grpc.FaultRuleServiceStub,
+                                        "WINDOPS_FAULT_DETECTION_ADDRESS"),
+            },
+            {
+                # Freezing a day of telemetry is a long call, not a slow one.
+                "telemetry": _client("telemetry", slow_call_seconds=45.0),
+                "alarm": _client("alarm"),
+                "fault-detection": _client("fault-detection"),
+            },
+        )
+    )  # fmt: skip
+    builder = Builder(engine, sources, os.environ["WINDOPS_IDENTITY_SECRET"])
+
     async def database_ready() -> bool:
         async with engine.connect() as connection:
             await connection.execute(text("SELECT 1"))
@@ -126,18 +154,21 @@ def main() -> None:
 
     def register(server: grpc.aio.Server) -> None:
         investigation_pb2_grpc.add_InvestigationServiceServicer_to_server(
-            InvestigationService(engine, authorizer, assets), server
+            InvestigationService(engine, authorizer, assets, sources=sources), server
         )
 
     async def consume(stop: asyncio.Event) -> None:
         await consume_and_relay(engine, stop)
+
+    async def build(stop: asyncio.Event) -> None:
+        await keep_building(builder, stop)
 
     asyncio.run(
         run_service(
             SERVICE_NAME,
             register,
             readiness_checks=(database_ready,),
-            background=(consume,),
+            background=(consume, build),
         )
     )
 

@@ -51,6 +51,19 @@ class InvestigationServiceStub:
     GetCase: _grpc.UnaryUnaryMultiCallable[_investigation_pb2.GetCaseRequest, _investigation_pb2.GetCaseResponse]
     """With its detections and its history."""
     CancelCase: _grpc.UnaryUnaryMultiCallable[_investigation_pb2.CancelCaseRequest, _investigation_pb2.CancelCaseResponse]
+    CreateEvidenceSnapshot: _grpc.UnaryUnaryMultiCallable[_investigation_pb2.CreateEvidenceSnapshotRequest, _investigation_pb2.CreateEvidenceSnapshotResponse]
+    """A case's evidence, frozen (FR-INV-002, EVD-001 to 004): the turbine, its telemetry window,
+    its alarms, each detection and the exact rule version behind it, each item hashed, and the
+    snapshot hashed over them all. It never changes once made. A case gets its first when it is
+    created, and a new version when detections join it, or on request.
+
+    Requesting one needs investigation.create for the case's turbine, and freezes it as the
+    caller, who must be able to read what it holds. Reading needs investigation.read.
+    """
+    GetEvidenceSnapshot: _grpc.UnaryUnaryMultiCallable[_investigation_pb2.GetEvidenceSnapshotRequest, _investigation_pb2.GetEvidenceSnapshotResponse]
+    """With every item, and whether its hashes still match what it holds."""
+    ListEvidenceSnapshots: _grpc.UnaryUnaryMultiCallable[_investigation_pb2.ListEvidenceSnapshotsRequest, _investigation_pb2.ListEvidenceSnapshotsResponse]
+    """A case's snapshots, newest version first, without their items."""
 
 @_typing.type_check_only
 class InvestigationServiceAsyncStub(InvestigationServiceStub):
@@ -75,6 +88,19 @@ class InvestigationServiceAsyncStub(InvestigationServiceStub):
     GetCase: _aio.UnaryUnaryMultiCallable[_investigation_pb2.GetCaseRequest, _investigation_pb2.GetCaseResponse]  # type: ignore[assignment]
     """With its detections and its history."""
     CancelCase: _aio.UnaryUnaryMultiCallable[_investigation_pb2.CancelCaseRequest, _investigation_pb2.CancelCaseResponse]  # type: ignore[assignment]
+    CreateEvidenceSnapshot: _aio.UnaryUnaryMultiCallable[_investigation_pb2.CreateEvidenceSnapshotRequest, _investigation_pb2.CreateEvidenceSnapshotResponse]  # type: ignore[assignment]
+    """A case's evidence, frozen (FR-INV-002, EVD-001 to 004): the turbine, its telemetry window,
+    its alarms, each detection and the exact rule version behind it, each item hashed, and the
+    snapshot hashed over them all. It never changes once made. A case gets its first when it is
+    created, and a new version when detections join it, or on request.
+
+    Requesting one needs investigation.create for the case's turbine, and freezes it as the
+    caller, who must be able to read what it holds. Reading needs investigation.read.
+    """
+    GetEvidenceSnapshot: _aio.UnaryUnaryMultiCallable[_investigation_pb2.GetEvidenceSnapshotRequest, _investigation_pb2.GetEvidenceSnapshotResponse]  # type: ignore[assignment]
+    """With every item, and whether its hashes still match what it holds."""
+    ListEvidenceSnapshots: _aio.UnaryUnaryMultiCallable[_investigation_pb2.ListEvidenceSnapshotsRequest, _investigation_pb2.ListEvidenceSnapshotsResponse]  # type: ignore[assignment]
+    """A case's snapshots, newest version first, without their items."""
 
 class InvestigationServiceServicer(metaclass=_abc_1.ABCMeta):
     """Investigation cases: what is being looked into on a turbine, and why (FR-INV-001, FR-FLT-004).
@@ -120,5 +146,36 @@ class InvestigationServiceServicer(metaclass=_abc_1.ABCMeta):
         request: _investigation_pb2.CancelCaseRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_investigation_pb2.CancelCaseResponse, _abc.Awaitable[_investigation_pb2.CancelCaseResponse]]: ...
+
+    @_abc_1.abstractmethod
+    def CreateEvidenceSnapshot(
+        self,
+        request: _investigation_pb2.CreateEvidenceSnapshotRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_investigation_pb2.CreateEvidenceSnapshotResponse, _abc.Awaitable[_investigation_pb2.CreateEvidenceSnapshotResponse]]:
+        """A case's evidence, frozen (FR-INV-002, EVD-001 to 004): the turbine, its telemetry window,
+        its alarms, each detection and the exact rule version behind it, each item hashed, and the
+        snapshot hashed over them all. It never changes once made. A case gets its first when it is
+        created, and a new version when detections join it, or on request.
+
+        Requesting one needs investigation.create for the case's turbine, and freezes it as the
+        caller, who must be able to read what it holds. Reading needs investigation.read.
+        """
+
+    @_abc_1.abstractmethod
+    def GetEvidenceSnapshot(
+        self,
+        request: _investigation_pb2.GetEvidenceSnapshotRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_investigation_pb2.GetEvidenceSnapshotResponse, _abc.Awaitable[_investigation_pb2.GetEvidenceSnapshotResponse]]:
+        """With every item, and whether its hashes still match what it holds."""
+
+    @_abc_1.abstractmethod
+    def ListEvidenceSnapshots(
+        self,
+        request: _investigation_pb2.ListEvidenceSnapshotsRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_investigation_pb2.ListEvidenceSnapshotsResponse, _abc.Awaitable[_investigation_pb2.ListEvidenceSnapshotsResponse]]:
+        """A case's snapshots, newest version first, without their items."""
 
 def add_InvestigationServiceServicer_to_server(servicer: InvestigationServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

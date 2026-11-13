@@ -22,7 +22,6 @@ import contextlib
 import json
 import logging
 import uuid
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
@@ -31,11 +30,9 @@ from sqlalchemy import or_, select, update
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from windops.events.v1 import events_pb2
-from windops_auth import identity_scope, sign_identity
 from windops_events import Event, InvalidEventError
-from windops_grpc import DomainError, VerifiedIdentity
+from windops_grpc import DomainError, acting_as_service, service_subject
 from windops_migrations import across_tenants, in_tenant
-from windops_observability import tenant_context
 from windops_outbox import add_event
 
 from windops_fault_detection import engine, library
@@ -46,7 +43,7 @@ SUBJECT = "telemetry.received"
 # Only the Telemetry Service may say a turbine's telemetry arrived.
 PRODUCER = "telemetry"
 DETECTED_SUBJECT = "fault.detected"
-SERVICE_SUBJECT = f"service:{SERVICE_NAME}"
+SERVICE_SUBJECT = service_subject(SERVICE_NAME)
 # A turbine whose telemetry stopped this long ago is no longer evaluated.
 STREAMING_WITHIN = timedelta(minutes=15)
 # Samples reach storage within seconds, so the window ends a little before now.
@@ -99,15 +96,6 @@ async def watch(engine_: AsyncEngine, event: Event, now: datetime | None = None)
         )
 
 
-@contextlib.contextmanager
-def acting_as_service(tenant: str, secret: str) -> Iterator[None]:
-    """Calls made inside go out as the Fault Detection Service itself, in this tenant."""
-    identity = VerifiedIdentity(subject=SERVICE_SUBJECT, tenant_id=tenant)
-    token = sign_identity(identity, secret, ttl_seconds=120)
-    with identity_scope(identity, token), tenant_context(tenant):
-        yield
-
-
 class Detector:
     def __init__(
         self, engine_: AsyncEngine, sources: Sources, secret: str, interval: timedelta,
@@ -156,7 +144,7 @@ class Detector:
         due = await self.due(now)
         for tenant, turbine in due:
             try:
-                with acting_as_service(tenant, self.secret):
+                with acting_as_service(SERVICE_NAME, tenant, self.secret):
                     await self.evaluate(tenant, turbine, now)
             except DomainError as error:
                 # An owner could not be reached, or the turbine is gone: tried again next time.

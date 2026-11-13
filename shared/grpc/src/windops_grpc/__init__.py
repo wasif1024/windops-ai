@@ -18,6 +18,7 @@ from windops_grpc.identity import (
 )
 from windops_grpc.interceptor import ServerContextInterceptor
 from windops_grpc.runtime import ServiceRuntime, run_service
+from windops_grpc.service_identity import acting_as_service, service_subject
 from windops_grpc.settings import Settings, SettingsError
 from windops_grpc.tls import create_channel
 
@@ -35,10 +36,12 @@ __all__ = [
     "SettingsError",
     "UnavailableError",
     "VerifiedIdentity",
+    "acting_as_service",
     "create_channel",
     "current_identity",
     "outgoing_metadata",
     "run_service",
+    "service_subject",
     "sign_identity",
     "verify_identity",
 ]
