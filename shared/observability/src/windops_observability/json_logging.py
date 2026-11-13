@@ -1,5 +1,6 @@
 """Write structured JSON logs, with the fields required by OBS-001."""
 
+import contextlib
 import json
 import logging
 import sys
@@ -46,7 +47,9 @@ def tenant_context(tenant_id: str) -> Iterator[None]:
     try:
         yield
     finally:
-        _tenant_id.reset(token)
+        # A stream a client cancels is closed from another context, where this was never set.
+        with contextlib.suppress(ValueError):
+            _tenant_id.reset(token)
 
 
 class JsonFormatter(logging.Formatter):

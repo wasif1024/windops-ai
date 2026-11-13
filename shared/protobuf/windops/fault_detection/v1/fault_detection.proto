@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package windops.fault_detection.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Deterministic fault rules, and what they find in a turbine's recent telemetry and alarms
+// (FR-FLT-001, FR-FLT-002, FR-FLT-005).
+//
+// A rule is a kind, its parameters and its severity levels, as JSON. Every change is a new
+// version, kept for ever with who made it, when and why, and its content hash. An old version
+// never changes. A finding's severity comes only from its rule's levels: nothing else, and never a
+// model, sets or raises it.
+//
+// The tenant comes from the caller's verified identity (GRP-004). Reading rules needs
+// policy.read. Changing one needs policy.manage and a recent second factor (SEC-003), so only a
+// person can, never an agent or a service. Each change is audited, and may be retried with the
+// same idempotency_key (GRP-007). A tenant starts with the default library, as version 1 of each.
+service FaultRuleService {
+  rpc ListFaultRules(ListFaultRulesRequest) returns (ListFaultRulesResponse);
+  // With every version.
+  rpc GetFaultRule(GetFaultRuleRequest) returns (GetFaultRuleResponse);
+  // A new rule, or a new version of one. Refused unless the definition can be evaluated exactly.
+  rpc PublishFaultRuleVersion(PublishFaultRuleVersionRequest) returns (PublishFaultRuleVersionResponse);
+  rpc SetFaultRuleEnabled(SetFaultRuleEnabledRequest) returns (SetFaultRuleEnabledResponse);
+  // Runs every enabled rule against a turbine's recent telemetry and alarms, and records nothing.
+  // The caller must be able to read the turbine, its telemetry and its alarms.
+  rpc EvaluateTurbine(EvaluateTurbineRequest) returns (EvaluateTurbineResponse);
+}
+
+message FaultRuleVersion {
+  string rule_id = 1;
+  int64 version = 2;
+  // "threshold", "residual", "rolling_zscore", "alarm_correlation" or "data_gap".
+  string kind = 3;
+  // {"kind": ..., "parameters": {...}, "levels": [{"at": ..., "severity": ...}]}, canonical.
+  string definition_json = 4;
+  // sha256 of "windops-fault-rule-v1|<rule_id>|<version>|<definition_json>".
+  string content_hash = 5;
+  // A user, or "system" for the default library.
+  string created_by = 6;
+  google.protobuf.Timestamp created_at = 7;
+  string reason = 8;
+}
+
+message FaultRule {
+  // Lowercase letters, digits and hyphens, such as "gearbox-oil-residual".
+  string rule_id = 1;
+  string name = 2;
+  string description = 3;
+  bool enabled = 4;
+  FaultRuleVersion current = 5;
+}
+
+message ListFaultRulesRequest {}
+
+message ListFaultRulesResponse {
+  repeated FaultRule rules = 1;
+  // The default library the tenant started from, such as "fault-rules-1".
+  string library = 2;
+}
+
+message GetFaultRuleRequest {
+  string rule_id = 1;
+}
+
+message GetFaultRuleResponse {
+  FaultRule rule = 1;
+  // Oldest first.
+  repeated FaultRuleVersion versions = 2;
+}
+
+message PublishFaultRuleVersionRequest {
+  string rule_id = 1;
+  string name = 2;
+  string description = 3;
+  string definition_json = 4;
+  // Why, for whoever reviews it. Required.
+  string reason = 5;
+  // The version this replaces, or 0 for a new rule, so two people cannot overwrite each other.
+  int64 expected_version = 6;
+  string idempotency_key = 7;
+}
+
+message PublishFaultRuleVersionResponse {
+  FaultRule rule = 1;
+}
+
+message SetFaultRuleEnabledRequest {
+  string rule_id = 1;
+  bool enabled = 2;
+  string reason = 3;
+  string idempotency_key = 4;
+}
+
+message SetFaultRuleEnabledResponse {
+  FaultRule rule = 1;
+}
+
+message EvaluateTurbineRequest {
+  string turbine_id = 1;
+  // The end of the window. Empty means now.
+  google.protobuf.Timestamp at = 2;
+}
+
+message Finding {
+  string rule_id = 1;
+  int64 version = 2;
+  string kind = 3;
+  // "low", "medium", "high" or "critical", from the rule's levels.
+  string severity = 4;
+  // The figure the severity came from, in the rule's own units.
+  double amount = 5;
+  string summary = 6;
+  // Every value the finding rests on.
+  string observed_json = 7;
+  google.protobuf.Timestamp since = 8;
+}
+
+message EvaluateTurbineResponse {
+  string turbine_id = 1;
+  google.protobuf.Timestamp window_start = 2;
+  google.protobuf.Timestamp window_end = 3;
+  repeated Finding findings = 4;
+  // How many samples and alarms the rules saw.
+  int64 sample_count = 5;
+  int64 alarm_count = 6;
+}

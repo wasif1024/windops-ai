@@ -181,7 +181,7 @@ only read access unless it needs more.
 | 3. Identity and tenancy | Done, with a sweep of every route and 17 checks at its gate |
 | 4A. Azure alignment | Done, [deployed and proven on Azure](docs/phases/phase-04a-exit-gate.md) |
 | 4. Assets and telemetry | Done, [exit gate](docs/phases/phase-04-exit-gate.md) |
-| 5. Alarms, detection and cases | In progress: 1 of 7 modules, M5.2 next |
+| 5. Alarms, detection and cases | In progress: 2 of 7 modules, M5.3 next |
 
 | Running today | |
 | --- | --- |

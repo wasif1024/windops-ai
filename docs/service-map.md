@@ -141,7 +141,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | Asset | None | `evidence.changed`, audit events | None |
 | Telemetry | Asset | `telemetry.received`, `telemetry.quality`, and `alarm.reported` for each alarm a device sends | None |
 | Alarm | Asset, for a reader's wind farms | `alarm.changed`, audit events | `alarm.reported` |
-| Fault Detection | Telemetry | `fault.detected`, audit events | `telemetry.received`, `telemetry.quality`, `alarm.changed` |
+| Fault Detection | Telemetry, Alarm and Asset, for a turbine's window | `fault.detected`, audit events | `telemetry.received`, `telemetry.quality`, `alarm.changed` |
 | Investigation | Telemetry, Alarm, Asset | `case.updated`, queued runs, audit events | `fault.detected`, `alarm.changed`, `evidence.changed`, `workorder.completed` |
 | Agent Runtime | MCP servers, Agent Sandbox Adapter, Claude | Audit events | Queued runs, `approval.decided` |
 | Agent Sandbox Adapter | LangSmith Sandbox | None. Agent Runtime records sandbox use | None |

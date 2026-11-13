@@ -12,6 +12,7 @@ patches:
 - path: patches/windops-asset.yaml
 - path: patches/windops-audit.yaml
 - path: patches/windops-authorization.yaml
+- path: patches/windops-fault-detection.yaml
 - path: patches/windops-gateway.yaml
 - path: patches/windops-identity.yaml
 - path: patches/windops-sample-caller.yaml

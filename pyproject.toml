@@ -15,6 +15,7 @@ members = [
     "services/asset-service",
     "services/audit-service",
     "services/authorization-service",
+    "services/fault-detection-service",
     "services/identity-service",
     "services/sample-caller-service",
     "services/sample-responder-service",
@@ -54,6 +55,7 @@ windops-web-bff = { workspace = true }
 windops-asset = { workspace = true }
 windops-telemetry = { workspace = true }
 windops-alarm = { workspace = true }
+windops-fault-detection = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -83,6 +85,8 @@ files = [
     "services/audit-service/tests",
     "services/authorization-service/src",
     "services/authorization-service/tests",
+    "services/fault-detection-service/src",
+    "services/fault-detection-service/tests",
     "services/identity-service/src",
     "services/identity-service/tests",
     "services/sample-caller-service/src",
@@ -125,6 +129,8 @@ mypy_path = [
     "services/audit-service/tests",
     "services/authorization-service/src",
     "services/authorization-service/tests",
+    "services/fault-detection-service/src",
+    "services/fault-detection-service/tests",
     "services/identity-service/src",
     "services/identity-service/tests",
     "services/sample-caller-service/src",
@@ -207,6 +213,7 @@ dev = [
     "windops-cache",
     "windops-contracts",
     "windops-events",
+    "windops-fault-detection",
     "windops-grpc",
     "windops-identity",
     "windops-migrations",

@@ -142,6 +142,28 @@ def test_streaming_error_is_mapped_after_partial_results() -> None:
     asyncio.run(scenario())
 
 
+def test_a_stream_the_client_gives_up_on_ends_quietly(caplog: pytest.LogCaptureFixture) -> None:
+    """The client stops reading, and its deadline passes while the server waits to send: no
+    unexpected error, and the service keeps answering."""
+
+    async def scenario() -> None:
+        async with running_service() as harness:
+            logging.getLogger().addHandler(caplog.handler)
+            call = harness.stream("Numbers")(b"flood", timeout=1, metadata=GOOD)
+            with pytest.raises(grpc.aio.AioRpcError) as caught:
+                async for _ in call:
+                    await asyncio.sleep(2)
+            assert caught.value.code() is grpc.StatusCode.DEADLINE_EXCEEDED
+            # Give the server a moment to close its side.
+            await asyncio.sleep(1)
+            again = harness.stream("Numbers")(b"go", timeout=5, metadata=GOOD)
+            assert [item async for item in again] == [b"tenant-a", b"second"]
+
+    asyncio.run(scenario())
+    unexpected = [r for r in caplog.records if r.message == "Call raised an unexpected error"]
+    assert unexpected == []
+
+
 def test_trace_context_continues_from_the_caller() -> None:
     trace_id = "0af7651916cd43dd8448eb211c80319c"
     metadata = (*GOOD, ("traceparent", f"00-{trace_id}-b7ad6b7169203331-01"))
