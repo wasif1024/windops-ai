@@ -71,6 +71,16 @@ class FaultRuleServiceStub:
                 request_serializer=windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.EvaluateTurbineRequest.SerializeToString,
                 response_deserializer=windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.EvaluateTurbineResponse.FromString,
                 _registered_method=True)
+        self.ListDetections = channel.unary_unary(
+                '/windops.fault_detection.v1.FaultRuleService/ListDetections',
+                request_serializer=windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.ListDetectionsRequest.SerializeToString,
+                response_deserializer=windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.ListDetectionsResponse.FromString,
+                _registered_method=True)
+        self.GetDetection = channel.unary_unary(
+                '/windops.fault_detection.v1.FaultRuleService/GetDetection',
+                request_serializer=windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.GetDetectionRequest.SerializeToString,
+                response_deserializer=windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.GetDetectionResponse.FromString,
+                _registered_method=True)
 
 
 class FaultRuleServiceServicer:
@@ -122,6 +132,21 @@ class FaultRuleServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListDetections(self, request, context):
+        """What the detector found (FR-FLT-003): open ones by default, most severe and newest first.
+        Each holds the exact rule version it used and the telemetry snapshot it saw. Needs
+        investigation.read for the turbine's wind farm or the turbine.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetDetection(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_FaultRuleServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -149,6 +174,16 @@ def add_FaultRuleServiceServicer_to_server(servicer, server):
                     servicer.EvaluateTurbine,
                     request_deserializer=windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.EvaluateTurbineRequest.FromString,
                     response_serializer=windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.EvaluateTurbineResponse.SerializeToString,
+            ),
+            'ListDetections': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListDetections,
+                    request_deserializer=windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.ListDetectionsRequest.FromString,
+                    response_serializer=windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.ListDetectionsResponse.SerializeToString,
+            ),
+            'GetDetection': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetDetection,
+                    request_deserializer=windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.GetDetectionRequest.FromString,
+                    response_serializer=windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.GetDetectionResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -298,6 +333,60 @@ class FaultRuleService:
             '/windops.fault_detection.v1.FaultRuleService/EvaluateTurbine',
             windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.EvaluateTurbineRequest.SerializeToString,
             windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.EvaluateTurbineResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListDetections(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.fault_detection.v1.FaultRuleService/ListDetections',
+            windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.ListDetectionsRequest.SerializeToString,
+            windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.ListDetectionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetDetection(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.fault_detection.v1.FaultRuleService/GetDetection',
+            windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.GetDetectionRequest.SerializeToString,
+            windops_dot_fault__detection_dot_v1_dot_fault__detection__pb2.GetDetectionResponse.FromString,
             options,
             channel_credentials,
             insecure,

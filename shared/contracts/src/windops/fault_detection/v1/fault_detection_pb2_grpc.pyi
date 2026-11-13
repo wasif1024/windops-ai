@@ -55,6 +55,12 @@ class FaultRuleServiceStub:
     """Runs every enabled rule against a turbine's recent telemetry and alarms, and records nothing.
     The caller must be able to read the turbine, its telemetry and its alarms.
     """
+    ListDetections: _grpc.UnaryUnaryMultiCallable[_fault_detection_pb2.ListDetectionsRequest, _fault_detection_pb2.ListDetectionsResponse]
+    """What the detector found (FR-FLT-003): open ones by default, most severe and newest first.
+    Each holds the exact rule version it used and the telemetry snapshot it saw. Needs
+    investigation.read for the turbine's wind farm or the turbine.
+    """
+    GetDetection: _grpc.UnaryUnaryMultiCallable[_fault_detection_pb2.GetDetectionRequest, _fault_detection_pb2.GetDetectionResponse]
 
 @_typing.type_check_only
 class FaultRuleServiceAsyncStub(FaultRuleServiceStub):
@@ -83,6 +89,12 @@ class FaultRuleServiceAsyncStub(FaultRuleServiceStub):
     """Runs every enabled rule against a turbine's recent telemetry and alarms, and records nothing.
     The caller must be able to read the turbine, its telemetry and its alarms.
     """
+    ListDetections: _aio.UnaryUnaryMultiCallable[_fault_detection_pb2.ListDetectionsRequest, _fault_detection_pb2.ListDetectionsResponse]  # type: ignore[assignment]
+    """What the detector found (FR-FLT-003): open ones by default, most severe and newest first.
+    Each holds the exact rule version it used and the telemetry snapshot it saw. Needs
+    investigation.read for the turbine's wind farm or the turbine.
+    """
+    GetDetection: _aio.UnaryUnaryMultiCallable[_fault_detection_pb2.GetDetectionRequest, _fault_detection_pb2.GetDetectionResponse]  # type: ignore[assignment]
 
 class FaultRuleServiceServicer(metaclass=_abc_1.ABCMeta):
     """Deterministic fault rules, and what they find in a turbine's recent telemetry and alarms
@@ -138,5 +150,23 @@ class FaultRuleServiceServicer(metaclass=_abc_1.ABCMeta):
         """Runs every enabled rule against a turbine's recent telemetry and alarms, and records nothing.
         The caller must be able to read the turbine, its telemetry and its alarms.
         """
+
+    @_abc_1.abstractmethod
+    def ListDetections(
+        self,
+        request: _fault_detection_pb2.ListDetectionsRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_fault_detection_pb2.ListDetectionsResponse, _abc.Awaitable[_fault_detection_pb2.ListDetectionsResponse]]:
+        """What the detector found (FR-FLT-003): open ones by default, most severe and newest first.
+        Each holds the exact rule version it used and the telemetry snapshot it saw. Needs
+        investigation.read for the turbine's wind farm or the turbine.
+        """
+
+    @_abc_1.abstractmethod
+    def GetDetection(
+        self,
+        request: _fault_detection_pb2.GetDetectionRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_fault_detection_pb2.GetDetectionResponse, _abc.Awaitable[_fault_detection_pb2.GetDetectionResponse]]: ...
 
 def add_FaultRuleServiceServicer_to_server(servicer: FaultRuleServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

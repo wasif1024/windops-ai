@@ -181,7 +181,7 @@ only read access unless it needs more.
 | 3. Identity and tenancy | Done, with a sweep of every route and 17 checks at its gate |
 | 4A. Azure alignment | Done, [deployed and proven on Azure](docs/phases/phase-04a-exit-gate.md) |
 | 4. Assets and telemetry | Done, [exit gate](docs/phases/phase-04-exit-gate.md) |
-| 5. Alarms, detection and cases | In progress: 2 of 7 modules, M5.3 next |
+| 5. Alarms, detection and cases | In progress: 3 of 7 modules, M5.4 next |
 
 | Running today | |
 | --- | --- |
@@ -292,6 +292,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0005](docs/adr/0005-azure-deployment-as-the-final-phase.md) | Azure deployment as the final phase, and the services it uses |
 | [0006](docs/adr/0006-azure-aligned-platform-services.md) | The platform aligned with Azure's reference architecture: Service Bus, Workload ID, Cilium and Azure Monitor |
 | [0007](docs/adr/0007-alarms-arrive-through-the-device-route.md) | Alarms arrive through the device route, as `alarm.reported` events |
+| [0008](docs/adr/0008-services-act-as-themselves-with-fixed-read-grants.md) | Services act as themselves, with fixed read-only grants |
 
 ## Repository layout
 

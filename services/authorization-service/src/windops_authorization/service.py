@@ -137,7 +137,9 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
         scope: Scope,
     ) -> Decision:
         if not identity.user_id:
-            return Decision(False, "No user in the identity")
+            return policy.decide_for_service(
+                policy.service_of(identity.subject), permission, tenant_id, identity.tenant_id
+            )
         if tenant_id == identity.tenant_id:
             return policy.decide_in_tenant(
                 permission,
@@ -226,7 +228,14 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
     ) -> authorization_pb2.ListMyPermissionsResponse:
         identity = current_identity()
         if not identity.user_id:
-            return authorization_pb2.ListMyPermissionsResponse()
+            # A service's fixed grants, tenant-wide in its own tenant (ADR 0008).
+            service = policy.service_of(identity.subject)
+            return authorization_pb2.ListMyPermissionsResponse(
+                permissions=[
+                    authorization_pb2.ScopedPermission(permission=permission)
+                    for permission in sorted(policy.SERVICE_GRANTS.get(service or "", frozenset()))
+                ]
+            )
         async with self._engine.connect() as connection:
             grants = await active_grants(connection, identity.tenant_id, identity.user_id)
             custom = await custom_mapping(connection, identity.tenant_id)

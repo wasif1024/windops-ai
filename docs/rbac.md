@@ -57,6 +57,9 @@ This table is written from the Authorization Service's policy, and `tests/test_r
 Policy Service's. A change to one also needs a recent second factor, so only a person can make it, never an agent
 ([windops-fault-detection](../services/fault-detection-service/README.md#versions-and-who-may-change-them-fr-flt-002-fr-flt-005)).
 
+A service acting alone, with no user behind it, has fixed read-only grants in code, never a role
+([ADR 0008](adr/0008-services-act-as-themselves-with-fixed-read-grants.md)).
+
 A tenant's Tenant Administrator may change what each role gives in that tenant, from the administrator console's
 Role permissions tab. These rules still hold:
 

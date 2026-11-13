@@ -180,3 +180,11 @@ def test_break_glass_requests_that_are_refused(tenant: str, reason: str, minutes
 
 def test_break_glass_lasts_an_hour_unless_asked() -> None:
     assert policy.check_break_glass("north-sea", "Investigating ticket INC-4411 now", 0) == 60
+
+
+def test_a_service_can_never_be_granted_a_change_or_an_approval() -> None:
+    """SEC-009: whatever is added to the service grants, they stay read-only."""
+    for service, permissions in policy.SERVICE_GRANTS.items():
+        assert all(p.endswith(".read") for p in permissions), service
+        assert policy.service_of(f"service:{service}") == service
+    assert policy.service_of("a-user-subject") is None

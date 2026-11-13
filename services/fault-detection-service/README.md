@@ -51,6 +51,31 @@ The SRS has no permission of its own for fault rules, so they are policy: readin
 needs `policy.manage` and a recent second factor. That is the Tenant Administrator, by default, and never an agent or
 a service, as neither has a person's second factor. Each change, and turning a rule on or off, is audited.
 
+## The detector (FR-FLT-003)
+
+The Telemetry Service announces each stored batch as `telemetry.received`, which marks its turbine as streaming. Every
+5 minutes (`WINDOPS_DETECTION_INTERVAL_SECONDS`), the detector evaluates each streaming turbine's enabled rules. It
+acts as the service itself, `service:fault-detection`, with fixed read-only grants
+([ADR 0008](../../docs/adr/0008-services-act-as-themselves-with-fixed-read-grants.md)). Each turbine's window stays in
+memory between runs, so a run fetches only the last few minutes, and only its first run reads the whole two hours.
+
+A finding becomes a **detection**, which records:
+- the rule's exact version and content hash;
+- every value the finding rests on, and the alarms it saw;
+- a telemetry snapshot of the window, frozen and hashed by the Telemetry Service, with a retention hold.
+
+Then `fault.detected` is published, and the detection is audited with the service as its actor.
+
+| Next run | The detection |
+| --- | --- |
+| The rule finds it again, at the same severity and version | Stays open, with a new `last_seen_at` |
+| The rule finds it at another severity, or under a new version | Closes as `replaced`, and a new detection opens |
+| The rule no longer finds it | Closes as `cleared` |
+
+If the Telemetry Service cannot freeze the snapshot, no detection is made, and the next run tries again (SRS 7.7): a
+detection never stands without its evidence. `ListDetections` and `GetDetection` need `investigation.read` for the
+turbine, its wind farm or the tenant.
+
 ## A dry run
 
 `EvaluateTurbine` runs every enabled rule against a turbine's recent telemetry and alarms, and records nothing. It
@@ -62,4 +87,5 @@ Telemetry and Alarm services as the caller, so it sees only what they may see.
 ```bash
 uv run pytest services/fault-detection-service/tests
 make fault-rules-check   # on the cluster: defaults, versions, who may change them, and a dry run
+make detection-check     # the detector finds, freezes the evidence, publishes, audits and closes
 ```

@@ -22,7 +22,7 @@ from windops_events import parse_event
 from windops_fault_detection import engine, rules
 from windops_fault_detection.defaults import DEFAULT_RULES, LIBRARY
 from windops_fault_detection.service import FaultRuleService
-from windops_fault_detection.store import METADATA, SERVICE_NAME
+from windops_fault_detection.store import DETECTIONS, METADATA, SERVICE_NAME
 from windops_grpc import ServiceRuntime, Settings, VerifiedIdentity, current_identity, sign_identity
 from windops_outbox import OUTBOX_TABLE, create_outbox_table
 
@@ -44,8 +44,11 @@ NEW_RULE = {
 class FakeAuthorizer:
     grants: set[tuple[str, str]] = field(default_factory=set)
 
-    async def allowed(self, permission: str) -> bool:
-        return (current_identity().user_id or "", permission) in self.grants
+    async def allowed(self, permission: str, wind_farm_id: str = "", turbine_id: str = "") -> bool:
+        user = current_identity().user_id or ""
+        return (user, permission) in self.grants or (
+            bool(wind_farm_id) and (user, f"{permission}@{wind_farm_id}") in self.grants
+        )
 
 
 @dataclass
@@ -56,6 +59,7 @@ class Turbine:
         rotor_diameter_m: float = 167.0
 
     model: Model = field(default_factory=Model)
+    wind_farm_id: str = "dogger-east"
 
 
 class FakeSources:
@@ -130,6 +134,8 @@ def with_service(scenario: Callable[[World], Awaitable[None]]) -> None:
         authorizer = FakeAuthorizer({
             ("u-admin", "policy.read"), ("u-admin", "policy.manage"),
             ("u-engineer", "policy.read"), ("u-other-admin", "policy.read"),
+            ("u-engineer", "investigation.read"),
+            ("u-dogger", "investigation.read@dogger-east"),
         })  # fmt: skip
         sources = FakeSources()
 
@@ -299,5 +305,51 @@ def test_another_tenant_has_its_own_rules() -> None:
         )
         assert "main-bearing-hot" not in {r.rule_id for r in theirs.rules}
         assert len(theirs.rules) == len(DEFAULT_RULES)
+
+    with_service(scenario)
+
+
+def test_detections_are_read_by_those_who_may_read_investigations() -> None:
+    async def scenario(world: World) -> None:
+        async with world.engine.begin() as connection:
+            await connection.execute(
+                DETECTIONS.insert().values(
+                    tenant_id=TENANT, detection_id="det_1", turbine_id="dogger-east-t01",
+                    rule_id="gearbox-oil-residual", rule_version=1, rule_content_hash="h" * 64,
+                    kind="residual", severity="high", amount=9.0, summary="Hot",
+                    observed="{}", since=NOW, detected_at=NOW, last_seen_at=NOW,
+                    window_start=NOW - timedelta(hours=2), window_end=NOW,
+                    telemetry_snapshot_id="tsnap_1", telemetry_snapshot_hash="s" * 64,
+                    alarm_ids='["alm_1"]', state="open",
+                )
+            )  # fmt: skip
+        listed = await world.stub.ListDetections(
+            pb.ListDetectionsRequest(), metadata=as_user("u-engineer"), timeout=5
+        )
+        (found,) = listed.detections
+        assert (found.detection_id, found.telemetry_snapshot_id, list(found.alarm_ids)) == (
+            "det_1", "tsnap_1", ["alm_1"],
+        )  # fmt: skip
+        get = pb.GetDetectionRequest(detection_id="det_1")
+        # Scoped to the turbine's wind farm, a reader sees it, by turbine.
+        scoped = await world.stub.GetDetection(get, metadata=as_user("u-dogger"), timeout=5)
+        assert scoped.detection.rule_id == "gearbox-oil-residual"
+        everything = pb.ListDetectionsRequest()
+        assert (
+            await code_of(
+                world.stub.ListDetections(everything, metadata=as_user("u-dogger"), timeout=5)
+            )
+            == grpc.StatusCode.PERMISSION_DENIED
+        )
+        assert (
+            await code_of(world.stub.GetDetection(get, metadata=as_user("u-admin"), timeout=5))
+            == grpc.StatusCode.NOT_FOUND
+        )
+        assert (
+            await code_of(
+                world.stub.GetDetection(get, metadata=as_user("u-engineer", OTHER), timeout=5)
+            )
+            == grpc.StatusCode.NOT_FOUND
+        )
 
     with_service(scenario)

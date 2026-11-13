@@ -394,3 +394,195 @@ class EvaluateTurbineResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___EvaluateTurbineResponse: _TypeAlias = EvaluateTurbineResponse  # noqa: Y015
+
+@_typing.final
+class Detection(_message.Message):
+    """One finding by one rule version, at one severity, on one turbine. It opens when the detector's
+    rule finds it, and closes when the rule no longer does, or finds it at another severity or under
+    a newer version, which is a detection of its own.
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DETECTION_ID_FIELD_NUMBER: _builtins.int
+    TURBINE_ID_FIELD_NUMBER: _builtins.int
+    RULE_ID_FIELD_NUMBER: _builtins.int
+    RULE_VERSION_FIELD_NUMBER: _builtins.int
+    RULE_CONTENT_HASH_FIELD_NUMBER: _builtins.int
+    KIND_FIELD_NUMBER: _builtins.int
+    SEVERITY_FIELD_NUMBER: _builtins.int
+    AMOUNT_FIELD_NUMBER: _builtins.int
+    SUMMARY_FIELD_NUMBER: _builtins.int
+    OBSERVED_JSON_FIELD_NUMBER: _builtins.int
+    SINCE_FIELD_NUMBER: _builtins.int
+    DETECTED_AT_FIELD_NUMBER: _builtins.int
+    LAST_SEEN_AT_FIELD_NUMBER: _builtins.int
+    WINDOW_START_FIELD_NUMBER: _builtins.int
+    WINDOW_END_FIELD_NUMBER: _builtins.int
+    TELEMETRY_SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    TELEMETRY_SNAPSHOT_HASH_FIELD_NUMBER: _builtins.int
+    ALARM_IDS_FIELD_NUMBER: _builtins.int
+    STATE_FIELD_NUMBER: _builtins.int
+    CLOSED_AT_FIELD_NUMBER: _builtins.int
+    CLOSED_REASON_FIELD_NUMBER: _builtins.int
+    detection_id: _builtins.str
+    turbine_id: _builtins.str
+    rule_id: _builtins.str
+    rule_version: _builtins.int
+    rule_content_hash: _builtins.str
+    """The version's content hash, so the exact rule can be shown to be the one used."""
+    kind: _builtins.str
+    severity: _builtins.str
+    amount: _builtins.float
+    summary: _builtins.str
+    observed_json: _builtins.str
+    """Every value the finding rests on."""
+    telemetry_snapshot_id: _builtins.str
+    telemetry_snapshot_hash: _builtins.str
+    state: _builtins.str
+    """"open" or "closed"."""
+    closed_reason: _builtins.str
+    """"cleared", or "replaced" by a detection at another severity or rule version."""
+    @_builtins.property
+    def since(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def detected_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def last_seen_at(self) -> _timestamp_pb2.Timestamp:
+        """When the rule last found it."""
+
+    @_builtins.property
+    def window_start(self) -> _timestamp_pb2.Timestamp:
+        """The telemetry the rule saw, frozen (FR-TEL-006)."""
+
+    @_builtins.property
+    def window_end(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def alarm_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """The alarms the rule saw."""
+
+    @_builtins.property
+    def closed_at(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        detection_id: _builtins.str = ...,
+        turbine_id: _builtins.str = ...,
+        rule_id: _builtins.str = ...,
+        rule_version: _builtins.int = ...,
+        rule_content_hash: _builtins.str = ...,
+        kind: _builtins.str = ...,
+        severity: _builtins.str = ...,
+        amount: _builtins.float = ...,
+        summary: _builtins.str = ...,
+        observed_json: _builtins.str = ...,
+        since: _timestamp_pb2.Timestamp | None = ...,
+        detected_at: _timestamp_pb2.Timestamp | None = ...,
+        last_seen_at: _timestamp_pb2.Timestamp | None = ...,
+        window_start: _timestamp_pb2.Timestamp | None = ...,
+        window_end: _timestamp_pb2.Timestamp | None = ...,
+        telemetry_snapshot_id: _builtins.str = ...,
+        telemetry_snapshot_hash: _builtins.str = ...,
+        alarm_ids: _abc.Iterable[_builtins.str] | None = ...,
+        state: _builtins.str = ...,
+        closed_at: _timestamp_pb2.Timestamp | None = ...,
+        closed_reason: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["closed_at", b"closed_at", "detected_at", b"detected_at", "last_seen_at", b"last_seen_at", "since", b"since", "window_end", b"window_end", "window_start", b"window_start"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["alarm_ids", b"alarm_ids", "amount", b"amount", "closed_at", b"closed_at", "closed_reason", b"closed_reason", "detected_at", b"detected_at", "detection_id", b"detection_id", "kind", b"kind", "last_seen_at", b"last_seen_at", "observed_json", b"observed_json", "rule_content_hash", b"rule_content_hash", "rule_id", b"rule_id", "rule_version", b"rule_version", "severity", b"severity", "since", b"since", "state", b"state", "summary", b"summary", "telemetry_snapshot_hash", b"telemetry_snapshot_hash", "telemetry_snapshot_id", b"telemetry_snapshot_id", "turbine_id", b"turbine_id", "window_end", b"window_end", "window_start", b"window_start"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___Detection: _TypeAlias = Detection  # noqa: Y015
+
+@_typing.final
+class ListDetectionsRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TURBINE_ID_FIELD_NUMBER: _builtins.int
+    STATE_FIELD_NUMBER: _builtins.int
+    PAGE_SIZE_FIELD_NUMBER: _builtins.int
+    PAGE_TOKEN_FIELD_NUMBER: _builtins.int
+    turbine_id: _builtins.str
+    state: _builtins.str
+    """"open", "closed", or empty for open."""
+    page_size: _builtins.int
+    page_token: _builtins.str
+    def __init__(
+        self,
+        *,
+        turbine_id: _builtins.str = ...,
+        state: _builtins.str = ...,
+        page_size: _builtins.int = ...,
+        page_token: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["page_size", b"page_size", "page_token", b"page_token", "state", b"state", "turbine_id", b"turbine_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListDetectionsRequest: _TypeAlias = ListDetectionsRequest  # noqa: Y015
+
+@_typing.final
+class ListDetectionsResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DETECTIONS_FIELD_NUMBER: _builtins.int
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _builtins.int
+    next_page_token: _builtins.str
+    @_builtins.property
+    def detections(self) -> _containers.RepeatedCompositeFieldContainer[Global___Detection]: ...
+    def __init__(
+        self,
+        *,
+        detections: _abc.Iterable[Global___Detection] | None = ...,
+        next_page_token: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["detections", b"detections", "next_page_token", b"next_page_token"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListDetectionsResponse: _TypeAlias = ListDetectionsResponse  # noqa: Y015
+
+@_typing.final
+class GetDetectionRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DETECTION_ID_FIELD_NUMBER: _builtins.int
+    detection_id: _builtins.str
+    def __init__(
+        self,
+        *,
+        detection_id: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["detection_id", b"detection_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetDetectionRequest: _TypeAlias = GetDetectionRequest  # noqa: Y015
+
+@_typing.final
+class GetDetectionResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DETECTION_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def detection(self) -> Global___Detection: ...
+    def __init__(
+        self,
+        *,
+        detection: Global___Detection | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["detection", b"detection"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["detection", b"detection"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetDetectionResponse: _TypeAlias = GetDetectionResponse  # noqa: Y015

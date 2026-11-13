@@ -17,6 +17,7 @@ from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import StaticPool
+from windops_outbox import create_outbox_table
 from windops_simulator import cms
 from windops_simulator.faults import FaultSpec
 from windops_simulator.fleet import DEMO_TURBINES
@@ -168,6 +169,7 @@ def with_route(scenario: Callable[[World], Awaitable[None]], now: datetime = STA
         engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
         async with engine.begin() as connection:
             await connection.run_sync(METADATA.create_all)
+            await connection.run_sync(create_outbox_table)
         device_id, secret = credentials.new_device_id(), credentials.new_secret()
         async with engine.begin() as connection:
             await connection.execute(

@@ -10,3 +10,5 @@ data:
   WINDOPS_GRPC_PORT: "50051"
   WINDOPS_HTTP_PORT: "8080"
   WINDOPS_SHUTDOWN_GRACE_SECONDS: "20"
+  # How often each streaming turbine's rules are evaluated. Each run reads about two hours of it.
+  WINDOPS_DETECTION_INTERVAL_SECONDS: "300"

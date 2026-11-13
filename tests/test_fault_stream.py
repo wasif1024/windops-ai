@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import StaticPool
+from windops_outbox import create_outbox_table
 from windops_simulator.scenarios import run
 from windops_telemetry import credentials
 from windops_telemetry.ingest import PREFIX, create_ingest_router
@@ -45,6 +46,7 @@ async def replay() -> tuple[Any, list[Any], Stored]:
     engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
     async with engine.begin() as connection:
         await connection.run_sync(METADATA.create_all)
+        await connection.run_sync(create_outbox_table)
         device_id, secret = credentials.new_device_id(), credentials.new_secret()
         await connection.execute(
             DEVICE_CREDENTIALS.insert().values(

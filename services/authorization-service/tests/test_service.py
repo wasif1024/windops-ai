@@ -142,6 +142,32 @@ def test_a_service_identity_with_no_user_is_denied() -> None:
     with_service(scenario)
 
 
+def test_a_known_service_has_only_its_fixed_read_grants_in_its_own_tenant() -> None:
+    """ADR 0008, SEC-009: the Fault Detection Service reads, and can never change or approve."""
+
+    async def scenario(stub: Any, engine: AsyncEngine) -> None:
+        service = VerifiedIdentity("service:fault-detection", TENANT)
+        own = (("x-windops-identity", sign_identity(service, SECRET)),)
+
+        async def allowed(permission: str, target: str = "") -> bool:
+            request = authorization_pb2.CheckRequest(permission=permission, target_tenant_id=target)
+            return bool((await stub.Check(request, metadata=own, timeout=5)).allowed)
+
+        assert await allowed("telemetry.read") and await allowed("alarm.read")
+        assert not await allowed("asset.manage")
+        assert not await allowed("approval.decide")
+        assert not await allowed("telemetry.read", target="atlas-wind")
+        listed = await stub.ListMyPermissions(
+            authorization_pb2.ListMyPermissionsRequest(), metadata=own, timeout=5
+        )
+        assert sorted(p.permission for p in listed.permissions) == [
+            "alarm.read", "telemetry.read", "turbine.read",
+        ]  # fmt: skip
+        assert all(not p.scope.wind_farm_id for p in listed.permissions)
+
+    with_service(scenario)
+
+
 def test_an_administrator_grants_a_scoped_role_which_then_decides() -> None:
     async def scenario(stub: Any, engine: AsyncEngine) -> None:
         granted = await stub.GrantRole(

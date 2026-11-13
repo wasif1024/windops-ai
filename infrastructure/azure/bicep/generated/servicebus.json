@@ -33,6 +33,13 @@
       "filter": "sys.Label = 'alarm.reported'",
       "maxDeliveryCount": 100,
       "lockDuration": "PT30S"
+    },
+    {
+      "topic": "windops-telemetry",
+      "name": "fault-detection",
+      "filter": "sys.Label = 'telemetry.received'",
+      "maxDeliveryCount": 100,
+      "lockDuration": "PT30S"
     }
   ]
 }

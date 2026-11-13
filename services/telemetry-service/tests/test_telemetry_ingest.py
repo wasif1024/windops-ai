@@ -17,6 +17,8 @@ from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import StaticPool
+from windops_events import parse_event
+from windops_outbox import OUTBOX_TABLE, create_outbox_table
 from windops_simulator.fleet import DEMO_TURBINES
 from windops_simulator.simulator import Simulator
 from windops_telemetry import credentials
@@ -98,6 +100,7 @@ def with_route(scenario: Callable[[World], Awaitable[None]], *, limit: int = 600
         engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
         async with engine.begin() as connection:
             await connection.run_sync(METADATA.create_all)
+            await connection.run_sync(create_outbox_table)
         token = await add_credential(engine)
         redis = FakeRedis()
         # A clock in the middle of a minute, so the window never turns over during a test.
@@ -306,5 +309,22 @@ def test_a_sample_timed_far_in_the_future_is_refused_with_its_reason() -> None:
         sample["event_time"] = (RECEIVED + timedelta(hours=2)).isoformat()
         response = await world.client.post(URL, json={"samples": [sample]}, headers=world.auth())
         assert response.json()["rejected"] == [{"index": 0, "reason": "event_time_in_future"}]
+
+    with_route(scenario)
+
+
+def test_a_stored_batch_tells_fault_detection_the_turbine_is_streaming() -> None:
+    """telemetry.received, queued with the samples, so Fault Detection knows what to watch."""
+
+    async def scenario(world: World) -> None:
+        await world.client.post(URL, json={"samples": samples(3)}, headers=world.auth())
+        await world.client.post(URL, json={"samples": ["broken"]}, headers=world.auth())
+        events = [parse_event(row.subject, row.envelope) for row in await world.rows(OUTBOX_TABLE)]
+        received = [e for e in events if e.subject == "telemetry.received"]
+        assert len(received) == 1, "a batch with nothing stored announces nothing"
+        payload: Any = received[0].payload
+        assert (received[0].tenant_id, payload.turbine_id, payload.sample_count) == (
+            TENANT, TURBINE, 3,
+        )  # fmt: skip
 
     with_route(scenario)
