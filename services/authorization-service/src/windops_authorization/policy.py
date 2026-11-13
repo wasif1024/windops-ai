@@ -145,6 +145,11 @@ SERVICE_PREFIX = "service:"
 SERVICE_GRANTS: dict[str, frozenset[str]] = {
     # Its detector reads each streaming turbine's telemetry and alarms on its own schedule.
     "fault-detection": frozenset({"turbine.read", "telemetry.read", "alarm.read"}),
+    # Its evidence builder freezes each case's turbine, telemetry, alarms, detections and their
+    # rule versions (EVD-004).
+    "investigation": frozenset(
+        {"turbine.read", "telemetry.read", "alarm.read", "policy.read", "investigation.read"}
+    ),
 }
 
 

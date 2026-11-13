@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,windops/investigation/v1/investigation.proto\x12\x18windops.investigation.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8d\x03\n\x04\x43\x61se\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\x12\x12\n\nturbine_id\x18\x02 \x01(\t\x12\x17\n\x0f\x63omponent_group\x18\x03 \x01(\t\x12\r\n\x05title\x18\x04 \x01(\t\x12\x0e\n\x06status\x18\x05 \x01(\t\x12\x10\n\x08severity\x18\x06 \x01(\t\x12\x0e\n\x06origin\x18\x07 \x01(\t\x12\x12\n\ncreated_by\x18\x08 \x01(\t\x12.\n\ncreated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x35\n\x11last_detection_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x17\n\x0f\x64\x65tection_count\x18\x0c \x01(\x03\x12\x1a\n\x12\x63\x61se_rules_version\x18\r \x01(\t\x12\x15\n\rcancel_reason\x18\x0e \x01(\t\x12\x0f\n\x07version\x18\x0f \x01(\x03\"\xae\x01\n\rCaseDetection\x12\x14\n\x0c\x64\x65tection_id\x18\x01 \x01(\t\x12\x0f\n\x07rule_id\x18\x02 \x01(\t\x12\x14\n\x0crule_version\x18\x03 \x01(\t\x12\x10\n\x08severity\x18\x04 \x01(\t\x12\x1d\n\x15telemetry_snapshot_id\x18\x05 \x01(\t\x12/\n\x0b\x61ttached_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"w\n\tCaseEvent\x12&\n\x02\x61t\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06\x61\x63tion\x18\x02 \x01(\t\x12\x12\n\nactor_type\x18\x03 \x01(\t\x12\x10\n\x08\x61\x63tor_id\x18\x04 \x01(\t\x12\x0c\n\x04note\x18\x05 \x01(\t\"a\n\x11\x43reateCaseRequest\x12\x12\n\nturbine_id\x18\x01 \x01(\t\x12\r\n\x05title\x18\x02 \x01(\t\x12\x10\n\x08severity\x18\x03 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x04 \x01(\t\"B\n\x12\x43reateCaseResponse\x12,\n\x04\x63\x61se\x18\x01 \x01(\x0b\x32\x1e.windops.investigation.v1.Case\"_\n\x10ListCasesRequest\x12\x10\n\x08statuses\x18\x01 \x03(\t\x12\x12\n\nturbine_id\x18\x02 \x01(\t\x12\x11\n\tpage_size\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\"[\n\x11ListCasesResponse\x12-\n\x05\x63\x61ses\x18\x01 \x03(\x0b\x32\x1e.windops.investigation.v1.Case\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"!\n\x0eGetCaseRequest\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\"\xb2\x01\n\x0fGetCaseResponse\x12,\n\x04\x63\x61se\x18\x01 \x01(\x0b\x32\x1e.windops.investigation.v1.Case\x12;\n\ndetections\x18\x02 \x03(\x0b\x32\'.windops.investigation.v1.CaseDetection\x12\x34\n\x07history\x18\x03 \x03(\x0b\x32#.windops.investigation.v1.CaseEvent\"M\n\x11\x43\x61ncelCaseRequest\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\x12\x0e\n\x06reason\x18\x02 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x03 \x01(\t\"B\n\x12\x43\x61ncelCaseResponse\x12,\n\x04\x63\x61se\x18\x01 \x01(\x0b\x32\x1e.windops.investigation.v1.Case2\xae\x03\n\x14InvestigationService\x12g\n\nCreateCase\x12+.windops.investigation.v1.CreateCaseRequest\x1a,.windops.investigation.v1.CreateCaseResponse\x12\x64\n\tListCases\x12*.windops.investigation.v1.ListCasesRequest\x1a+.windops.investigation.v1.ListCasesResponse\x12^\n\x07GetCase\x12(.windops.investigation.v1.GetCaseRequest\x1a).windops.investigation.v1.GetCaseResponse\x12g\n\nCancelCase\x12+.windops.investigation.v1.CancelCaseRequest\x1a,.windops.investigation.v1.CancelCaseResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,windops/investigation/v1/investigation.proto\x12\x18windops.investigation.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xde\x03\n\x04\x43\x61se\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\x12\x12\n\nturbine_id\x18\x02 \x01(\t\x12\x17\n\x0f\x63omponent_group\x18\x03 \x01(\t\x12\r\n\x05title\x18\x04 \x01(\t\x12\x0e\n\x06status\x18\x05 \x01(\t\x12\x10\n\x08severity\x18\x06 \x01(\t\x12\x0e\n\x06origin\x18\x07 \x01(\t\x12\x12\n\ncreated_by\x18\x08 \x01(\t\x12.\n\ncreated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x35\n\x11last_detection_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x17\n\x0f\x64\x65tection_count\x18\x0c \x01(\x03\x12\x1a\n\x12\x63\x61se_rules_version\x18\r \x01(\t\x12\x15\n\rcancel_reason\x18\x0e \x01(\t\x12\x0f\n\x07version\x18\x0f \x01(\x03\x12\x1c\n\x14\x65vidence_snapshot_id\x18\x10 \x01(\t\x12\x18\n\x10\x65vidence_version\x18\x11 \x01(\x03\x12\x17\n\x0f\x65vidence_status\x18\x12 \x01(\t\"\xae\x01\n\rCaseDetection\x12\x14\n\x0c\x64\x65tection_id\x18\x01 \x01(\t\x12\x0f\n\x07rule_id\x18\x02 \x01(\t\x12\x14\n\x0crule_version\x18\x03 \x01(\t\x12\x10\n\x08severity\x18\x04 \x01(\t\x12\x1d\n\x15telemetry_snapshot_id\x18\x05 \x01(\t\x12/\n\x0b\x61ttached_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"w\n\tCaseEvent\x12&\n\x02\x61t\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06\x61\x63tion\x18\x02 \x01(\t\x12\x12\n\nactor_type\x18\x03 \x01(\t\x12\x10\n\x08\x61\x63tor_id\x18\x04 \x01(\t\x12\x0c\n\x04note\x18\x05 \x01(\t\"a\n\x11\x43reateCaseRequest\x12\x12\n\nturbine_id\x18\x01 \x01(\t\x12\r\n\x05title\x18\x02 \x01(\t\x12\x10\n\x08severity\x18\x03 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x04 \x01(\t\"B\n\x12\x43reateCaseResponse\x12,\n\x04\x63\x61se\x18\x01 \x01(\x0b\x32\x1e.windops.investigation.v1.Case\"_\n\x10ListCasesRequest\x12\x10\n\x08statuses\x18\x01 \x03(\t\x12\x12\n\nturbine_id\x18\x02 \x01(\t\x12\x11\n\tpage_size\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\"[\n\x11ListCasesResponse\x12-\n\x05\x63\x61ses\x18\x01 \x03(\x0b\x32\x1e.windops.investigation.v1.Case\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"!\n\x0eGetCaseRequest\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\"\xb2\x01\n\x0fGetCaseResponse\x12,\n\x04\x63\x61se\x18\x01 \x01(\x0b\x32\x1e.windops.investigation.v1.Case\x12;\n\ndetections\x18\x02 \x03(\x0b\x32\'.windops.investigation.v1.CaseDetection\x12\x34\n\x07history\x18\x03 \x03(\x0b\x32#.windops.investigation.v1.CaseEvent\"M\n\x11\x43\x61ncelCaseRequest\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\x12\x0e\n\x06reason\x18\x02 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x03 \x01(\t\"B\n\x12\x43\x61ncelCaseResponse\x12,\n\x04\x63\x61se\x18\x01 \x01(\x0b\x32\x1e.windops.investigation.v1.Case\"\xba\x02\n\x0c\x45videnceItem\x12\x16\n\x0esource_service\x18\x01 \x01(\t\x12\x13\n\x0brecord_type\x18\x02 \x01(\t\x12\x11\n\trecord_id\x18\x03 \x01(\t\x12\x0f\n\x07version\x18\x04 \x01(\t\x12\x30\n\x0cwindow_start\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nwindow_end\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\x0cretrieved_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x19\n\x11\x64\x61ta_quality_json\x18\x08 \x01(\t\x12\x14\n\x0c\x63ontent_json\x18\t \x01(\t\x12\x14\n\x0c\x63ontent_hash\x18\n \x01(\t\"\x8b\x03\n\x10\x45videnceSnapshot\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63\x61se_id\x18\x02 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\x03\x12\x12\n\nturbine_id\x18\x04 \x01(\t\x12\x14\n\x0c\x63ontent_hash\x18\x05 \x01(\t\x12\x13\n\x0bhash_format\x18\x06 \x01(\t\x12.\n\ncreated_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncreated_by\x18\x08 \x01(\t\x12\x30\n\x0cwindow_start\x18\t \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nwindow_end\x18\n \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\nitem_count\x18\x0b \x01(\x03\x12\x35\n\x05items\x18\x0c \x03(\x0b\x32&.windops.investigation.v1.EvidenceItem\x12\x10\n\x08verified\x18\r \x01(\x08\"I\n\x1d\x43reateEvidenceSnapshotRequest\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x02 \x01(\t\"^\n\x1e\x43reateEvidenceSnapshotResponse\x12<\n\x08snapshot\x18\x01 \x01(\x0b\x32*.windops.investigation.v1.EvidenceSnapshot\"1\n\x1aGetEvidenceSnapshotRequest\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\"[\n\x1bGetEvidenceSnapshotResponse\x12<\n\x08snapshot\x18\x01 \x01(\x0b\x32*.windops.investigation.v1.EvidenceSnapshot\"/\n\x1cListEvidenceSnapshotsRequest\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\"^\n\x1dListEvidenceSnapshotsResponse\x12=\n\tsnapshots\x18\x01 \x03(\x0b\x32*.windops.investigation.v1.EvidenceSnapshot2\xcc\x06\n\x14InvestigationService\x12g\n\nCreateCase\x12+.windops.investigation.v1.CreateCaseRequest\x1a,.windops.investigation.v1.CreateCaseResponse\x12\x64\n\tListCases\x12*.windops.investigation.v1.ListCasesRequest\x1a+.windops.investigation.v1.ListCasesResponse\x12^\n\x07GetCase\x12(.windops.investigation.v1.GetCaseRequest\x1a).windops.investigation.v1.GetCaseResponse\x12g\n\nCancelCase\x12+.windops.investigation.v1.CancelCaseRequest\x1a,.windops.investigation.v1.CancelCaseResponse\x12\x8b\x01\n\x16\x43reateEvidenceSnapshot\x12\x37.windops.investigation.v1.CreateEvidenceSnapshotRequest\x1a\x38.windops.investigation.v1.CreateEvidenceSnapshotResponse\x12\x82\x01\n\x13GetEvidenceSnapshot\x12\x34.windops.investigation.v1.GetEvidenceSnapshotRequest\x1a\x35.windops.investigation.v1.GetEvidenceSnapshotResponse\x12\x88\x01\n\x15ListEvidenceSnapshots\x12\x36.windops.investigation.v1.ListEvidenceSnapshotsRequest\x1a\x37.windops.investigation.v1.ListEvidenceSnapshotsResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,27 +33,43 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'windops.investigation.v1.in
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_CASE']._serialized_start=108
-  _globals['_CASE']._serialized_end=505
-  _globals['_CASEDETECTION']._serialized_start=508
-  _globals['_CASEDETECTION']._serialized_end=682
-  _globals['_CASEEVENT']._serialized_start=684
-  _globals['_CASEEVENT']._serialized_end=803
-  _globals['_CREATECASEREQUEST']._serialized_start=805
-  _globals['_CREATECASEREQUEST']._serialized_end=902
-  _globals['_CREATECASERESPONSE']._serialized_start=904
-  _globals['_CREATECASERESPONSE']._serialized_end=970
-  _globals['_LISTCASESREQUEST']._serialized_start=972
-  _globals['_LISTCASESREQUEST']._serialized_end=1067
-  _globals['_LISTCASESRESPONSE']._serialized_start=1069
-  _globals['_LISTCASESRESPONSE']._serialized_end=1160
-  _globals['_GETCASEREQUEST']._serialized_start=1162
-  _globals['_GETCASEREQUEST']._serialized_end=1195
-  _globals['_GETCASERESPONSE']._serialized_start=1198
-  _globals['_GETCASERESPONSE']._serialized_end=1376
-  _globals['_CANCELCASEREQUEST']._serialized_start=1378
-  _globals['_CANCELCASEREQUEST']._serialized_end=1455
-  _globals['_CANCELCASERESPONSE']._serialized_start=1457
-  _globals['_CANCELCASERESPONSE']._serialized_end=1523
-  _globals['_INVESTIGATIONSERVICE']._serialized_start=1526
-  _globals['_INVESTIGATIONSERVICE']._serialized_end=1956
+  _globals['_CASE']._serialized_end=586
+  _globals['_CASEDETECTION']._serialized_start=589
+  _globals['_CASEDETECTION']._serialized_end=763
+  _globals['_CASEEVENT']._serialized_start=765
+  _globals['_CASEEVENT']._serialized_end=884
+  _globals['_CREATECASEREQUEST']._serialized_start=886
+  _globals['_CREATECASEREQUEST']._serialized_end=983
+  _globals['_CREATECASERESPONSE']._serialized_start=985
+  _globals['_CREATECASERESPONSE']._serialized_end=1051
+  _globals['_LISTCASESREQUEST']._serialized_start=1053
+  _globals['_LISTCASESREQUEST']._serialized_end=1148
+  _globals['_LISTCASESRESPONSE']._serialized_start=1150
+  _globals['_LISTCASESRESPONSE']._serialized_end=1241
+  _globals['_GETCASEREQUEST']._serialized_start=1243
+  _globals['_GETCASEREQUEST']._serialized_end=1276
+  _globals['_GETCASERESPONSE']._serialized_start=1279
+  _globals['_GETCASERESPONSE']._serialized_end=1457
+  _globals['_CANCELCASEREQUEST']._serialized_start=1459
+  _globals['_CANCELCASEREQUEST']._serialized_end=1536
+  _globals['_CANCELCASERESPONSE']._serialized_start=1538
+  _globals['_CANCELCASERESPONSE']._serialized_end=1604
+  _globals['_EVIDENCEITEM']._serialized_start=1607
+  _globals['_EVIDENCEITEM']._serialized_end=1921
+  _globals['_EVIDENCESNAPSHOT']._serialized_start=1924
+  _globals['_EVIDENCESNAPSHOT']._serialized_end=2319
+  _globals['_CREATEEVIDENCESNAPSHOTREQUEST']._serialized_start=2321
+  _globals['_CREATEEVIDENCESNAPSHOTREQUEST']._serialized_end=2394
+  _globals['_CREATEEVIDENCESNAPSHOTRESPONSE']._serialized_start=2396
+  _globals['_CREATEEVIDENCESNAPSHOTRESPONSE']._serialized_end=2490
+  _globals['_GETEVIDENCESNAPSHOTREQUEST']._serialized_start=2492
+  _globals['_GETEVIDENCESNAPSHOTREQUEST']._serialized_end=2541
+  _globals['_GETEVIDENCESNAPSHOTRESPONSE']._serialized_start=2543
+  _globals['_GETEVIDENCESNAPSHOTRESPONSE']._serialized_end=2634
+  _globals['_LISTEVIDENCESNAPSHOTSREQUEST']._serialized_start=2636
+  _globals['_LISTEVIDENCESNAPSHOTSREQUEST']._serialized_end=2683
+  _globals['_LISTEVIDENCESNAPSHOTSRESPONSE']._serialized_start=2685
+  _globals['_LISTEVIDENCESNAPSHOTSRESPONSE']._serialized_end=2779
+  _globals['_INVESTIGATIONSERVICE']._serialized_start=2782
+  _globals['_INVESTIGATIONSERVICE']._serialized_end=3626
 # @@protoc_insertion_point(module_scope)

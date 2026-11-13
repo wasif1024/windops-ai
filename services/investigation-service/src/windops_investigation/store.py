@@ -48,6 +48,10 @@ CASES = Table(
     Column("case_rules_version", Text, nullable=False),
     Column("cancel_reason", Text, nullable=False, server_default=""),
     Column("version", BigInteger, nullable=False),
+    Column("evidence_snapshot_id", Text, nullable=False, server_default=""),
+    Column("evidence_version", BigInteger, nullable=False, server_default="0"),
+    # Set while a new snapshot is wanted, as when detections join; cleared once one is frozen.
+    Column("evidence_wanted_at", DateTime(timezone=True)),
     # At most one active case from detections for a component of a turbine.
     Index(
         "cases_one_active", "tenant_id", "turbine_id", "component_group", unique=True,
@@ -86,6 +90,41 @@ CASE_HISTORY = Table(
     Column("actor_id", Text, nullable=False),
     Column("note", Text, nullable=False),
 )
+# A case's evidence, frozen, never changed (EVD-001): a database trigger refuses it.
+EVIDENCE_SNAPSHOTS = Table(
+    "evidence_snapshots",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("snapshot_id", Text, primary_key=True),
+    Column("case_id", Text, nullable=False),
+    Column("version", BigInteger, nullable=False),
+    Column("turbine_id", Text, nullable=False),
+    Column("content_hash", Text, nullable=False),
+    Column("hash_format", Text, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("created_by", Text, nullable=False),
+    Column("window_start", DateTime(timezone=True), nullable=False),
+    Column("window_end", DateTime(timezone=True), nullable=False),
+    Column("item_count", BigInteger, nullable=False),
+    Index("evidence_one_version", "tenant_id", "case_id", "version", unique=True),
+)
+EVIDENCE_ITEMS = Table(
+    "evidence_items",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("snapshot_id", Text, primary_key=True),
+    Column("position", BigInteger, primary_key=True),
+    Column("source_service", Text, nullable=False),
+    Column("record_type", Text, nullable=False),
+    Column("record_id", Text, nullable=False),
+    Column("version", Text, nullable=False),
+    Column("window_start", DateTime(timezone=True)),
+    Column("window_end", DateTime(timezone=True)),
+    Column("retrieved_at", DateTime(timezone=True), nullable=False),
+    Column("data_quality", Text, nullable=False),
+    Column("content", Text, nullable=False),
+    Column("content_hash", Text, nullable=False),
+)
 # A retry with the same key returns the first answer, and changes nothing (GRP-007).
 IDEMPOTENCY_KEYS = Table(
     "idempotency_keys",
@@ -98,7 +137,10 @@ IDEMPOTENCY_KEYS = Table(
     Column("response", LargeBinary, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
-TENANT_TABLES = ("cases", "case_detections", "case_history", "idempotency_keys")
+TENANT_TABLES = (
+    "cases", "case_detections", "case_history", "idempotency_keys", "evidence_snapshots",
+    "evidence_items",
+)  # fmt: skip
 
 
 class KeyReusedError(ValueError):

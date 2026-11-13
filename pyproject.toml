@@ -193,7 +193,7 @@ testpaths = [
     "simulator/tests",
 ]
 addopts = "-ra --strict-markers --import-mode=importlib"
-pythonpath = [".", "shared/grpc/tests", "shared/resilience/tests", "services/identity-service/tests", "services/telemetry-service/tests", "services/tenant-service/tests", "services/web-bff-service/tests"]
+pythonpath = [".", "shared/grpc/tests", "shared/resilience/tests", "services/identity-service/tests", "services/investigation-service/tests", "services/telemetry-service/tests", "services/tenant-service/tests", "services/web-bff-service/tests"]
 
 [dependency-groups]
 dev = [

@@ -104,7 +104,7 @@ async def code_of(call: Awaitable[Any]) -> grpc.StatusCode:
     return grpc.StatusCode.OK
 
 
-def with_service(scenario: Callable[[World], Awaitable[None]]) -> None:
+def with_service(scenario: Callable[[World], Awaitable[None]], sources: Any = None) -> None:
     root = logging.getLogger()
     saved_handlers, saved_level = list(root.handlers), root.level
 
@@ -122,7 +122,10 @@ def with_service(scenario: Callable[[World], Awaitable[None]]) -> None:
 
         def register(server: grpc.aio.Server) -> None:
             investigation_pb2_grpc.add_InvestigationServiceServicer_to_server(
-                InvestigationService(engine, authorizer, FakeAssets(), clock=lambda: NOW), server
+                InvestigationService(
+                    engine, authorizer, FakeAssets(), clock=lambda: NOW, sources=sources
+                ),
+                server,
             )
 
         runtime = ServiceRuntime(SERVICE_NAME, SETTINGS, register, install_global_telemetry=False)

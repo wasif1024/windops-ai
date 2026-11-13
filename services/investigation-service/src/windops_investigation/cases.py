@@ -70,6 +70,8 @@ async def create(
             created_at=now, updated_at=now,
             last_detection_at=now if origin == DETECTION else None,
             case_rules_version=case_rules.VERSION, version=1,
+            # Every case is bound to evidence: its first snapshot is frozen next (FR-INV-002).
+            evidence_wanted_at=now,
         )
     )  # fmt: skip
     case = await load(connection, tenant, case_id)
@@ -114,6 +116,7 @@ async def attach_detection(
         case = await change(
             connection, active, now=now, action=action, actor_type=SERVICE, actor_id=by,
             note=detected.detection_id, severity=severity, last_detection_at=now,
+            evidence_wanted_at=now,
         )  # fmt: skip
     await connection.execute(
         CASE_DETECTIONS.insert().values(

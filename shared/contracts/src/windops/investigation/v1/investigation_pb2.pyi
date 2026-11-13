@@ -38,6 +38,9 @@ class Case(_message.Message):
     CASE_RULES_VERSION_FIELD_NUMBER: _builtins.int
     CANCEL_REASON_FIELD_NUMBER: _builtins.int
     VERSION_FIELD_NUMBER: _builtins.int
+    EVIDENCE_SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    EVIDENCE_VERSION_FIELD_NUMBER: _builtins.int
+    EVIDENCE_STATUS_FIELD_NUMBER: _builtins.int
     case_id: _builtins.str
     turbine_id: _builtins.str
     component_group: _builtins.str
@@ -60,6 +63,13 @@ class Case(_message.Message):
     """The case rules that grouped its detections, such as "case-rules-1"."""
     cancel_reason: _builtins.str
     version: _builtins.int
+    evidence_snapshot_id: _builtins.str
+    """The case's newest evidence snapshot, and its version. Empty until the first is frozen."""
+    evidence_version: _builtins.int
+    evidence_status: _builtins.str
+    """"pending" while a snapshot is still to be frozen, as when one of its sources cannot be
+    reached (SRS 7.7), or "ready".
+    """
     @_builtins.property
     def created_at(self) -> _timestamp_pb2.Timestamp: ...
     @_builtins.property
@@ -84,10 +94,13 @@ class Case(_message.Message):
         case_rules_version: _builtins.str = ...,
         cancel_reason: _builtins.str = ...,
         version: _builtins.int = ...,
+        evidence_snapshot_id: _builtins.str = ...,
+        evidence_version: _builtins.int = ...,
+        evidence_status: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "last_detection_at", b"last_detection_at", "updated_at", b"updated_at"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["cancel_reason", b"cancel_reason", "case_id", b"case_id", "case_rules_version", b"case_rules_version", "component_group", b"component_group", "created_at", b"created_at", "created_by", b"created_by", "detection_count", b"detection_count", "last_detection_at", b"last_detection_at", "origin", b"origin", "severity", b"severity", "status", b"status", "title", b"title", "turbine_id", b"turbine_id", "updated_at", b"updated_at", "version", b"version"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["cancel_reason", b"cancel_reason", "case_id", b"case_id", "case_rules_version", b"case_rules_version", "component_group", b"component_group", "created_at", b"created_at", "created_by", b"created_by", "detection_count", b"detection_count", "evidence_snapshot_id", b"evidence_snapshot_id", "evidence_status", b"evidence_status", "evidence_version", b"evidence_version", "last_detection_at", b"last_detection_at", "origin", b"origin", "severity", b"severity", "status", b"status", "title", b"title", "turbine_id", b"turbine_id", "updated_at", b"updated_at", "version", b"version"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -359,3 +372,244 @@ class CancelCaseResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___CancelCaseResponse: _TypeAlias = CancelCaseResponse  # noqa: Y015
+
+@_typing.final
+class EvidenceItem(_message.Message):
+    """One record a snapshot holds, as it was when frozen (EVD-002)."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SOURCE_SERVICE_FIELD_NUMBER: _builtins.int
+    RECORD_TYPE_FIELD_NUMBER: _builtins.int
+    RECORD_ID_FIELD_NUMBER: _builtins.int
+    VERSION_FIELD_NUMBER: _builtins.int
+    WINDOW_START_FIELD_NUMBER: _builtins.int
+    WINDOW_END_FIELD_NUMBER: _builtins.int
+    RETRIEVED_AT_FIELD_NUMBER: _builtins.int
+    DATA_QUALITY_JSON_FIELD_NUMBER: _builtins.int
+    CONTENT_JSON_FIELD_NUMBER: _builtins.int
+    CONTENT_HASH_FIELD_NUMBER: _builtins.int
+    source_service: _builtins.str
+    """"asset", "telemetry", "alarm" or "fault-detection"."""
+    record_type: _builtins.str
+    """"turbine", "telemetry_snapshot", "alarm", "detection" or "fault_rule_version"."""
+    record_id: _builtins.str
+    version: _builtins.str
+    data_quality_json: _builtins.str
+    """As JSON: for telemetry, each quality label's count, its gaps and rejections; else "{}"."""
+    content_json: _builtins.str
+    """The record, frozen, as canonical JSON."""
+    content_hash: _builtins.str
+    """sha256 over content_json."""
+    @_builtins.property
+    def window_start(self) -> _timestamp_pb2.Timestamp:
+        """The window it covers, when it has one."""
+
+    @_builtins.property
+    def window_end(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def retrieved_at(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        source_service: _builtins.str = ...,
+        record_type: _builtins.str = ...,
+        record_id: _builtins.str = ...,
+        version: _builtins.str = ...,
+        window_start: _timestamp_pb2.Timestamp | None = ...,
+        window_end: _timestamp_pb2.Timestamp | None = ...,
+        retrieved_at: _timestamp_pb2.Timestamp | None = ...,
+        data_quality_json: _builtins.str = ...,
+        content_json: _builtins.str = ...,
+        content_hash: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["retrieved_at", b"retrieved_at", "window_end", b"window_end", "window_start", b"window_start"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["content_hash", b"content_hash", "content_json", b"content_json", "data_quality_json", b"data_quality_json", "record_id", b"record_id", "record_type", b"record_type", "retrieved_at", b"retrieved_at", "source_service", b"source_service", "version", b"version", "window_end", b"window_end", "window_start", b"window_start"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___EvidenceItem: _TypeAlias = EvidenceItem  # noqa: Y015
+
+@_typing.final
+class EvidenceSnapshot(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    CASE_ID_FIELD_NUMBER: _builtins.int
+    VERSION_FIELD_NUMBER: _builtins.int
+    TURBINE_ID_FIELD_NUMBER: _builtins.int
+    CONTENT_HASH_FIELD_NUMBER: _builtins.int
+    HASH_FORMAT_FIELD_NUMBER: _builtins.int
+    CREATED_AT_FIELD_NUMBER: _builtins.int
+    CREATED_BY_FIELD_NUMBER: _builtins.int
+    WINDOW_START_FIELD_NUMBER: _builtins.int
+    WINDOW_END_FIELD_NUMBER: _builtins.int
+    ITEM_COUNT_FIELD_NUMBER: _builtins.int
+    ITEMS_FIELD_NUMBER: _builtins.int
+    VERIFIED_FIELD_NUMBER: _builtins.int
+    snapshot_id: _builtins.str
+    case_id: _builtins.str
+    version: _builtins.int
+    turbine_id: _builtins.str
+    content_hash: _builtins.str
+    """sha256 over its header and every item's hash, as hash_format says."""
+    hash_format: _builtins.str
+    """"windops-evidence-snapshot-v1"."""
+    created_by: _builtins.str
+    """A user, or the service that froze it."""
+    item_count: _builtins.int
+    verified: _builtins.bool
+    """True when every hash still matches what it holds."""
+    @_builtins.property
+    def created_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def window_start(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def window_end(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def items(self) -> _containers.RepeatedCompositeFieldContainer[Global___EvidenceItem]: ...
+    def __init__(
+        self,
+        *,
+        snapshot_id: _builtins.str = ...,
+        case_id: _builtins.str = ...,
+        version: _builtins.int = ...,
+        turbine_id: _builtins.str = ...,
+        content_hash: _builtins.str = ...,
+        hash_format: _builtins.str = ...,
+        created_at: _timestamp_pb2.Timestamp | None = ...,
+        created_by: _builtins.str = ...,
+        window_start: _timestamp_pb2.Timestamp | None = ...,
+        window_end: _timestamp_pb2.Timestamp | None = ...,
+        item_count: _builtins.int = ...,
+        items: _abc.Iterable[Global___EvidenceItem] | None = ...,
+        verified: _builtins.bool = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "window_end", b"window_end", "window_start", b"window_start"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "content_hash", b"content_hash", "created_at", b"created_at", "created_by", b"created_by", "hash_format", b"hash_format", "item_count", b"item_count", "items", b"items", "snapshot_id", b"snapshot_id", "turbine_id", b"turbine_id", "verified", b"verified", "version", b"version", "window_end", b"window_end", "window_start", b"window_start"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___EvidenceSnapshot: _TypeAlias = EvidenceSnapshot  # noqa: Y015
+
+@_typing.final
+class CreateEvidenceSnapshotRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CASE_ID_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    case_id: _builtins.str
+    idempotency_key: _builtins.str
+    def __init__(
+        self,
+        *,
+        case_id: _builtins.str = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "idempotency_key", b"idempotency_key"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___CreateEvidenceSnapshotRequest: _TypeAlias = CreateEvidenceSnapshotRequest  # noqa: Y015
+
+@_typing.final
+class CreateEvidenceSnapshotResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SNAPSHOT_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def snapshot(self) -> Global___EvidenceSnapshot: ...
+    def __init__(
+        self,
+        *,
+        snapshot: Global___EvidenceSnapshot | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["snapshot", b"snapshot"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["snapshot", b"snapshot"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___CreateEvidenceSnapshotResponse: _TypeAlias = CreateEvidenceSnapshotResponse  # noqa: Y015
+
+@_typing.final
+class GetEvidenceSnapshotRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    snapshot_id: _builtins.str
+    def __init__(
+        self,
+        *,
+        snapshot_id: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["snapshot_id", b"snapshot_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetEvidenceSnapshotRequest: _TypeAlias = GetEvidenceSnapshotRequest  # noqa: Y015
+
+@_typing.final
+class GetEvidenceSnapshotResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SNAPSHOT_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def snapshot(self) -> Global___EvidenceSnapshot: ...
+    def __init__(
+        self,
+        *,
+        snapshot: Global___EvidenceSnapshot | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["snapshot", b"snapshot"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["snapshot", b"snapshot"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetEvidenceSnapshotResponse: _TypeAlias = GetEvidenceSnapshotResponse  # noqa: Y015
+
+@_typing.final
+class ListEvidenceSnapshotsRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CASE_ID_FIELD_NUMBER: _builtins.int
+    case_id: _builtins.str
+    def __init__(
+        self,
+        *,
+        case_id: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListEvidenceSnapshotsRequest: _TypeAlias = ListEvidenceSnapshotsRequest  # noqa: Y015
+
+@_typing.final
+class ListEvidenceSnapshotsResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SNAPSHOTS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def snapshots(self) -> _containers.RepeatedCompositeFieldContainer[Global___EvidenceSnapshot]: ...
+    def __init__(
+        self,
+        *,
+        snapshots: _abc.Iterable[Global___EvidenceSnapshot] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["snapshots", b"snapshots"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListEvidenceSnapshotsResponse: _TypeAlias = ListEvidenceSnapshotsResponse  # noqa: Y015

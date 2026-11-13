@@ -13,10 +13,13 @@ from google.protobuf.message import Message
 from google.protobuf.timestamp_pb2 import Timestamp
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
+from windops.alarm.v1 import alarm_pb2
 from windops.asset.v1 import asset_pb2
 from windops.authorization.v1 import authorization_pb2
+from windops.fault_detection.v1 import fault_detection_pb2
 from windops.investigation.v1 import investigation_pb2 as pb
 from windops.investigation.v1 import investigation_pb2_grpc
+from windops.telemetry.v1 import telemetry_pb2
 from windops_grpc import (
     ConflictError,
     InvalidRequestError,
@@ -29,13 +32,14 @@ from windops_grpc import (
 from windops_migrations import in_tenant
 from windops_resilience import BreakerOpenError
 
-from windops_investigation import case_rules, cases
+from windops_investigation import case_rules, cases, evidence
 from windops_investigation.store import (
     ACTIVE,
     CASE_DETECTIONS,
     CASE_HISTORY,
     CASES,
     CLOSED,
+    EVIDENCE_SNAPSHOTS,
     KeyReusedError,
     remember,
     remembered,
@@ -43,6 +47,8 @@ from windops_investigation.store import (
 
 READ, CREATE, CANCEL = "investigation.read", "investigation.create", "investigation.cancel"
 DEADLINE_SECONDS = 3.0
+# Freezing a day of telemetry reads and hashes it all.
+SNAPSHOT_DEADLINE_SECONDS = 60.0
 DEFAULT_PAGE, MAXIMUM_PAGE = 100, 500
 MAXIMUM_KEY, MAXIMUM_TEXT = 64, 500
 STATUSES = (*ACTIVE, CLOSED, "cancelled")
@@ -94,9 +100,70 @@ class AssetClient:
         self._stub, self._client = stub, client
 
     async def wind_farm_of(self, turbine_id: str) -> str:
+        return str((await self.turbine(turbine_id)).wind_farm_id)
+
+    async def turbine(self, turbine_id: str) -> Any:
         request = asset_pb2.GetTurbineRequest(turbine_id=turbine_id)
         answer = await _call(self._client, self._stub.GetTurbine, request, "The Asset Service")
-        return str(answer.turbine.wind_farm_id)
+        return answer.turbine
+
+
+def _ts(value: datetime) -> Timestamp:
+    stamp = Timestamp()
+    stamp.FromDatetime(value)
+    return stamp
+
+
+class EvidenceSources:
+    """Each owner's records for a snapshot, asked as whoever is freezing it."""
+
+    def __init__(self, assets: Any, stubs: dict[str, Any],
+                 clients: dict[str, ServiceClient]) -> None:  # fmt: skip
+        self._assets, self._stubs, self._clients = assets, stubs, clients
+
+    async def _ask(self, owner: str, method: str, request: Message, who: str,
+                   deadline: float = DEADLINE_SECONDS) -> Any:  # fmt: skip
+        try:
+            return await self._clients[owner].call(
+                getattr(self._stubs[owner], method), request, idempotent=True,
+                deadline_seconds=deadline,
+            )  # fmt: skip
+        except grpc.aio.AioRpcError as error:
+            if error.code() in (grpc.StatusCode.NOT_FOUND, grpc.StatusCode.PERMISSION_DENIED):
+                raise NotFoundError(f"{who} has no such record for this caller") from error
+            raise UnavailableError(f"{who} cannot be reached right now") from error
+        except (BreakerOpenError, TimeoutError) as error:
+            raise UnavailableError(f"{who} cannot be reached right now") from error
+
+    async def turbine(self, turbine_id: str) -> Any:
+        return await self._assets.turbine(turbine_id)
+
+    async def telemetry_snapshot(self, turbine_id: str, start: datetime, end: datetime,
+                                 key: str) -> Any:  # fmt: skip
+        request = telemetry_pb2.CreateTelemetrySnapshotRequest(
+            turbine_id=turbine_id, from_time=_ts(start), to_time=_ts(end), idempotency_key=key
+        )
+        return await self._ask("telemetry", "CreateTelemetrySnapshot", request, "Telemetry",
+                               SNAPSHOT_DEADLINE_SECONDS)  # fmt: skip
+
+    async def alarms(self, turbine_id: str) -> list[Any]:
+        states = [alarm_pb2.ALARM_STATE_ACTIVE, alarm_pb2.ALARM_STATE_ACKNOWLEDGED,
+                  alarm_pb2.ALARM_STATE_SHELVED, alarm_pb2.ALARM_STATE_CLEARED]  # fmt: skip
+        request = alarm_pb2.ListAlarmsRequest(turbine_id=turbine_id, states=states, page_size=500)
+        return list((await self._ask("alarm", "ListAlarms", request, "Alarm")).alarms)
+
+    async def detection(self, detection_id: str) -> Any:
+        request = fault_detection_pb2.GetDetectionRequest(detection_id=detection_id)
+        answer = await self._ask("fault-detection", "GetDetection", request, "Fault Detection")
+        return answer.detection
+
+    async def rule_version(self, rule_id: str, version: int) -> Any:
+        request = fault_detection_pb2.GetFaultRuleRequest(rule_id=rule_id)
+        answer = await self._ask("fault-detection", "GetFaultRule", request, "Fault Detection")
+        found = [v for v in answer.versions if v.version == version]
+        if not found:
+            raise NotFoundError(f"Fault rule {rule_id} has no version {version}")
+        return found[0]
 
 
 def _timestamp(value: datetime | None) -> Timestamp | None:
@@ -115,7 +182,30 @@ def to_message(row: Any, detection_count: int = 0) -> pb.Case:
         updated_at=_timestamp(row.updated_at),
         last_detection_at=_timestamp(row.last_detection_at), detection_count=detection_count,
         case_rules_version=row.case_rules_version, cancel_reason=row.cancel_reason,
-        version=row.version,
+        version=row.version, evidence_snapshot_id=row.evidence_snapshot_id,
+        evidence_version=row.evidence_version,
+        evidence_status="pending" if row.evidence_wanted_at is not None else "ready",
+    )  # fmt: skip
+
+
+def to_snapshot(row: Any, items: list[Any] | None = None) -> pb.EvidenceSnapshot:
+    return pb.EvidenceSnapshot(
+        snapshot_id=row.snapshot_id, case_id=row.case_id, version=row.version,
+        turbine_id=row.turbine_id, content_hash=row.content_hash, hash_format=row.hash_format,
+        created_at=_timestamp(row.created_at), created_by=row.created_by,
+        window_start=_timestamp(row.window_start), window_end=_timestamp(row.window_end),
+        item_count=row.item_count,
+        items=[
+            pb.EvidenceItem(
+                source_service=i.source_service, record_type=i.record_type,
+                record_id=i.record_id, version=i.version, window_start=_timestamp(i.window_start),
+                window_end=_timestamp(i.window_end), retrieved_at=_timestamp(i.retrieved_at),
+                data_quality_json=i.data_quality, content_json=i.content,
+                content_hash=i.content_hash,
+            )
+            for i in items or []
+        ],
+        verified=evidence.verified(row, items) if items is not None else False,
     )  # fmt: skip
 
 
@@ -126,9 +216,11 @@ class InvestigationService(investigation_pb2_grpc.InvestigationServiceServicer):
         authorizer: Authorizer,
         assets: Assets,
         clock: Callable[[], datetime] | None = None,
+        sources: Any = None,
     ) -> None:
         self._engine, self._authorizer, self._assets = engine, authorizer, assets
         self._now = clock or (lambda: datetime.now(UTC))
+        self._sources = sources
 
     async def _allowed(self, permission: str, turbine_id: str) -> bool:
         if await self._authorizer.allowed(permission):
@@ -302,3 +394,66 @@ class InvestigationService(investigation_pb2_grpc.InvestigationServiceServicer):
                 method="CancelCase", request=request, response=response, now=now,
             )  # fmt: skip
         return response
+
+    async def CreateEvidenceSnapshot(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.CreateEvidenceSnapshotRequest, context: Any
+    ) -> pb.CreateEvidenceSnapshotResponse:
+        """Freeze a new version now, as the caller: they must be able to read what it holds."""
+        tenant, user = self._user()
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            case = await cases.load(connection, tenant, request.case_id)
+            if case is None:
+                raise NotFoundError("No such case")
+            first = await remembered(connection, tenant, user, request.idempotency_key,
+                                     "CreateEvidenceSnapshot", request)  # fmt: skip
+        if first is not None:
+            return pb.CreateEvidenceSnapshotResponse.FromString(first)
+        await self._require(CREATE, case.turbine_id)
+        if case.status not in ACTIVE:
+            raise ConflictError(f"Only an active case gets new evidence; it is {case.status}")
+        snapshot_id = await evidence.freeze(self._engine, self._sources, tenant, case.case_id,
+                                            user, cases.USER, self._now())  # fmt: skip
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, tenant)
+            row = await evidence.load(connection, tenant, snapshot_id)
+            response = pb.CreateEvidenceSnapshotResponse(
+                snapshot=to_snapshot(row, await evidence.items_of(connection, tenant, snapshot_id))
+            )
+            await remember(
+                connection, tenant_id=tenant, user_id=user, key=request.idempotency_key,
+                method="CreateEvidenceSnapshot", request=request, response=response,
+                now=self._now(),
+            )  # fmt: skip
+        return response
+
+    async def GetEvidenceSnapshot(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.GetEvidenceSnapshotRequest, context: Any
+    ) -> pb.GetEvidenceSnapshotResponse:
+        tenant = current_identity().tenant_id
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            row = await evidence.load(connection, tenant, request.snapshot_id)
+            if row is None:
+                raise NotFoundError("No such evidence snapshot")
+            await self._require(READ, row.turbine_id)
+            items = await evidence.items_of(connection, tenant, row.snapshot_id)
+        return pb.GetEvidenceSnapshotResponse(snapshot=to_snapshot(row, items))
+
+    async def ListEvidenceSnapshots(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.ListEvidenceSnapshotsRequest, context: Any
+    ) -> pb.ListEvidenceSnapshotsResponse:
+        tenant = current_identity().tenant_id
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            case = await cases.load(connection, tenant, request.case_id)
+            if case is None:
+                raise NotFoundError("No such case")
+            await self._require(READ, case.turbine_id)
+            rows = (await connection.execute(
+                select(EVIDENCE_SNAPSHOTS)
+                .where(EVIDENCE_SNAPSHOTS.c.tenant_id == tenant,
+                       EVIDENCE_SNAPSHOTS.c.case_id == case.case_id)
+                .order_by(EVIDENCE_SNAPSHOTS.c.version.desc())
+            )).all()  # fmt: skip
+        return pb.ListEvidenceSnapshotsResponse(snapshots=[to_snapshot(row) for row in rows])
