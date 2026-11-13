@@ -92,13 +92,18 @@ def test_a_correlation_needs_every_alarm_and_the_rule_it_names() -> None:
     assert engine.alarm_correlation(r, window([{}] * 700, [one, old]), {}) is None
 
 
-def test_a_data_gap_counts_samples_never_sent_as_missing() -> None:
+def test_a_data_gap_is_a_sensor_sending_nothing_not_samples_that_never_arrived() -> None:
     r = rule("data_gap", {"metric": "main_bearing_temp_c", "window_seconds": 100},
              [{"at": 30, "severity": "medium"}])  # fmt: skip
     values: list[dict[str, float | None]] = [{"main_bearing_temp_c": 30.0}] * 60
     values += [{"main_bearing_temp_c": None}] * 40
     found = engine.data_gap(r, window(values))
     assert found is not None and found.amount == pytest.approx(40.0, abs=1.1)
+    # The platform was down for most of the window: nothing arrived, so nothing is said.
+    samples = window([{"main_bearing_temp_c": 30.0}] * 100).samples
+    arrived = [s for s in samples if s.at > samples[0].at + timedelta(seconds=60)]
+    sparse = engine.Window("t1", 8000.0, 167.0, arrived[-1].at, arrived)
+    assert engine.data_gap(r, sparse) is None
 
 
 def run(scenario: str | None, hours: float, at: list[float], seed: int = 1001) -> set[str]:

@@ -338,17 +338,31 @@ class CaseUpdated(_message.Message):
 
     CASE_ID_FIELD_NUMBER: _builtins.int
     STATUS_FIELD_NUMBER: _builtins.int
+    TURBINE_ID_FIELD_NUMBER: _builtins.int
+    SEVERITY_FIELD_NUMBER: _builtins.int
+    ACTION_FIELD_NUMBER: _builtins.int
+    VERSION_FIELD_NUMBER: _builtins.int
     case_id: _builtins.str
     status: _builtins.str
+    turbine_id: _builtins.str
+    severity: _builtins.str
+    action: _builtins.str
+    """"created", "detection_attached", "severity_raised" or "cancelled"."""
+    version: _builtins.int
+    """The case's version after this change."""
     def __init__(
         self,
         *,
         case_id: _builtins.str = ...,
         status: _builtins.str = ...,
+        turbine_id: _builtins.str = ...,
+        severity: _builtins.str = ...,
+        action: _builtins.str = ...,
+        version: _builtins.int = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "status", b"status"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "case_id", b"case_id", "severity", b"severity", "status", b"status", "turbine_id", b"turbine_id", "version", b"version"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

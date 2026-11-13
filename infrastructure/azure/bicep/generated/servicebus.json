@@ -40,6 +40,13 @@
       "filter": "sys.Label = 'telemetry.received'",
       "maxDeliveryCount": 100,
       "lockDuration": "PT30S"
+    },
+    {
+      "topic": "windops-events",
+      "name": "investigation",
+      "filter": "sys.Label = 'fault.detected'",
+      "maxDeliveryCount": 100,
+      "lockDuration": "PT30S"
     }
   ]
 }

@@ -15,6 +15,7 @@ patches:
 - path: patches/windops-fault-detection.yaml
 - path: patches/windops-gateway.yaml
 - path: patches/windops-identity.yaml
+- path: patches/windops-investigation.yaml
 - path: patches/windops-sample-caller.yaml
 - path: patches/windops-sample-responder.yaml
 - path: patches/windops-telemetry.yaml

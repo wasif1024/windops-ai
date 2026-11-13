@@ -15,6 +15,7 @@ Its rule, detections and snapshots are removed at the end.
 """
 
 import json
+import re
 import secrets
 import subprocess
 import sys
@@ -188,10 +189,13 @@ def check_closed(rules: Caller) -> None:
     )
 
 
-def clean_up() -> None:
+def clean_up(prefix: str = "detection-check-") -> None:
+    """Remove the check's rules, their detections and the snapshots those froze."""
+    if not re.fullmatch(r"[a-z-]+", prefix):
+        raise ValueError("A fixed prefix of letters and hyphens")
     snapshots = last_line(sql(
-        "SELECT coalesce(string_agg(telemetry_snapshot_id, ','), '') FROM detections "
-        "WHERE rule_id LIKE 'detection-check-%'"
+        "SELECT coalesce(string_agg(telemetry_snapshot_id, ','), '') FROM detections "  # noqa: S608  # The prefix is checked above.
+        f"WHERE rule_id LIKE '{prefix}%'"
     ))  # fmt: skip
     for snapshot_id in filter(None, snapshots.split(",")):
         if not snapshot_id.startswith("tsnap_") or not snapshot_id[6:].isalnum():
@@ -203,10 +207,10 @@ def clean_up() -> None:
             f"telemetry_snapshots WHERE snapshot_id = '{snapshot_id}'; SELECT 1"
         ))  # fmt: skip
     last_line(sql(
-        "ALTER TABLE fault_rule_versions DISABLE TRIGGER fault_rule_versions_never_change; "
-        "DELETE FROM fault_rule_versions WHERE rule_id LIKE 'detection-check-%'; "
-        "DELETE FROM fault_rules WHERE rule_id LIKE 'detection-check-%'; "
-        "DELETE FROM detections WHERE rule_id LIKE 'detection-check-%'; "
+        "ALTER TABLE fault_rule_versions DISABLE TRIGGER fault_rule_versions_never_change; "  # noqa: S608  # The prefix is checked above.
+        f"DELETE FROM fault_rule_versions WHERE rule_id LIKE '{prefix}%'; "
+        f"DELETE FROM fault_rules WHERE rule_id LIKE '{prefix}%'; "
+        f"DELETE FROM detections WHERE rule_id LIKE '{prefix}%'; "
         "ALTER TABLE fault_rule_versions ENABLE TRIGGER fault_rule_versions_never_change; SELECT 1"
     ))  # fmt: skip
 

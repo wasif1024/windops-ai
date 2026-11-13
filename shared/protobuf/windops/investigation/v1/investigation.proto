@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package windops.investigation.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Investigation cases: what is being looked into on a turbine, and why (FR-INV-001, FR-FLT-004).
+//
+// A case starts in one of two ways. A person with investigation.create opens one. Or a detection
+// arrives as fault.detected, and the versioned case rules decide: it joins the turbine's active
+// case for the same component, or opens a new one, so one fault makes one case. A case's severity
+// is the highest of its detections', worked out, never judged.
+//
+// The tenant comes from the caller's verified identity (GRP-004). Reading needs
+// investigation.read for the turbine, its wind farm or the tenant; cancelling needs
+// investigation.cancel there. A case the caller may not read is not found. Every change is kept in
+// the case's history, announced as case.updated and audited, and a change may be retried with the
+// same idempotency_key (GRP-007).
+service InvestigationService {
+  rpc CreateCase(CreateCaseRequest) returns (CreateCaseResponse);
+  // Active cases by default: open, investigating and pending review, most severe and newest first.
+  rpc ListCases(ListCasesRequest) returns (ListCasesResponse);
+  // With its detections and its history.
+  rpc GetCase(GetCaseRequest) returns (GetCaseResponse);
+  rpc CancelCase(CancelCaseRequest) returns (CancelCaseResponse);
+}
+
+message Case {
+  string case_id = 1;
+  string turbine_id = 2;
+  // What the case is about, from the case rules, such as "gearbox". "turbine" for a person's case,
+  // or a detection whose rule the case rules do not know.
+  string component_group = 3;
+  string title = 4;
+  // "open", "investigating", "pending_review", "closed" or "cancelled".
+  string status = 5;
+  // "low", "medium", "high" or "critical": the highest of its detections, or a person's choice
+  // for a case they open by hand.
+  string severity = 6;
+  // "detection" or "user".
+  string origin = 7;
+  // A user, or the service whose detection opened it.
+  string created_by = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp last_detection_at = 11;
+  int64 detection_count = 12;
+  // The case rules that grouped its detections, such as "case-rules-1".
+  string case_rules_version = 13;
+  string cancel_reason = 14;
+  int64 version = 15;
+}
+
+message CaseDetection {
+  string detection_id = 1;
+  string rule_id = 2;
+  string rule_version = 3;
+  string severity = 4;
+  string telemetry_snapshot_id = 5;
+  google.protobuf.Timestamp attached_at = 6;
+}
+
+message CaseEvent {
+  google.protobuf.Timestamp at = 1;
+  // "created", "detection_attached", "severity_raised" or "cancelled".
+  string action = 2;
+  // "user" or "service".
+  string actor_type = 3;
+  string actor_id = 4;
+  string note = 5;
+}
+
+message CreateCaseRequest {
+  string turbine_id = 1;
+  string title = 2;
+  // "low", "medium", "high" or "critical": how urgent the person judges it, until detections say.
+  string severity = 3;
+  string idempotency_key = 4;
+}
+
+message CreateCaseResponse {
+  Case case = 1;
+}
+
+message ListCasesRequest {
+  // Empty means open, investigating and pending_review.
+  repeated string statuses = 1;
+  string turbine_id = 2;
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListCasesResponse {
+  repeated Case cases = 1;
+  string next_page_token = 2;
+}
+
+message GetCaseRequest {
+  string case_id = 1;
+}
+
+message GetCaseResponse {
+  Case case = 1;
+  repeated CaseDetection detections = 2;
+  // Oldest first.
+  repeated CaseEvent history = 3;
+}
+
+message CancelCaseRequest {
+  string case_id = 1;
+  // Why, for whoever looks next. Required.
+  string reason = 2;
+  string idempotency_key = 3;
+}
+
+message CancelCaseResponse {
+  Case case = 1;
+}

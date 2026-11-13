@@ -17,6 +17,8 @@ from windops_fault_detection.rules import Rule
 
 # How much of a held period must have samples, so a gap is never read as a reading held.
 COVERAGE = 0.9
+# How many of a data-gap window's samples must arrive for the gap to be the sensor's.
+GAP_COVERAGE = 0.5
 
 
 @dataclass(frozen=True)
@@ -252,9 +254,13 @@ def data_gap(rule: Rule, window: Window) -> Finding | None:
     p = rule.parameters
     start = window.end - timedelta(seconds=p["window_seconds"])
     inside = [s for s in window.samples if start < s.at <= window.end]
+    # A sensor fault is a sample that arrived without its reading. Samples that never arrived are
+    # the link or the platform, which freshness alerts on, and say nothing of the sensor: with too
+    # few to judge, there is no finding.
+    if len(inside) < GAP_COVERAGE * p["window_seconds"]:
+        return None
     present = sum(1 for s in inside if s.readings.get(p["metric"]) is not None)
-    # One sample a second: what never arrived is missing too.
-    missing = 100.0 * (1 - present / p["window_seconds"])
+    missing = 100.0 * (1 - present / len(inside))
     severity = rule.severity_for(missing)
     if severity is None:
         return None
@@ -262,7 +268,7 @@ def data_gap(rule: Rule, window: Window) -> Finding | None:
         rule.rule_id, rule.version, rule.kind, severity, missing,
         f"{missing:.0f}% of {p['metric']} missing over {p['window_seconds']} seconds",
         {"metric": p["metric"], "missing_percent": round(missing, 2), "present": present,
-         "window_seconds": p["window_seconds"]}, start,
+         "arrived": len(inside), "window_seconds": p["window_seconds"]}, start,
     )  # fmt: skip
 
 

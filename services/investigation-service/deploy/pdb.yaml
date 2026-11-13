@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: windops-investigation
+  labels:
+    app.kubernetes.io/name: windops-investigation
+    app.kubernetes.io/part-of: windops
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: windops-investigation

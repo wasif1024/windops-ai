@@ -97,6 +97,12 @@ message FaultDetected {
 message CaseUpdated {
   string case_id = 1;
   string status = 2;
+  string turbine_id = 3;
+  string severity = 4;
+  // "created", "detection_attached", "severity_raised" or "cancelled".
+  string action = 5;
+  // The case's version after this change.
+  int64 version = 6;
 }
 
 // A source record changed, which can make a recommendation stale (SRS 8.5).

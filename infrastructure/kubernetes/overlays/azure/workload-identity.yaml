@@ -327,6 +327,52 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: windops-investigation
+  namespace: windops-application
+  labels:
+    app.kubernetes.io/name: windops-investigation
+    app.kubernetes.io/part-of: windops
+  annotations:
+    azure.workload.identity/client-id: ${AZURE_CLIENT_ID_WINDOPS_INVESTIGATION}
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: windops-investigation
+  namespace: windops-application
+spec:
+  provider: azure
+  parameters:
+    clientID: ${AZURE_CLIENT_ID_WINDOPS_INVESTIGATION}
+    keyvaultName: ${AZURE_KEYVAULT_NAME}
+    tenantId: ${AZURE_TENANT_ID}
+    objects: "array:\n- 'objectName: windops-internal-identity--signing-key\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-investigation-database--database\n\n\
+      \  objectType: secret\n\n  '\n- 'objectName: windops-investigation-database--host\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-investigation-database--port\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-investigation-database--username\n\
+      \n  objectType: secret\n\n  '\n"
+  secretObjects:
+  - secretName: windops-internal-identity
+    type: Opaque
+    data:
+    - key: signing-key
+      objectName: windops-internal-identity--signing-key
+  - secretName: windops-investigation-database
+    type: Opaque
+    data:
+    - key: database
+      objectName: windops-investigation-database--database
+    - key: host
+      objectName: windops-investigation-database--host
+    - key: port
+      objectName: windops-investigation-database--port
+    - key: username
+      objectName: windops-investigation-database--username
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: windops-sample-caller
   namespace: windops-application
   labels:
