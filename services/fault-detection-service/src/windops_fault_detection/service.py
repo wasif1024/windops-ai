@@ -41,9 +41,10 @@ from windops_grpc import (
 from windops_migrations import in_tenant
 from windops_resilience import BreakerOpenError
 
-from windops_fault_detection import engine, rules
-from windops_fault_detection.defaults import DEFAULT_RULES, LIBRARY
+from windops_fault_detection import engine, library, rules
+from windops_fault_detection.defaults import LIBRARY
 from windops_fault_detection.store import (
+    DETECTIONS,
     FAULT_RULE_VERSIONS,
     FAULT_RULES,
     KeyReusedError,
@@ -53,6 +54,10 @@ from windops_fault_detection.store import (
 )
 
 READ, MANAGE = "policy.read", "policy.manage"
+# Detections feed investigations, so those who may read investigations may read them.
+READ_DETECTIONS = "investigation.read"
+DEFAULT_PAGE, MAXIMUM_PAGE = 100, 500
+_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1}
 DEADLINE_SECONDS = 3.0
 # A dry run streams up to a few hours of every reading.
 STREAM_DEADLINE_SECONDS = 30.0
@@ -77,7 +82,9 @@ READINGS = {
 
 
 class Authorizer(Protocol):
-    async def allowed(self, permission: str) -> bool: ...
+    async def allowed(
+        self, permission: str, wind_farm_id: str = "", turbine_id: str = ""
+    ) -> bool: ...
 
 
 class Sources(Protocol):
@@ -108,8 +115,11 @@ class AuthorizationClient:
     def __init__(self, stub: Any, client: ServiceClient) -> None:
         self._stub, self._client = stub, client
 
-    async def allowed(self, permission: str) -> bool:
-        request = authorization_pb2.CheckRequest(permission=permission)
+    async def allowed(self, permission: str, wind_farm_id: str = "", turbine_id: str = "") -> bool:
+        request = authorization_pb2.CheckRequest(
+            permission=permission,
+            scope=authorization_pb2.Scope(wind_farm_id=wind_farm_id, turbine_id=turbine_id),
+        )
         try:
             answer = await _call(self._client, self._stub.Check, request, "Authorization")
         except NotFoundError as error:
@@ -161,6 +171,17 @@ class ServiceSources:
             )
         return [engine.Sample(at, readings) for at, readings in sorted(by_time.items())]
 
+    async def snapshot(self, turbine_id: str, start: datetime, end: datetime, key: str) -> Any:
+        """Frozen by the Telemetry Service, with its content hash and a retention hold."""
+        request = telemetry_pb2.CreateTelemetrySnapshotRequest(
+            turbine_id=turbine_id, from_time=_stamp(start), to_time=_stamp(end),
+            idempotency_key=key,
+        )  # fmt: skip
+        return await _call(
+            self._clients["telemetry"], self._telemetry.CreateTelemetrySnapshot, request,
+            "Telemetry", STREAM_DEADLINE_SECONDS,
+        )  # fmt: skip
+
     async def alarms(self, turbine_id: str) -> list[Any]:
         states = [alarm_pb2.ALARM_STATE_ACTIVE, alarm_pb2.ALARM_STATE_ACKNOWLEDGED,
                   alarm_pb2.ALARM_STATE_SHELVED, alarm_pb2.ALARM_STATE_CLEARED]  # fmt: skip
@@ -173,6 +194,7 @@ class ServiceSources:
                 a.state != alarm_pb2.ALARM_STATE_CLEARED,
                 a.raised_at.ToDatetime(tzinfo=UTC),
                 a.cleared_at.ToDatetime(tzinfo=UTC) if a.HasField("cleared_at") else None,
+                a.alarm_id,
             )
             for a in answer.alarms
         ]
@@ -204,7 +226,92 @@ def _definition(text: str) -> dict[str, Any]:
     return value
 
 
-class FaultRuleService(fault_detection_pb2_grpc.FaultRuleServiceServicer):
+def to_detection(row: Any) -> pb.Detection:
+    return pb.Detection(
+        detection_id=row.detection_id, turbine_id=row.turbine_id, rule_id=row.rule_id,
+        rule_version=row.rule_version, rule_content_hash=row.rule_content_hash, kind=row.kind,
+        severity=row.severity, amount=row.amount, summary=row.summary,
+        observed_json=row.observed, since=_timestamp(row.since),
+        detected_at=_timestamp(row.detected_at), last_seen_at=_timestamp(row.last_seen_at),
+        window_start=_timestamp(row.window_start), window_end=_timestamp(row.window_end),
+        telemetry_snapshot_id=row.telemetry_snapshot_id,
+        telemetry_snapshot_hash=row.telemetry_snapshot_hash,
+        alarm_ids=json.loads(row.alarm_ids), state=row.state,
+        closed_at=_timestamp(row.closed_at), closed_reason=row.closed_reason,
+    )  # fmt: skip
+
+
+class Detections:
+    """The detection reads, as FaultRuleService methods, kept apart from the rules."""
+
+    _engine: AsyncEngine
+    _authorizer: Authorizer
+    _sources: Sources
+
+    async def _may_read(self, turbine_id: str) -> bool:
+        """For the whole tenant, or this turbine or its wind farm, as the Asset Service says."""
+        if await self._authorizer.allowed(READ_DETECTIONS):
+            return True
+        if not turbine_id:
+            return False
+        try:
+            farm = (await self._sources.turbine(turbine_id)).wind_farm_id
+        except NotFoundError:
+            return False
+        return await self._authorizer.allowed(READ_DETECTIONS, farm, turbine_id)
+
+    async def ListDetections(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.ListDetectionsRequest, context: Any
+    ) -> pb.ListDetectionsResponse:
+        state = request.state or "open"
+        if state not in ("open", "closed"):
+            raise InvalidRequestError('state is "open" or "closed"')
+        size = request.page_size or DEFAULT_PAGE
+        if not 1 <= size <= MAXIMUM_PAGE:
+            raise InvalidRequestError(f"page_size is from 1 to {MAXIMUM_PAGE}")
+        if not await self._may_read(request.turbine_id):
+            raise PermissionDeniedError("You do not have permission to do this")
+        offset = int(request.page_token) if request.page_token.isdigit() else 0
+        tenant = current_identity().tenant_id
+        d = DETECTIONS.c
+        query = select(DETECTIONS).where(d.tenant_id == tenant, d.state == state)
+        if request.turbine_id:
+            query = query.where(d.turbine_id == request.turbine_id)
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            rows = (await connection.execute(query)).all()
+        rows = sorted(rows, key=lambda r: (-_RANK.get(r.severity, 0), -r.detected_at.timestamp(),
+                                           r.detection_id))  # fmt: skip
+        page = rows[offset : offset + size]
+        more = len(rows) > offset + size
+        return pb.ListDetectionsResponse(
+            detections=[to_detection(row) for row in page],
+            next_page_token=str(offset + size) if more else "",
+        )
+
+    async def GetDetection(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.GetDetectionRequest, context: Any
+    ) -> pb.GetDetectionResponse:
+        if not request.detection_id:
+            raise InvalidRequestError("detection_id is required")
+        tenant = current_identity().tenant_id
+        d = DETECTIONS.c
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            row = (
+                await connection.execute(
+                    select(DETECTIONS).where(
+                        d.tenant_id == tenant, d.detection_id == request.detection_id
+                    )
+                )
+            ).one_or_none()
+        # One the caller may not read is not found.
+        if row is None or not await self._may_read(row.turbine_id):
+            raise NotFoundError("No such detection")
+        return pb.GetDetectionResponse(detection=to_detection(row))
+
+
+class FaultRuleService(Detections, fault_detection_pb2_grpc.FaultRuleServiceServicer):
     def __init__(
         self,
         engine_: AsyncEngine,
@@ -238,48 +345,7 @@ class FaultRuleService(fault_detection_pb2_grpc.FaultRuleServiceServicer):
     # --- the rules
 
     async def _install_defaults(self, tenant: str) -> None:
-        """A tenant's first look installs the default library, as version 1 of each, audited."""
-        async with self._engine.connect() as connection:
-            await in_tenant(connection, tenant)
-            any_rule = await connection.execute(
-                select(FAULT_RULES.c.rule_id).where(FAULT_RULES.c.tenant_id == tenant).limit(1)
-            )
-            if any_rule.first() is not None:
-                return
-        now = self._now()
-        try:
-            async with self._engine.begin() as connection:
-                await in_tenant(connection, tenant)
-                for rule_id, name, description, definition in DEFAULT_RULES:
-                    await self._write_version(
-                        connection, tenant, rule_id, 1, definition, SYSTEM,
-                        f"The default library, {LIBRARY}", now,
-                    )  # fmt: skip
-                    await connection.execute(
-                        FAULT_RULES.insert().values(
-                            tenant_id=tenant, rule_id=rule_id, name=name, description=description,
-                            enabled=True, current_version=1, created_at=now, updated_at=now,
-                        )
-                    )  # fmt: skip
-                    await audit(connection, tenant_id=tenant, actor_type=SYSTEM, actor_id=SYSTEM,
-                                action="fault_rule.created", rule_id=rule_id)  # fmt: skip
-        except IntegrityError:
-            # Another call installed them first.
-            return
-
-    @staticmethod
-    async def _write_version(
-        connection: AsyncConnection, tenant: str, rule_id: str, version: int,
-        definition: dict[str, Any], by: str, reason: str, now: datetime,
-    ) -> None:  # fmt: skip
-        await connection.execute(
-            FAULT_RULE_VERSIONS.insert().values(
-                tenant_id=tenant, rule_id=rule_id, version=version, kind=definition["kind"],
-                definition=rules.canonical(definition),
-                content_hash=rules.content_hash(rule_id, version, definition), created_by=by,
-                created_at=now, reason=reason,
-            )
-        )  # fmt: skip
+        await library.install_defaults(self._engine, tenant, self._now())
 
     async def _rules(self, connection: AsyncConnection, tenant: str) -> list[pb.FaultRule]:
         r, v = FAULT_RULES.c, FAULT_RULE_VERSIONS.c
@@ -407,8 +473,8 @@ class FaultRuleService(fault_detection_pb2_grpc.FaultRuleServiceServicer):
                     "and try again"
                 )
             version = have + 1
-            await self._write_version(connection, tenant, request.rule_id, version, definition,
-                                      user, reason, now)  # fmt: skip
+            await library.write_version(connection, tenant, request.rule_id, version, definition,
+                                        user, reason, now)  # fmt: skip
             if current is None:
                 if not name:
                     raise InvalidRequestError("A new rule needs a name")
@@ -476,11 +542,7 @@ class FaultRuleService(fault_detection_pb2_grpc.FaultRuleServiceServicer):
         await self._install_defaults(tenant)
         async with self._engine.connect() as connection:
             await in_tenant(connection, tenant)
-            listed = [rule for rule in await self._rules(connection, tenant) if rule.enabled]
-        enabled = [
-            rules.parse(r.rule_id, r.current.version, r.name, json.loads(r.current.definition_json))
-            for r in listed
-        ]
+            enabled = [rule for rule, _ in await library.enabled_rules(connection, tenant)]
         end = request.at.ToDatetime(tzinfo=UTC) if request.HasField("at") else self._now()
         start = end - engine.lookback(enabled)
         turbine = await self._sources.turbine(request.turbine_id)

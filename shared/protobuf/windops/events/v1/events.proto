@@ -88,6 +88,10 @@ message FaultDetected {
   string turbine_id = 2;
   string rule_version = 3;
   string telemetry_snapshot_id = 4;
+  string rule_id = 5;
+  // "low", "medium", "high" or "critical", from the rule's levels (FR-FLT-005).
+  string severity = 6;
+  string rule_content_hash = 7;
 }
 
 message CaseUpdated {

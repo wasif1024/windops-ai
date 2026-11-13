@@ -47,7 +47,12 @@
     "events": true,
     "database": true,
     "keyVault": true,
-    "receives": []
+    "receives": [
+      {
+        "topic": "windops-telemetry",
+        "subscription": "fault-detection"
+      }
+    ]
   },
   {
     "name": "windops-gateway",

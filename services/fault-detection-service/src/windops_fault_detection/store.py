@@ -9,12 +9,15 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Float,
+    Index,
     LargeBinary,
     MetaData,
     Table,
     Text,
     insert,
     select,
+    text,
 )
 from sqlalchemy.ext.asyncio import AsyncConnection
 from windops.events.v1 import events_pb2
@@ -50,6 +53,53 @@ FAULT_RULE_VERSIONS = Table(
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("reason", Text, nullable=False),
 )
+# Each turbine whose telemetry arrives, from telemetry.received, for the detector to watch.
+TURBINE_WATCH = Table(
+    "turbine_watch",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("turbine_id", Text, primary_key=True),
+    Column("last_seen_at", DateTime(timezone=True), nullable=False),
+    Column("last_evaluated_at", DateTime(timezone=True)),
+)
+# What the detector found, each with the exact rule version and the telemetry it saw (FR-FLT-003).
+DETECTIONS = Table(
+    "detections",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("detection_id", Text, primary_key=True),
+    Column("turbine_id", Text, nullable=False),
+    Column("rule_id", Text, nullable=False),
+    Column("rule_version", BigInteger, nullable=False),
+    Column("rule_content_hash", Text, nullable=False),
+    Column("kind", Text, nullable=False),
+    Column("severity", Text, nullable=False),
+    Column("amount", Float, nullable=False),
+    Column("summary", Text, nullable=False),
+    Column("observed", Text, nullable=False),
+    Column("since", DateTime(timezone=True)),
+    Column("detected_at", DateTime(timezone=True), nullable=False),
+    Column("last_seen_at", DateTime(timezone=True), nullable=False),
+    Column("window_start", DateTime(timezone=True), nullable=False),
+    Column("window_end", DateTime(timezone=True), nullable=False),
+    Column("telemetry_snapshot_id", Text, nullable=False),
+    Column("telemetry_snapshot_hash", Text, nullable=False),
+    # The alarms the rule saw, as a JSON list of IDs.
+    Column("alarm_ids", Text, nullable=False),
+    Column("state", Text, nullable=False),
+    Column("closed_at", DateTime(timezone=True)),
+    Column("closed_reason", Text, nullable=False, server_default=""),
+    # At most one open detection a rule on a turbine.
+    Index(
+        "detections_one_open",
+        "tenant_id",
+        "turbine_id",
+        "rule_id",
+        unique=True,
+        postgresql_where=text("state = 'open'"),
+        sqlite_where=text("state = 'open'"),
+    ),
+)
 # A retry with the same key returns the first answer, and changes nothing (GRP-007).
 IDEMPOTENCY_KEYS = Table(
     "idempotency_keys",
@@ -62,7 +112,9 @@ IDEMPOTENCY_KEYS = Table(
     Column("response", LargeBinary, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
-TENANT_TABLES = ("fault_rules", "fault_rule_versions", "idempotency_keys")
+TENANT_TABLES = (
+    "fault_rules", "fault_rule_versions", "idempotency_keys", "turbine_watch", "detections",
+)  # fmt: skip
 
 
 class KeyReusedError(ValueError):
@@ -114,7 +166,7 @@ async def remember(
 
 async def audit(
     connection: AsyncConnection, *, tenant_id: str, actor_type: str, actor_id: str, action: str,
-    rule_id: str,
+    rule_id: str, resource_type: str = "fault_rule",
 ) -> None:  # fmt: skip
     """Queue the audit record in the change's own transaction (EVT-002)."""
     await add_event(
@@ -122,7 +174,7 @@ async def audit(
         audit_request_subject(SERVICE_NAME),
         tenant_id=tenant_id,
         payload=events_pb2.AuditRequested(
-            action=action, actor_type=actor_type, actor_id=actor_id, resource_type="fault_rule",
+            action=action, actor_type=actor_type, actor_id=actor_id, resource_type=resource_type,
             resource_id=rule_id, outcome="succeeded",
         ),
         producer=SERVICE_NAME,

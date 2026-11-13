@@ -302,10 +302,17 @@ class FaultDetected(_message.Message):
     TURBINE_ID_FIELD_NUMBER: _builtins.int
     RULE_VERSION_FIELD_NUMBER: _builtins.int
     TELEMETRY_SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    RULE_ID_FIELD_NUMBER: _builtins.int
+    SEVERITY_FIELD_NUMBER: _builtins.int
+    RULE_CONTENT_HASH_FIELD_NUMBER: _builtins.int
     detection_id: _builtins.str
     turbine_id: _builtins.str
     rule_version: _builtins.str
     telemetry_snapshot_id: _builtins.str
+    rule_id: _builtins.str
+    severity: _builtins.str
+    """"low", "medium", "high" or "critical", from the rule's levels (FR-FLT-005)."""
+    rule_content_hash: _builtins.str
     def __init__(
         self,
         *,
@@ -313,10 +320,13 @@ class FaultDetected(_message.Message):
         turbine_id: _builtins.str = ...,
         rule_version: _builtins.str = ...,
         telemetry_snapshot_id: _builtins.str = ...,
+        rule_id: _builtins.str = ...,
+        severity: _builtins.str = ...,
+        rule_content_hash: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["detection_id", b"detection_id", "rule_version", b"rule_version", "telemetry_snapshot_id", b"telemetry_snapshot_id", "turbine_id", b"turbine_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["detection_id", b"detection_id", "rule_content_hash", b"rule_content_hash", "rule_id", b"rule_id", "rule_version", b"rule_version", "severity", b"severity", "telemetry_snapshot_id", b"telemetry_snapshot_id", "turbine_id", b"turbine_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

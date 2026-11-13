@@ -1,13 +1,16 @@
-"""Start the Fault Detection Service: its rules API, and the relay for its audit records."""
+"""Start the Fault Detection Service: its API, its detector, and the relay for its events."""
 
 import asyncio
 import contextlib
 import logging
 import os
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 import grpc
+from nats.errors import Error as NatsError
+from nats.js.errors import APIError
 from opentelemetry import metrics
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -17,13 +20,14 @@ from windops.authorization.v1 import authorization_pb2_grpc
 from windops.fault_detection.v1 import fault_detection_pb2_grpc
 from windops.telemetry.v1 import telemetry_pb2_grpc
 from windops_auth import current_identity_token
-from windops_events import EventsUnavailableError, open_events
+from windops_events import Event, Events, EventsUnavailableError, open_events
 from windops_grpc import ServiceClient, create_channel, run_service
 from windops_migrations import create_service_engine
 from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, CircuitBreaker
 
+from windops_fault_detection.detector import SUBJECT, Detector, keep_detecting, watch
 from windops_fault_detection.service import AuthorizationClient, FaultRuleService, ServiceSources
 from windops_fault_detection.store import SERVICE_NAME
 
@@ -31,9 +35,9 @@ logger = logging.getLogger("windops.service")
 RECONNECT_SECONDS = 5
 
 
-async def relay_events(engine: AsyncEngine, stop: asyncio.Event) -> None:
-    """Publish queued audit records. An outage only delays them (SRS 7.7)."""
-    events = None
+async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
+    """Watch telemetry.received, and publish the outbox. An outage only delays them (SRS 7.7)."""
+    events: Events | None = None
     while events is None:
         if stop.is_set():
             return
@@ -46,9 +50,30 @@ async def relay_events(engine: AsyncEngine, stop: asyncio.Event) -> None:
             )
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), timeout=RECONNECT_SECONDS)
+
+    async def handler(event: Event) -> None:
+        await watch(engine, event)
+
+    consumer = events.consumer(subject=SUBJECT, durable=SERVICE_NAME, handler=handler)
+    relay = asyncio.create_task(OutboxRelay(engine, events.publisher).run_forever(stop))
+    started = False
     try:
-        await OutboxRelay(engine, events.publisher).run_forever(stop)
+        while not stop.is_set():
+            try:
+                if not started:
+                    await consumer.start()
+                    started = True
+                await consumer.run_once()
+            except (NatsError, APIError, EventsUnavailableError, TimeoutError, OSError) as error:
+                logger.warning(
+                    "Cannot read telemetry announcements yet",
+                    extra={"error_type": type(error).__name__},
+                )
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(stop.wait(), timeout=RECONNECT_SECONDS)
     finally:
+        stop.set()
+        await relay
         await events.close()
 
 
@@ -111,12 +136,23 @@ def main() -> None:
             FaultRuleService(engine, authorizer, sources), server
         )
 
-    async def relay(stop: asyncio.Event) -> None:
-        await relay_events(engine, stop)
+    async def consume(stop: asyncio.Event) -> None:
+        await consume_and_relay(engine, stop)
+
+    detector = Detector(
+        engine, sources, os.environ["WINDOPS_IDENTITY_SECRET"],
+        timedelta(seconds=int(os.environ.get("WINDOPS_DETECTION_INTERVAL_SECONDS", "300"))),
+    )  # fmt: skip
+
+    async def detect(stop: asyncio.Event) -> None:
+        await keep_detecting(detector, stop)
 
     asyncio.run(
-        run_service(SERVICE_NAME, register, readiness_checks=(database_ready,), background=(relay,))
-    )
+        run_service(
+            SERVICE_NAME, register, readiness_checks=(database_ready,),
+            background=(consume, detect),
+        )
+    )  # fmt: skip
 
 
 if __name__ == "__main__":

@@ -122,7 +122,8 @@ spec:
               cpu: 25m
               memory: 160Mi
             limits:
-              cpu: 250m
+              # CPU: after a restart, every streaming turbine's first run reads two hours, which held 250m.
+              cpu: 500m
               memory: 384Mi
           securityContext:
             allowPrivilegeEscalation: false

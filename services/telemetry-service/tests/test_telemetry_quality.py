@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import StaticPool
+from windops_outbox import create_outbox_table
 from windops_simulator.delivery import DataProblems
 from windops_simulator.fleet import DEMO_TURBINES
 from windops_simulator.scenarios import Scenario, run
@@ -161,6 +162,7 @@ def test_labels_match_the_ground_truth_for_every_kind_of_problem() -> None:
         engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
         async with engine.begin() as connection:
             await connection.run_sync(METADATA.create_all)
+            await connection.run_sync(create_outbox_table)
         truth = await replay(engine)
         await Summarizer(engine).run_once(START + SCENARIO.duration + timedelta(minutes=20))
         async with engine.connect() as connection:
@@ -213,6 +215,7 @@ def test_a_late_sample_that_fills_a_gap_removes_it() -> None:
         engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
         async with engine.begin() as connection:
             await connection.run_sync(METADATA.create_all)
+            await connection.run_sync(create_outbox_table)
             base = {
                 "tenant_id": "north-sea", "turbine_id": "t1", "device_id": "d", "source": "s",
                 "schema_version": "2", "model_version": "m", "synthetic": True,

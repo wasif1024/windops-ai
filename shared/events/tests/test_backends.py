@@ -89,6 +89,7 @@ def test_a_subscription_keeps_only_its_consumers_subjects() -> None:
     assert [(s.topic, s.durable) for s in SUBSCRIPTIONS] == [
         ("windops-audit", "audit"),
         ("windops-events", "alarm"),
+        ("windops-telemetry", "fault-detection"),
     ]
     assert _matches("audit.requested.*", "audit.requested.alarm")
     assert not _matches("audit.requested.*", "audit.requested.alarm.extra")

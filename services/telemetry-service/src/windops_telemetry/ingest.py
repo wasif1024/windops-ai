@@ -44,6 +44,7 @@ from windops_telemetry.store import (
     EXCERPT_CHARACTERS,
     INGEST_REJECTIONS,
     OPERATIONAL_SAMPLES,
+    announce_batch,
     queue_alarm,
 )
 
@@ -430,6 +431,8 @@ def create_ingest_router(
             await in_tenant(connection, device.tenant_id)
             if rows:
                 await connection.execute(OPERATIONAL_SAMPLES.insert(), rows)
+                # So Fault Detection knows this turbine is streaming, with the samples (EVT-002).
+                await announce_batch(connection, device, len(rows))
             if rejections:
                 await connection.execute(INGEST_REJECTIONS.insert(), rejections)
         measured.accepted(device.tenant_id, "samples", received, [r["event_time"] for r in rows])

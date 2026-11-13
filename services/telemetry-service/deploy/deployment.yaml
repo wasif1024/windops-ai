@@ -146,7 +146,8 @@ spec:
               cpu: 25m
               memory: 192Mi
             limits:
-              cpu: 250m
+              # CPU: devices, summaries and the detector's reads together held 250m in M5.3.
+              cpu: 500m
               memory: 384Mi
           securityContext:
             allowPrivilegeEscalation: false

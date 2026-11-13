@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import StaticPool
 from test_telemetry_ingest import RECEIVED, TENANT, URL, add_credential, samples
 from test_telemetry_ingest import FakeRedis as Redis
+from windops_outbox import create_outbox_table
 from windops_telemetry.freshness import FreshnessWatcher, IngestMetrics, state_of
 from windops_telemetry.ingest import create_ingest_router
 from windops_telemetry.limits import DeviceLimiter
@@ -39,6 +40,7 @@ def with_engine(scenario: Callable[[AsyncEngine], Awaitable[None]]) -> None:
         engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
         async with engine.begin() as connection:
             await connection.run_sync(METADATA.create_all)
+            await connection.run_sync(create_outbox_table)
         try:
             await scenario(engine)
         finally:

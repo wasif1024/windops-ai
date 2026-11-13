@@ -99,6 +99,7 @@ class SubscriptionSpec:
 SUBSCRIPTIONS = (
     SubscriptionSpec(AUDIT_REQUEST_SUBJECTS, "audit"),
     SubscriptionSpec("alarm.reported", "alarm"),
+    SubscriptionSpec("telemetry.received", "fault-detection"),
 )
 
 

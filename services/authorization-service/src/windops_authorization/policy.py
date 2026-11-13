@@ -137,6 +137,35 @@ def permissions_of(role: str, custom: Mapping[str, frozenset[str]] | None) -> fr
     return DEFAULT_MATRIX[role]
 
 
+# A service acting as itself, with no user behind it (ADR 0008), signs the subject
+# "service:<name>". What each may do is fixed here, in code: read only, tenant-wide in the tenant
+# it acts for, never across tenants, and never a change or an approval (SEC-009). A tenant cannot
+# grant a service more.
+SERVICE_PREFIX = "service:"
+SERVICE_GRANTS: dict[str, frozenset[str]] = {
+    # Its detector reads each streaming turbine's telemetry and alarms on its own schedule.
+    "fault-detection": frozenset({"turbine.read", "telemetry.read", "alarm.read"}),
+}
+
+
+def service_of(subject: str) -> str | None:
+    """The service a user-less identity names, if it names one."""
+    return subject.removeprefix(SERVICE_PREFIX) if subject.startswith(SERVICE_PREFIX) else None
+
+
+def decide_for_service(
+    service: str | None, permission: str, tenant_id: str, own_tenant: str
+) -> Decision:
+    """Deny unless the service's fixed grants hold the permission, in its own tenant."""
+    if service is None or service not in SERVICE_GRANTS:
+        return Decision(False, "No user in the identity")
+    if tenant_id != own_tenant:
+        return Decision(False, "A service acts only in the tenant it acts for")
+    if permission not in SERVICE_GRANTS[service]:
+        return Decision(False, f"The {service} service has no grant for {permission}")
+    return Decision(True, f"Granted to the {service} service")
+
+
 def decide_in_tenant(
     permission: str,
     scope: Scope,

@@ -33,6 +33,7 @@ class AlarmView:
     standing: bool
     raised_at: datetime
     cleared_at: datetime | None = None
+    alarm_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -225,10 +226,11 @@ def rolling_zscore(rule: Rule, window: Window) -> Finding | None:
 def alarm_correlation(rule: Rule, window: Window, found: Mapping[str, Finding]) -> Finding | None:
     p = rule.parameters
     since = window.end - timedelta(seconds=p["within_seconds"])
-    seen = {
-        alarm.code for alarm in window.alarms
+    recent = [
+        alarm for alarm in window.alarms
         if alarm.standing or (alarm.cleared_at is not None and alarm.cleared_at >= since)
-    }  # fmt: skip
+    ]  # fmt: skip
+    seen = {alarm.code for alarm in recent}
     codes = set(p["alarm_codes"])
     also = p.get("with_rule", "")
     if not codes <= seen or (also and also not in found):
@@ -240,7 +242,9 @@ def alarm_correlation(rule: Rule, window: Window, found: Mapping[str, Finding]) 
     return Finding(
         rule.rule_id, rule.version, rule.kind, severity, 1.0,
         "Together within the window: " + ", ".join(parts),
-        {"alarm_codes": sorted(codes), "with_rule": also}, since,
+        {"alarm_codes": sorted(codes), "with_rule": also,
+         "alarm_ids": sorted(a.alarm_id for a in recent if a.code in codes and a.alarm_id)},
+        since,
     )  # fmt: skip
 
 

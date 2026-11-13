@@ -388,3 +388,19 @@ async def queue_alarm(
         event_id=event_id,
     )  # fmt: skip
     return True
+
+
+RECEIVED_SUBJECT = "telemetry.received"
+
+
+async def announce_batch(connection: AsyncConnection, device: Any, sample_count: int) -> None:
+    """Queue telemetry.received for a stored batch: which turbine, and how many samples."""
+    await add_event(
+        connection,
+        RECEIVED_SUBJECT,
+        tenant_id=device.tenant_id,
+        payload=events_pb2.TelemetryReceived(
+            turbine_id=device.turbine_id, batch_id=uuid.uuid4().hex, sample_count=sample_count
+        ),
+        producer=SERVICE_NAME,
+    )

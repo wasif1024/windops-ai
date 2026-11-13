@@ -26,6 +26,12 @@ service FaultRuleService {
   // Runs every enabled rule against a turbine's recent telemetry and alarms, and records nothing.
   // The caller must be able to read the turbine, its telemetry and its alarms.
   rpc EvaluateTurbine(EvaluateTurbineRequest) returns (EvaluateTurbineResponse);
+
+  // What the detector found (FR-FLT-003): open ones by default, most severe and newest first.
+  // Each holds the exact rule version it used and the telemetry snapshot it saw. Needs
+  // investigation.read for the turbine's wind farm or the turbine.
+  rpc ListDetections(ListDetectionsRequest) returns (ListDetectionsResponse);
+  rpc GetDetection(GetDetectionRequest) returns (GetDetectionResponse);
 }
 
 message FaultRuleVersion {
@@ -125,4 +131,59 @@ message EvaluateTurbineResponse {
   // How many samples and alarms the rules saw.
   int64 sample_count = 5;
   int64 alarm_count = 6;
+}
+
+// One finding by one rule version, at one severity, on one turbine. It opens when the detector's
+// rule finds it, and closes when the rule no longer does, or finds it at another severity or under
+// a newer version, which is a detection of its own.
+message Detection {
+  string detection_id = 1;
+  string turbine_id = 2;
+  string rule_id = 3;
+  int64 rule_version = 4;
+  // The version's content hash, so the exact rule can be shown to be the one used.
+  string rule_content_hash = 5;
+  string kind = 6;
+  string severity = 7;
+  double amount = 8;
+  string summary = 9;
+  // Every value the finding rests on.
+  string observed_json = 10;
+  google.protobuf.Timestamp since = 11;
+  google.protobuf.Timestamp detected_at = 12;
+  // When the rule last found it.
+  google.protobuf.Timestamp last_seen_at = 13;
+  // The telemetry the rule saw, frozen (FR-TEL-006).
+  google.protobuf.Timestamp window_start = 14;
+  google.protobuf.Timestamp window_end = 15;
+  string telemetry_snapshot_id = 16;
+  string telemetry_snapshot_hash = 17;
+  // The alarms the rule saw.
+  repeated string alarm_ids = 18;
+  // "open" or "closed".
+  string state = 19;
+  google.protobuf.Timestamp closed_at = 20;
+  // "cleared", or "replaced" by a detection at another severity or rule version.
+  string closed_reason = 21;
+}
+
+message ListDetectionsRequest {
+  string turbine_id = 1;
+  // "open", "closed", or empty for open.
+  string state = 2;
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListDetectionsResponse {
+  repeated Detection detections = 1;
+  string next_page_token = 2;
+}
+
+message GetDetectionRequest {
+  string detection_id = 1;
+}
+
+message GetDetectionResponse {
+  Detection detection = 1;
 }
