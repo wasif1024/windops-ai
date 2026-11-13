@@ -36,6 +36,8 @@ def test_every_srs_subject_has_a_message() -> None:
         "approval.decided",
         "workorder.completed",
         "audit.recorded",
+        # Not in SRS 7.6's first list: alarms arrive through the device route (ADR 0007).
+        "alarm.reported",
     }
     assert set(SUBJECTS) == expected
     fields = events_pb2.EventEnvelope.DESCRIPTOR.oneofs_by_name["payload"].fields

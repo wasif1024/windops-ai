@@ -26,6 +26,13 @@
       "filter": "sys.Label LIKE 'audit.requested.%'",
       "maxDeliveryCount": 100,
       "lockDuration": "PT30S"
+    },
+    {
+      "topic": "windops-events",
+      "name": "alarm",
+      "filter": "sys.Label = 'alarm.reported'",
+      "maxDeliveryCount": 100,
+      "lockDuration": "PT30S"
     }
   ]
 }

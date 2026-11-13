@@ -1,3 +1,5 @@
+import time
+
 import jwt
 import pytest
 from windops_grpc import IdentityError, VerifiedIdentity, sign_identity, verify_identity
@@ -40,6 +42,15 @@ def test_expired_token_is_rejected() -> None:
     assert verify_identity(token, SECRET, clock=lambda: 1060.0) == IDENTITY
     with pytest.raises(IdentityError):
         verify_identity(token, SECRET, clock=lambda: 1065.0)
+
+
+def test_a_token_from_a_clock_a_little_ahead_is_accepted_and_far_ahead_is_not() -> None:
+    """A caller's clock can run slightly ahead, so a fresh token's "iat" is in the future."""
+    ahead = sign_identity(IDENTITY, SECRET, clock=lambda: time.time() + 2)
+    assert verify_identity(ahead, SECRET) == IDENTITY
+    far = sign_identity(IDENTITY, SECRET, clock=lambda: time.time() + 60)
+    with pytest.raises(IdentityError):
+        verify_identity(far, SECRET)
 
 
 def test_unsigned_token_is_rejected() -> None:

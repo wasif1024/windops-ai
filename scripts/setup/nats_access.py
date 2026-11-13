@@ -21,7 +21,7 @@ SECRETS_FILE = (
 EVENT_SERVICES = {**SERVICE_NAMESPACES, "web-bff": "windops-system"}
 # Who owns each subject. docs/service-map.md shows the same, and a test keeps them matched.
 PUBLISHERS = {
-    "telemetry": ("telemetry.received", "telemetry.quality"),
+    "telemetry": ("telemetry.received", "telemetry.quality", "alarm.reported"),
     "alarm": ("alarm.changed",),
     "fault-detection": ("fault.detected",),
     "investigation": ("case.updated",),

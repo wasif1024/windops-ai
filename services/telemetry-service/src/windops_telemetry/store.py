@@ -1,9 +1,12 @@
 """The tables this service owns, all tenant-owned with row-level security, and its audit records."""
 
 import hashlib
+import uuid
 from datetime import datetime
+from typing import Any
 
 from google.protobuf.message import Message
+from google.protobuf.timestamp_pb2 import Timestamp
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -21,7 +24,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.asyncio import AsyncConnection
 from windops.events.v1 import events_pb2
 from windops_events import audit_request_subject
-from windops_outbox import add_event
+from windops_outbox import OUTBOX_TABLE, add_event
 
 from windops_telemetry.schema import READINGS
 from windops_telemetry.spectra import FEATURES as CMS_FEATURE_NAMES
@@ -347,3 +350,41 @@ async def audit(
         ),
         producer=SERVICE_NAME,
     )
+
+
+ALARM_SUBJECT = "alarm.reported"
+
+
+async def queue_alarm(
+    connection: AsyncConnection, device: Any, report: Any, received: datetime
+) -> bool:
+    """Queue one alarm report for the Alarm Service, in the device route's transaction.
+
+    Its event ID comes from the device's own report ID, so a report sent again while it is still
+    in the outbox is queued once, and False says so. The Alarm Service keeps each report ID too,
+    for a repeat that comes later.
+    """
+    name = f"{device.tenant_id}:{device.turbine_id}:{report.report_id}"
+    event_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"windops:alarm.reported:{name}"))
+    queued = await connection.execute(
+        select(OUTBOX_TABLE.c.event_id).where(OUTBOX_TABLE.c.event_id == event_id)
+    )
+    if queued.first() is not None:
+        return False
+    event_time, arrived = Timestamp(), Timestamp()
+    event_time.FromDatetime(report.event_time)
+    arrived.FromDatetime(received)
+    await add_event(
+        connection,
+        ALARM_SUBJECT,
+        tenant_id=device.tenant_id,
+        payload=events_pb2.AlarmReported(
+            turbine_id=device.turbine_id, device_id=device.device_id,
+            report_id=report.report_id, code=report.code, tag=report.tag,
+            action=report.action, event_time=event_time, received_at=arrived,
+            severity=report.severity, message=report.message, source=report.source,
+        ),
+        producer=SERVICE_NAME,
+        event_id=event_id,
+    )  # fmt: skip
+    return True

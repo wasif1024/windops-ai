@@ -48,10 +48,13 @@ def test_every_overlay_service_account_has_an_identity_to_federate() -> None:
     assert ("windops-observability", "windops-otel-collector") in federated
 
 
-def test_only_the_audit_consumer_may_receive_and_only_its_own_subscription() -> None:
+def test_only_consumers_may_receive_and_each_only_its_own_subscription() -> None:
     workloads = {w["name"]: w for w in json.loads((OUT / "workloads.json").read_text())}
     receivers = {name: w["receives"] for name, w in workloads.items() if w["receives"]}
-    assert receivers == {"windops-audit": [{"topic": "windops-audit", "subscription": "audit"}]}
+    assert receivers == {
+        "windops-audit": [{"topic": "windops-audit", "subscription": "audit"}],
+        "windops-alarm": [{"topic": "windops-events", "subscription": "alarm"}],
+    }
     # A workload that never reads the events settings gets no Service Bus role at all.
     assert not workloads["windops-web-bff"]["events"]
     assert not workloads["windops-otel-collector"]["database"]

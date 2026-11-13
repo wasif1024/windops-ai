@@ -5,6 +5,7 @@ every row. The Telemetry Service accepts the simulator's schema version 2 (windo
 """
 
 import math
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -213,4 +214,75 @@ def parse_cms(batch: object) -> CmsBatch:
         sample_rate_hz=rate,
         windows=windows,
         trigger=trigger,
+    )
+
+
+# What a turbine's controller sends when it raises or clears an alarm (FR-ALM-001). The Telemetry
+# Service checks only its shape and its device; the Alarm Service owns what it means.
+ALARM_SCHEMA_VERSIONS = frozenset({"1"})
+ALARM_ACTIONS = frozenset({"raise", "clear"})
+SEVERITIES = frozenset({"low", "medium", "high", "critical"})
+MAXIMUM_MESSAGE = 200
+_CODE = re.compile(r"[A-Z][A-Z0-9_]{1,63}")
+_REPORT_ID = re.compile(r"[A-Za-z0-9:._-]{1,128}")
+
+
+@dataclass(frozen=True)
+class ParsedAlarm:
+    tenant_id: str
+    turbine_id: str
+    report_id: str
+    code: str
+    tag: str
+    action: str
+    event_time: datetime
+    severity: str
+    message: str
+    source: str
+
+
+def _optional(report: dict[str, Any], name: str, limit: int) -> str:
+    value = report.get(name, "")
+    if value is None:
+        return ""
+    if not isinstance(value, str) or len(value) > limit:
+        raise MalformedError(f"bad_{name}")
+    return value
+
+
+def parse_alarm(report: object) -> ParsedAlarm:
+    """Check one alarm report against its schema, or raise MalformedError with the reason."""
+    if not isinstance(report, dict):
+        raise MalformedError("not_an_object")
+    if report.get("schema_version") not in ALARM_SCHEMA_VERSIONS:
+        raise MalformedError("unknown_schema_version")
+    code, report_id = report.get("code"), report.get("report_id")
+    if not isinstance(code, str) or not _CODE.fullmatch(code):
+        raise MalformedError("bad_code")
+    if not isinstance(report_id, str) or not _REPORT_ID.fullmatch(report_id):
+        raise MalformedError("bad_report_id")
+    action = report.get("action")
+    if action not in ALARM_ACTIONS:
+        raise MalformedError("bad_action")
+    raw_time = report.get("event_time")
+    try:
+        event_time = datetime.fromisoformat(raw_time) if isinstance(raw_time, str) else None
+    except ValueError:
+        event_time = None
+    if event_time is None or event_time.tzinfo is None:
+        raise MalformedError("bad_event_time")
+    severity = _optional(report, "severity", MAXIMUM_TEXT)
+    if severity and severity not in SEVERITIES:
+        raise MalformedError("bad_severity")
+    return ParsedAlarm(
+        tenant_id=_text(report, "tenant_id"),
+        turbine_id=_text(report, "turbine_id"),
+        report_id=report_id,
+        code=code,
+        tag=_optional(report, "tag", MAXIMUM_TEXT),
+        action=str(action),
+        event_time=event_time,
+        severity=severity,
+        message=_optional(report, "message", MAXIMUM_MESSAGE),
+        source=_text(report, "source"),
     )

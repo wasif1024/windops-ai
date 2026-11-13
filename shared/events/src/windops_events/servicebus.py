@@ -96,7 +96,10 @@ class SubscriptionSpec:
 
 
 # Every consumer today. A new consumer adds its subscription here, and provisioning creates it.
-SUBSCRIPTIONS = (SubscriptionSpec(AUDIT_REQUEST_SUBJECTS, "audit"),)
+SUBSCRIPTIONS = (
+    SubscriptionSpec(AUDIT_REQUEST_SUBJECTS, "audit"),
+    SubscriptionSpec("alarm.reported", "alarm"),
+)
 
 
 def topics() -> tuple[tuple[str, StreamSpec], ...]:

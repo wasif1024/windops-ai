@@ -5,6 +5,7 @@ commonAnnotations:
   windops.io/managed-by: kustomize
 resources:
   - ../../../../frontend/deploy
+  - ../../../../services/alarm-service/deploy
   - ../../../../services/api-gateway/deploy
   - ../../../../services/asset-service/deploy
   - ../../../../services/audit-service/deploy

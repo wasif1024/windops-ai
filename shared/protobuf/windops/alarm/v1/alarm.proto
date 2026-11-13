@@ -1,0 +1,169 @@
+syntax = "proto3";
+
+package windops.alarm.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Alarms from each turbine's controller, and what operators do about them (FR-ALM-001 to 004).
+//
+// A controller reports an alarm through the Telemetry Service's device route, which queues it as
+// alarm.reported. This service turns those reports into alarms: one per occurrence, raised and
+// later cleared by the device. An operator may acknowledge one, or shelve it for a while.
+//
+// Severity comes from the device, or, when it sends none, from the versioned alarm catalogue.
+// Each alarm says which. Nothing can change it after that, so no model or person can raise or
+// lower an alarm's severity (FR-ALM-004).
+//
+// The tenant comes from the caller's verified identity (GRP-004). Reading needs alarm.read for
+// the alarm's wind farm or turbine, and a list shows only what the caller's scopes cover
+// (RBAC-002). The Asset Service, asked as the caller, says which wind farm a turbine is in. Acknowledging and shelving need alarm.acknowledge there, and may be retried with
+// the same idempotency_key (GRP-007). Every change is announced as alarm.changed (FR-ALM-003)
+// and audited.
+service AlarmService {
+  // Standing alarms by default: active, acknowledged and shelved, most severe and newest first.
+  rpc ListAlarms(ListAlarmsRequest) returns (ListAlarmsResponse);
+  // With every change it went through.
+  rpc GetAlarm(GetAlarmRequest) returns (GetAlarmResponse);
+  rpc AcknowledgeAlarm(AcknowledgeAlarmRequest) returns (AcknowledgeAlarmResponse);
+  rpc ShelveAlarm(ShelveAlarmRequest) returns (ShelveAlarmResponse);
+  rpc UnshelveAlarm(UnshelveAlarmRequest) returns (UnshelveAlarmResponse);
+  // The catalogue in force: each code's meaning and default severity.
+  rpc GetAlarmCatalog(GetAlarmCatalogRequest) returns (GetAlarmCatalogResponse);
+}
+
+enum AlarmState {
+  ALARM_STATE_UNSPECIFIED = 0;
+  // Raised by the device, and not yet acknowledged.
+  ALARM_STATE_ACTIVE = 1;
+  // Still raised, and acknowledged by an operator.
+  ALARM_STATE_ACKNOWLEDGED = 2;
+  // Cleared by the device. An occurrence ends here; the same condition again is a new alarm.
+  ALARM_STATE_CLEARED = 3;
+  // Still raised, and set aside by an operator until shelved_until.
+  ALARM_STATE_SHELVED = 4;
+}
+
+enum AlarmSeverity {
+  ALARM_SEVERITY_UNSPECIFIED = 0;
+  ALARM_SEVERITY_LOW = 1;
+  ALARM_SEVERITY_MEDIUM = 2;
+  ALARM_SEVERITY_HIGH = 3;
+  ALARM_SEVERITY_CRITICAL = 4;
+}
+
+message Alarm {
+  string alarm_id = 1;
+  string turbine_id = 2;
+  // A turbine's wind farm comes from the Asset Service, which owns it.
+  reserved 3;
+  // The controller's code, such as "GBX_OIL_TEMP_HIGH".
+  string code = 4;
+  // What raised it, such as a reading's name, when one code covers several.
+  string tag = 5;
+  // From the catalogue, or the device's own words for a code the catalogue does not know.
+  string description = 6;
+  AlarmSeverity severity = 7;
+  // "device", or "catalog:<version>" when the device sent none (FR-ALM-004).
+  string severity_source = 8;
+  AlarmState state = 9;
+  // The device, or the system that reported it.
+  string source = 10;
+  // When the device raised it, and when this service received it.
+  google.protobuf.Timestamp raised_at = 11;
+  google.protobuf.Timestamp received_at = 12;
+  // Set once acknowledged, and kept after it clears.
+  google.protobuf.Timestamp acknowledged_at = 13;
+  string acknowledged_by = 14;
+  google.protobuf.Timestamp cleared_at = 15;
+  // Set while shelved.
+  google.protobuf.Timestamp shelved_until = 16;
+  string shelved_by = 17;
+  string shelve_reason = 18;
+  // Raises of the same condition while it was already standing.
+  int64 repeat_count = 19;
+  // Rises with every change, for evidence that used an older one (SRS 8.5).
+  int64 version = 20;
+}
+
+message AlarmTransition {
+  google.protobuf.Timestamp at = 1;
+  AlarmState from_state = 2;
+  AlarmState to_state = 3;
+  // "device", "user" or "system".
+  string actor_type = 4;
+  string actor_id = 5;
+  // The operator's comment or reason, if any.
+  string note = 6;
+}
+
+message ListAlarmsRequest {
+  // Empty means every state but cleared.
+  repeated AlarmState states = 1;
+  // Only this wind farm's turbines, which the caller must be able to read.
+  string wind_farm_id = 2;
+  string turbine_id = 3;
+  int32 page_size = 4;
+  string page_token = 5;
+}
+
+message ListAlarmsResponse {
+  repeated Alarm alarms = 1;
+  string next_page_token = 2;
+}
+
+message GetAlarmRequest {
+  string alarm_id = 1;
+}
+
+message GetAlarmResponse {
+  Alarm alarm = 1;
+  // Oldest first.
+  repeated AlarmTransition transitions = 2;
+}
+
+message AcknowledgeAlarmRequest {
+  string alarm_id = 1;
+  string comment = 2;
+  string idempotency_key = 3;
+}
+
+message AcknowledgeAlarmResponse {
+  Alarm alarm = 1;
+}
+
+message ShelveAlarmRequest {
+  string alarm_id = 1;
+  // Why, for whoever looks next. Required.
+  string reason = 2;
+  // 1 to 1440: at most a day, so nothing is set aside and forgotten.
+  int32 minutes = 3;
+  string idempotency_key = 4;
+}
+
+message ShelveAlarmResponse {
+  Alarm alarm = 1;
+}
+
+message UnshelveAlarmRequest {
+  string alarm_id = 1;
+  string idempotency_key = 2;
+}
+
+message UnshelveAlarmResponse {
+  Alarm alarm = 1;
+}
+
+message GetAlarmCatalogRequest {}
+
+message CatalogEntry {
+  string code = 1;
+  string description = 2;
+  AlarmSeverity default_severity = 3;
+  // The component it concerns, such as "gearbox".
+  string component = 4;
+}
+
+message GetAlarmCatalogResponse {
+  string version = 1;
+  repeated CatalogEntry entries = 2;
+}

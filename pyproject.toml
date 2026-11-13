@@ -11,6 +11,7 @@ package = false
 
 [tool.uv.workspace]
 members = [
+    "services/alarm-service",
     "services/asset-service",
     "services/audit-service",
     "services/authorization-service",
@@ -52,6 +53,7 @@ windops-simulator = { workspace = true }
 windops-web-bff = { workspace = true }
 windops-asset = { workspace = true }
 windops-telemetry = { workspace = true }
+windops-alarm = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -73,6 +75,8 @@ python_version = "3.13"
 strict = true
 files = [
     "scripts",
+    "services/alarm-service/src",
+    "services/alarm-service/tests",
     "services/asset-service/src",
     "services/asset-service/tests",
     "services/audit-service/src",
@@ -113,6 +117,8 @@ files = [
 ]
 explicit_package_bases = true
 mypy_path = [
+    "services/alarm-service/src",
+    "services/alarm-service/tests",
     "services/asset-service/src",
     "services/asset-service/tests",
     "services/audit-service/src",
@@ -193,6 +199,7 @@ dev = [
     "ruff>=0.17.3",
     "types-grpcio>=1.85.0.20261028",
     "types-pyyaml>=6.0.12.20261103",
+    "windops-alarm",
     "windops-asset",
     "windops-audit",
     "windops-auth",

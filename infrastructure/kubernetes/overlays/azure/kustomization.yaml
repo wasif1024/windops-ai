@@ -8,6 +8,7 @@ resources:
 - ../../base/services
 - workload-identity.yaml
 patches:
+- path: patches/windops-alarm.yaml
 - path: patches/windops-asset.yaml
 - path: patches/windops-audit.yaml
 - path: patches/windops-authorization.yaml

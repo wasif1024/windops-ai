@@ -10,6 +10,7 @@ DUPLICATE_WINDOW_SECONDS = 120
 SUBJECTS = {
     "telemetry.received": "telemetry_received",
     "telemetry.quality": "telemetry_quality",
+    "alarm.reported": "alarm_reported",
     "alarm.changed": "alarm_changed",
     "fault.detected": "fault_detected",
     "case.updated": "case_updated",

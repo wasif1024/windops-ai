@@ -67,12 +67,15 @@ def verify_identity(
     if not token:
         raise IdentityError("Missing identity")
     try:
-        # Expiry is checked below, against the injected clock.
+        # Expiry is checked below, against the injected clock. The same leeway lets a token
+        # through from a caller whose clock runs a little ahead, as its "iat" is then in the
+        # future here.
         claims = jwt.decode(
             token,
             secret,
             algorithms=[_ALGORITHM],
             audience=_AUDIENCE,
+            leeway=_LEEWAY_SECONDS,
             options={"require": ["exp", "sub", "tenant_id", "aud"], "verify_exp": False},
         )
     except jwt.PyJWTError as error:

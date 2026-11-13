@@ -26,39 +26,41 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 from windops.telemetry.v1 import telemetry_pb2 as windops_dot_telemetry_dot_v1_dot_telemetry__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1ewindops/events/v1/events.proto\x12\x11windops.events.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a$windops/telemetry/v1/telemetry.proto\"\xef\x06\n\rEventEnvelope\x12\x10\n\x08\x65vent_id\x18\x01 \x01(\t\x12\x11\n\ttenant_id\x18\x02 \x01(\t\x12/\n\x0boccurred_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x10\n\x08producer\x18\x04 \x01(\t\x12\x14\n\x0ctrace_parent\x18\x05 \x01(\t\x12\x12\n\nrequest_id\x18\x06 \x01(\t\x12\x42\n\x12telemetry_received\x18\n \x01(\x0b\x32$.windops.events.v1.TelemetryReceivedH\x00\x12G\n\x11telemetry_quality\x18\x0b \x01(\x0b\x32*.windops.events.v1.TelemetryQualityChangedH\x00\x12\x38\n\ralarm_changed\x18\x0c \x01(\x0b\x32\x1f.windops.events.v1.AlarmChangedH\x00\x12:\n\x0e\x66\x61ult_detected\x18\r \x01(\x0b\x32 .windops.events.v1.FaultDetectedH\x00\x12\x36\n\x0c\x63\x61se_updated\x18\x0e \x01(\x0b\x32\x1e.windops.events.v1.CaseUpdatedH\x00\x12>\n\x10\x65vidence_changed\x18\x0f \x01(\x0b\x32\".windops.events.v1.EvidenceChangedH\x00\x12\x45\n\x14work_order_submitted\x18\x10 \x01(\x0b\x32%.windops.events.v1.WorkOrderSubmittedH\x00\x12>\n\x10\x61pproval_decided\x18\x11 \x01(\x0b\x32\".windops.events.v1.ApprovalDecidedH\x00\x12\x45\n\x14work_order_completed\x18\x12 \x01(\x0b\x32%.windops.events.v1.WorkOrderCompletedH\x00\x12:\n\x0e\x61udit_recorded\x18\x13 \x01(\x0b\x32 .windops.events.v1.AuditRecordedH\x00\x12<\n\x0f\x61udit_requested\x18\x14 \x01(\x0b\x32!.windops.events.v1.AuditRequestedH\x00\x42\t\n\x07payload\"O\n\x11TelemetryReceived\x12\x12\n\nturbine_id\x18\x01 \x01(\t\x12\x10\n\x08\x62\x61tch_id\x18\x02 \x01(\t\x12\x14\n\x0csample_count\x18\x03 \x01(\r\"o\n\x17TelemetryQualityChanged\x12\x12\n\nturbine_id\x18\x01 \x01(\t\x12\x10\n\x08\x62\x61tch_id\x18\x02 \x01(\t\x12.\n\x07quality\x18\x03 \x01(\x0e\x32\x1d.windops.telemetry.v1.Quality\"b\n\x0c\x41larmChanged\x12\x10\n\x08\x61larm_id\x18\x01 \x01(\t\x12\x12\n\nturbine_id\x18\x02 \x01(\t\x12,\n\x05state\x18\x03 \x01(\x0e\x32\x1d.windops.events.v1.AlarmState\"n\n\rFaultDetected\x12\x14\n\x0c\x64\x65tection_id\x18\x01 \x01(\t\x12\x12\n\nturbine_id\x18\x02 \x01(\t\x12\x14\n\x0crule_version\x18\x03 \x01(\t\x12\x1d\n\x15telemetry_snapshot_id\x18\x04 \x01(\t\".\n\x0b\x43\x61seUpdated\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\"M\n\x0f\x45videnceChanged\x12\x16\n\x0esource_service\x18\x01 \x01(\t\x12\x11\n\trecord_id\x18\x02 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\t\"E\n\x12WorkOrderSubmitted\x12\x15\n\rwork_order_id\x18\x01 \x01(\t\x12\x18\n\x10proposal_version\x18\x02 \x01(\t\"\xac\x01\n\x0f\x41pprovalDecided\x12\x13\n\x0b\x61pproval_id\x18\x01 \x01(\t\x12\x15\n\rwork_order_id\x18\x02 \x01(\t\x12\x18\n\x10proposal_version\x18\x03 \x01(\t\x12\x1c\n\x14\x65vidence_snapshot_id\x18\x04 \x01(\t\x12\x35\n\x08\x64\x65\x63ision\x18\x05 \x01(\x0e\x32#.windops.events.v1.ApprovalDecision\"]\n\x12WorkOrderCompleted\x12\x15\n\rwork_order_id\x18\x01 \x01(\t\x12\x30\n\x0c\x63ompleted_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\xb1\x01\n\x0e\x41uditRequested\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\t\x12\x12\n\nactor_type\x18\x02 \x01(\t\x12\x10\n\x08\x61\x63tor_id\x18\x03 \x01(\t\x12\x14\n\x0con_behalf_of\x18\x04 \x01(\t\x12\x15\n\rresource_type\x18\x05 \x01(\t\x12\x13\n\x0bresource_id\x18\x06 \x01(\t\x12\x0f\n\x07outcome\x18\x07 \x01(\t\x12\x16\n\x0e\x63orrelation_id\x18\x08 \x01(\t\"=\n\rAuditRecorded\x12\x17\n\x0f\x61udit_record_id\x18\x01 \x01(\t\x12\x13\n\x0brecord_hash\x18\x02 \x01(\t*\x91\x01\n\nAlarmState\x12\x1b\n\x17\x41LARM_STATE_UNSPECIFIED\x10\x00\x12\x16\n\x12\x41LARM_STATE_ACTIVE\x10\x01\x12\x1c\n\x18\x41LARM_STATE_ACKNOWLEDGED\x10\x02\x12\x17\n\x13\x41LARM_STATE_CLEARED\x10\x03\x12\x17\n\x13\x41LARM_STATE_SHELVED\x10\x04*u\n\x10\x41pprovalDecision\x12!\n\x1d\x41PPROVAL_DECISION_UNSPECIFIED\x10\x00\x12\x1e\n\x1a\x41PPROVAL_DECISION_APPROVED\x10\x01\x12\x1e\n\x1a\x41PPROVAL_DECISION_REJECTED\x10\x02\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1ewindops/events/v1/events.proto\x12\x11windops.events.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a$windops/telemetry/v1/telemetry.proto\"\xab\x07\n\rEventEnvelope\x12\x10\n\x08\x65vent_id\x18\x01 \x01(\t\x12\x11\n\ttenant_id\x18\x02 \x01(\t\x12/\n\x0boccurred_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x10\n\x08producer\x18\x04 \x01(\t\x12\x14\n\x0ctrace_parent\x18\x05 \x01(\t\x12\x12\n\nrequest_id\x18\x06 \x01(\t\x12\x42\n\x12telemetry_received\x18\n \x01(\x0b\x32$.windops.events.v1.TelemetryReceivedH\x00\x12G\n\x11telemetry_quality\x18\x0b \x01(\x0b\x32*.windops.events.v1.TelemetryQualityChangedH\x00\x12\x38\n\ralarm_changed\x18\x0c \x01(\x0b\x32\x1f.windops.events.v1.AlarmChangedH\x00\x12:\n\x0e\x66\x61ult_detected\x18\r \x01(\x0b\x32 .windops.events.v1.FaultDetectedH\x00\x12\x36\n\x0c\x63\x61se_updated\x18\x0e \x01(\x0b\x32\x1e.windops.events.v1.CaseUpdatedH\x00\x12>\n\x10\x65vidence_changed\x18\x0f \x01(\x0b\x32\".windops.events.v1.EvidenceChangedH\x00\x12\x45\n\x14work_order_submitted\x18\x10 \x01(\x0b\x32%.windops.events.v1.WorkOrderSubmittedH\x00\x12>\n\x10\x61pproval_decided\x18\x11 \x01(\x0b\x32\".windops.events.v1.ApprovalDecidedH\x00\x12\x45\n\x14work_order_completed\x18\x12 \x01(\x0b\x32%.windops.events.v1.WorkOrderCompletedH\x00\x12:\n\x0e\x61udit_recorded\x18\x13 \x01(\x0b\x32 .windops.events.v1.AuditRecordedH\x00\x12<\n\x0f\x61udit_requested\x18\x14 \x01(\x0b\x32!.windops.events.v1.AuditRequestedH\x00\x12:\n\x0e\x61larm_reported\x18\x15 \x01(\x0b\x32 .windops.events.v1.AlarmReportedH\x00\x42\t\n\x07payload\"O\n\x11TelemetryReceived\x12\x12\n\nturbine_id\x18\x01 \x01(\t\x12\x10\n\x08\x62\x61tch_id\x18\x02 \x01(\t\x12\x14\n\x0csample_count\x18\x03 \x01(\r\"o\n\x17TelemetryQualityChanged\x12\x12\n\nturbine_id\x18\x01 \x01(\t\x12\x10\n\x08\x62\x61tch_id\x18\x02 \x01(\t\x12.\n\x07quality\x18\x03 \x01(\x0e\x32\x1d.windops.telemetry.v1.Quality\"\x93\x01\n\x0c\x41larmChanged\x12\x10\n\x08\x61larm_id\x18\x01 \x01(\t\x12\x12\n\nturbine_id\x18\x02 \x01(\t\x12,\n\x05state\x18\x03 \x01(\x0e\x32\x1d.windops.events.v1.AlarmState\x12\x0c\n\x04\x63ode\x18\x04 \x01(\t\x12\x10\n\x08severity\x18\x05 \x01(\t\x12\x0f\n\x07version\x18\x06 \x01(\x03\"\x88\x02\n\rAlarmReported\x12\x12\n\nturbine_id\x18\x01 \x01(\t\x12\x11\n\tdevice_id\x18\x02 \x01(\t\x12\x11\n\treport_id\x18\x03 \x01(\t\x12\x0c\n\x04\x63ode\x18\x04 \x01(\t\x12\x0b\n\x03tag\x18\x05 \x01(\t\x12\x0e\n\x06\x61\x63tion\x18\x06 \x01(\t\x12.\n\nevent_time\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x0breceived_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x10\n\x08severity\x18\t \x01(\t\x12\x0f\n\x07message\x18\n \x01(\t\x12\x0e\n\x06source\x18\x0b \x01(\t\"n\n\rFaultDetected\x12\x14\n\x0c\x64\x65tection_id\x18\x01 \x01(\t\x12\x12\n\nturbine_id\x18\x02 \x01(\t\x12\x14\n\x0crule_version\x18\x03 \x01(\t\x12\x1d\n\x15telemetry_snapshot_id\x18\x04 \x01(\t\".\n\x0b\x43\x61seUpdated\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\"M\n\x0f\x45videnceChanged\x12\x16\n\x0esource_service\x18\x01 \x01(\t\x12\x11\n\trecord_id\x18\x02 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\t\"E\n\x12WorkOrderSubmitted\x12\x15\n\rwork_order_id\x18\x01 \x01(\t\x12\x18\n\x10proposal_version\x18\x02 \x01(\t\"\xac\x01\n\x0f\x41pprovalDecided\x12\x13\n\x0b\x61pproval_id\x18\x01 \x01(\t\x12\x15\n\rwork_order_id\x18\x02 \x01(\t\x12\x18\n\x10proposal_version\x18\x03 \x01(\t\x12\x1c\n\x14\x65vidence_snapshot_id\x18\x04 \x01(\t\x12\x35\n\x08\x64\x65\x63ision\x18\x05 \x01(\x0e\x32#.windops.events.v1.ApprovalDecision\"]\n\x12WorkOrderCompleted\x12\x15\n\rwork_order_id\x18\x01 \x01(\t\x12\x30\n\x0c\x63ompleted_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\xb1\x01\n\x0e\x41uditRequested\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\t\x12\x12\n\nactor_type\x18\x02 \x01(\t\x12\x10\n\x08\x61\x63tor_id\x18\x03 \x01(\t\x12\x14\n\x0con_behalf_of\x18\x04 \x01(\t\x12\x15\n\rresource_type\x18\x05 \x01(\t\x12\x13\n\x0bresource_id\x18\x06 \x01(\t\x12\x0f\n\x07outcome\x18\x07 \x01(\t\x12\x16\n\x0e\x63orrelation_id\x18\x08 \x01(\t\"=\n\rAuditRecorded\x12\x17\n\x0f\x61udit_record_id\x18\x01 \x01(\t\x12\x13\n\x0brecord_hash\x18\x02 \x01(\t*\x91\x01\n\nAlarmState\x12\x1b\n\x17\x41LARM_STATE_UNSPECIFIED\x10\x00\x12\x16\n\x12\x41LARM_STATE_ACTIVE\x10\x01\x12\x1c\n\x18\x41LARM_STATE_ACKNOWLEDGED\x10\x02\x12\x17\n\x13\x41LARM_STATE_CLEARED\x10\x03\x12\x17\n\x13\x41LARM_STATE_SHELVED\x10\x04*u\n\x10\x41pprovalDecision\x12!\n\x1d\x41PPROVAL_DECISION_UNSPECIFIED\x10\x00\x12\x1e\n\x1a\x41PPROVAL_DECISION_APPROVED\x10\x01\x12\x1e\n\x1a\x41PPROVAL_DECISION_REJECTED\x10\x02\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'windops.events.v1.events_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_ALARMSTATE']._serialized_start=2124
-  _globals['_ALARMSTATE']._serialized_end=2269
-  _globals['_APPROVALDECISION']._serialized_start=2271
-  _globals['_APPROVALDECISION']._serialized_end=2388
+  _globals['_ALARMSTATE']._serialized_start=2501
+  _globals['_ALARMSTATE']._serialized_end=2646
+  _globals['_APPROVALDECISION']._serialized_start=2648
+  _globals['_APPROVALDECISION']._serialized_end=2765
   _globals['_EVENTENVELOPE']._serialized_start=125
-  _globals['_EVENTENVELOPE']._serialized_end=1004
-  _globals['_TELEMETRYRECEIVED']._serialized_start=1006
-  _globals['_TELEMETRYRECEIVED']._serialized_end=1085
-  _globals['_TELEMETRYQUALITYCHANGED']._serialized_start=1087
-  _globals['_TELEMETRYQUALITYCHANGED']._serialized_end=1198
-  _globals['_ALARMCHANGED']._serialized_start=1200
-  _globals['_ALARMCHANGED']._serialized_end=1298
-  _globals['_FAULTDETECTED']._serialized_start=1300
-  _globals['_FAULTDETECTED']._serialized_end=1410
-  _globals['_CASEUPDATED']._serialized_start=1412
-  _globals['_CASEUPDATED']._serialized_end=1458
-  _globals['_EVIDENCECHANGED']._serialized_start=1460
-  _globals['_EVIDENCECHANGED']._serialized_end=1537
-  _globals['_WORKORDERSUBMITTED']._serialized_start=1539
-  _globals['_WORKORDERSUBMITTED']._serialized_end=1608
-  _globals['_APPROVALDECIDED']._serialized_start=1611
-  _globals['_APPROVALDECIDED']._serialized_end=1783
-  _globals['_WORKORDERCOMPLETED']._serialized_start=1785
-  _globals['_WORKORDERCOMPLETED']._serialized_end=1878
-  _globals['_AUDITREQUESTED']._serialized_start=1881
-  _globals['_AUDITREQUESTED']._serialized_end=2058
-  _globals['_AUDITRECORDED']._serialized_start=2060
-  _globals['_AUDITRECORDED']._serialized_end=2121
+  _globals['_EVENTENVELOPE']._serialized_end=1064
+  _globals['_TELEMETRYRECEIVED']._serialized_start=1066
+  _globals['_TELEMETRYRECEIVED']._serialized_end=1145
+  _globals['_TELEMETRYQUALITYCHANGED']._serialized_start=1147
+  _globals['_TELEMETRYQUALITYCHANGED']._serialized_end=1258
+  _globals['_ALARMCHANGED']._serialized_start=1261
+  _globals['_ALARMCHANGED']._serialized_end=1408
+  _globals['_ALARMREPORTED']._serialized_start=1411
+  _globals['_ALARMREPORTED']._serialized_end=1675
+  _globals['_FAULTDETECTED']._serialized_start=1677
+  _globals['_FAULTDETECTED']._serialized_end=1787
+  _globals['_CASEUPDATED']._serialized_start=1789
+  _globals['_CASEUPDATED']._serialized_end=1835
+  _globals['_EVIDENCECHANGED']._serialized_start=1837
+  _globals['_EVIDENCECHANGED']._serialized_end=1914
+  _globals['_WORKORDERSUBMITTED']._serialized_start=1916
+  _globals['_WORKORDERSUBMITTED']._serialized_end=1985
+  _globals['_APPROVALDECIDED']._serialized_start=1988
+  _globals['_APPROVALDECIDED']._serialized_end=2160
+  _globals['_WORKORDERCOMPLETED']._serialized_start=2162
+  _globals['_WORKORDERCOMPLETED']._serialized_end=2255
+  _globals['_AUDITREQUESTED']._serialized_start=2258
+  _globals['_AUDITREQUESTED']._serialized_end=2435
+  _globals['_AUDITRECORDED']._serialized_start=2437
+  _globals['_AUDITRECORDED']._serialized_end=2498
 # @@protoc_insertion_point(module_scope)

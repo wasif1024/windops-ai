@@ -98,8 +98,14 @@ def samples(
 
 
 def send(token: str | None, batch: list[Any]) -> httpx.Response:
+    return send_to("samples", token, batch)
+
+
+def send_to(route: str, token: str | None, batch: list[Any]) -> httpx.Response:
+    """A batch through the gateway's device route, as a device would: samples, or alarms."""
     headers = {"Authorization": f"Bearer {token}"} if token else {}
-    return httpx.post(INGEST, json={"samples": batch}, headers=headers, timeout=15)
+    url = INGEST.rsplit("/", 1)[0] + f"/{route}"
+    return httpx.post(url, json={route: batch}, headers=headers, timeout=15)
 
 
 def check_ingestion(token: str, other_tenant_token: str) -> int:

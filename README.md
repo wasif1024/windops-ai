@@ -181,7 +181,7 @@ only read access unless it needs more.
 | 3. Identity and tenancy | Done, with a sweep of every route and 17 checks at its gate |
 | 4A. Azure alignment | Done, [deployed and proven on Azure](docs/phases/phase-04a-exit-gate.md) |
 | 4. Assets and telemetry | Done, [exit gate](docs/phases/phase-04-exit-gate.md) |
-| 5. Alarms, detection and cases | Next: M5.1, the Alarm Service |
+| 5. Alarms, detection and cases | In progress: 1 of 7 modules, M5.2 next |
 
 | Running today | |
 | --- | --- |
@@ -291,6 +291,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0004](docs/adr/0004-failure-behavior-for-every-dependency.md) | A defined failure behavior for every dependency |
 | [0005](docs/adr/0005-azure-deployment-as-the-final-phase.md) | Azure deployment as the final phase, and the services it uses |
 | [0006](docs/adr/0006-azure-aligned-platform-services.md) | The platform aligned with Azure's reference architecture: Service Bus, Workload ID, Cilium and Azure Monitor |
+| [0007](docs/adr/0007-alarms-arrive-through-the-device-route.md) | Alarms arrive through the device route, as `alarm.reported` events |
 
 ## Repository layout
 

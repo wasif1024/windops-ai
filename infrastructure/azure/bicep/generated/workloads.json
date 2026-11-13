@@ -1,5 +1,18 @@
 [
   {
+    "name": "windops-alarm",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": [
+      {
+        "topic": "windops-events",
+        "subscription": "alarm"
+      }
+    ]
+  },
+  {
     "name": "windops-asset",
     "namespace": "windops-application",
     "events": true,
