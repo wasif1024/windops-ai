@@ -13,7 +13,7 @@ The kinds, each an established method from wind-turbine condition monitoring:
   vibration's rise with rotor speed. Both take their figures from the turbine's datasheet.
 - `rolling_zscore`: a recent mean far from its own baseline, in standard deviations.
 - `alarm_correlation`: alarms standing together, or an alarm with another rule's finding.
-- `data_gap`: too many of a reading's samples missing in a window.
+- `data_gap`: too many samples that arrived without a reading, as a failing sensor sends them.
 """
 
 import hashlib

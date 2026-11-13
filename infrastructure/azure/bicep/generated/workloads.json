@@ -71,6 +71,19 @@
     "receives": []
   },
   {
+    "name": "windops-investigation",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": [
+      {
+        "topic": "windops-events",
+        "subscription": "investigation"
+      }
+    ]
+  },
+  {
     "name": "windops-sample-caller",
     "namespace": "windops-application",
     "events": false,

@@ -13,7 +13,7 @@ telemetry snapshot behind it.
 | `residual` | A reading above what its normal behaviour model explains, for long enough | The smallest gap held |
 | `rolling_zscore` | A recent mean far from its own baseline | Standard deviations |
 | `alarm_correlation` | Alarms standing together, or an alarm with another rule's finding | 1, when it holds |
-| `data_gap` | Too many of a reading's samples missing in a window | Percent missing |
+| `data_gap` | Too many samples arriving without a reading, as a failing sensor sends them. Samples that never arrive are the link's or the platform's, which freshness alerts on | Percent missing |
 
 A `residual` rule's model is either `thermal`, a part's first-order response to load squared and the air, or `speed`,
 vibration's rise with rotor speed. Both take their figures from the turbine model's datasheet. A part that is hot
