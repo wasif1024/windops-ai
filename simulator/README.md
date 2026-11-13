@@ -97,6 +97,28 @@ Applied to what a device sends, not to the physics, at the rate asked for each:
 | `malformed` | The sample broken: `event_time` missing, `power_kw` as text, or JSON cut off part way |
 | `out_of_order` | The sample just after the one that follows it |
 
+## Alarms (FR-ALM-001)
+
+Each turbine's controller watches what its sensors report, and raises and clears alarms, as a real one does
+(`alarms.py`, rules version `controller-alarms-1`). A rule raises once its condition has held for 10 seconds, and
+clears once the reading has stayed below its clear level for 30, so a reading near a threshold does not make it
+flicker. The device sends each report to `/ingest/v1/alarms`, with its own severity.
+
+| Code | Raised at | Cleared below | Severity |
+| --- | --- | --- | --- |
+| `GBX_OIL_TEMP_HIGH` | 63 °C | 60 °C | high |
+| `GBX_OIL_TEMP_CRITICAL` | 69 °C | 66 °C | critical |
+| `GBX_BEARING_TEMP_HIGH` | 70 °C | 68 °C | high |
+| `MAIN_BEARING_TEMP_HIGH` | 42 °C | 39 °C | high |
+| `GEN_BEARING_TEMP_HIGH` | 65 °C | 62 °C | high |
+| `NACELLE_VIBRATION_HIGH` | 3.0 mm/s | 2.5 mm/s | medium |
+| `SENSOR_SIGNAL_LOST` | 10 seconds with no signal | a signal again | low |
+
+Each threshold is above what the healthy fleet reaches at 1 Hz over a day, and the fault it watches for passes it.
+A day of the healthy fleet raises nothing; the gearbox, bearing, imbalance and dropout scenarios raise their
+alarms; and the high-load false positive raises none. Sensor drift raises the gearbox oil alarm, as a controller
+cannot tell a drifting sensor from a hot gearbox: that is the investigation's job.
+
 ## Scenarios and ground truth (SIM-005)
 
 A scenario is a seed, turbines, faults and data problems. Running one gives what its devices send, in the order sent,

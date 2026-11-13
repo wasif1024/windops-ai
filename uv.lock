@@ -5,6 +5,7 @@ requires-python = "==3.13.*"
 [manifest]
 members = [
     "windops-ai",
+    "windops-alarm",
     "windops-asset",
     "windops-audit",
     "windops-auth",
@@ -1588,6 +1589,7 @@ dev = [
     { name = "ruff" },
     { name = "types-grpcio" },
     { name = "types-pyyaml" },
+    { name = "windops-alarm" },
     { name = "windops-asset" },
     { name = "windops-audit" },
     { name = "windops-auth" },
@@ -1627,6 +1629,7 @@ dev = [
     { name = "ruff", specifier = ">=0.17.3" },
     { name = "types-grpcio", specifier = ">=1.85.0.20261028" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20261103" },
+    { name = "windops-alarm", editable = "services/alarm-service" },
     { name = "windops-asset", editable = "services/asset-service" },
     { name = "windops-audit", editable = "services/audit-service" },
     { name = "windops-auth", editable = "shared/auth" },
@@ -1646,6 +1649,33 @@ dev = [
     { name = "windops-telemetry", editable = "services/telemetry-service" },
     { name = "windops-tenant", editable = "services/tenant-service" },
     { name = "windops-web-bff", editable = "services/web-bff-service" },
+]
+
+[[package]]
+name = "windops-alarm"
+version = "0.1.0"
+source = { editable = "services/alarm-service" }
+dependencies = [
+    { name = "windops-auth" },
+    { name = "windops-contracts" },
+    { name = "windops-events" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-observability" },
+    { name = "windops-outbox" },
+    { name = "windops-resilience" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-events", editable = "shared/events" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-observability", editable = "shared/observability" },
+    { name = "windops-outbox", editable = "shared/outbox" },
+    { name = "windops-resilience", editable = "shared/resilience" },
 ]
 
 [[package]]

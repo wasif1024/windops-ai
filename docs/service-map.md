@@ -53,6 +53,7 @@ then Agent Runtime works through MCP servers, which are its only route to servic
 
 ```mermaid
 flowchart TB
+    Telemetry -.->|alarm.reported, from each turbine's controller| Alarm
     Telemetry -.->|telemetry.received, telemetry.quality| Fault["Fault Detection"]
     Alarm -.->|alarm.changed| Fault
     Fault -->|recent samples| Telemetry
@@ -138,8 +139,8 @@ Investigation listens for changes because they can make a recommendation stale (
 | Authorization | None | Audit events | None |
 | Tenant | Authorization, and Identity for each tenant's organization | Audit events | None |
 | Asset | None | `evidence.changed`, audit events | None |
-| Telemetry | None | `telemetry.received`, `telemetry.quality` | None |
-| Alarm | None | `alarm.changed`, audit events | None |
+| Telemetry | Asset | `telemetry.received`, `telemetry.quality`, and `alarm.reported` for each alarm a device sends | None |
+| Alarm | Asset, for a reader's wind farms | `alarm.changed`, audit events | `alarm.reported` |
 | Fault Detection | Telemetry | `fault.detected`, audit events | `telemetry.received`, `telemetry.quality`, `alarm.changed` |
 | Investigation | Telemetry, Alarm, Asset | `case.updated`, queued runs, audit events | `fault.detected`, `alarm.changed`, `evidence.changed`, `workorder.completed` |
 | Agent Runtime | MCP servers, Agent Sandbox Adapter, Claude | Audit events | Queued runs, `approval.decided` |

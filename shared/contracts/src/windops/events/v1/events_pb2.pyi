@@ -80,6 +80,7 @@ class EventEnvelope(_message.Message):
     WORK_ORDER_COMPLETED_FIELD_NUMBER: _builtins.int
     AUDIT_RECORDED_FIELD_NUMBER: _builtins.int
     AUDIT_REQUESTED_FIELD_NUMBER: _builtins.int
+    ALARM_REPORTED_FIELD_NUMBER: _builtins.int
     event_id: _builtins.str
     """Stable across retries, so consumers and JetStream can recognize a duplicate (EVT-003)."""
     tenant_id: _builtins.str
@@ -112,6 +113,8 @@ class EventEnvelope(_message.Message):
     def audit_recorded(self) -> Global___AuditRecorded: ...
     @_builtins.property
     def audit_requested(self) -> Global___AuditRequested: ...
+    @_builtins.property
+    def alarm_reported(self) -> Global___AlarmReported: ...
     def __init__(
         self,
         *,
@@ -132,12 +135,13 @@ class EventEnvelope(_message.Message):
         work_order_completed: Global___WorkOrderCompleted | None = ...,
         audit_recorded: Global___AuditRecorded | None = ...,
         audit_requested: Global___AuditRequested | None = ...,
+        alarm_reported: Global___AlarmReported | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["alarm_changed", b"alarm_changed", "approval_decided", b"approval_decided", "audit_recorded", b"audit_recorded", "audit_requested", b"audit_requested", "case_updated", b"case_updated", "evidence_changed", b"evidence_changed", "fault_detected", b"fault_detected", "occurred_at", b"occurred_at", "payload", b"payload", "telemetry_quality", b"telemetry_quality", "telemetry_received", b"telemetry_received", "work_order_completed", b"work_order_completed", "work_order_submitted", b"work_order_submitted"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["alarm_changed", b"alarm_changed", "alarm_reported", b"alarm_reported", "approval_decided", b"approval_decided", "audit_recorded", b"audit_recorded", "audit_requested", b"audit_requested", "case_updated", b"case_updated", "evidence_changed", b"evidence_changed", "fault_detected", b"fault_detected", "occurred_at", b"occurred_at", "payload", b"payload", "telemetry_quality", b"telemetry_quality", "telemetry_received", b"telemetry_received", "work_order_completed", b"work_order_completed", "work_order_submitted", b"work_order_submitted"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["alarm_changed", b"alarm_changed", "approval_decided", b"approval_decided", "audit_recorded", b"audit_recorded", "audit_requested", b"audit_requested", "case_updated", b"case_updated", "event_id", b"event_id", "evidence_changed", b"evidence_changed", "fault_detected", b"fault_detected", "occurred_at", b"occurred_at", "payload", b"payload", "producer", b"producer", "request_id", b"request_id", "telemetry_quality", b"telemetry_quality", "telemetry_received", b"telemetry_received", "tenant_id", b"tenant_id", "trace_parent", b"trace_parent", "work_order_completed", b"work_order_completed", "work_order_submitted", b"work_order_submitted"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["alarm_changed", b"alarm_changed", "alarm_reported", b"alarm_reported", "approval_decided", b"approval_decided", "audit_recorded", b"audit_recorded", "audit_requested", b"audit_requested", "case_updated", b"case_updated", "event_id", b"event_id", "evidence_changed", b"evidence_changed", "fault_detected", b"fault_detected", "occurred_at", b"occurred_at", "payload", b"payload", "producer", b"producer", "request_id", b"request_id", "telemetry_quality", b"telemetry_quality", "telemetry_received", b"telemetry_received", "tenant_id", b"tenant_id", "trace_parent", b"trace_parent", "work_order_completed", b"work_order_completed", "work_order_submitted", b"work_order_submitted"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    _WhichOneofReturnType_payload: _TypeAlias = _typing.Literal["telemetry_received", "telemetry_quality", "alarm_changed", "fault_detected", "case_updated", "evidence_changed", "work_order_submitted", "approval_decided", "work_order_completed", "audit_recorded", "audit_requested"]  # noqa: Y015
+    _WhichOneofReturnType_payload: _TypeAlias = _typing.Literal["telemetry_received", "telemetry_quality", "alarm_changed", "fault_detected", "case_updated", "evidence_changed", "work_order_submitted", "approval_decided", "work_order_completed", "audit_recorded", "audit_requested", "alarm_reported"]  # noqa: Y015
     _WhichOneofArgType_payload: _TypeAlias = _typing.Literal["payload", b"payload"]  # noqa: Y015
     def WhichOneof(self, oneof_group: _WhichOneofArgType_payload) -> _WhichOneofReturnType_payload | None: ...
 
@@ -202,23 +206,93 @@ class AlarmChanged(_message.Message):
     ALARM_ID_FIELD_NUMBER: _builtins.int
     TURBINE_ID_FIELD_NUMBER: _builtins.int
     STATE_FIELD_NUMBER: _builtins.int
+    CODE_FIELD_NUMBER: _builtins.int
+    SEVERITY_FIELD_NUMBER: _builtins.int
+    VERSION_FIELD_NUMBER: _builtins.int
     alarm_id: _builtins.str
     turbine_id: _builtins.str
     state: Global___AlarmState.ValueType
+    code: _builtins.str
+    severity: _builtins.str
+    """"low", "medium", "high" or "critical"."""
+    version: _builtins.int
+    """The alarm's version after this change."""
     def __init__(
         self,
         *,
         alarm_id: _builtins.str = ...,
         turbine_id: _builtins.str = ...,
         state: Global___AlarmState.ValueType = ...,
+        code: _builtins.str = ...,
+        severity: _builtins.str = ...,
+        version: _builtins.int = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["alarm_id", b"alarm_id", "state", b"state", "turbine_id", b"turbine_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["alarm_id", b"alarm_id", "code", b"code", "severity", b"severity", "state", b"state", "turbine_id", b"turbine_id", "version", b"version"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___AlarmChanged: _TypeAlias = AlarmChanged  # noqa: Y015
+
+@_typing.final
+class AlarmReported(_message.Message):
+    """A turbine's controller raised or cleared an alarm, as its device sent it through the device
+    route. The Alarm Service owns what it means (FR-ALM-001).
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TURBINE_ID_FIELD_NUMBER: _builtins.int
+    DEVICE_ID_FIELD_NUMBER: _builtins.int
+    REPORT_ID_FIELD_NUMBER: _builtins.int
+    CODE_FIELD_NUMBER: _builtins.int
+    TAG_FIELD_NUMBER: _builtins.int
+    ACTION_FIELD_NUMBER: _builtins.int
+    EVENT_TIME_FIELD_NUMBER: _builtins.int
+    RECEIVED_AT_FIELD_NUMBER: _builtins.int
+    SEVERITY_FIELD_NUMBER: _builtins.int
+    MESSAGE_FIELD_NUMBER: _builtins.int
+    SOURCE_FIELD_NUMBER: _builtins.int
+    turbine_id: _builtins.str
+    device_id: _builtins.str
+    report_id: _builtins.str
+    """The device's own ID for this report, so a repeat changes nothing."""
+    code: _builtins.str
+    tag: _builtins.str
+    """What raised it, such as a reading's name, when one code covers several."""
+    action: _builtins.str
+    """"raise" or "clear"."""
+    severity: _builtins.str
+    """"low", "medium", "high" or "critical", or empty for the catalogue's default."""
+    message: _builtins.str
+    source: _builtins.str
+    @_builtins.property
+    def event_time(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def received_at(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        turbine_id: _builtins.str = ...,
+        device_id: _builtins.str = ...,
+        report_id: _builtins.str = ...,
+        code: _builtins.str = ...,
+        tag: _builtins.str = ...,
+        action: _builtins.str = ...,
+        event_time: _timestamp_pb2.Timestamp | None = ...,
+        received_at: _timestamp_pb2.Timestamp | None = ...,
+        severity: _builtins.str = ...,
+        message: _builtins.str = ...,
+        source: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["event_time", b"event_time", "received_at", b"received_at"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "code", b"code", "device_id", b"device_id", "event_time", b"event_time", "message", b"message", "received_at", b"received_at", "report_id", b"report_id", "severity", b"severity", "source", b"source", "tag", b"tag", "turbine_id", b"turbine_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___AlarmReported: _TypeAlias = AlarmReported  # noqa: Y015
 
 @_typing.final
 class FaultDetected(_message.Message):

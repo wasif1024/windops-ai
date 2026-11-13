@@ -30,7 +30,13 @@ from windops_migrations import in_tenant
 from windops_telemetry import credentials, spectra
 from windops_telemetry.freshness import IngestMetrics
 from windops_telemetry.limits import LimitUnavailableError
-from windops_telemetry.schema import MalformedError, parse, parse_cms
+from windops_telemetry.schema import (
+    MalformedError,
+    ParsedAlarm,
+    parse,
+    parse_alarm,
+    parse_cms,
+)
 from windops_telemetry.store import (
     CMS_FEATURES,
     CMS_WAVEFORMS,
@@ -38,11 +44,14 @@ from windops_telemetry.store import (
     EXCERPT_CHARACTERS,
     INGEST_REJECTIONS,
     OPERATIONAL_SAMPLES,
+    queue_alarm,
 )
 
 PREFIX = "/ingest/v1"
 MAXIMUM_BODY_BYTES = 1024 * 1024
 MAXIMUM_SAMPLES = 600
+# A controller sends a few alarms at a time. This is far more than a real one ever needs.
+MAXIMUM_ALARMS = 200
 # A sample timed further ahead than this has a broken clock. It is refused, with its reason.
 FUTURE_TOLERANCE = timedelta(hours=1)
 # A CMS window comes every 10 minutes. The first in each scheduled block keeps its raw values.
@@ -208,6 +217,69 @@ def create_ingest_router(
         except RefusedError as refusal:
             return refusal.response
         return await store(device, items)
+
+    @router.post(
+        "/alarms", response_model=Receipt, summary="A turbine's controller raises or clears alarms"
+    )
+    async def alarms(request: Request) -> Any:
+        try:
+            device, document = await receive(request)
+            items = document.get("alarms") if isinstance(document, dict) else None
+            if not isinstance(items, list):
+                raise RefusedError(problem(400, 'Send {"alarms": [...]}', "no_alarms"))
+            if len(items) > MAXIMUM_ALARMS:
+                raise RefusedError(
+                    problem(413, f"A batch is at most {MAXIMUM_ALARMS} alarms", "too_many_alarms")
+                )
+        except RefusedError as refusal:
+            return refusal.response
+        return await store_alarms(device, items)
+
+    async def store_alarms(device: Device, items: list[Any]) -> Receipt:
+        """Queue each alarm as alarm.reported, for the Alarm Service (ADR 0007). A broken one is
+        kept with its reason, as a broken sample is (FR-TEL-003)."""
+        received = now()
+        reports: list[ParsedAlarm] = []
+        rejections: list[dict[str, Any]] = []
+        receipts: list[Rejected] = []
+        for index, item in enumerate(items):
+            reason = ""
+            try:
+                report = parse_alarm(item)
+                if report.tenant_id != device.tenant_id:
+                    reason = "wrong_tenant"
+                elif report.turbine_id != device.turbine_id:
+                    reason = "wrong_turbine"
+                elif report.event_time > received + FUTURE_TOLERANCE:
+                    reason = "event_time_in_future"
+            except MalformedError as error:
+                reason = error.reason
+            if reason:
+                receipts.append(Rejected(index=index, reason=f"alarm_{reason}"))
+                rejections.append(
+                    {
+                        "tenant_id": device.tenant_id, "rejection_id": uuid.uuid4().hex,
+                        "device_id": device.device_id, "turbine_id": device.turbine_id,
+                        "received_at": received, "reason": f"alarm_{reason}",
+                        "excerpt": _excerpt(item),
+                    }
+                )  # fmt: skip
+                continue
+            reports.append(report)
+        queued: list[ParsedAlarm] = []
+        async with engine.begin() as connection:
+            await in_tenant(connection, device.tenant_id)
+            for report in reports:
+                if await queue_alarm(connection, device, report, received):
+                    queued.append(report)
+            if rejections:
+                await connection.execute(INGEST_REJECTIONS.insert(), rejections)
+        measured.accepted(device.tenant_id, "alarms", received, [r.event_time for r in queued])
+        measured.rejected(device.tenant_id, "alarms", [r.reason for r in receipts])
+        # A report sent again is accepted, and kept once.
+        return Receipt(
+            accepted=len(queued), rejected=receipts, duplicates=len(reports) - len(queued)
+        )
 
     @router.post("/cms", response_model=Receipt, summary="A device sends one CMS vibration batch")
     async def cms(request: Request) -> Any:

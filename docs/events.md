@@ -11,6 +11,7 @@ fails and how to see it. [windops-events](../shared/events/README.md) and
 | --- | --- | --- | --- |
 | `telemetry.received` | Telemetry | `TelemetryReceived` | `WINDOPS_TELEMETRY` |
 | `telemetry.quality` | Telemetry | `TelemetryQualityChanged` | `WINDOPS_TELEMETRY` |
+| `alarm.reported` | Telemetry, for each alarm a device sends ([ADR 0007](adr/0007-alarms-arrive-through-the-device-route.md)) | `AlarmReported` | `WINDOPS_EVENTS` |
 | `alarm.changed` | Alarm | `AlarmChanged` | `WINDOPS_EVENTS` |
 | `fault.detected` | Fault Detection | `FaultDetected` | `WINDOPS_EVENTS` |
 | `case.updated` | Investigation | `CaseUpdated` | `WINDOPS_EVENTS` |

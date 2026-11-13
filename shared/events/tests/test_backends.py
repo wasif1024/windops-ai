@@ -86,7 +86,10 @@ def test_each_stream_is_a_topic_and_each_subject_finds_its_own() -> None:
 def test_a_subscription_keeps_only_its_consumers_subjects() -> None:
     assert filter_for("alarm.changed") == "sys.Label = 'alarm.changed'"
     assert filter_for("audit.requested.*") == "sys.Label LIKE 'audit.requested.%'"
-    assert [(s.topic, s.durable) for s in SUBSCRIPTIONS] == [("windops-audit", "audit")]
+    assert [(s.topic, s.durable) for s in SUBSCRIPTIONS] == [
+        ("windops-audit", "audit"),
+        ("windops-events", "alarm"),
+    ]
     assert _matches("audit.requested.*", "audit.requested.alarm")
     assert not _matches("audit.requested.*", "audit.requested.alarm.extra")
     assert _matches("deadletter.>", "deadletter.audit.x")

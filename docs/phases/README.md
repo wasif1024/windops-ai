@@ -5,7 +5,7 @@ the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into module
 between Phases 4 and 5 by [ADR 0006](../adr/0006-azure-aligned-platform-services.md).
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 5, alarms, detection and cases: M5.1, the Alarm Service, is next. Phase 4, assets and telemetry, is done: a seeded fault profile streams into storage with the correct quality labels ([evidence](phase-04-exit-gate.md)). Phase 4A, Azure alignment, is done: the phase gates passed again on Cilium, and the platform was deployed and proven on Azure ([evidence](phase-04a-exit-gate.md)).
+**Current position:** Phase 5, alarms, detection and cases: M5.2, fault rules, is next. Phase 4, assets and telemetry, is done: a seeded fault profile streams into storage with the correct quality labels ([evidence](phase-04-exit-gate.md)). Phase 4A, Azure alignment, is done: the phase gates passed again on Cilium, and the platform was deployed and proven on Azure ([evidence](phase-04a-exit-gate.md)).
 
 ## How to use this tracker
 
@@ -40,7 +40,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 | 3 | [Identity and tenancy](#phase-3-identity-and-tenancy) | 12 | Done |
 | 4 | [Assets and telemetry](#phase-4-assets-and-telemetry) | 10 | Done |
 | 4A | [Azure alignment](#phase-4a-azure-alignment) | 7 | Done |
-| 5 | [Alarms, detection and cases](#phase-5-alarms-detection-and-cases) | 7 | Not started |
+| 5 | [Alarms, detection and cases](#phase-5-alarms-detection-and-cases) | 7 | In progress |
 | 6 | [Deterministic decisions](#phase-6-deterministic-decisions) | 5 | Not started |
 | 7 | [Knowledge and external intelligence](#phase-7-knowledge-and-external-intelligence) | 7 | Not started |
 | 8 | [Agent workflow](#phase-8-agent-workflow) | 13 | Not started |
@@ -136,7 +136,7 @@ their plan and monthly price are approved.
 
 ## Phase 5: Alarms, detection and cases
 
-- [ ] **M5.1 Alarm Service:** ingestion, states, acknowledgement and change events, with no LLM severity (FR-ALM-001, FR-ALM-002, FR-ALM-003, FR-ALM-004).
+- [x] **M5.1 Alarm Service:** ingestion, states, acknowledgement and change events, with no LLM severity (FR-ALM-001, FR-ALM-002, FR-ALM-003, FR-ALM-004). Done 2026-11-13: each turbine's simulated controller raises and clears alarms on measured thresholds, and sends them to the device route, which queues them as `alarm.reported` ([ADR 0007](../adr/0007-alarms-arrive-through-the-device-route.md)). The Alarm Service makes one alarm an occurrence, with its history, lets operators acknowledge, shelve and unshelve it, and announces each change as `alarm.changed`. Severity comes from the device or the versioned catalogue, and nothing changes it after. `make alarm-check` proves it on the cluster. On the way, internal identities now allow the same 5 seconds of clock difference for when they were issued as for when they expire.
 - [ ] **M5.2 Fault rules:** versioned, audited thresholds, statistics and correlation (FR-FLT-001, FR-FLT-002, FR-FLT-005).
 - [ ] **M5.3 Detection records:** rule version and telemetry snapshot behind every detection, and `fault.detected` events (FR-FLT-003).
 - [ ] **M5.4 Investigation Service:** case lifecycle, deduplication and investigation start (FR-FLT-004, FR-INV-001).

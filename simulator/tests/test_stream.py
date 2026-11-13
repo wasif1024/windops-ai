@@ -46,11 +46,16 @@ class FakeTransport:
     posts: list[tuple[str, list[Any]]] = field(default_factory=list)
 
     cms: list[dict[str, Any]] = field(default_factory=list)
+    alarms: list[tuple[str, list[Any]]] = field(default_factory=list)
 
     def post(self, token: str, body: bytes, kind: str = "samples") -> Answer:
         if kind == "cms":
             self.cms.append(json.loads(body))
             return Answer(200, {"accepted": 3, "rejected": []})
+        if kind == "alarms":
+            reports = json.loads(body)["alarms"]
+            self.alarms.append((token, reports))
+            return Answer(200, {"accepted": len(reports), "rejected": []})
         samples = json.loads(body)["samples"]
         self.posts.append((token, samples))
         if self.script:
@@ -308,11 +313,35 @@ def test_cms_batches_wait_through_an_outage_and_keep_only_the_newest_hour() -> N
     ) == 3 * (8 - MAXIMUM_CMS_BUFFER)  # fmt: skip
 
 
-def test_the_cms_route_sits_beside_the_samples_route() -> None:
+def test_the_cms_and_alarm_routes_sit_beside_the_samples_route() -> None:
     assert routes_for("https://gateway/ingest/v1/samples") == {
-        "samples": "/ingest/v1/samples", "cms": "/ingest/v1/cms",
+        "samples": "/ingest/v1/samples", "cms": "/ingest/v1/cms", "alarms": "/ingest/v1/alarms",
     }  # fmt: skip
     settings = Settings.from_environment(
         {"WINDOPS_INGEST_URL": "https://g/ingest/v1/samples", "WINDOPS_SIMULATOR_CMS_SECONDS": "0"}
     )
     assert settings.cms_seconds == 0
+
+
+def test_a_device_sends_its_controllers_alarm_reports_on_their_own_route() -> None:
+    transport, clock = FakeTransport(), Clock()
+    stream = streamer(transport, clock)
+    key = next(iter(stream.specs))
+    controller = stream.controllers[key]
+    raised: list[Any] = []
+
+    def observe(reported: Any, at: Any) -> list[Any]:
+        # The controller sees every sample as measured, and raises once.
+        if raised:
+            return []
+        raised.append(controller._report("GBX_OIL_TEMP_HIGH", "gearbox_oil_temp_c", "raise", at,
+                                         "high", "Gearbox oil temperature high"))  # fmt: skip
+        return list(raised)
+
+    controller.observe = observe  # type: ignore[method-assign]
+    run(stream, clock, 12)
+    ((token, reports),) = transport.alarms
+    assert token == f"token-{key[1]}" and reports == raised
+    assert stream.metrics.get("windops_simulator_alarm_reports_accepted_total",
+                              tenant_id=key[0], turbine_id=key[1]) == 1  # fmt: skip
+    assert not any("code" in sample for sample in sent(transport))

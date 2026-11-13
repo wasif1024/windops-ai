@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
+from windops_simulator.alarms import Controller
 from windops_simulator.cms import rms
 from windops_simulator.delivery import DataProblems, Link
 from windops_simulator.fleet import DEMO_TURBINES, TurbineSpec
@@ -49,6 +50,8 @@ MAXIMUM_BATCH = 600
 MAXIMUM_BUFFER = 3600
 # A device keeps at most an hour of CMS batches while it cannot send them.
 MAXIMUM_CMS_BUFFER = 6
+# Alarm reports are few: a controller raising and clearing many alarms for hours still fits.
+MAXIMUM_ALARM_BUFFER = 1000
 # A CMS window is flagged when its RMS is this many times its sensor's usual level.
 TRIGGER_RATIO = 2.0
 TRIGGER_AFTER_WINDOWS = 3
@@ -124,9 +127,11 @@ class Transport(Protocol):
 
 
 def routes_for(url: str) -> dict[str, str]:
-    """The CMS route sits beside the samples route: /ingest/v1/samples, then /ingest/v1/cms."""
+    """The CMS and alarm routes sit beside the samples route: /ingest/v1/samples, then
+    /ingest/v1/cms and /ingest/v1/alarms."""
     path = urlsplit(url).path or "/"
-    return {"samples": path, "cms": path.rsplit("/", 1)[0] + "/cms"}
+    base = path.rsplit("/", 1)[0]
+    return {"samples": path, "cms": base + "/cms", "alarms": base + "/alarms"}
 
 
 class HttpsTransport:
@@ -189,6 +194,8 @@ class Device:
     # Each sensor's usual RMS, for the device's own trigger.
     baselines: dict[str, float] = field(default_factory=dict)
     windows_seen: int = 0
+    # Alarm reports from the turbine's controller, still to send.
+    alarms: deque[Any] = field(default_factory=deque)
     next_attempt: float = 0.0
     failures: int = 0
 
@@ -252,6 +259,8 @@ class Streamer:
         self.specs = {(spec.tenant_id, spec.turbine_id): spec for spec in turbines}
         self.simulator = Simulator(settings.seed, list(self.specs.values()), start)
         problems = PROBLEMS[settings.problems]
+        # Each turbine's controller, watching what its sensors report (FR-ALM-001).
+        self.controllers = {key: Controller(*key) for key in self.specs}
         self.links = {
             key: Link(problems, random_stream(settings.seed, f"live-link:{key[0]}:{key[1]}"))
             for key in self.specs
@@ -266,6 +275,8 @@ class Streamer:
         for key in self.specs:
             for name in ("accepted", "rejected", "generated"):
                 self.metrics.add(f"windops_simulator_samples_{name}_total", 0, **_labels(key))
+                self.metrics.add(f"windops_simulator_alarm_reports_{name}_total", 0,
+                                 **_labels(key))  # fmt: skip
 
     # --- devices
 
@@ -367,12 +378,31 @@ class Streamer:
             payload["sequence"] = int(sample.event_time.timestamp())
             key = (sample.tenant_id, sample.turbine_id)
             self.metrics.add("windops_simulator_samples_generated_total", **_labels(key))
+            self._observe(key, payload, sample.event_time)
             for delivery in self.links[key].carry(payload, sample.event_time):
                 self._order += 1
                 heapq.heappush(
                     self._waiting,
                     (delivery.sent_at.timestamp(), self._order, key, delivery.payload),
                 )
+
+    def _observe(self, key: Key, reported: dict[str, Any], at: datetime) -> None:
+        """The controller sees each sample as measured, before the link can lose it."""
+        reports = self.controllers[key].observe(reported, at)
+        if not reports:
+            return
+        self.metrics.add("windops_simulator_alarm_reports_generated_total", len(reports),
+                         **_labels(key))  # fmt: skip
+        device = self.devices.get(key)
+        if device is None:
+            self.metrics.add("windops_simulator_alarm_reports_dropped_total", len(reports),
+                             reason="no_token", **_labels(key))  # fmt: skip
+            return
+        device.alarms.extend(reports)
+        while len(device.alarms) > MAXIMUM_ALARM_BUFFER:
+            device.alarms.popleft()
+            self.metrics.add("windops_simulator_alarm_reports_dropped_total", reason="buffer_full",
+                             **_labels(key))  # fmt: skip
 
     # --- sending
 
@@ -388,6 +418,8 @@ class Streamer:
             # One CMS batch a turn at most: each is a few hundred kilobytes.
             if device.cms and device.next_attempt <= now:
                 self._send(device, now, "cms")
+            if device.alarms and device.next_attempt <= now:
+                self._send(device, now, "alarms")
 
     def _send(self, device: Device, now: float, kind: str) -> None:
         labels = _labels(device.key)
@@ -395,6 +427,9 @@ class Streamer:
             count = min(MAXIMUM_BATCH, len(device.buffer))
             body = json.dumps({"samples": [device.buffer[i] for i in range(count)]}).encode()
             queue: deque[Any] = device.buffer
+        elif kind == "alarms":
+            count, queue = len(device.alarms), device.alarms
+            body = json.dumps({"alarms": list(device.alarms)}).encode()
         else:
             count, queue = 1, device.cms
             body = json.dumps(device.cms[0]).encode()
@@ -405,7 +440,7 @@ class Streamer:
             self._back_off(device, now, type(error).__name__)
             return
         self.metrics.add("windops_simulator_requests_total", status=str(answer.status))
-        name = "samples" if kind == "samples" else "cms_windows"
+        name = {"samples": "samples", "cms": "cms_windows", "alarms": "alarm_reports"}[kind]
         if answer.status == 200:
             for _ in range(count):
                 queue.popleft()

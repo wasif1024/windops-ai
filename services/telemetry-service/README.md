@@ -35,6 +35,15 @@ one was refused, by its place in the batch:
 | 400 `not_json`, `no_samples` | The body is not JSON, or has no `samples` list |
 | 413 `too_large`, `too_many_samples` | More than 1 MiB, or more than 600 samples |
 
+### Alarms (ADR 0007)
+
+`POST /ingest/v1/alarms`, with the same credential, and a body of `{"alarms": [...]}`, at most 200. Each is what
+the turbine's controller raised or cleared; see [windops-simulator](../../simulator/README.md#alarms-fr-alm-001).
+The Telemetry Service checks each one's shape, and that it is the device's own, then queues it as `alarm.reported`
+through its outbox, for the [Alarm Service](../alarm-service/README.md), which owns what it means. A broken one is
+refused, and kept with its reason, such as `alarm_bad_code`. A report sent again while still queued counts as a
+duplicate, and is queued once.
+
 Errors are RFC 9457 problems, and never repeat what was sent. The route is served only over TLS, on port 8443: the
 plain port, 8080, has health and metrics only. The gateway has no user sign-in on `/ingest/*`, only a coarse
 per-address limit.

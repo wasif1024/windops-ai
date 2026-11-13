@@ -27,6 +27,7 @@ message EventEnvelope {
     WorkOrderCompleted work_order_completed = 18;
     AuditRecorded audit_recorded = 19;
     AuditRequested audit_requested = 20;
+    AlarmReported alarm_reported = 21;
   }
 }
 
@@ -47,6 +48,31 @@ message AlarmChanged {
   string alarm_id = 1;
   string turbine_id = 2;
   AlarmState state = 3;
+  string code = 4;
+  // "low", "medium", "high" or "critical".
+  string severity = 5;
+  // The alarm's version after this change.
+  int64 version = 6;
+}
+
+// A turbine's controller raised or cleared an alarm, as its device sent it through the device
+// route. The Alarm Service owns what it means (FR-ALM-001).
+message AlarmReported {
+  string turbine_id = 1;
+  string device_id = 2;
+  // The device's own ID for this report, so a repeat changes nothing.
+  string report_id = 3;
+  string code = 4;
+  // What raised it, such as a reading's name, when one code covers several.
+  string tag = 5;
+  // "raise" or "clear".
+  string action = 6;
+  google.protobuf.Timestamp event_time = 7;
+  google.protobuf.Timestamp received_at = 8;
+  // "low", "medium", "high" or "critical", or empty for the catalogue's default.
+  string severity = 9;
+  string message = 10;
+  string source = 11;
 }
 
 enum AlarmState {
