@@ -150,6 +150,9 @@ SERVICE_GRANTS: dict[str, frozenset[str]] = {
     "investigation": frozenset(
         {"turbine.read", "telemetry.read", "alarm.read", "policy.read", "investigation.read"}
     ),
+    # It gathers the facts it judges a proposal on: the case and its evidence, and the turbine
+    # and its site (ADR 0009). M6.4 adds the weather.
+    "policy": frozenset({"turbine.read", "investigation.read"}),
 }
 
 

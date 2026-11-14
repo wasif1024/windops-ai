@@ -1,0 +1,210 @@
+syntax = "proto3";
+
+package windops.policy.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Deterministic risk, safety, weather-window, business and escalation checks on a proposed action
+// (FR-POL-001 to FR-POL-005, ADR 0009). No model decides anything here.
+//
+// A rule is data: a kind, the input it judges, its limit, with an override for each site that
+// needs one, and the outcome when the limit is crossed. Every change is a new version, kept for
+// ever with who made it, when and why, and its content hash. An old version never changes.
+//
+// The service gathers the facts it judges by itself, from the services that own them: the case
+// and its evidence from Investigation, the turbine and its site from Asset, and, from M6.4, the
+// weather from the Weather Service. A caller supplies only the proposal being judged. When a
+// required input is missing, stale or cannot be reached, the rule's outcome is block or
+// escalate, never pass (FR-POL-005): a rule cannot be written to pass on a missing input.
+//
+// The tenant comes from the caller's verified identity (GRP-004). Reading rules needs
+// policy.read. Changing one needs policy.manage and a recent second factor (SEC-003), so only a
+// person can. Evaluating a proposal, and reading its result, needs investigation.read for the
+// case's turbine. Each change and each evaluation is audited, and may be retried with the same
+// idempotency_key (GRP-007). A tenant starts with the default library, as version 1 of each.
+service PolicyService {
+  rpc ListPolicyRules(ListPolicyRulesRequest) returns (ListPolicyRulesResponse);
+  // With every version.
+  rpc GetPolicyRule(GetPolicyRuleRequest) returns (GetPolicyRuleResponse);
+  // A new rule, or a new version of one. Refused unless the definition can be evaluated exactly,
+  // and unless a missing input blocks or escalates.
+  rpc PublishPolicyRuleVersion(PublishPolicyRuleVersionRequest) returns (PublishPolicyRuleVersionResponse);
+  rpc SetPolicyRuleEnabled(SetPolicyRuleEnabledRequest) returns (SetPolicyRuleEnabledResponse);
+
+  // Judges a proposed action on a case against every enabled rule, and records the result, which
+  // never changes (FR-POL-002, FR-POL-003).
+  rpc EvaluateProposal(EvaluateProposalRequest) returns (EvaluateProposalResponse);
+  rpc GetPolicyResult(GetPolicyResultRequest) returns (GetPolicyResultResponse);
+  // A case's results, newest first.
+  rpc ListPolicyResults(ListPolicyResultsRequest) returns (ListPolicyResultsResponse);
+}
+
+message PolicyRuleVersion {
+  string rule_id = 1;
+  int64 version = 2;
+  // "limit" or "match".
+  string kind = 3;
+  // {"kind", "category", "parameters": {...}, "outcome", "when_missing"}, canonical.
+  string definition_json = 4;
+  // sha256 of "windops-policy-rule-v1|<rule_id>|<version>|<definition_json>".
+  string content_hash = 5;
+  // A user, or "system" for the default library.
+  string created_by = 6;
+  google.protobuf.Timestamp created_at = 7;
+  string reason = 8;
+}
+
+message PolicyRule {
+  // Lowercase letters, digits and hyphens, such as "work-at-height-wind".
+  string rule_id = 1;
+  string name = 2;
+  string description = 3;
+  // "safety", "weather_window", "risk", "business", "evidence" or "escalation".
+  string category = 4;
+  bool enabled = 5;
+  PolicyRuleVersion current = 6;
+}
+
+message ListPolicyRulesRequest {}
+
+message ListPolicyRulesResponse {
+  repeated PolicyRule rules = 1;
+  // The default library the tenant started from, such as "policy-rules-1".
+  string library = 2;
+}
+
+message GetPolicyRuleRequest {
+  string rule_id = 1;
+}
+
+message GetPolicyRuleResponse {
+  PolicyRule rule = 1;
+  // Oldest first.
+  repeated PolicyRuleVersion versions = 2;
+}
+
+message PublishPolicyRuleVersionRequest {
+  string rule_id = 1;
+  string name = 2;
+  string description = 3;
+  string definition_json = 4;
+  // Why, for whoever reviews it. Required.
+  string reason = 5;
+  // The version this replaces, or 0 for a new rule, so two people cannot overwrite each other.
+  int64 expected_version = 6;
+  string idempotency_key = 7;
+}
+
+message PublishPolicyRuleVersionResponse {
+  PolicyRule rule = 1;
+}
+
+message SetPolicyRuleEnabledRequest {
+  string rule_id = 1;
+  bool enabled = 2;
+  string reason = 3;
+  string idempotency_key = 4;
+}
+
+message SetPolicyRuleEnabledResponse {
+  PolicyRule rule = 1;
+}
+
+// What is being judged. Only these come from the caller; every other input is gathered.
+message Proposal {
+  // "inspection", "repair", "replacement", "adjustment" or "monitoring".
+  string action = 1;
+  string summary = 2;
+  // Climbing the tower or working in the nacelle or hub: work at height.
+  bool requires_climb = 3;
+  google.protobuf.Timestamp planned_start = 4;
+  google.protobuf.Timestamp planned_end = 5;
+  // Unset when not known, which a rule that needs it treats as missing.
+  optional double estimated_cost_eur = 6;
+  optional double estimated_downtime_hours = 7;
+  // From 0 to 1, as the recommendation states it.
+  optional double confidence = 8;
+}
+
+message EvaluateProposalRequest {
+  string case_id = 1;
+  Proposal proposal = 2;
+  string idempotency_key = 3;
+}
+
+// One input as the rules saw it.
+message PolicyInput {
+  // Such as "proposal.confidence", "case.severity", "evidence.age_hours" or
+  // "weather.max_wind_speed_mps".
+  string name = 1;
+  // JSON: a number, string or true or false. Empty when missing.
+  string value_json = 2;
+  // "proposal", "investigation", "asset" or "weather".
+  string source = 3;
+  // The record it came from, such as "case_abc@3" or "evs_abc".
+  string source_ref = 4;
+  google.protobuf.Timestamp observed_at = 5;
+  // "available", "missing", "stale" or "unavailable", when its owner could not be reached.
+  string state = 6;
+  string note = 7;
+}
+
+message RuleOutcome {
+  string rule_id = 1;
+  int64 version = 2;
+  string content_hash = 3;
+  string category = 4;
+  // "pass", "block", "escalate", or "not_applicable" when the rule's condition does not hold.
+  string outcome = 5;
+  // The input it judged, and the limit it applied: the site's override, or the rule's own.
+  string input = 6;
+  string limit_json = 7;
+  // "rule" or the site's ID, such as "dogger-east".
+  string limit_from = 8;
+  string reason = 9;
+}
+
+message PolicyResult {
+  // "pol_" and 20 lowercase letters and digits.
+  string result_id = 1;
+  string case_id = 2;
+  string turbine_id = 3;
+  string wind_farm_id = 4;
+  // The worst of the rules' outcomes: "block", then "escalate", then "pass".
+  string outcome = 5;
+  Proposal proposal = 6;
+  repeated PolicyInput inputs = 7;
+  repeated RuleOutcome rules = 8;
+  // The default library the rules came from.
+  string library = 9;
+  // sha256 of the result's canonical JSON, with this field empty.
+  string content_hash = 10;
+  // Reading a result checks its hash again.
+  bool verified = 11;
+  // The caller's user, or service, such as "service:agent-runtime".
+  string evaluated_by = 12;
+  google.protobuf.Timestamp evaluated_at = 13;
+}
+
+message EvaluateProposalResponse {
+  PolicyResult result = 1;
+}
+
+message GetPolicyResultRequest {
+  string result_id = 1;
+}
+
+message GetPolicyResultResponse {
+  PolicyResult result = 1;
+}
+
+message ListPolicyResultsRequest {
+  string case_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListPolicyResultsResponse {
+  repeated PolicyResult results = 1;
+  string next_page_token = 2;
+}

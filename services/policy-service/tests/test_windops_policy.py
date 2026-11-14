@@ -1,0 +1,395 @@
+"""The policy API through a real gRPC server and SQL database, with stand-ins for its owners.
+SQLite has no row-level security or triggers, so `make policy-check` proves those on PostgreSQL."""
+
+import asyncio
+import json
+import logging
+import time
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+import grpc
+from google.protobuf.timestamp_pb2 import Timestamp
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.pool import StaticPool
+from windops.asset.v1 import asset_pb2
+from windops.investigation.v1 import investigation_pb2
+from windops.policy.v1 import policy_pb2 as pb
+from windops.policy.v1 import policy_pb2_grpc
+from windops_auth import LEVEL_MFA, LEVEL_PASSWORD
+from windops_events import parse_event
+from windops_grpc import (
+    NotFoundError,
+    ServiceRuntime,
+    Settings,
+    UnavailableError,
+    VerifiedIdentity,
+    current_identity,
+    sign_identity,
+)
+from windops_outbox import OUTBOX_TABLE, create_outbox_table
+from windops_policy.defaults import DEFAULT_RULES, LIBRARY
+from windops_policy.service import PolicyService
+from windops_policy.store import METADATA, POLICY_RESULTS, SERVICE_NAME
+
+SECRET = "x" * 32
+TENANT = "north-sea"
+SETTINGS = Settings(
+    environment="test", version="test", identity_secret=SECRET, grpc_port=0, http_port=0,
+    shutdown_grace_seconds=1,
+)  # fmt: skip
+NOW = datetime(2026, 11, 14, 12, 0, tzinfo=UTC)
+
+
+def stamp(at: datetime) -> Timestamp:
+    value = Timestamp()
+    value.FromDatetime(at)
+    return value
+
+
+@dataclass
+class FakeAuthorizer:
+    grants: set[tuple[str, str]] = field(default_factory=set)
+    asked_as: list[str] = field(default_factory=list)
+
+    async def allowed(self, permission: str, wind_farm_id: str = "", turbine_id: str = "") -> bool:
+        who = current_identity().user_id or current_identity().subject
+        self.asked_as.append(who)
+        return (who, permission) in self.grants or (
+            bool(wind_farm_id) and (who, f"{permission}@{wind_farm_id}") in self.grants
+        )
+
+
+@dataclass
+class FakeSources:
+    """A high-severity open case on dogger-east-t01, its evidence frozen two hours ago."""
+
+    case_: Any = None
+    evidence_age: timedelta = timedelta(hours=2)
+    turbine_status: str = "operating"
+    asset_down: bool = False
+    asked_as: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.case_ = investigation_pb2.Case(
+            case_id="case_1", turbine_id="dogger-east-t01", status="open", severity="high",
+            evidence_status="ready", evidence_snapshot_id="evs_1", version=3,
+        )  # fmt: skip
+
+    async def case(self, case_id: str) -> Any:
+        self.asked_as.append(current_identity().subject)
+        if case_id != self.case_.case_id:
+            raise NotFoundError("no such case")
+        return self.case_
+
+    async def evidence(self, snapshot_id: str) -> Any:
+        return investigation_pb2.EvidenceSnapshot(
+            snapshot_id=snapshot_id, version=1, created_at=stamp(NOW - self.evidence_age)
+        )
+
+    async def turbine(self, turbine_id: str) -> Any:
+        if self.asset_down:
+            raise UnavailableError("The Asset Service cannot be reached right now")
+        return asset_pb2.Turbine(turbine_id=turbine_id, wind_farm_id="dogger-east",
+                                 status=self.turbine_status, version=7)  # fmt: skip
+
+
+@dataclass
+class World:
+    stub: Any
+    engine: AsyncEngine
+    sources: FakeSources
+    authorizer: FakeAuthorizer
+
+
+def as_user(user: str = "u-admin", level: str | None = LEVEL_MFA) -> Any:
+    identity = VerifiedIdentity(subject=user, tenant_id=TENANT, user_id=user, auth_level=level,
+                                auth_time=int(time.time()) if level else None)  # fmt: skip
+    return (("x-windops-identity", sign_identity(identity, SECRET)),)
+
+
+def proposal(**changes: Any) -> pb.Proposal:
+    fields: dict[str, Any] = {
+        "action": "inspection", "summary": "Inspect the gearbox oil cooler",
+        "requires_climb": False, "estimated_cost_eur": 2000.0,
+        "estimated_downtime_hours": 4.0, "confidence": 0.8,
+    }  # fmt: skip
+    fields.update(changes)
+    return pb.Proposal(**{k: v for k, v in fields.items() if v is not None})
+
+
+async def evaluate(world: World, user: str = "u-engineer", key: str = "", **changes: Any) -> Any:
+    request = pb.EvaluateProposalRequest(case_id="case_1", proposal=proposal(**changes),
+                                         idempotency_key=key)  # fmt: skip
+    return (await world.stub.EvaluateProposal(request, metadata=as_user(user), timeout=5)).result
+
+
+def by_rule(result: Any) -> dict[str, str]:
+    return {r.rule_id: r.outcome for r in result.rules}
+
+
+async def code_of(call: Awaitable[Any]) -> grpc.StatusCode:
+    try:
+        await call
+    except grpc.aio.AioRpcError as error:
+        status: grpc.StatusCode = error.code()
+        return status
+    return grpc.StatusCode.OK
+
+
+async def audited(engine_: AsyncEngine) -> list[tuple[str, str, str, str]]:
+    async with engine_.connect() as connection:
+        rows = (await connection.execute(select(OUTBOX_TABLE))).all()
+    payloads: list[Any] = [parse_event(row.subject, row.envelope).payload for row in rows]
+    return [(p.action, p.actor_id, p.resource_id, p.outcome) for p in payloads]
+
+
+def with_service(scenario: Callable[[World], Awaitable[None]], **source: Any) -> None:
+    root = logging.getLogger()
+    saved_handlers, saved_level = list(root.handlers), root.level
+
+    async def run() -> None:
+        engine_ = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+        async with engine_.begin() as connection:
+            await connection.run_sync(METADATA.create_all)
+            await connection.run_sync(create_outbox_table)
+        authorizer = FakeAuthorizer({
+            ("u-admin", "policy.read"), ("u-admin", "policy.manage"),
+            ("u-engineer", "investigation.read"), ("u-dogger", "investigation.read@dogger-east"),
+        })  # fmt: skip
+        sources = FakeSources(**source)
+
+        def register(server: grpc.aio.Server) -> None:
+            policy_pb2_grpc.add_PolicyServiceServicer_to_server(
+                PolicyService(engine_, authorizer, sources, SECRET, clock=lambda: NOW), server
+            )
+
+        runtime = ServiceRuntime(SERVICE_NAME, SETTINGS, register, install_global_telemetry=False)
+        await runtime.start()
+        try:
+            async with grpc.aio.insecure_channel(f"127.0.0.1:{runtime.grpc_port}") as channel:
+                stub = policy_pb2_grpc.PolicyServiceStub(channel)
+                await scenario(World(stub, engine_, sources, authorizer))
+        finally:
+            await runtime.stop()
+            await engine_.dispose()
+
+    try:
+        asyncio.run(run())
+    finally:
+        root.handlers[:] = saved_handlers
+        root.setLevel(saved_level)
+
+
+def test_a_tenant_starts_with_the_default_library_as_version_1_of_each_audited() -> None:
+    async def scenario(world: World) -> None:
+        listed = await world.stub.ListPolicyRules(pb.ListPolicyRulesRequest(),
+                                                  metadata=as_user(), timeout=5)  # fmt: skip
+        assert listed.library == LIBRARY
+        assert sorted(r.rule_id for r in listed.rules) == sorted(d[0] for d in DEFAULT_RULES)
+        assert all(r.current.version == 1 and r.current.created_by == "system" and r.enabled
+                   for r in listed.rules)  # fmt: skip
+        created = [a for a in await audited(world.engine) if a[0] == "policy_rule.created"]
+        assert len(created) == len(DEFAULT_RULES)
+        refused = world.stub.ListPolicyRules(pb.ListPolicyRulesRequest(),
+                                             metadata=as_user("u-engineer"), timeout=5)  # fmt: skip
+        assert await code_of(refused) == grpc.StatusCode.PERMISSION_DENIED
+
+    with_service(scenario)
+
+
+def test_a_sound_proposal_passes_with_every_rule_version_and_input_recorded_and_audited() -> None:
+    async def scenario(world: World) -> None:
+        result = await evaluate(world)
+        assert result.outcome == "pass", by_rule(result)
+        assert result.result_id.startswith("pol_") and result.verified and result.content_hash
+        assert (result.case_id, result.turbine_id, result.wind_farm_id) == (
+            "case_1", "dogger-east-t01", "dogger-east",
+        )  # fmt: skip
+        outcomes = by_rule(result)
+        assert outcomes["work-at-height-wind"] == "not_applicable"
+        assert all(r.version == 1 and len(r.content_hash) == 64 for r in result.rules)
+        inputs = {i.name: i for i in result.inputs}
+        assert (inputs["case.severity"].value_json, inputs["case.severity"].source_ref) == (
+            '"high"', "case_1@3",
+        )  # fmt: skip
+        assert json.loads(inputs["evidence.age_hours"].value_json) == 2.0
+        assert inputs["weather.max_wind_speed_mps"].state == "unavailable"
+        # Gathered as the service itself, while the caller's own permission was checked.
+        assert world.sources.asked_as == ["service:policy"]
+        assert "u-engineer" in world.authorizer.asked_as
+        read = await world.stub.GetPolicyResult(pb.GetPolicyResultRequest(
+            result_id=result.result_id), metadata=as_user("u-engineer"), timeout=5)  # fmt: skip
+        assert read.result == result
+        assert ("policy.evaluated", "u-engineer", result.result_id, "pass") in await audited(
+            world.engine
+        )
+
+    with_service(scenario)
+
+
+def test_work_at_height_blocks_while_the_weather_cannot_be_known() -> None:
+    async def scenario(world: World) -> None:
+        start = stamp(NOW + timedelta(hours=2))
+        result = await evaluate(world, requires_climb=True, planned_start=start,
+                                planned_end=stamp(NOW + timedelta(hours=6)))  # fmt: skip
+        assert result.outcome == "block"
+        wind = next(r for r in result.rules if r.rule_id == "work-at-height-wind")
+        assert wind.outcome == "block" and "unavailable" in wind.reason and "M6.3" in wind.reason
+
+    with_service(scenario)
+
+
+def test_each_risk_and_business_limit_escalates() -> None:
+    async def scenario(world: World) -> None:
+        for changes, rule in (
+            ({"confidence": 0.59}, "low-confidence"),
+            ({"confidence": None}, "low-confidence"),
+            ({"estimated_cost_eur": 50000.01}, "cost-limit"),
+            ({"estimated_downtime_hours": None}, "downtime-limit"),
+        ):
+            result = await evaluate(world, **changes)
+            assert (result.outcome, by_rule(result)[rule]) == ("escalate", "escalate"), changes
+        at_limit = await evaluate(world, estimated_cost_eur=50000.0, confidence=0.6)
+        assert at_limit.outcome == "pass"
+
+    with_service(scenario)
+
+
+def test_a_critical_case_escalates_and_closed_case_or_old_evidence_blocks() -> None:
+    async def scenario(world: World) -> None:
+        world.sources.case_.severity = "critical"
+        assert by_rule(await evaluate(world))["critical-case"] == "escalate"
+        world.sources.case_.severity, world.sources.case_.status = "high", "closed"
+        closed = await evaluate(world)
+        assert (closed.outcome, by_rule(closed)["case-active"]) == ("block", "block")
+        world.sources.case_.status, world.sources.case_.evidence_status = "open", "pending"
+        assert by_rule(await evaluate(world))["evidence-ready"] == "block"
+        world.sources.case_.evidence_status, world.sources.evidence_age = (
+            "ready",
+            timedelta(hours=25),
+        )
+        stale = await evaluate(world)
+        assert (stale.outcome, by_rule(stale)["evidence-fresh"]) == ("block", "block")
+
+    with_service(scenario)
+
+
+def test_an_owner_that_cannot_be_reached_fails_closed() -> None:
+    async def scenario(world: World) -> None:
+        result = await evaluate(world)
+        assert result.outcome == "escalate" and result.wind_farm_id == ""
+        offline = next(r for r in result.rules if r.rule_id == "turbine-offline")
+        assert offline.outcome == "escalate" and "unavailable" in offline.reason
+
+    with_service(scenario, asset_down=True)
+
+
+def test_a_site_gets_its_own_limit_from_a_new_rule_version() -> None:
+    async def scenario(world: World) -> None:
+        await world.stub.ListPolicyRules(pb.ListPolicyRulesRequest(), metadata=as_user(),
+                                         timeout=5)  # fmt: skip
+        definition = next(d for r, _, _, d in DEFAULT_RULES if r == "cost-limit")
+        stricter = {**definition, "parameters": {**definition["parameters"],
+                                                 "sites": {"dogger-east": 10000.0}}}  # fmt: skip
+        publish = pb.PublishPolicyRuleVersionRequest(
+            rule_id="cost-limit", definition_json=json.dumps(stricter),
+            reason="Dogger East's approval limit", expected_version=1, idempotency_key="v2",
+        )  # fmt: skip
+        published = await world.stub.PublishPolicyRuleVersion(publish, metadata=as_user(),
+                                                               timeout=5)  # fmt: skip
+        assert published.rule.current.version == 2
+        result = await evaluate(world, estimated_cost_eur=20000.0)
+        cost = next(r for r in result.rules if r.rule_id == "cost-limit")
+        assert (cost.outcome, cost.version, cost.limit_json, cost.limit_from) == (
+            "escalate", 2, "10000.0", "dogger-east",
+        )  # fmt: skip
+
+    with_service(scenario)
+
+
+def test_only_a_person_with_policy_manage_and_a_recent_second_factor_changes_a_rule() -> None:
+    async def scenario(world: World) -> None:
+        definition = json.dumps(next(d for r, _, _, d in DEFAULT_RULES if r == "cost-limit"))
+
+        def publish(user: str, level: str | None = LEVEL_MFA, **change: Any) -> Any:
+            fields = {"rule_id": "cost-limit", "definition_json": definition, "reason": "Review",
+                      "expected_version": 1, **change}  # fmt: skip
+            return world.stub.PublishPolicyRuleVersion(
+                pb.PublishPolicyRuleVersionRequest(**fields),
+                metadata=as_user(user, level),
+                timeout=5,
+            )
+
+        assert await code_of(publish("u-engineer")) == grpc.StatusCode.PERMISSION_DENIED
+        assert (
+            await code_of(publish("u-admin", LEVEL_PASSWORD)) == grpc.StatusCode.PERMISSION_DENIED
+        )
+        open_ended = json.dumps({**json.loads(definition), "when_missing": "pass"})
+        assert await code_of(publish("u-admin", definition_json=open_ended)) == (
+            grpc.StatusCode.INVALID_ARGUMENT
+        )
+        stale = publish("u-admin", expected_version=5)
+        assert await code_of(stale) == grpc.StatusCode.FAILED_PRECONDITION
+
+    with_service(scenario)
+
+
+def test_someone_who_may_not_read_the_case_cannot_find_it_and_a_site_grant_is_enough() -> None:
+    async def scenario(world: World) -> None:
+        stranger = world.stub.EvaluateProposal(
+            pb.EvaluateProposalRequest(case_id="case_1", proposal=proposal()),
+            metadata=as_user("u-nobody"), timeout=5,
+        )  # fmt: skip
+        assert await code_of(stranger) == grpc.StatusCode.NOT_FOUND
+        missing = world.stub.EvaluateProposal(
+            pb.EvaluateProposalRequest(case_id="case_none", proposal=proposal()),
+            metadata=as_user("u-engineer"), timeout=5,
+        )  # fmt: skip
+        assert await code_of(missing) == grpc.StatusCode.NOT_FOUND
+        mine = await evaluate(world, user="u-dogger")
+        assert mine.outcome == "pass"
+        read = world.stub.GetPolicyResult(pb.GetPolicyResultRequest(result_id=mine.result_id),
+                                          metadata=as_user("u-nobody"), timeout=5)  # fmt: skip
+        assert await code_of(read) == grpc.StatusCode.NOT_FOUND
+
+    with_service(scenario)
+
+
+def test_a_retry_returns_the_first_result_and_a_changed_row_no_longer_verifies() -> None:
+    async def scenario(world: World) -> None:
+        first = await evaluate(world, key="eval-1")
+        again = await evaluate(world, key="eval-1")
+        assert again.result_id == first.result_id
+        reused = world.stub.EvaluateProposal(
+            pb.EvaluateProposalRequest(case_id="case_1", proposal=proposal(confidence=0.9),
+                                       idempotency_key="eval-1"),
+            metadata=as_user("u-engineer"), timeout=5,
+        )  # fmt: skip
+        assert await code_of(reused) == grpc.StatusCode.INVALID_ARGUMENT
+        async with world.engine.begin() as connection:
+            await connection.execute(
+                update(POLICY_RESULTS).values(content=POLICY_RESULTS.c.content + " ")
+            )
+        listed = await world.stub.ListPolicyResults(pb.ListPolicyResultsRequest(
+            case_id="case_1"), metadata=as_user("u-engineer"), timeout=5)  # fmt: skip
+        assert [r.result_id for r in listed.results] == [first.result_id]
+        assert not listed.results[0].verified
+
+    with_service(scenario)
+
+
+def test_a_proposal_that_cannot_be_judged_as_stated_is_refused() -> None:
+    async def scenario(world: World) -> None:
+        for changes in ({"action": "fly"}, {"confidence": 1.5}, {"estimated_cost_eur": -1.0},
+                        {"planned_start": stamp(NOW)}):  # fmt: skip
+            call = world.stub.EvaluateProposal(
+                pb.EvaluateProposalRequest(case_id="case_1", proposal=proposal(**changes)),
+                metadata=as_user("u-engineer"), timeout=5,
+            )  # fmt: skip
+            assert await code_of(call) == grpc.StatusCode.INVALID_ARGUMENT, changes
+
+    with_service(scenario)

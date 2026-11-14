@@ -81,6 +81,8 @@ flowchart TB
     Core --> Inventory
     Core --> Investigation
     Policy --> Weather
+    Policy --> Investigation
+    Policy --> Asset
     Impact --> Asset
 ```
 
@@ -149,7 +151,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | Weather | The forecast provider | None | None |
 | External Intelligence | Tavily | Audit events | None |
 | Production Impact | Asset | Audit events | None |
-| Policy | Weather | Audit events | None |
+| Policy | Investigation and Asset, for the facts it judges on ([ADR 0009](adr/0009-policy-judges-a-proposal-on-facts-it-gathers.md)), and Weather from M6.4 | Audit events | None |
 | Maintenance | Asset, Policy, Inventory | `workorder.submitted`, `workorder.completed`, audit events | `approval.decided` |
 | Inventory | None | `evidence.changed`, audit events | None |
 | Approval | Maintenance, Investigation, Policy | `approval.decided`, audit events | `workorder.submitted` |
