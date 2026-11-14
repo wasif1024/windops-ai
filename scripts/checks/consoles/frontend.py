@@ -8,6 +8,10 @@ For the consoles, it makes a temporary Tenant and Platform Administrator for eac
 and sets up their authenticator straight with Keycloak, as the gateway allows only 5 sign-ins a
 minute from one address (SRS 7.5). The browser then signs in through the gateway. Every user it
 makes is deleted afterwards. Their grants stay, for IDs that can no longer sign in (RBAC-005).
+
+For the alarm console, a demo turbine's device raises a check-only alarm per screen size through
+the gateway's device route, as the alarm check does, and the operator acknowledges it in the
+browser. Those alarms are removed afterwards.
 """
 
 import base64
@@ -18,12 +22,15 @@ import ssl
 import subprocess
 import sys
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
+from scripts.checks.fleet.alarm import TURBINE, report, sql
+from scripts.checks.fleet.telemetry import device_token, send_to
 from scripts.checks.identity.identity import Realm, delete_user
 from scripts.checks.identity.mfa import Browser, enroll
 from scripts.lib.settings import KUBE_CONTEXT
@@ -57,6 +64,8 @@ PLATFORM_ADMINS = {
 # The users each journey adds, which are deleted here afterwards.
 ADDED = {project: f"added-{project}-{RUN}@windops-check.example" for project in PROJECTS}
 API = PUBLIC_URL.removesuffix("/auth") + "/api/v1"
+# The alarm each screen size acknowledges. The alarm check's clean-up removes these too.
+ALARM_TAGS = {project: f"alarm-check-ui-{project}-{RUN}" for project in PROJECTS}
 
 
 def gateway_spki() -> str:
@@ -109,6 +118,23 @@ def enroll_admins(password: str) -> tuple[dict[str, str], str]:
     return keys, operator.access
 
 
+def raise_alarms() -> None:
+    """A check-only alarm per screen size, from a demo turbine's device, as a controller would."""
+    now = datetime.now(UTC).replace(microsecond=0)
+    answer = send_to("alarms", device_token(TENANT, TURBINE),
+                     [report("raise", tag, now) for tag in ALARM_TAGS.values()])  # fmt: skip
+    if answer.status_code != 200 or answer.json()["accepted"] != len(ALARM_TAGS):
+        raise RuntimeError(f"The device's alarms were not accepted: {answer.text}")
+
+
+def remove_alarms() -> None:
+    sql(
+        "DELETE FROM alarm_transitions WHERE alarm_id IN (SELECT alarm_id FROM alarms "
+        "WHERE tag LIKE 'alarm-check-ui-%'); DELETE FROM alarms WHERE tag LIKE 'alarm-check-ui-%'; "
+        "DELETE FROM alarm_reports WHERE tag LIKE 'alarm-check-ui-%'; SELECT 1"
+    )
+
+
 def run_browser(password: str, keys: dict[str, str], operator_token: str) -> int:
     with keycloak_public():
         # An operator's refused attempt, so the console has an access denial to show (SRS 9.4).
@@ -117,6 +143,7 @@ def run_browser(password: str, keys: dict[str, str], operator_token: str) -> int
         )
         if refused.status_code != 403:
             raise RuntimeError(f"The operator was not refused: {refused.status_code}")
+        raise_alarms()
         env = {
             **{k: v for k, v in os.environ.items() if k != "SSL_CERT_FILE"},
             "BASE_URL": PUBLIC_URL.removesuffix("/auth"),
@@ -137,6 +164,7 @@ def run_browser(password: str, keys: dict[str, str], operator_token: str) -> int
             env[f"ADDED_EMAIL_{upper}"] = ADDED[project]
             env[f"PLATFORM_EMAIL_{upper}"] = PLATFORM_ADMINS[project]
             env[f"PLATFORM_TOTP_KEY_{upper}"] = keys[PLATFORM_ADMINS[project]]
+            env[f"ALARM_TAG_{upper}"] = ALARM_TAGS[project]
         result = subprocess.run(["npx", "playwright", "test"], cwd=FRONTEND, env=env, check=False)
     return result.returncode
 
@@ -155,6 +183,7 @@ def main() -> int:
                 keys, operator_token = enroll_admins(password)
                 code = run_browser(password, keys, operator_token)
             finally:
+                remove_alarms()
                 # A fresh login, as the first may have expired during the browser run.
                 with admin_client(base, admin_password) as api:
                     for email in (*ADMINS.values(), *PLATFORM_ADMINS.values(), *ADDED.values()):

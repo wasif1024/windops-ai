@@ -56,11 +56,14 @@ PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 # are console reads any member may make, as nothing in them is sensitive. Admin reads need an
 # administrative permission. Admin changes need one and a recent second factor. Platform is for
 # the Platform Administrator only. Telemetry reads need telemetry.read, which a Tenant
-# Administrator does not hold (SRS 3.2).
+# Administrator does not hold (SRS 3.2), nor alarm.read. One alarm is an alarm the sweep names
+# that does not exist, so every signed-in caller is told only that it is not found, and the sweep
+# never acknowledges or shelves a real one.
 PUBLIC, SIGNED_IN, MEMBER_READ, ADMIN_READ, ADMIN_CHANGE, PLATFORM, TELEMETRY_READ = (
     "public", "signed-in", "member-read", "admin-read", "admin-change", "platform",
     "telemetry-read",
 )  # fmt: skip
+ONE_ALARM = "one-alarm"
 CLASSES: dict[tuple[str, str], str] = {
     ("GET", "/api/v1/public/branding/{tenant_id}"): PUBLIC,
     ("GET", "/api/v1/public/branding/{tenant_id}/logo"): PUBLIC,
@@ -72,6 +75,13 @@ CLASSES: dict[tuple[str, str], str] = {
     ("GET", "/api/v1/fleet"): MEMBER_READ,
     ("GET", "/api/v1/fleet/turbines/{turbine_id}"): MEMBER_READ,
     ("GET", "/api/v1/fleet/turbines/{turbine_id}/telemetry"): TELEMETRY_READ,
+    # The Alarm Service lists only what each member may read; the catalogue needs alarm.read.
+    ("GET", "/api/v1/alarms"): MEMBER_READ,
+    ("GET", "/api/v1/alarms/catalog"): TELEMETRY_READ,
+    ("GET", "/api/v1/alarms/{alarm_id}"): ONE_ALARM,
+    ("POST", "/api/v1/alarms/{alarm_id}/acknowledge"): ONE_ALARM,
+    ("POST", "/api/v1/alarms/{alarm_id}/shelve"): ONE_ALARM,
+    ("POST", "/api/v1/alarms/{alarm_id}/unshelve"): ONE_ALARM,
     ("GET", "/api/v1/admin/access-denials"): ADMIN_READ,
     ("GET", "/api/v1/admin/branding"): ADMIN_READ,
     # The emails' standard wording, which the Notification Service and every member may read.
@@ -123,6 +133,8 @@ BODIES: dict[tuple[str, str], Any] = {
     },
     ("POST", "/api/v1/platform/tenants"): {"tenant_id": "platform-check", "name": "Platform Check"},
     ("POST", "/api/v1/platform/tenants/{tenant_id}/suspend"): {"reason": "Route sweep, refused"},
+    ("POST", "/api/v1/alarms/{alarm_id}/acknowledge"): {"comment": "Route sweep"},
+    ("POST", "/api/v1/alarms/{alarm_id}/shelve"): {"reason": "Route sweep", "minutes": 5},
 }
 
 
@@ -130,20 +142,22 @@ Expected = dict[str, tuple[int, str | None]]
 OK: tuple[int, str | None] = (200, None)
 FORBIDDEN: tuple[int, str | None] = (403, "forbidden")
 SIGN_IN: tuple[int, str | None] = (401, None)
+NOT_FOUND: tuple[int, str | None] = (404, "not_found")
 # What each caller must get from each class of route, as (status, problem code or None for any).
 NO_TOKEN: Expected = {
     PUBLIC: OK, SIGNED_IN: SIGN_IN, MEMBER_READ: SIGN_IN, ADMIN_READ: SIGN_IN,
-    ADMIN_CHANGE: SIGN_IN, PLATFORM: SIGN_IN, TELEMETRY_READ: SIGN_IN,
+    ADMIN_CHANGE: SIGN_IN, PLATFORM: SIGN_IN, TELEMETRY_READ: SIGN_IN, ONE_ALARM: SIGN_IN,
 }  # fmt: skip
 # No administrative permission: refused everything administrative, never told more.
 OPERATOR: Expected = {
     PUBLIC: OK, SIGNED_IN: OK, MEMBER_READ: OK, ADMIN_READ: FORBIDDEN,
-    ADMIN_CHANGE: FORBIDDEN, PLATFORM: FORBIDDEN, TELEMETRY_READ: OK,
+    ADMIN_CHANGE: FORBIDDEN, PLATFORM: FORBIDDEN, TELEMETRY_READ: OK, ONE_ALARM: NOT_FOUND,
 }  # fmt: skip
 # A password but no recent second factor: reads, but every change asks for one (SEC-003).
 ADMIN: Expected = {
     PUBLIC: OK, SIGNED_IN: OK, MEMBER_READ: OK, ADMIN_READ: OK,
     ADMIN_CHANGE: (401, "step_up_required"), PLATFORM: FORBIDDEN, TELEMETRY_READ: FORBIDDEN,
+    ONE_ALARM: NOT_FOUND,
 }  # fmt: skip
 
 
@@ -177,6 +191,8 @@ def fill(text: str, member_id: str, tenant: str = OTHER_TENANT) -> str:
         .replace("{grant_id}", "sweep-grant")
         # A turbine of the callers' own tenant, which every member may see.
         .replace("{turbine_id}", "dogger-east-t01")
+        # An alarm that does not exist: nothing real is ever acknowledged or shelved.
+        .replace("{alarm_id}", "alm_route_sweep_none")
     )
 
 

@@ -9,6 +9,7 @@ from typing import Any
 
 import grpc
 from opentelemetry import metrics
+from windops.alarm.v1 import alarm_pb2_grpc
 from windops.asset.v1 import asset_pb2_grpc
 from windops.audit.v1 import audit_pb2_grpc
 from windops.authorization.v1 import authorization_pb2_grpc
@@ -73,6 +74,7 @@ def main() -> None:
         "audit": (audit_pb2_grpc.AuditServiceStub, "WINDOPS_AUDIT_ADDRESS"),
         "asset": (asset_pb2_grpc.AssetServiceStub, "WINDOPS_ASSET_ADDRESS"),
         "telemetry": (telemetry_pb2_grpc.TelemetryServiceStub, "WINDOPS_TELEMETRY_ADDRESS"),
+        "alarm": (alarm_pb2_grpc.AlarmServiceStub, "WINDOPS_ALARM_ADDRESS"),
     }
 
     def client_for(service: str) -> tuple[Any, ServiceClient]:
@@ -129,6 +131,7 @@ def main() -> None:
             audit=caller_for("audit"),
             asset=caller_for("asset"),
             telemetry=caller_for("telemetry"),
+            alarm=caller_for("alarm"),
             counters=counters,
         )
     )

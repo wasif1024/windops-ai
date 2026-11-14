@@ -57,6 +57,197 @@
         "title": "AccessDenials",
         "type": "object"
       },
+      "Acknowledge": {
+        "properties": {
+          "comment": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Comment",
+            "type": "string"
+          }
+        },
+        "title": "Acknowledge",
+        "type": "object"
+      },
+      "Alarm": {
+        "properties": {
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "acknowledged_by": {
+            "title": "Acknowledged By",
+            "type": "string"
+          },
+          "alarm_id": {
+            "title": "Alarm Id",
+            "type": "string"
+          },
+          "cleared_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleared At"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "raised_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raised At"
+          },
+          "received_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received At"
+          },
+          "repeat_count": {
+            "title": "Repeat Count",
+            "type": "integer"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "severity_source": {
+            "title": "Severity Source",
+            "type": "string"
+          },
+          "shelve_reason": {
+            "title": "Shelve Reason",
+            "type": "string"
+          },
+          "shelved_by": {
+            "title": "Shelved By",
+            "type": "string"
+          },
+          "shelved_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shelved Until"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          },
+          "turbine_id": {
+            "title": "Turbine Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "alarm_id",
+          "turbine_id",
+          "code",
+          "tag",
+          "description",
+          "severity",
+          "severity_source",
+          "state",
+          "source",
+          "raised_at",
+          "received_at",
+          "acknowledged_at",
+          "acknowledged_by",
+          "cleared_at",
+          "shelved_until",
+          "shelved_by",
+          "shelve_reason",
+          "repeat_count",
+          "version"
+        ],
+        "title": "Alarm",
+        "type": "object"
+      },
+      "AlarmDetail": {
+        "properties": {
+          "alarm": {
+            "$ref": "#/components/schemas/Alarm"
+          },
+          "transitions": {
+            "items": {
+              "$ref": "#/components/schemas/Transition"
+            },
+            "title": "Transitions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "alarm",
+          "transitions"
+        ],
+        "title": "AlarmDetail",
+        "type": "object"
+      },
+      "AlarmList": {
+        "properties": {
+          "alarms": {
+            "items": {
+              "$ref": "#/components/schemas/Alarm"
+            },
+            "title": "Alarms",
+            "type": "array"
+          },
+          "next_page_token": {
+            "title": "Next Page Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "alarms",
+          "next_page_token"
+        ],
+        "title": "AlarmList",
+        "type": "object"
+      },
       "Branding": {
         "properties": {
           "accent_color": {
@@ -234,6 +425,55 @@
           "grants"
         ],
         "title": "BreakGlassGrants",
+        "type": "object"
+      },
+      "Catalog": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "entries"
+        ],
+        "title": "Catalog",
+        "type": "object"
+      },
+      "CatalogEntry": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "component": {
+            "title": "Component",
+            "type": "string"
+          },
+          "default_severity": {
+            "title": "Default Severity",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "description",
+          "default_severity",
+          "component"
+        ],
+        "title": "CatalogEntry",
         "type": "object"
       },
       "Component": {
@@ -1180,6 +1420,28 @@
         "title": "SessionsEnded",
         "type": "object"
       },
+      "Shelve": {
+        "properties": {
+          "minutes": {
+            "maximum": 1440.0,
+            "minimum": 1.0,
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "minutes"
+        ],
+        "title": "Shelve",
+        "type": "object"
+      },
       "Suspension": {
         "properties": {
           "reason": {
@@ -1342,6 +1604,51 @@
           "next_page_token"
         ],
         "title": "TenantPage",
+        "type": "object"
+      },
+      "Transition": {
+        "properties": {
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "from_state": {
+            "title": "From State",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "to_state": {
+            "title": "To State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "from_state",
+          "to_state",
+          "actor_type",
+          "actor_id",
+          "note"
+        ],
+        "title": "Transition",
         "type": "object"
       },
       "TurbineDetail": {
@@ -2706,6 +3013,335 @@
           }
         },
         "summary": "End every session a user has"
+      }
+    },
+    "/api/v1/alarms": {
+      "get": {
+        "operationId": "list_alarms_api_v1_alarms_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 4,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "turbine_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Turbine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "wind_farm_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Wind Farm Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Page Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Alarms the user may read: standing ones by default, most severe and newest first"
+      }
+    },
+    "/api/v1/alarms/catalog": {
+      "get": {
+        "operationId": "catalog_api_v1_alarms_catalog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "What each alarm code means, and its default severity, in the version in force"
+      }
+    },
+    "/api/v1/alarms/{alarm_id}": {
+      "get": {
+        "operationId": "get_alarm_api_v1_alarms__alarm_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alarm_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Alarm Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One alarm, with every change"
+      }
+    },
+    "/api/v1/alarms/{alarm_id}/acknowledge": {
+      "post": {
+        "operationId": "acknowledge_api_v1_alarms__alarm_id__acknowledge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alarm_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Alarm Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Acknowledge"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Alarm"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Acknowledge an active alarm"
+      }
+    },
+    "/api/v1/alarms/{alarm_id}/shelve": {
+      "post": {
+        "operationId": "shelve_api_v1_alarms__alarm_id__shelve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alarm_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Alarm Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Shelve"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Alarm"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set a standing alarm aside for a while, with a reason"
+      }
+    },
+    "/api/v1/alarms/{alarm_id}/unshelve": {
+      "post": {
+        "operationId": "unshelve_api_v1_alarms__alarm_id__unshelve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alarm_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Alarm Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Alarm"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put a shelved alarm back before its time is up"
       }
     },
     "/api/v1/branding": {

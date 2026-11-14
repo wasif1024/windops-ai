@@ -22,6 +22,7 @@ from windops_grpc import VerifiedIdentity, sign_identity
 from windops_resilience import BreakerOpenError
 
 from windops_web_bff.admin import add_admin_routes
+from windops_web_bff.alarms import add_alarm_routes
 from windops_web_bff.branding import add_branding_routes
 from windops_web_bff.errors import from_grpc, problem
 from windops_web_bff.fleet import add_fleet_routes
@@ -100,6 +101,7 @@ class Dependencies:
     # The fleet screens' services (M4.8). A streamed answer comes back as a list.
     asset: Callable[..., Awaitable[Any]] | None = None
     telemetry: Callable[..., Awaitable[Any]] | None = None
+    alarm: Callable[..., Awaitable[Any]] | None = None
     # For the Security dashboard. main.py starts them as the service starts.
     counters: SecurityCounters | None = None
     # Only for tests, when there are no counters: the global provider when unset.
@@ -198,6 +200,7 @@ def create_router(deps: Dependencies) -> APIRouter:
         "audit": deps.audit,
         **({"asset": deps.asset} if deps.asset else {}),
         **({"telemetry": deps.telemetry} if deps.telemetry else {}),
+        **({"alarm": deps.alarm} if deps.alarm else {}),
     }
 
     async def call_as(
@@ -314,6 +317,8 @@ def create_router(deps: Dependencies) -> APIRouter:
         call_as,
         unavailable=lambda error: isinstance(error, ApiError) and error.response.status_code == 503,
     )
+
+    add_alarm_routes(router, caller, call_as)
 
     @router.get("/openapi.json", include_in_schema=False)
     async def openapi() -> JSONResponse:
