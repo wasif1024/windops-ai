@@ -66,4 +66,5 @@ the caller. A case the caller may not read is not found.
 ```bash
 uv run pytest services/investigation-service/tests
 make case-check   # on the cluster: one case from two rules, its evidence frozen and verified, and who may do what
+make fault-case-check  # the Phase 5 gate: a seeded gearbox fault, found by the default rules, makes one case
 ```

@@ -115,14 +115,16 @@ spec:
               path: /health/live
               port: http
             periodSeconds: 10
-          # Starting values. Replace them with measured figures (SRS 11).
+          # Memory measured in the Phase 5 gate (M5.7): about 155Mi steady. Each check grants its
+          # roles by running bootstrap in the pod, a second process, and two checks doing so at once
+          # were killed at 192Mi. CPU is a starting value.
           resources:
             requests:
               cpu: 25m
-              memory: 96Mi
+              memory: 160Mi
             limits:
               cpu: 250m
-              memory: 192Mi
+              memory: 384Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
