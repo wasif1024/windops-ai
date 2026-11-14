@@ -123,10 +123,11 @@ def test_end_to_end_diagram_draws_every_srs_service_once() -> None:
 
 
 def test_readme_shows_the_console_as_it_runs() -> None:
-    """Two screens of the real console, each a file in the repository, after the diagrams."""
+    """Four screens of the real console, each a file in the repository, after the diagrams."""
     readme = (ROOT / "README.md").read_text()
     screens = re.findall(r"docs/assets/screens/[\w-]+\.png", readme)
     assert sorted(set(screens)) == [
+        "docs/assets/screens/alarm-console.png", "docs/assets/screens/alarm-detail.png",
         "docs/assets/screens/fleet-overview.png", "docs/assets/screens/turbine-detail.png",
     ]  # fmt: skip
     # The scaffold check runs the tests in a copy without the assets, so check files where they are.
