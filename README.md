@@ -192,13 +192,14 @@ only read access unless it needs more.
 | 4A. Azure alignment | Done, [deployed and proven on Azure](docs/phases/phase-04a-exit-gate.md) |
 | 4. Assets and telemetry | Done, [exit gate](docs/phases/phase-04-exit-gate.md) |
 | 5. Alarms, detection and cases | Done, [exit gate](docs/phases/phase-05-exit-gate.md) |
-| 6. Deterministic decisions | Next: M6.1, the Policy Service |
+| 6. Deterministic decisions | In progress: 1 of 5 modules, M6.2 next |
 
 | Running today | |
 | --- | --- |
 | Edge | API Gateway, Web BFF and the React frontend, with Keycloak sign-in and MFA |
 | Identity and tenancy | Identity, Authorization and Tenant services, with tenant branding and administration consoles |
 | Operations | Asset Service with synthetic demo fleets, and Telemetry Service with authenticated device ingestion, fed live by the simulator's 13 devices |
+| Faults and decisions | Alarm, Fault Detection and Investigation services: controller alarms, versioned fault rules, and one deduplicated case per fault, bound to immutable evidence. The Policy Service judges proposals against versioned rules, and fails closed |
 | Platform | Audit Service, with a tamper-evident trail, plus PostgreSQL, Redis, Qdrant, NATS JetStream and the full observability stack |
 | On Azure | Asset, Audit, Authorization and Tenant on AKS, with Service Bus, Azure Database for PostgreSQL, Key Vault and Azure Monitor |
 

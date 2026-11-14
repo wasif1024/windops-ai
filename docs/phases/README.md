@@ -5,7 +5,7 @@ the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into module
 between Phases 4 and 5 by [ADR 0006](../adr/0006-azure-aligned-platform-services.md).
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 6, deterministic decisions: M6.1, the Policy Service, is next. Phase 5, alarms, detection and cases, is done: a seeded fault creates one deduplicated case bound to an immutable snapshot ([evidence](phase-05-exit-gate.md)). Phase 4, assets and telemetry, is done: a seeded fault profile streams into storage with the correct quality labels ([evidence](phase-04-exit-gate.md)). Phase 4A, Azure alignment, is done: the phase gates passed again on Cilium, and the platform was deployed and proven on Azure ([evidence](phase-04a-exit-gate.md)).
+**Current position:** Phase 6, deterministic decisions: M6.2, the Production Impact Service, is next. Phase 5, alarms, detection and cases, is done: a seeded fault creates one deduplicated case bound to an immutable snapshot ([evidence](phase-05-exit-gate.md)). Phase 4, assets and telemetry, is done: a seeded fault profile streams into storage with the correct quality labels ([evidence](phase-04-exit-gate.md)). Phase 4A, Azure alignment, is done: the phase gates passed again on Cilium, and the platform was deployed and proven on Azure ([evidence](phase-04a-exit-gate.md)).
 
 ## How to use this tracker
 
@@ -146,7 +146,7 @@ their plan and monthly price are approved.
 
 ## Phase 6: Deterministic decisions
 
-- [ ] **M6.1 Policy Service:** versioned thresholds, and pass, block or escalate results that fail closed (FR-POL-001, FR-POL-002, FR-POL-003, FR-POL-005).
+- [x] **M6.1 Policy Service:** versioned thresholds, and pass, block or escalate results that fail closed (FR-POL-001, FR-POL-002, FR-POL-003, FR-POL-005). Done 2026-11-14: the Policy Service judges a proposed action on a case against versioned, hashed rules, with a limit of its own for any site, and a tenant starts with the default library `policy-rules-1`. A caller supplies only the proposal: the service gathers the case, its evidence and the turbine as itself ([ADR 0009](../adr/0009-policy-judges-a-proposal-on-facts-it-gathers.md)). Every rule must block or escalate on a missing, stale or unreachable input, so none can pass on nothing, and work at height blocks until the weather arrives in M6.3. Each result keeps every rule version and input, is hashed and audited, and PostgreSQL refuses to change it. `make policy-check` proves it on the cluster.
 - [ ] **M6.2 Production Impact Service:** energy, availability and financial calculations with versioned inputs (FR-IMP-001, FR-IMP-002, FR-IMP-003).
 - [ ] **M6.3 Weather Service:** Open-Meteo adapter, provenance and freshness, and confirm the forecast provider vendor check (WTH-001, WTH-002, WTH-003, WTH-004, WTH-005).
 - [ ] **M6.4 Weather in policy:** safety rules accept weather only from the structured provider (FR-POL-004).

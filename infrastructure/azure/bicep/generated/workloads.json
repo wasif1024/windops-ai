@@ -84,6 +84,14 @@
     ]
   },
   {
+    "name": "windops-policy",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
     "name": "windops-sample-caller",
     "namespace": "windops-application",
     "events": false,
