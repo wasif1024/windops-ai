@@ -67,7 +67,9 @@ animation illustrates the specified workflow, not a recording.
 
 ## The console today
 
-The operations console as it runs now, against the simulator's live demo fleet. All the data is synthetic.
+The operations console as it runs now, against the simulator's live demo fleet. All the data is synthetic. The
+healthy demo fleet raises no alarms, so the three shown were sent for the picture through the turbines' device
+route, as their controllers would send them.
 
 <table>
   <tr>
@@ -77,6 +79,14 @@ The operations console as it runs now, against the simulator's live demo fleet. 
   <tr>
     <td><b>Fleet overview:</b> every wind farm and turbine, with its status, latest power and wind, and how fresh the reading is.</td>
     <td><b>Turbine detail:</b> the model, the latest readings, and live charts over 5, 15 or 60 minutes.</td>
+  </tr>
+  <tr>
+    <td width="50%"><a href="docs/assets/screens/alarm-console.png"><img src="docs/assets/screens/alarm-console.png" alt="The Alarm console for the North Sea Wind tenant, showing standing alarms with filters for each state. Three active alarms are listed, most severe and newest first: generator bearing temperature high on dogger-east-t04, gearbox oil temperature high on dogger-east-t01, both high, and nacelle vibration high on hornsea-west-t03, medium, each with its code, tag and how long ago it was raised."></a></td>
+    <td width="50%"><a href="docs/assets/screens/alarm-detail.png"><img src="docs/assets/screens/alarm-detail.png" alt="The page for the gearbox oil temperature high alarm on dogger-east-t01, now acknowledged. It shows the alarm's code, tag and when it was raised, its high severity from the turbine's controller, who acknowledged it and when, a form to shelve it with a reason, and its history: raised as active by the turbine's controller, then acknowledged by the operator with the comment that the crew was informed."></a></td>
+  </tr>
+  <tr>
+    <td><b>Alarm console:</b> every alarm the user may see, most severe and newest first, filtered by state and kept current.</td>
+    <td><b>One alarm:</b> where its severity came from, every change and who made it, and what an operator may do next.</td>
   </tr>
 </table>
 
