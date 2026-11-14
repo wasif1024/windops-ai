@@ -112,6 +112,22 @@ the telemetry they may read (`telemetry.read`). Web BFF asks both as the user an
 | `GET /api/v1/fleet/turbines/{id}` | One turbine: its model, components, status and newest readings |
 | `GET /api/v1/fleet/turbines/{id}/telemetry?minutes=15&metric=power` | One turbine's points for the last 1 to 60 minutes, for each metric named, each with its quality. The 12 metrics are named as in the contract, such as `power`, `wind_speed` and `gearbox_temperature` |
 
+### Alarm screens (M5.6)
+
+The Alarm Service decides everything: it lists only the alarms the user may read, lets only those holding
+`alarm.acknowledge` act on one, and never lets anyone change an alarm's severity (FR-ALM-004). An alarm the user may
+not read is `404 not_found`, the same as one that does not exist; acting on an alarm in the wrong state is
+`409 conflict`.
+
+| Route | What |
+| --- | --- |
+| `GET /api/v1/alarms?state=active&state=shelved&turbine_id=…` | Alarms the user may read, most severe and newest first. With no `state`, the standing ones: active, acknowledged and shelved |
+| `GET /api/v1/alarms/catalog` | What each alarm code means and its default severity, in the catalogue version in force |
+| `GET /api/v1/alarms/{id}` | One alarm, where its severity came from (`device` or `catalog:<version>`), and every change with who made it |
+| `POST /api/v1/alarms/{id}/acknowledge` | Acknowledge an active alarm, with a comment if any |
+| `POST /api/v1/alarms/{id}/shelve` | Set a standing alarm aside, with a reason, for 1 minute to a day |
+| `POST /api/v1/alarms/{id}/unshelve` | Put a shelved alarm back before its time is up |
+
 ## Metrics
 
 For the Security dashboard (SRS 10.3), with fixed labels only:
