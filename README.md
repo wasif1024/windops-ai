@@ -103,6 +103,19 @@ The screens are responsive and work at phone size. `make frontend-check` capture
 | **Fail safe, and visibly** | Each dependency has a defined failure behavior: refuse, pause or continue, behind a circuit breaker (ADR 0004) |
 | **Observable end to end** | Every request carries one trace ID through logs, metrics and traces, from the gateway to the database |
 
+## AI governance
+
+The design is mapped to four AI governance sources: [ISO/IEC 42001](https://www.iso.org/standard/42001), the
+[NIST AI RMF](https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf), the NCA's
+[AI Cybersecurity Guidelines](https://istitlaa.scbc.gov.sa/en/Security/nca/AICG/Pages/default.aspx) and SDAIA's
+[AI ethics principles and the PDPL](https://sdaia.gov.sa/en/SDAIA/about/Pages/RegulationsAndPolicies.aspx). Each
+control is marked from the implementation tracker: in place, planned with its module, or proposed and not yet planned.
+
+[![The AI governance crosswalk. Ten themes, from governance and accountability to fairness, each with what ISO/IEC 42001, the NIST AI RMF, the NCA's AI Cybersecurity Guidelines and SDAIA call it, and the WindOps AI controls that answer it. Green marks a control in place, such as row-level tenant isolation, immutable evidence and fail-closed policy rules. Amber marks a planned one with its module, such as agents that can only draft and separation of duties. Red marks one proposed and not yet planned, such as an AI risk register, a system card, incident response and a PDPL data map.](docs/assets/ai-governance.png)](docs/assets/ai-governance.png)
+
+It is an alignment for review, not a certification. [AI governance](docs/ai-governance.md) explains each row, the
+status of each source, and what is still missing.
+
 ## Running on Azure
 
 WindOps AI follows Azure's [advanced AKS microservices architecture](https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/containers/aks-microservices/aks-microservices-advanced),
@@ -287,6 +300,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [Microservices](docs/microservices.md) and [service map](docs/service-map.md) | Every service's calls and events, and its behavior when a dependency fails |
 | [gRPC contracts](docs/grpc-contracts.md) and [events](docs/events.md) | Versioning, breaking changes, subjects, dead letters and alerts |
 | [Security](docs/security.md) and [roles and permissions](docs/rbac.md) | Identities, tenants, data protection and the API, and who may do what |
+| [AI governance](docs/ai-governance.md) | How the design aligns with ISO/IEC 42001, the NIST AI RMF, the NCA's AI guidelines and SDAIA, and what is missing |
 | [Observability](docs/observability.md) | Data flow, dashboards, alerts and retention |
 | [Deployment](docs/deployment.md) | Bootstrapping and running on Kubernetes |
 | [Azure deployment plan](docs/azure-plan.md) | Every Azure resource with its size and monthly price, and how to stop paying for it |
