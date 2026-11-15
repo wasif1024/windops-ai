@@ -1424,9 +1424,11 @@ def build_animation() -> None:
 
 
 if __name__ == "__main__":
+    from scripts.generate.governance_view import build_governance_view
     from scripts.generate.kubernetes_view import build_kubernetes_view
 
     build_platform_architecture()
     build_kubernetes_view()
+    build_governance_view()
     build_azure_architecture()
     build_animation()

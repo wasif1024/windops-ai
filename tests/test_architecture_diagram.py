@@ -63,11 +63,13 @@ def test_roadmap_progress_counts_ticked_modules(tmp_path: Path) -> None:
 
 
 def test_readme_shows_one_architecture_diagram_and_the_animation() -> None:
-    """The README is the overview: the Kubernetes view and the agents' animation, nothing more."""
+    """The README is the overview: the Kubernetes view, the agents' animation and the governance
+    crosswalk, nothing more."""
     readme = (ROOT / "README.md").read_text()
     images = re.findall(r"docs/assets/[\w-]+\.(?:png|gif)", readme)
     assert sorted(set(images)) == [
-        "docs/assets/agent-orchestration.gif", "docs/assets/kubernetes-on-azure.png",
+        "docs/assets/agent-orchestration.gif", "docs/assets/ai-governance.png",
+        "docs/assets/kubernetes-on-azure.png",
     ]  # fmt: skip
     # The architecture comes before the agents, and the detailed diagrams are a link away.
     assert readme.index("kubernetes-on-azure.png") < readme.index("agent-orchestration.gif")
