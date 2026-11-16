@@ -56,7 +56,7 @@ THEMES = (
             Answer("Roles and permissions for each person, denied by default", "M3.5"),
             Answer("Append-only, hash-chained audit records", "M2.7"),
             Answer("Audit records name the agent and the person behind it", "M8.5"),
-            Answer("AI policy, management system scope and named owners", GAP),
+            Answer("AI policy, management system scope and named owners", "M14.6"),
         ),
     ),
     Theme(
@@ -68,7 +68,7 @@ THEMES = (
         (
             Answer("Versioned policy rules block or escalate, and fail closed", "M6.1"),
             Answer("Threat model and security review", "M14.1"),
-            Answer("AI risk register and system impact assessment", GAP),
+            Answer("AI risk register and system impact assessment", "M14.6"),
         ),
     ),
     Theme(
@@ -93,7 +93,7 @@ THEMES = (
             Answer("Immutable, hashed evidence behind every case", "M5.5"),
             Answer("Policy results keep every rule version and input", "M6.1"),
             Answer("Runs pin model, prompt and tool versions; results cite sources", "M8.8"),
-            Answer("A published system card for each AI capability", GAP),
+            Answer("A published system card for each AI capability", "M14.6"),
         ),
     ),
     Theme(
@@ -106,7 +106,7 @@ THEMES = (
             Answer("Quality labels on every sample; simulated data marked synthetic", "M4.6"),
             Answer("Row-level tenant isolation, attacked on every data path", "M3.12"),
             Answer("No secrets or needless personal data in traces", "M8.9"),
-            Answer("PDPL personal-data map and cross-border transfer review", GAP),
+            Answer("PDPL personal-data map and cross-border transfer review", "M15.10"),
         ),
     ),
     Theme(
@@ -121,7 +121,7 @@ THEMES = (
             Answer(
                 "Default-deny network policy, signed images, tested backups", "M13.3, M14.2, M14.3"
             ),
-            Answer("Independent penetration test", GAP),
+            Answer("Independent penetration test", "M14.1"),
         ),
     ),
     Theme(
@@ -156,8 +156,8 @@ THEMES = (
         "Accountability and responsibility",
         (
             Answer("Dashboards and alerts for every service and data store", "M1.9"),
-            Answer("AI incident response and reporting runbook", GAP),
-            Answer("Internal audit and management review cycle", GAP),
+            Answer("AI incident response and reporting runbook", "M14.6"),
+            Answer("Internal audit and management review cycle", "M14.6"),
         ),
     ),
     Theme(
@@ -168,7 +168,7 @@ THEMES = (
         "Fairness",
         (
             Answer("Decisions concern turbines, not people, and record their rules", "M6.1"),
-            Answer("Limited applicability, recorded with its reason", GAP),
+            Answer("Limited applicability, recorded in the Statement of Applicability", "M14.6"),
         ),
     ),
 )

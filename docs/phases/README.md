@@ -49,8 +49,8 @@ The SRS defines the requirements, and this file tracks progress against them.
 | 11 | [Frontend completion](#phase-11-frontend-completion) | 8 | Not started |
 | 12 | [Full evaluation](#phase-12-full-evaluation) | 10 | Not started |
 | 13 | [Resilience and scale](#phase-13-resilience-and-scale) | 8 | Not started |
-| 14 | [Hardening and release](#phase-14-hardening-and-release) | 7 | Not started |
-| 15 | [Azure deployment](#phase-15-azure-deployment) | 10 | Not started |
+| 14 | [Hardening and release](#phase-14-hardening-and-release) | 8 | Not started |
+| 15 | [Azure deployment](#phase-15-azure-deployment) | 11 | Not started |
 
 ## Optional decisions
 
@@ -233,13 +233,14 @@ their plan and monthly price are approved.
 
 ## Phase 14: Hardening and release
 
-- [ ] **M14.1 Security review:** threat model and review, with all findings resolved or recorded (SRS 10.7).
+- [ ] **M14.1 Security review:** threat model and review, and an independent penetration test (NCA AICG-1), with all findings resolved or recorded (SRS 10.7).
 - [ ] **M14.2 Supply chain:** signed images and pinned dependencies (SRS 9.5).
 - [ ] **M14.3 Backup and restore:** tested and documented for PostgreSQL and Qdrant (DAT-003).
 - [ ] **M14.4 Runbooks:** operating and recovery procedures, with final documents.
 - [ ] **M14.5 Repeatable demo:** `make seed-demo`, `make smoke-test` and the remaining SRS 11.4 targets from a clean machine.
-- [ ] **M14.6 Final acceptance:** confirm every SRS 13.1 criterion and SRS 10.7 gate.
-- [ ] **M14.7 Exit gate:** no critical findings remain, and a clean `make` bootstrap passes the smoke and end-to-end tests.
+- [ ] **M14.6 AI governance pack:** an AI policy with the management system's scope and named owners, an AI risk register, an impact assessment and a system card for each AI capability, a Statement of Applicability for ISO/IEC 42001 Annex A, an AI incident response runbook, and an internal audit and management review checklist, each checked at the gate ([AI governance](../ai-governance.md); ISO/IEC 42001, NIST AI RMF).
+- [ ] **M14.7 Final acceptance:** confirm every SRS 13.1 criterion and SRS 10.7 gate.
+- [ ] **M14.8 Exit gate:** no critical findings remain, and a clean `make` bootstrap passes the smoke and end-to-end tests.
 
 ## Phase 15: Azure deployment
 
@@ -254,4 +255,5 @@ Phase 4A builds the Azure services, Workload ID, monitoring and their Bicep firs
 - [ ] **M15.7 WAF and TLS:** Application Gateway WAF v2 in front of APISIX, with a domain and public TLS. Includes APISIX and its etcd on AKS, its Service as an Azure internal load balancer at `10.40.7.250` (`service.beta.kubernetes.io/azure-load-balancer-internal`), which App Gateway's backend already points at, its routes loaded with the admin key from Key Vault, and a check through the public address. Until then, M4A.6 creates App Gateway, but its backend shows as unhealthy, because nothing listens at that address yet.
 - [ ] **M15.8 Delivery pipeline:** migrations, then a rolling deployment, with a manual approval and a rollback path.
 - [ ] **M15.9 Cost and operations:** stop and start commands, cost record and a cloud runbook.
-- [ ] **M15.10 Exit gate:** the pipeline deploys from a clean subscription, and the smoke and end-to-end tests pass through the WAF.
+- [ ] **M15.10 PDPL and data residency:** a map of the personal data each service holds, a cross-border transfer review for the Azure region and the Claude API, and a recorded residency decision for each tenant, with a Saudi tenant's data kept where its decision says ([AI governance](../ai-governance.md); PDPL).
+- [ ] **M15.11 Exit gate:** the pipeline deploys from a clean subscription, and the smoke and end-to-end tests pass through the WAF.
