@@ -1,6 +1,6 @@
 # AI governance: how WindOps AI aligns with ISO/IEC 42001, the NIST AI RMF, the NCA and SDAIA
 
-This page maps the platform's design to four AI governance sources, and names what is still missing. It is an
+This page maps the platform's design to four AI governance sources, and names what is still missing and where the plan delivers it. It is an
 alignment for review, not a certification or a legal opinion. Nothing here claims that WindOps AI, or anyone running
 it, conforms to a standard or complies with a law.
 
@@ -53,7 +53,7 @@ ISO/IEC 42001 clauses 4 and 5 and A.2, A.3; NIST GOVERN 1, 2 and 4; NCA governan
 - **In place:** deny-by-default roles and scoped grants (M3.5, `make authorization-check`), and an append-only,
   hash-chained audit trail (M2.7, `make audit-check`).
 - **Planned:** audit records that name both the agent and the person or service behind it (M8.5, SEC-010).
-- **Proposed:** an AI policy, the management system's scope, and named owners for each AI capability.
+- **Planned:** an AI policy, the management system's scope, and named owners for each AI capability (M14.6).
 
 ### Risk and impact assessment
 
@@ -61,8 +61,8 @@ ISO/IEC 42001 clause 6.1 and A.5; NIST MAP 1 to 5 and MANAGE 1; NCA risk managem
 - **In place:** the Policy Service blocks or escalates every proposal on versioned rules, and fails closed (M6.1,
   `make policy-check`, [ADR 0009](adr/0009-policy-judges-a-proposal-on-facts-it-gathers.md)).
 - **Planned:** a threat model and security review (M14.1).
-- **Proposed:** an AI risk register, and an impact assessment for each AI capability: who it affects, how it can fail,
-  and what limits it.
+- **Planned:** an AI risk register, and an impact assessment for each AI capability: who it affects, how it can fail,
+  and what limits it (M14.6).
 
 ### Human oversight
 
@@ -79,8 +79,8 @@ ISO/IEC 42001 A.6 and A.8; NIST GOVERN 1.6 and MEASURE 2.8, 2.9; NCA logging and
   - immutable, hashed evidence behind every case (M5.5, `make fault-case-check`);
   - policy results that keep every rule version and input (M6.1).
 - **Planned:** every run pins its model, prompt and tool versions (AGT-004), and results cite their sources (M8.8).
-- **Proposed:** a published system card for each AI capability: purpose, inputs, limits, models, evaluation results
-  and owners.
+- **Planned:** a published system card for each AI capability: purpose, inputs, limits, models, evaluation results
+  and owners (M14.6).
 
 ### Data quality and privacy
 
@@ -89,7 +89,7 @@ ISO/IEC 42001 A.7; NIST MAP 2 and MEASURE 2.10; NCA data protection; SDAIA priva
   - quality labels on every stored sample, with all simulated data marked synthetic (M4.6, `make data-quality-check`);
   - row-level tenant isolation, attacked on every data path (M3.12, `make cross-tenant-check`).
 - **Planned:** no secrets or needless personal data in traces, with leakage tests (M8.9, OBS-003).
-- **Proposed:** a PDPL personal-data map and a cross-border transfer review. The data is mostly turbine telemetry, not
+- **Planned:** a PDPL personal-data map and a cross-border transfer review (M15.10). The data is mostly turbine telemetry, not
   personal data, but users, approvers and audit records are personal data. Today the Azure staging deployment is in
   Sweden Central, and the Claude API is outside the Kingdom. A Saudi tenant needs a recorded decision on where its data
   may go.
@@ -102,7 +102,7 @@ ISO/IEC 42001 A.6, with ISO/IEC 27001; NIST MEASURE 2.7; NCA defense and resilie
   - CodeQL and secret scans on every pull request (M1.2);
   - a circuit breaker on every dependency, with outages failing closed (M1.4).
 - **Planned:** default-deny network policy (M13.3), signed images (M14.2), and tested backups (M14.3).
-- **Proposed:** an independent penetration test, which the NCA guidelines list.
+- **Planned:** an independent penetration test, which the NCA guidelines list (M14.1).
 
 ### Validity and evaluation
 
@@ -125,7 +125,7 @@ ISO/IEC 42001 A.10; NIST GOVERN 6 and MANAGE 3; NCA third-party cybersecurity; S
 
 ISO/IEC 42001 clauses 9.2, 9.3 and 10; NIST MANAGE 4 and GOVERN 1.5; NCA logging and monitoring; SDAIA accountability.
 - **In place:** dashboards and alerts for every service and data store (M1.9).
-- **Proposed:**
+- **Planned (M14.6):**
   - an AI incident response and reporting runbook: what counts as an AI incident, who decides, and who is told;
   - an internal audit and management review cycle.
 
@@ -134,28 +134,28 @@ ISO/IEC 42001 clauses 9.2, 9.3 and 10; NIST MANAGE 4 and GOVERN 1.5; NCA logging
 ISO/IEC 42001 A.5; NIST MEASURE 2.11; SDAIA fairness.
 - **In place:** WindOps AI makes recommendations about turbines, not people, and every decision records the rules it
   used (M6.1).
-- **Proposed:** record that limited applicability, with its reason, in the Statement of Applicability, rather than
-  leave it unsaid.
+- **Planned:** record that limited applicability, with its reason, in the Statement of Applicability, rather than
+  leave it unsaid (M14.6).
 
-## What is proposed
+## What was added to the plan
 
-None of these is in the plan yet. Adding them is a decision for the project owner.
+The crosswalk's gaps were added to the [tracker](phases/README.md) on 2026-11-16:
 
-| Deliverable | Answers | Form |
+| Deliverable | Answers | Module |
 | --- | --- | --- |
-| AI policy, management system scope and owners | ISO cl. 4–5, A.2, A.3; NIST GOVERN 1, 2 | `docs/governance/ai-policy.md` |
-| AI risk register and system impact assessments | ISO cl. 6.1, A.5; NIST MAP; NCA risk management | Versioned documents, reviewed at each phase gate |
-| Statement of Applicability | ISO cl. 6.1.3 | Each Annex A control: applies or not, why, and the evidence |
-| System cards | ISO A.8; NIST MEASURE 2.8, 2.9; SDAIA transparency | One per AI capability, generated where the facts live in code |
-| AI incident response runbook | ISO cl. 10; NIST MANAGE 4; NCA resilience | A runbook, exercised in the chaos tests (M13.2) |
-| PDPL data map and transfer review | SDAIA PDPL; NCA data protection | Personal data by service, with residency decisions per tenant |
-| Penetration test | NCA defense; NIST MEASURE 2.7 | With the security review (M14.1) |
-| Internal audit and management review | ISO cl. 9.2, 9.3 | A checklist, evidenced by the gate reports |
+| AI policy, management system scope and owners | ISO cl. 4–5, A.2, A.3; NIST GOVERN 1, 2 | M14.6 AI governance pack |
+| AI risk register and system impact assessments | ISO cl. 6.1, A.5; NIST MAP; NCA risk management | M14.6 |
+| Statement of Applicability | ISO cl. 6.1.3 | M14.6 |
+| System cards | ISO A.8; NIST MEASURE 2.8, 2.9; SDAIA transparency | M14.6 |
+| AI incident response runbook | ISO cl. 10; NIST MANAGE 4; NCA resilience | M14.6 |
+| Internal audit and management review | ISO cl. 9.2, 9.3 | M14.6 |
+| Penetration test | NCA defense; NIST MEASURE 2.7 | M14.1 Security review |
+| PDPL data map, transfer review and residency decisions | SDAIA PDPL; NCA data protection | M15.10 PDPL and data residency |
 
 ## Keeping it current
 
 - **When a module is done,** run `uv run python -m scripts.generate.readme_visuals`, which redraws this picture with
   the others. Controls whose modules are done turn from planned to in place.
-- **When a proposed item is added to the plan,** cite its new module in place of `gap`.
+- **When a new gap is found,** add it with `gap`, so it shows as proposed until a module plans it.
 - **The tests:** `tests/test_governance_view.py` fails if a control cites a module the tracker doesn't have, or if a
   theme in the picture has no section here.
