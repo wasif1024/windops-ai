@@ -4,8 +4,11 @@ Run inside the service's pod, with its own database login, by `make asset-seed`:
 
     python -m windops_asset.seed
 
-Everything here is invented, and says so: the manufacturer is "WindOps Synthetic" (SIM-006).
-The IDs are fixed, so a second run finds each record and changes nothing.
+Everything here is invented, and says so: the manufacturer is "WindOps Synthetic" (SIM-006), and
+its models are fictional. The IDs are fixed, so a second run finds each record and changes nothing.
+
+The models were first named SG-8.0-167 and SG-4.5-145, too like real products. A run renames a
+demo turbine still under an old name, as a change of its own, audited (M7.1).
 """
 
 import asyncio
@@ -13,7 +16,7 @@ import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, select, update
 from sqlalchemy.ext.asyncio import AsyncConnection
 from windops_migrations import create_service_engine, in_tenant
 
@@ -49,8 +52,9 @@ FARMS = (
     Farm("north-sea", "hornsea-west", "Hornsea West", "GB", 53.91, 1.62, "Europe/London", True, 4),
     Farm("atlas-wind", "atlas-ridge", "Atlas Ridge", "ES", 42.13, -3.71, "Europe/Madrid", False, 5),
 )
-OFFSHORE = Model("SG-8.0-167", 8000, 167, 109)
-ONSHORE = Model("SG-4.5-145", 4500, 145, 105)
+OFFSHORE = Model("WS-8.0-167", 8000, 167, 109)
+ONSHORE = Model("WS-4.5-145", 4500, 145, 105)
+RENAMED = {"SG-8.0-167": OFFSHORE.model, "SG-4.5-145": ONSHORE.model}
 # (slug, kind, name, parent slug). Parents come first, so a part's parent always exists.
 PARTS = (
     ("tower", "tower", "Tower", ""),
@@ -81,8 +85,42 @@ async def _exists(connection: AsyncConnection, query: Select[tuple[str]]) -> boo
     return (await connection.execute(query)).first() is not None
 
 
+async def rename_models(connection: AsyncConnection, farm: Farm, now: datetime) -> int:
+    """Rename the farm's demo turbines still under an old model name, and return how many."""
+    t = TURBINES.c
+    rows = (
+        await connection.execute(
+            update(TURBINES)
+            .where(
+                t.tenant_id == farm.tenant_id,
+                t.wind_farm_id == farm.wind_farm_id,
+                t.manufacturer == MANUFACTURER,
+                t.model.in_(list(RENAMED)),
+            )
+            .values(
+                model=(OFFSHORE if farm.offshore else ONSHORE).model,
+                version=t.version + 1,
+                updated_at=now,
+            )
+            .returning(*TURBINES.c)
+        )
+    ).all()
+    for row in rows:
+        await record_change(
+            connection,
+            tenant_id=farm.tenant_id,
+            actor_id=ACTOR,
+            actor_type="service",
+            action="asset.turbine.updated",
+            resource_type="turbine",
+            resource_id=row.turbine_id,
+            turbine=row,
+        )
+    return len(rows)
+
+
 async def seed_farm(connection: AsyncConnection, farm: Farm, now: datetime) -> int:
-    """Add what is missing of one wind farm, and return how many records were added."""
+    """Add what is missing of one wind farm, and return how many records were added or renamed."""
     added = 0
     tenant = farm.tenant_id
     await in_tenant(connection, tenant)
@@ -115,6 +153,7 @@ async def seed_farm(connection: AsyncConnection, farm: Farm, now: datetime) -> i
             resource_id=farm.wind_farm_id,
         )
         added += 1
+    added += await rename_models(connection, farm, now)
     model = OFFSHORE if farm.offshore else ONSHORE
     for number in range(1, farm.turbines + 1):
         turbine_id = f"{farm.wind_farm_id}-t{number:02d}"
@@ -202,7 +241,7 @@ async def seed() -> int:
 
 def main() -> int:
     added = asyncio.run(seed())
-    print(f"Added {added} records" if added else "Already seeded")
+    print(f"Added or renamed {added} records" if added else "Already seeded")
     return 0
 
 

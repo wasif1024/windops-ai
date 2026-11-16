@@ -10,7 +10,7 @@ from windops_simulator.models import Design, power_kw
 
 START = datetime(2026, 11, 16, 6, 0, tzinfo=UTC)
 DEFAULTS = {ref: references.parse(d) for ref, _, d in DEFAULT_REFERENCES}
-CURVE: Any = DEFAULTS["power-curve-sg-8-0-167"]
+CURVE: Any = DEFAULTS["power-curve-ws-8-0-167"]
 PRICE: Any = DEFAULTS["energy-price"]
 COSTS: Any = DEFAULTS["maintenance-costs"]
 
@@ -20,8 +20,8 @@ def hour(wind: float, power: float, seconds: int = 3600) -> list[formulas.Sample
 
 
 def test_the_default_curves_are_the_simulators_physics() -> None:
-    for ref, rated, rotor in (("power-curve-sg-8-0-167", 8000.0, 167.0),
-                              ("power-curve-sg-4-5-145", 4500.0, 145.0)):  # fmt: skip
+    for ref, rated, rotor in (("power-curve-ws-8-0-167", 8000.0, 167.0),
+                              ("power-curve-ws-4-5-145", 4500.0, 145.0)):  # fmt: skip
         curve = DEFAULTS[ref]
         for wind in (3.0, 5.5, 8.0, 10.25, 12.0, 20.0, 24.5):
             expected = power_kw(Design(rated, rotor), wind)

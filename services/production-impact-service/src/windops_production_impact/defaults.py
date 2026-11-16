@@ -1,15 +1,20 @@
 """The reference data each tenant starts with, version 1 of each, until an administrator changes it.
 
-The power curves are the two synthetic demo models', tabulated every half metre a second from the
+The power curves are the two fictional demo models', tabulated every half metre a second from the
 simulator's own physics (its models 1.2.0), so an estimate on the demo fleet matches what its
 turbines produce; a test holds the two together. The price and the maintenance costs are
 placeholders for review, not market figures: each tenant sets its own, and each site's.
+
+impact-references-1 named the models SG-8.0-167 and SG-4.5-145, too like real products, so
+impact-references-2 renames them WS-, as the Asset Service's demo fleet does (M7.1). A tenant that
+already has its references gets each default it lacks, as version 1, beside them; the old curves
+stay, as the estimates that used them point to them.
 """
 
 import math
 from typing import Any
 
-LIBRARY = "impact-references-1"
+LIBRARY = "impact-references-2"
 MANUFACTURER = "WindOps Synthetic"
 # The simulator's constants: air at 15 °C and sea level, its power coefficient and drivetrain
 # efficiency, and the cut-in and cut-out speeds.
@@ -43,10 +48,10 @@ def _curve(model: str, rated_kw: float, rotor_m: float) -> dict[str, Any]:
 
 # (reference ID, name, definition)
 DEFAULT_REFERENCES: tuple[tuple[str, str, dict[str, Any]], ...] = (
-    ("power-curve-sg-8-0-167", "SG-8.0-167 power curve, synthetic",
-     _curve("SG-8.0-167", 8000.0, 167.0)),
-    ("power-curve-sg-4-5-145", "SG-4.5-145 power curve, synthetic",
-     _curve("SG-4.5-145", 4500.0, 145.0)),
+    ("power-curve-ws-8-0-167", "WS-8.0-167 power curve, synthetic",
+     _curve("WS-8.0-167", 8000.0, 167.0)),
+    ("power-curve-ws-4-5-145", "WS-4.5-145 power curve, synthetic",
+     _curve("WS-4.5-145", 4500.0, 145.0)),
     ("energy-price", "Energy price",
      {"kind": "energy_price", "eur_per_mwh": 75.0, "sites": {}}),
     ("maintenance-costs", "Maintenance costs",

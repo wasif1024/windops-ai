@@ -4,7 +4,7 @@
 Run the platform and the simulator first, as `make dev` does. A Control Room Operator opens a
 check-only case on a demo turbine, which the simulator streams live, and the check proves:
 
-- a tenant starts with the defaults, impact-references-1, readable with policy.read: the demo
+- a tenant starts with the defaults, impact-references-2, readable with policy.read: the demo
   models' power curves, the energy price and the maintenance costs;
 - an estimate for a repair gathers the turbine, its model and its site from Asset and six hours
   of wind and power from Telemetry, as the service itself, and keeps every input, the formula
@@ -95,7 +95,7 @@ def check_estimates(impact: Caller, case_id: str) -> Any:
     listed = impact.call("ListReferences", pb.ListReferencesRequest(), ADMIN, TENANT)
     kinds = sorted({r.current.kind for r in listed.references})
     check(
-        listed.library == "impact-references-1"
+        listed.library == "impact-references-2"
         and kinds == ["energy_price", "maintenance_costs", "power_curve"],
         f"The tenant has the defaults, {listed.library}: {len(listed.references)} references",
     )

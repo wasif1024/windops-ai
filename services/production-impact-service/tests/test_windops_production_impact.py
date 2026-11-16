@@ -32,11 +32,11 @@ from windops_grpc import (
     sign_identity,
 )
 from windops_outbox import create_outbox_table
-from windops_production_impact import references
+from windops_production_impact import library, references
 from windops_production_impact.defaults import DEFAULT_REFERENCES, LIBRARY
 from windops_production_impact.formulas import Sample
 from windops_production_impact.service import ProductionImpactService
-from windops_production_impact.store import IMPACT_RESULTS, METADATA, SERVICE_NAME
+from windops_production_impact.store import IMPACT_RESULTS, METADATA, REFERENCES, SERVICE_NAME
 
 SECRET = "x" * 32
 TENANT = "north-sea"
@@ -68,7 +68,7 @@ class FakeAuthorizer:
 class FakeSources:
     """dogger-east-t01, offshore, stopped for the last hour in a steady 10 m/s wind."""
 
-    model: str = "SG-8.0-167"
+    model: str = "WS-8.0-167"
     telemetry_down: bool = False
     seconds: int = 3600
     forecast_state: str = "fresh"
@@ -191,6 +191,35 @@ def test_a_tenant_starts_with_the_defaults_readable_with_policy_read() -> None:
     with_service(scenario)
 
 
+def test_a_tenant_on_an_earlier_library_gets_the_defaults_it_lacks_and_keeps_its_own() -> None:
+    """impact-references-1 named the curves SG-; a tenant installed then gets the WS- ones beside
+    them, as version 1, and its other references, perhaps an administrator's, stay as they are."""
+
+    async def scenario(world: World) -> None:
+        async with world.engine.begin() as connection:
+            for reference_id, name, definition in DEFAULT_REFERENCES:
+                if reference_id.startswith("power-curve-ws-"):
+                    reference_id = reference_id.replace("-ws-", "-sg-")
+                await library.write_version(connection, TENANT, reference_id, 1, definition,
+                                            "system", "impact-references-1", NOW)  # fmt: skip
+                await connection.execute(REFERENCES.insert().values(
+                    tenant_id=TENANT, reference_id=reference_id, name=name,
+                    kind=definition["kind"], current_version=1, created_at=NOW, updated_at=NOW,
+                ))  # fmt: skip
+        await library.install_defaults(world.engine, TENANT, NOW)
+        await library.install_defaults(world.engine, TENANT, NOW)
+        async with world.engine.connect() as connection:
+            found = await library.current(connection, TENANT)
+        assert sorted(found) == sorted(
+            [d[0] for d in DEFAULT_REFERENCES]
+            + ["power-curve-sg-8-0-167", "power-curve-sg-4-5-145"]
+        )
+        assert all(item.version == 1 for item in found.values())
+        assert found["power-curve-ws-8-0-167"].parsed.model == "WS-8.0-167"
+
+    with_service(scenario)
+
+
 def test_an_estimate_keeps_its_inputs_formula_assumptions_and_ranges() -> None:
     async def scenario(world: World) -> None:
         result = await estimate(world)
@@ -203,7 +232,7 @@ def test_an_estimate_keeps_its_inputs_formula_assumptions_and_ranges() -> None:
         assert figures["observed_availability_pct"].value == 0.0
         inputs = {i.name: i for i in result.inputs}
         assert inputs["site.offshore"].value_json == "true"
-        assert inputs["reference.power-curve-sg-8-0-167"].source_ref == ("power-curve-sg-8-0-167@1")
+        assert inputs["reference.power-curve-ws-8-0-167"].source_ref == ("power-curve-ws-8-0-167@1")
         assert json.loads(inputs["observed.mean_wind_mps"].value_json) == 10.0
         assert len(result.assumptions) >= 6
         assert world.sources.asked_as == ["service:production-impact"]
@@ -295,7 +324,7 @@ def test_with_a_planned_start_the_loss_is_projected_from_the_forecast_hub_wind()
         )  # fmt: skip
         projected = next(f for f in result.figures if f.name == "projected_lost_energy_mwh")
         curve = references.parse(next(d for r, _, d in DEFAULT_REFERENCES
-                                      if r == "power-curve-sg-8-0-167"))  # fmt: skip
+                                      if r == "power-curve-ws-8-0-167"))  # fmt: skip
         assert projected.value == pytest.approx(curve.kw(12.0) * 6 / 1000, abs=1e-3)
         assert projected.low <= projected.value <= projected.high
         assert any("forecast wind at the hub" in a for a in result.assumptions)

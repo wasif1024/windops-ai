@@ -478,3 +478,35 @@ def test_the_demo_seed_is_complete_and_safe_to_repeat() -> None:
         assert {"gearbox", "gearbox_bearing", "main_bearing", "generator_bearing"} <= kinds
 
     asyncio.run(run())
+
+
+def test_the_seed_renames_a_demo_turbine_still_under_an_old_model_name() -> None:
+    """SG- was too like real products: a run renames each, as a new version, audited (M7.1)."""
+    from datetime import UTC, datetime
+
+    from sqlalchemy import update
+    from windops_asset.seed import FARMS, OFFSHORE, seed_farm
+    from windops_asset.store import TURBINES
+
+    async def run() -> None:
+        engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+        async with engine.begin() as connection:
+            await connection.run_sync(METADATA.create_all)
+            await connection.run_sync(create_outbox_table)
+            await seed_farm(connection, FARMS[0], datetime.now(UTC))
+            await connection.execute(
+                update(TURBINES).where(TURBINES.c.turbine_id == "dogger-east-t02")
+                .values(model="SG-8.0-167")
+            )  # fmt: skip
+            renamed = await seed_farm(connection, FARMS[0], datetime.now(UTC))
+            again = await seed_farm(connection, FARMS[0], datetime.now(UTC))
+            rows = {r.turbine_id: r for r in await connection.execute(select(TURBINES))}
+            outbox = (await connection.execute(select(OUTBOX_TABLE.c.subject))).scalars()
+            audited = sum(1 for subject in outbox if "audit" in subject)
+        await engine.dispose()
+        assert (renamed, again) == (1, 0)
+        assert {r.model for r in rows.values()} == {OFFSHORE.model}
+        assert rows["dogger-east-t02"].version == 2 and rows["dogger-east-t01"].version == 1
+        assert audited == 1 + FARMS[0].turbines + 1
+
+    asyncio.run(run())

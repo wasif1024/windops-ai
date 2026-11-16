@@ -144,6 +144,54 @@ Every fault scenario also has light link trouble, so detection is never tested o
 `DEMO_TURBINES` matches the Asset Service's demo seed (`make asset-seed`), turbine for turbine: 8 offshore turbines of
 8 MW for north-sea, and 5 onshore of 4.5 MW for atlas-wind. A test keeps the two the same.
 
+## Synthetic documents (SIM-007)
+
+A synthetic OEM document set, `synthetic-documents-1`, for knowledge ingestion, retrieval and evaluation, in
+`src/windops_simulator/documents/`. Every document is invented and says so on its first page (SIM-006): a fictional
+manufacturer, WindOps Synthetic, for the fictional demo models WS-8.0-167 and WS-4.5-145, and two fictional operators'
+site procedures. No document names a real turbine maker or product, and a test checks that.
+
+| Document | Revision | Type | Classification | For |
+| --- | --- | --- | --- | --- |
+| WS-OM-8167, WS-8.0-167 operation and maintenance manual | 4 | manual | internal | north-sea |
+| WS-OM-4514, WS-4.5-145 operation and maintenance manual | 2 | manual | internal | atlas-wind |
+| WS-REF-ALM, controller alarm reference | 1 | reference | internal | both |
+| WS-PRC-GBX-012, gearbox oil cooling fault | 2, and 3 superseding it | procedure | internal | both |
+| WS-PRC-BRG-021, main bearing inspection, regreasing and wear | 1 | procedure | internal | both |
+| WS-PRC-ROT-030, rotor imbalance and blade mass balancing | 1 | procedure | internal | both |
+| WS-PRC-SNS-040, sensor verification, drift and dropout | 2 | procedure | internal | both |
+| WS-SB-2025-07, cooler fan run capacitor failures | 1 | bulletin | public | north-sea |
+| WS-SB-2026-03, WS-4.5-145 main bearing regreasing interval | 1 | bulletin | internal | atlas-wind |
+| WS-SAF-001, work at height and turbine access | 5 | procedure | internal | both |
+| WS-ENG-CMS-001, CMS vibration interpretation guide | 1 | engineering | confidential | both |
+| NS-SITE-OFF-001, Dogger East and Hornsea West offshore access | 2 | procedure | restricted | north-sea |
+| AW-SITE-ONS-001, Atlas Ridge site access, cranes and winter working | 1 | procedure | restricted | atlas-wind |
+| ADV-SB-INJ-001, a bulletin carrying a prompt injection | 1 | bulletin | internal | evaluation only |
+
+Each document states its metadata in a header table under its title, as a controlled document does: its ID,
+revision, type, publication date, issuer, the models or wind farms it applies to, its classification, and the
+revision it supersedes. `manifest.json` records the same, and what a reader cannot see: the tenants each is loaded
+for, the faults and alarms each is the procedure for, and whether it is demo or evaluation material. `documents.load()`
+reads it, and `documents.read_header()` reads a document's own header, so ingestion (M7.2) can be checked against
+the manifest.
+
+The set holds what retrieval must handle:
+
+- **A superseded revision:** WS-PRC-GBX-012 revision 3 withdraws revision 2's running on at reduced power at a
+  critical oil temperature. Only the current revision may be cited as current.
+- **A bulletin overriding a manual:** WS-SB-2026-03 halves the WS-4.5-145's regreasing interval from the manual's.
+- **Model-specific material:** each manual and bulletin goes only to the tenant whose fleet has its model.
+- **Each tenant's own:** the restricted site procedures are each one tenant's alone, for tenant isolation tests.
+- **Four classifications:** `public`, `internal`, `confidential` and `restricted`, for permission tests.
+- **Untrusted content:** ADV-SB-INJ-001 tells "automated assistants" to approve work orders. It is never loaded for
+  the demo tenants; the security evaluations use it.
+
+The figures agree with the platform's own, and tests hold them together: the alarm reference is the controller's
+`controller-alarms-1`; each manual's technical data is the simulator's physics; the CMS guide is its kinematics; the
+safety procedure's climbing limits and forecast age are the Policy Service's default rules; and the models, hub
+heights and power curves are the Asset Service's demo fleet and Production Impact's. Every fault label and alarm code
+has a current document for it.
+
 ## Run the tests
 
 ```bash

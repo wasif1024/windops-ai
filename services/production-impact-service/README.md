@@ -41,18 +41,23 @@ guess (SRS 7.7).
 - **Assumptions:** each estimate states its own in words. Among them: whether the loss was projected from the forecast
   or the observed wind, and why; and that parts are priced once the Inventory Service arrives (Phase 9).
 
-## The reference data: `impact-references-1`
+## The reference data: `impact-references-2`
 
 A tenant starts with four references, as version 1 of each, made by `system`:
 
 | Reference | Holds |
 | --- | --- |
-| `power-curve-sg-8-0-167`, `power-curve-sg-4-5-145` | The two synthetic demo models' curves, every 0.5 m/s from cut-in to cut-out, tabulated from the simulator's own physics, within ±5% |
+| `power-curve-ws-8-0-167`, `power-curve-ws-4-5-145` | The two fictional demo models' curves, every 0.5 m/s from cut-in to cut-out, tabulated from the simulator's own physics, within ±5% |
 | `energy-price` | 75 EUR/MWh, with a price of its own for any site |
 | `maintenance-costs` | 95 EUR an hour of labour; 1,800 EUR a day onshore and 14,000 EUR a day offshore; the hours and days each action takes |
 
 The price and costs are placeholders for review, not market figures. Reading them needs `policy.read`. Publishing a new
-version needs `policy.manage` and a recent second factor (SEC-003), and is audited. A database trigger refuses to
+version needs `policy.manage` and a recent second factor (SEC-003), and is audited.
+
+`impact-references-1` named the models `SG-8.0-167` and `SG-4.5-145`, too like real products, so
+`impact-references-2` renames them `WS-` (M7.1). A tenant that already has its references gets each default it lacks,
+as version 1, beside them. The old curves stay, as the estimates that used them point to them, and a reference a tenant
+has is never touched. A database trigger refuses to
 change or delete a reference version or a result, even for the service's own login.
 
 ## How the Policy Service uses it

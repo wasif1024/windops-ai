@@ -41,18 +41,24 @@ async def write_version(
 
 
 async def install_defaults(engine: AsyncEngine, tenant: str, now: datetime) -> None:
-    """A tenant's first look installs the defaults, as version 1 of each, audited."""
+    """A tenant's first look installs the defaults, as version 1 of each, audited.
+
+    A tenant that has its references gets any default it lacks, added by a later library, the
+    same way. One it has is never touched: it may be an administrator's.
+    """
     async with engine.connect() as connection:
         await in_tenant(connection, tenant)
         found = await connection.execute(
-            select(REFERENCES.c.reference_id).where(REFERENCES.c.tenant_id == tenant).limit(1)
+            select(REFERENCES.c.reference_id).where(REFERENCES.c.tenant_id == tenant)
         )
-        if found.first() is not None:
-            return
+        have = set(found.scalars())
+    missing = [d for d in DEFAULT_REFERENCES if d[0] not in have]
+    if not missing:
+        return
     try:
         async with engine.begin() as connection:
             await in_tenant(connection, tenant)
-            for reference_id, name, definition in DEFAULT_REFERENCES:
+            for reference_id, name, definition in missing:
                 await write_version(connection, tenant, reference_id, 1, definition, SYSTEM,
                                     f"The defaults, {LIBRARY}", now)  # fmt: skip
                 await connection.execute(
