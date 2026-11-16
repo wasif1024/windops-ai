@@ -28,6 +28,7 @@ members = [
     "windops-simulator",
     "windops-telemetry",
     "windops-tenant",
+    "windops-weather",
     "windops-web-bff",
 ]
 
@@ -1616,6 +1617,7 @@ dev = [
     { name = "windops-simulator" },
     { name = "windops-telemetry" },
     { name = "windops-tenant" },
+    { name = "windops-weather" },
     { name = "windops-web-bff" },
 ]
 
@@ -1660,6 +1662,7 @@ dev = [
     { name = "windops-simulator", editable = "simulator" },
     { name = "windops-telemetry", editable = "services/telemetry-service" },
     { name = "windops-tenant", editable = "services/tenant-service" },
+    { name = "windops-weather", editable = "services/weather-service" },
     { name = "windops-web-bff", editable = "services/web-bff-service" },
 ]
 
@@ -1956,7 +1959,7 @@ dependencies = [
     { name = "azure-identity" },
     { name = "certifi" },
     { name = "psycopg", extra = ["binary"] },
-    { name = "sqlalchemy" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
 ]
 
 [package.metadata]
@@ -1966,6 +1969,7 @@ requires-dist = [
     { name = "certifi", specifier = ">=2026.10.23" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.8" },
     { name = "sqlalchemy", specifier = ">=2.1.8" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1.8" },
 ]
 
 [[package]]
@@ -2159,6 +2163,31 @@ requires-dist = [
     { name = "windops-migrations", editable = "shared/migrations" },
     { name = "windops-observability", editable = "shared/observability" },
     { name = "windops-outbox", editable = "shared/outbox" },
+    { name = "windops-resilience", editable = "shared/resilience" },
+]
+
+[[package]]
+name = "windops-weather"
+version = "0.1.0"
+source = { editable = "services/weather-service" }
+dependencies = [
+    { name = "httpx" },
+    { name = "windops-auth" },
+    { name = "windops-contracts" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-observability" },
+    { name = "windops-resilience" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-observability", editable = "shared/observability" },
     { name = "windops-resilience", editable = "shared/resilience" },
 ]
 

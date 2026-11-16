@@ -24,6 +24,7 @@ members = [
     "services/sample-responder-service",
     "services/telemetry-service",
     "services/tenant-service",
+    "services/weather-service",
     "services/web-bff-service",
     "shared/auth",
     "shared/cache",
@@ -62,6 +63,7 @@ windops-fault-detection = { workspace = true }
 windops-investigation = { workspace = true }
 windops-policy = { workspace = true }
 windops-production-impact = { workspace = true }
+windops-weather = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -109,6 +111,8 @@ files = [
     "services/telemetry-service/tests",
     "services/tenant-service/src",
     "services/tenant-service/tests",
+    "services/weather-service/src",
+    "services/weather-service/tests",
     "services/web-bff-service/src",
     "services/web-bff-service/tests",
     "shared/auth/src",
@@ -159,6 +163,8 @@ mypy_path = [
     "services/telemetry-service/tests",
     "services/tenant-service/src",
     "services/tenant-service/tests",
+    "services/weather-service/src",
+    "services/weather-service/tests",
     "services/web-bff-service/src",
     "services/web-bff-service/tests",
     "shared/auth/src",
@@ -246,5 +252,6 @@ dev = [
     "windops-simulator",
     "windops-telemetry",
     "windops-tenant",
+    "windops-weather",
     "windops-web-bff",
 ]

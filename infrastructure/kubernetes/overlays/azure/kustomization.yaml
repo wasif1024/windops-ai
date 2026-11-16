@@ -22,4 +22,5 @@ patches:
 - path: patches/windops-sample-responder.yaml
 - path: patches/windops-telemetry.yaml
 - path: patches/windops-tenant.yaml
+- path: patches/windops-weather.yaml
 - path: patches/windops-web-bff.yaml

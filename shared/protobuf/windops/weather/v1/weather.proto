@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package windops.weather.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Structured weather forecasts for a turbine's site, normalized from the provider behind one
+// contract (WTH-001), starting with Open-Meteo (ADR 0010).
+//
+// A forecast is linked to the site's coordinates and to its valid window (WTH-002). Each keeps
+// its provider, when it was retrieved, the window it is valid for, and the forecast revision when
+// the provider gives one (WTH-003). An attribute is present only when the provider supplied it
+// (WTH-004). Every answer states how old its data is, and whether it is fresh, stale or
+// unavailable: stale data is never presented as current, and an outage is reported, not hidden
+// (WTH-005).
+//
+// The tenant comes from the caller's verified identity (GRP-004). Reading a forecast needs
+// weather.read for the turbine, its wind farm or the tenant. The site's coordinates are rounded to
+// about a kilometre before they leave the cluster, and no tenant or case detail goes with them.
+service WeatherService {
+  // The forecast for a turbine's site over a window, from the cache while it is fresh, otherwise
+  // from the provider. When the provider cannot be reached, the newest cached forecast comes back
+  // marked stale, or none, marked unavailable.
+  rpc GetForecast(GetForecastRequest) returns (GetForecastResponse);
+}
+
+message GetForecastRequest {
+  string turbine_id = 1;
+  // The window wanted: at most 7 days ahead, and up to 2 days back. Empty means the next 24 hours.
+  google.protobuf.Timestamp from_time = 2;
+  google.protobuf.Timestamp to_time = 3;
+}
+
+// One forecast hour. Each value is set only when the provider supplied it (WTH-004).
+message ForecastPoint {
+  google.protobuf.Timestamp valid_at = 1;
+  optional double wind_speed_10m_mps = 2;
+  // Interpolated to the turbine's hub height from the provider's levels around it.
+  optional double wind_speed_hub_mps = 3;
+  optional double wind_gusts_10m_mps = 4;
+  optional double wind_direction_10m_deg = 5;
+  optional double temperature_2m_c = 6;
+  optional double precipitation_mm = 7;
+  optional double visibility_m = 8;
+  // Convective energy, an indicator of thunderstorms and lightning.
+  optional double cape_j_per_kg = 9;
+}
+
+// The window at a glance, from the points in it.
+message ForecastSummary {
+  optional double max_wind_speed_hub_mps = 1;
+  optional double max_wind_gusts_10m_mps = 2;
+  optional double max_wind_speed_10m_mps = 3;
+  optional double total_precipitation_mm = 4;
+  optional double min_visibility_m = 5;
+  optional double max_cape_j_per_kg = 6;
+  // Hours in the window that the forecast covers, of the hours asked for.
+  int32 hours_covered = 7;
+  int32 hours_wanted = 8;
+}
+
+message Forecast {
+  // "fct_" and 20 lowercase letters and digits: the retrieval it came from.
+  string forecast_id = 1;
+  // Such as "open-meteo".
+  string provider = 2;
+  // The provider's model or product, such as "best_match".
+  string model = 3;
+  // Empty when the provider does not give one.
+  string revision = 4;
+  google.protobuf.Timestamp retrieved_at = 5;
+  // The whole span the retrieval covers.
+  google.protobuf.Timestamp valid_from = 6;
+  google.protobuf.Timestamp valid_to = 7;
+  // The coordinates sent to the provider, rounded, and the site's elevation it reports.
+  double latitude = 8;
+  double longitude = 9;
+  double elevation_m = 10;
+  double hub_height_m = 11;
+  // sha256 of the provider's response as retrieved, so the forecast can be traced to it.
+  string content_hash = 12;
+  // The licence the provider's data comes under, such as "CC BY 4.0".
+  string licence = 13;
+}
+
+message GetForecastResponse {
+  string turbine_id = 1;
+  string wind_farm_id = 2;
+  // "fresh", "stale" or "unavailable" (WTH-005).
+  string state = 3;
+  // Why it is stale or unavailable, such as "the provider cannot be reached".
+  string note = 4;
+  // How old the forecast is, from its retrieval. 0 when there is none.
+  int64 age_seconds = 5;
+  // Empty when unavailable.
+  Forecast forecast = 6;
+  repeated ForecastPoint points = 7;
+  ForecastSummary summary = 8;
+  google.protobuf.Timestamp from_time = 9;
+  google.protobuf.Timestamp to_time = 10;
+}

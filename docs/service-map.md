@@ -75,6 +75,7 @@ flowchart TB
     External --> Tavily[("Tavily")]
     WeatherMCP --> Weather
     Weather --> Forecast[("Forecast provider")]
+    Weather --> Asset
     Core --> Impact["Production Impact"]
     Core --> Policy
     Core --> Maintenance
@@ -151,7 +152,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | Agent Runtime | MCP servers, Agent Sandbox Adapter, Claude | Audit events | Queued runs, `approval.decided` |
 | Agent Sandbox Adapter | LangSmith Sandbox | None. Agent Runtime records sandbox use | None |
 | Knowledge | Qdrant, the embedding provider | `evidence.changed`, audit events | None |
-| Weather | The forecast provider | None | None |
+| Weather | Asset, for each turbine's coordinates and hub height, and Open-Meteo ([ADR 0010](adr/0010-open-meteo-as-the-forecast-provider.md)) | None | None |
 | External Intelligence | Tavily | Audit events | None |
 | Production Impact | Investigation, Asset and Telemetry, for the case, the turbine and its observed wind and power | Audit events | None |
 | Policy | Investigation, Asset and Production Impact, for the facts it judges on ([ADR 0009](adr/0009-policy-judges-a-proposal-on-facts-it-gathers.md)), and Weather from M6.4 | Audit events | None |

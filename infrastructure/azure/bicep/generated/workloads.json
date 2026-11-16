@@ -132,6 +132,14 @@
     "receives": []
   },
   {
+    "name": "windops-weather",
+    "namespace": "windops-application",
+    "events": false,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
     "name": "windops-web-bff",
     "namespace": "windops-system",
     "events": false,
