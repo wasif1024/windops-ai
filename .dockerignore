@@ -19,3 +19,5 @@ tests
 !shared/*/README.md
 !services/*/README.md
 !simulator/README.md
+# The synthetic document set is package data: the Knowledge Service's demo seed reads it (M7.2).
+!simulator/src/windops_simulator/documents/**/*.md

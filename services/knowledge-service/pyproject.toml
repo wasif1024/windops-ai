@@ -1,0 +1,37 @@
+[project]
+name = "windops-knowledge"
+version = "0.1.0"
+description = "WindOps knowledge service: document ingestion, metadata and indexing"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "httpx>=0.28.1",
+    "windops-auth",
+    "windops-contracts",
+    "windops-events",
+    "windops-grpc",
+    "windops-migrations",
+    "windops-observability",
+    "windops-outbox",
+    "windops-resilience",
+    # The synthetic document set, for the demo seed.
+    "windops-simulator",
+]
+
+[tool.uv.sources]
+windops-auth = { workspace = true }
+windops-contracts = { workspace = true }
+windops-events = { workspace = true }
+windops-grpc = { workspace = true }
+windops-migrations = { workspace = true }
+windops-observability = { workspace = true }
+windops-outbox = { workspace = true }
+windops-resilience = { workspace = true }
+windops-simulator = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/windops_knowledge"]

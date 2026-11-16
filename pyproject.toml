@@ -18,6 +18,7 @@ members = [
     "services/fault-detection-service",
     "services/identity-service",
     "services/investigation-service",
+    "services/knowledge-service",
     "services/policy-service",
     "services/production-impact-service",
     "services/sample-caller-service",
@@ -64,6 +65,7 @@ windops-investigation = { workspace = true }
 windops-policy = { workspace = true }
 windops-production-impact = { workspace = true }
 windops-weather = { workspace = true }
+windops-knowledge = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -99,6 +101,8 @@ files = [
     "services/identity-service/tests",
     "services/investigation-service/src",
     "services/investigation-service/tests",
+    "services/knowledge-service/src",
+    "services/knowledge-service/tests",
     "services/policy-service/src",
     "services/policy-service/tests",
     "services/production-impact-service/src",
@@ -151,6 +155,8 @@ mypy_path = [
     "services/identity-service/tests",
     "services/investigation-service/src",
     "services/investigation-service/tests",
+    "services/knowledge-service/src",
+    "services/knowledge-service/tests",
     "services/policy-service/src",
     "services/policy-service/tests",
     "services/production-impact-service/src",
@@ -241,6 +247,7 @@ dev = [
     "windops-grpc",
     "windops-identity",
     "windops-investigation",
+    "windops-knowledge",
     "windops-migrations",
     "windops-observability",
     "windops-outbox",

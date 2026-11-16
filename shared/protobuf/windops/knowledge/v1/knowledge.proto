@@ -1,0 +1,168 @@
+syntax = "proto3";
+
+package windops.knowledge.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Approved manuals, bulletins, procedures and engineering documents, ingested for each tenant
+// (FR-KNW-001), each with its tenant, source, version, publication date, ingestion date and
+// access classification (FR-KNW-002), and indexed through the embedding adapter (LLM-011).
+//
+// The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read.
+// Uploading, releasing a held document and changing the ingestion settings need knowledge.manage,
+// a person, and a recent second factor (SEC-003), and each is audited.
+//
+// An upload is checked before anything is kept: Markdown or plain text, at most 1 MiB, valid
+// UTF-8, and no credentials in it. A document that addresses instructions to an AI is kept but
+// held, unindexed, until another person releases it. Only passages of a classification the tenant
+// allows ever go to the embedding provider.
+service KnowledgeService {
+  // Ingest one revision of a document. The document's own header gives its metadata; the request
+  // may give only what the header does not, and never contradict it.
+  rpc UploadDocument(UploadDocumentRequest) returns (UploadDocumentResponse);
+  // One revision of a document, the newest when no revision is given, and the revisions kept.
+  rpc GetDocument(GetDocumentRequest) returns (GetDocumentResponse);
+  // The newest revision of each document, by document ID.
+  rpc ListDocuments(ListDocumentsRequest) returns (ListDocumentsResponse);
+  // Release a held document for indexing. Never by the person who uploaded it.
+  rpc ReleaseDocument(ReleaseDocumentRequest) returns (ReleaseDocumentResponse);
+  rpc GetIngestionSettings(GetIngestionSettingsRequest) returns (GetIngestionSettingsResponse);
+  rpc SetIngestionSettings(SetIngestionSettingsRequest) returns (SetIngestionSettingsResponse);
+}
+
+// What a document says about itself (FR-KNW-002).
+message DocumentMetadata {
+  // 3 to 64 uppercase letters, digits and hyphens, such as "WS-PRC-GBX-012".
+  string document_id = 1;
+  // From 1.
+  int32 revision = 2;
+  string title = 3;
+  // "manual", "bulletin", "procedure", "reference" or "engineering".
+  string type = 4;
+  // YYYY-MM-DD.
+  string published = 5;
+  // Who issued it, such as its manufacturer.
+  string issued_by = 6;
+  // Turbine models or wind farm IDs.
+  repeated string applies_to = 7;
+  // "public", "internal", "confidential" or "restricted".
+  string classification = 8;
+  // The revision this one replaces, if it says so.
+  string supersedes_document_id = 9;
+  int32 supersedes_revision = 10;
+}
+
+message UploadDocumentRequest {
+  // Letters, digits, dots, hyphens and underscores, ending .md or .txt.
+  string filename = 1;
+  // "text/markdown" or "text/plain", and it must match the filename.
+  string content_type = 2;
+  // At most 1 MiB.
+  bytes content = 3;
+  // Only what the document's header does not state.
+  DocumentMetadata metadata = 4;
+  // Where it came from, such as "WindOps Synthetic document set synthetic-documents-1".
+  string source = 5;
+  string idempotency_key = 6;
+}
+
+// Something the screening found in a document. Never the matched text itself.
+message ScreeningFinding {
+  // "instructions_to_ai".
+  string kind = 1;
+  string description = 2;
+  // 1-based.
+  int32 line = 3;
+}
+
+message DocumentVersion {
+  DocumentMetadata metadata = 1;
+  string source = 2;
+  string filename = 3;
+  string content_type = 4;
+  int64 size_bytes = 5;
+  // sha256 of the content as uploaded.
+  string content_hash = 6;
+  google.protobuf.Timestamp ingested_at = 7;
+  string ingested_by = 8;
+  // "pending": waiting to be indexed. "indexed". "held": waiting for a person to release it.
+  // "not_indexed": its classification is above what the tenant sends to the embedding provider.
+  // "failed": the provider refused it.
+  string status = 9;
+  // Why it is not indexed yet, or not at all.
+  string status_reason = 10;
+  int32 passages = 11;
+  // Set once indexed (LLM-011).
+  string embedding_provider = 12;
+  string embedding_model = 13;
+  string embedding_version = 14;
+  google.protobuf.Timestamp indexed_at = 15;
+  // The metadata fields the document's own header gave.
+  repeated string metadata_from_document = 16;
+  repeated ScreeningFinding screening = 17;
+  string released_by = 18;
+}
+
+message UploadDocumentResponse {
+  DocumentVersion document = 1;
+}
+
+message GetDocumentRequest {
+  string document_id = 1;
+  // 0 for the newest.
+  int32 revision = 2;
+}
+
+message GetDocumentResponse {
+  DocumentVersion document = 1;
+  repeated int32 revisions = 2;
+}
+
+message ListDocumentsRequest {
+  // At most 200; 0 means 50.
+  int32 page_size = 1;
+  string page_token = 2;
+  // Only documents with this status, when set.
+  string status = 3;
+}
+
+message ListDocumentsResponse {
+  repeated DocumentVersion documents = 1;
+  string next_page_token = 2;
+}
+
+message ReleaseDocumentRequest {
+  string document_id = 1;
+  int32 revision = 2;
+  // Why it is safe to index, kept with the audit record.
+  string reason = 3;
+  string idempotency_key = 4;
+}
+
+message ReleaseDocumentResponse {
+  DocumentVersion document = 1;
+}
+
+message IngestionSettings {
+  // The highest classification whose passages may go to the embedding provider. A document above
+  // it is kept, but not indexed.
+  string embedding_max_classification = 1;
+  google.protobuf.Timestamp updated_at = 2;
+  string updated_by = 3;
+}
+
+message GetIngestionSettingsRequest {}
+
+message GetIngestionSettingsResponse {
+  IngestionSettings settings = 1;
+}
+
+message SetIngestionSettingsRequest {
+  string embedding_max_classification = 1;
+  string reason = 2;
+  string idempotency_key = 3;
+}
+
+message SetIngestionSettingsResponse {
+  IngestionSettings settings = 1;
+}

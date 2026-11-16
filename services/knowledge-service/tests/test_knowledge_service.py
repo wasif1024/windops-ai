@@ -1,0 +1,389 @@
+"""The knowledge API and the indexer, through a real gRPC server and SQL database, with stand-ins
+for Authorization, the embedding provider and Qdrant. SQLite has no row-level security or
+triggers, so `make knowledge-check` proves those on PostgreSQL."""
+
+import asyncio
+import logging
+import time
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+import grpc
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.pool import StaticPool
+from windops.knowledge.v1 import knowledge_pb2 as pb
+from windops.knowledge.v1 import knowledge_pb2_grpc
+from windops_auth import LEVEL_MFA, LEVEL_PASSWORD
+from windops_grpc import ServiceRuntime, Settings, VerifiedIdentity, current_identity, sign_identity
+from windops_knowledge import embeddings, library, vectors
+from windops_knowledge.service import KnowledgeService
+from windops_knowledge.store import INDEX_QUEUE, METADATA, SERVICE_NAME
+from windops_outbox import OUTBOX_TABLE, create_outbox_table
+from windops_simulator import documents
+
+SECRET = "x" * 32
+TENANT, OTHER = "north-sea", "atlas-wind"
+SETTINGS = Settings(environment="test", version="test", identity_secret=SECRET, grpc_port=0,
+                    http_port=0, shutdown_grace_seconds=1)  # fmt: skip
+NOW = datetime(2026, 11, 16, 12, 0, tzinfo=UTC)
+SET = {d.path: d for d in documents.load()}
+GEARBOX = SET["oem/ws-prc-gbx-012-r3.md"]
+SITE = SET["site/ns-site-off-001-r2.md"]
+INJECTED = SET["evaluation/adv-sb-inj-001-r1.md"]
+
+
+@dataclass
+class FakeAuthorizer:
+    grants: set[tuple[str, str]]
+
+    async def allowed(self, permission: str) -> bool:
+        return (current_identity().user_id, permission) in self.grants
+
+
+@dataclass
+class FakeEmbedder:
+    provider: str = "openai"
+    model: str = "text-embedding-3-large"
+    version: str = embeddings.ADAPTER_VERSION
+    dimensions: int = 4
+    failure: Exception | None = None
+    sent: list[str] = field(default_factory=list)
+
+    async def embed(self, texts: Any) -> embeddings.Embedded:
+        if self.failure is not None:
+            raise self.failure
+        self.sent.extend(texts)
+        return embeddings.Embedded([[1.0, 0.0, 0.0, float(i)] for i in range(len(texts))],
+                                   self.model, len(texts))  # fmt: skip
+
+
+@dataclass
+class FakeQdrant:
+    points: dict[str, vectors.Point] = field(default_factory=dict)
+    collections: dict[str, int] = field(default_factory=dict)
+
+    async def ensure_collection(self, name: str, dimensions: int) -> None:
+        self.collections[name] = dimensions
+
+    async def upsert(self, collection: str, points: list[vectors.Point]) -> None:
+        self.points.update({p.point_id: p for p in points})
+
+    async def close(self) -> None:
+        return None
+
+
+@dataclass
+class World:
+    stub: Any
+    engine: AsyncEngine
+    embedder: FakeEmbedder
+    qdrant: FakeQdrant
+    clock: list[datetime]
+
+    async def index(self) -> int:
+        """Run the indexer until nothing is due, and return how many it took."""
+        taken = 0
+        while await library.index_next(self.engine, self.embedder, self.qdrant, self.clock[0]):
+            taken += 1
+        return taken
+
+
+def as_user(user: str, level: str | None = LEVEL_MFA, tenant: str = TENANT) -> Any:
+    identity = VerifiedIdentity(subject=user, tenant_id=tenant, user_id=user, auth_level=level,
+                                auth_time=int(time.time()) if level else None)  # fmt: skip
+    return (("x-windops-identity", sign_identity(identity, SECRET)),)
+
+
+def upload_request(document: documents.Document, key: str = "") -> pb.UploadDocumentRequest:
+    return pb.UploadDocumentRequest(
+        filename=document.path.rsplit("/", 1)[-1], content_type="text/markdown",
+        content=document.text().encode(), source="synthetic-documents-1", idempotency_key=key,
+    )  # fmt: skip
+
+
+async def upload(world: World, document: documents.Document, user: str = "u-admin",
+                 key: str = "", tenant: str = TENANT) -> pb.DocumentVersion:  # fmt: skip
+    metadata = as_user(user, tenant=tenant)
+    answer = await world.stub.UploadDocument(upload_request(document, key), metadata=metadata,
+                                             timeout=5)  # fmt: skip
+    kept: pb.DocumentVersion = answer.document
+    return kept
+
+
+async def code_of(call: Awaitable[Any]) -> grpc.StatusCode:
+    try:
+        await call
+    except grpc.aio.AioRpcError as error:
+        status: grpc.StatusCode = error.code()
+        return status
+    return grpc.StatusCode.OK
+
+
+async def get(world: World, document_id: str, revision: int = 0, user: str = "u-reader",
+              tenant: str = TENANT) -> Any:  # fmt: skip
+    return await world.stub.GetDocument(
+        pb.GetDocumentRequest(document_id=document_id, revision=revision),
+        metadata=as_user(user, tenant=tenant), timeout=5,
+    )  # fmt: skip
+
+
+def with_service(scenario: Callable[[World], Awaitable[None]]) -> None:
+    root = logging.getLogger()
+    saved_handlers, saved_level = list(root.handlers), root.level
+
+    async def run() -> None:
+        engine_ = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+        async with engine_.begin() as connection:
+            await connection.run_sync(METADATA.create_all)
+            await connection.run_sync(create_outbox_table)
+        grants = {(u, p) for u in ("u-admin", "u-engineer")
+                  for p in ("knowledge.read", "knowledge.manage")}  # fmt: skip
+        grants.add(("u-reader", "knowledge.read"))
+        clock = [NOW]
+
+        def register(server: grpc.aio.Server) -> None:
+            knowledge_pb2_grpc.add_KnowledgeServiceServicer_to_server(
+                KnowledgeService(engine_, FakeAuthorizer(grants), clock=lambda: clock[0]), server
+            )
+
+        runtime = ServiceRuntime(SERVICE_NAME, SETTINGS, register, install_global_telemetry=False)
+        await runtime.start()
+        try:
+            async with grpc.aio.insecure_channel(f"127.0.0.1:{runtime.grpc_port}") as channel:
+                stub = knowledge_pb2_grpc.KnowledgeServiceStub(channel)
+                await scenario(World(stub, engine_, FakeEmbedder(), FakeQdrant(), clock))
+        finally:
+            await runtime.stop()
+            await engine_.dispose()
+
+    try:
+        asyncio.run(run())
+    finally:
+        root.handlers[:] = saved_handlers
+        root.setLevel(saved_level)
+
+
+async def audited(world: World) -> list[str]:
+    from windops_events import parse_event
+
+    o = OUTBOX_TABLE.c
+    async with world.engine.connect() as connection:
+        rows = (await connection.execute(select(o.subject, o.envelope).order_by(o.sequence))).all()
+    return [parse_event(row.subject, row.envelope).payload.action  # type: ignore[attr-defined]
+            for row in rows if "audit" in row.subject]  # fmt: skip
+
+
+def test_an_upload_keeps_its_metadata_and_is_indexed_with_its_model_recorded() -> None:
+    async def scenario(world: World) -> None:
+        kept = await upload(world, GEARBOX)
+        m = kept.metadata
+        assert (m.document_id, m.revision, m.classification) == ("WS-PRC-GBX-012", 3, "internal")
+        assert (m.supersedes_document_id, m.supersedes_revision) == ("WS-PRC-GBX-012", 2)
+        assert kept.status == "pending" and kept.passages > 5 and kept.ingested_by == "u-admin"
+        assert "document_id" in kept.metadata_from_document
+        assert await world.index() == 1
+        found = (await get(world, "WS-PRC-GBX-012")).document
+        assert found.status == "indexed" and found.status_reason == ""
+        assert (found.embedding_provider, found.embedding_model, found.embedding_version) == (
+            "openai",
+            "text-embedding-3-large",
+            embeddings.ADAPTER_VERSION,
+        )
+        assert found.indexed_at.ToDatetime(tzinfo=UTC) == NOW
+        # Each point carries its model and version, and its tenant, never its text (LLM-011).
+        points = list(world.qdrant.points.values())
+        assert len(points) == found.passages
+        assert all(p.tenant_id == TENANT and p.payload["embedding_model"] ==
+                   "text-embedding-3-large" and p.payload["embedding_version"] ==
+                   embeddings.ADAPTER_VERSION and "text" not in p.payload
+                   for p in points)  # fmt: skip
+        assert world.qdrant.collections == {"knowledge_text_embedding_3_large_4": 4}
+        # What was embedded is each passage under its document's title and section.
+        assert world.embedder.sent[0].startswith(GEARBOX.title)
+        assert await audited(world) == ["knowledge_document.ingested",
+                                        "knowledge_document.indexed"]  # fmt: skip
+
+    with_service(scenario)
+
+
+def test_who_may_upload_and_read() -> None:
+    async def scenario(world: World) -> None:
+        request = upload_request(GEARBOX)
+        for metadata in (as_user("u-reader"), as_user("u-admin", LEVEL_PASSWORD),
+                         as_user("u-nobody")):  # fmt: skip
+            refused = world.stub.UploadDocument(request, metadata=metadata, timeout=5)
+            assert await code_of(refused) == grpc.StatusCode.PERMISSION_DENIED
+        await upload(world, GEARBOX)
+        assert (await get(world, "WS-PRC-GBX-012")).document.metadata.revision == 3
+        assert await code_of(get(world, "WS-PRC-GBX-012", user="u-nobody")) == \
+            grpc.StatusCode.PERMISSION_DENIED  # fmt: skip
+        # Another tenant has no such document.
+        assert await code_of(get(world, "WS-PRC-GBX-012", tenant=OTHER)) == \
+            grpc.StatusCode.NOT_FOUND  # fmt: skip
+
+    with_service(scenario)
+
+
+def test_a_retry_returns_the_first_answer_and_a_changed_revision_is_refused() -> None:
+    async def scenario(world: World) -> None:
+        first = await upload(world, GEARBOX, key="k-1")
+        again = await upload(world, GEARBOX, key="k-1")
+        assert again == first
+        # The same revision with the same content, without a key, is the same upload.
+        assert (await upload(world, GEARBOX)).ingested_at == first.ingested_at
+        changed = upload_request(GEARBOX)
+        changed.content = GEARBOX.text().replace("2 hours", "3 hours").encode()
+        refused = world.stub.UploadDocument(changed, metadata=as_user("u-admin"), timeout=5)
+        assert await code_of(refused) == grpc.StatusCode.FAILED_PRECONDITION
+        reused = upload_request(SITE, key="k-1")
+        assert (
+            await code_of(world.stub.UploadDocument(reused, metadata=as_user("u-admin"), timeout=5))
+            == grpc.StatusCode.INVALID_ARGUMENT
+        )
+        # Both revisions are kept, and the newest is what a plain read gives.
+        await upload(world, SET["oem/ws-prc-gbx-012-r2.md"])
+        found = await get(world, "WS-PRC-GBX-012")
+        assert found.document.metadata.revision == 3 and list(found.revisions) == [2, 3]
+        assert (await get(world, "WS-PRC-GBX-012", 2)).document.metadata.revision == 2
+
+    with_service(scenario)
+
+
+def test_a_refused_upload_keeps_nothing_and_says_why() -> None:
+    async def scenario(world: World) -> None:
+        secret = upload_request(GEARBOX)
+        secret.content = (GEARBOX.text() + "\npassword: hunter2!\n").encode()
+        try:
+            await world.stub.UploadDocument(secret, metadata=as_user("u-admin"), timeout=5)
+            raise AssertionError("a credential must be refused")
+        except grpc.aio.AioRpcError as error:
+            assert error.code() == grpc.StatusCode.INVALID_ARGUMENT
+            assert "a password" in (error.details() or "")
+            assert "hunter2" not in (error.details() or "")
+        pdf = pb.UploadDocumentRequest(filename="x.pdf", content_type="application/pdf",
+                                       content=b"%PDF", source="s")  # fmt: skip
+        sent = world.stub.UploadDocument(pdf, metadata=as_user("u-admin"), timeout=5)
+        assert await code_of(sent) == grpc.StatusCode.INVALID_ARGUMENT
+        reader = as_user("u-reader")
+        listed = await world.stub.ListDocuments(pb.ListDocumentsRequest(), metadata=reader,
+                                                timeout=5)  # fmt: skip
+        assert list(listed.documents) == [] and await audited(world) == []
+
+    with_service(scenario)
+
+
+def test_a_document_addressed_to_an_ai_is_held_until_someone_else_releases_it() -> None:
+    async def scenario(world: World) -> None:
+        held = await upload(world, INJECTED)
+        assert held.status == "held" and held.screening
+        assert {f.kind for f in held.screening} == {"instructions_to_ai"}
+        assert await world.index() == 0 and world.embedder.sent == []
+
+        def release(user: str, key: str = "") -> Any:
+            return world.stub.ReleaseDocument(pb.ReleaseDocumentRequest(
+                document_id="ADV-SB-INJ-001", revision=1, reason="Reviewed: test material",
+                idempotency_key=key), metadata=as_user(user), timeout=5)  # fmt: skip
+
+        assert await code_of(release("u-admin")) == grpc.StatusCode.FAILED_PRECONDITION
+        assert await code_of(release("u-reader")) == grpc.StatusCode.PERMISSION_DENIED
+        released = (await release("u-engineer", "r-1")).document
+        assert released.status == "pending" and released.released_by == "u-engineer"
+        assert (await release("u-engineer", "r-1")).document == released
+        assert await code_of(release("u-engineer")) == grpc.StatusCode.FAILED_PRECONDITION
+        assert await world.index() == 1
+        assert "knowledge_document.held" in await audited(world)
+        assert "knowledge_document.released" in await audited(world)
+
+    with_service(scenario)
+
+
+def test_nothing_above_the_tenants_allowance_goes_to_the_provider() -> None:
+    async def scenario(world: World) -> None:
+        settings = await world.stub.GetIngestionSettings(
+            pb.GetIngestionSettingsRequest(), metadata=as_user("u-reader"), timeout=5
+        )
+        assert settings.settings.embedding_max_classification == "confidential"
+        site = await upload(world, SITE)
+        assert site.status == "not_indexed" and "restricted" in site.status_reason
+        assert await world.index() == 0
+
+        def allow(classification: str, user: str = "u-admin", **kw: Any) -> Any:
+            return world.stub.SetIngestionSettings(pb.SetIngestionSettingsRequest(
+                embedding_max_classification=classification, reason="Synthetic documents only"),
+                metadata=as_user(user, **kw), timeout=5)  # fmt: skip
+
+        assert await code_of(allow("restricted", "u-reader")) == grpc.StatusCode.PERMISSION_DENIED
+        assert await code_of(allow("restricted", level=LEVEL_PASSWORD)) == \
+            grpc.StatusCode.PERMISSION_DENIED  # fmt: skip
+        assert await code_of(allow("secret")) == grpc.StatusCode.INVALID_ARGUMENT
+        changed = (await allow("restricted")).settings
+        assert changed.embedding_max_classification == "restricted"
+        assert changed.updated_by == "u-admin"
+        assert (await get(world, "NS-SITE-OFF-001")).document.status == "pending"
+        # Lowered again before the indexer reached it: it is not sent.
+        await allow("internal")
+        assert await world.index() == 1 and world.embedder.sent == []
+        assert (await get(world, "NS-SITE-OFF-001")).document.status == "not_indexed"
+        assert "knowledge_settings.changed" in await audited(world)
+
+    with_service(scenario)
+
+
+def test_an_outage_pauses_indexing_and_a_refusal_ends_it() -> None:
+    async def scenario(world: World) -> None:
+        await upload(world, GEARBOX)
+        world.embedder.failure = embeddings.EmbeddingUnavailableError(
+            "The embedding provider cannot be reached right now"
+        )
+        assert await world.index() == 1
+        waiting = (await get(world, "WS-PRC-GBX-012")).document
+        assert waiting.status == "pending" and "cannot be reached" in waiting.status_reason
+        # Not again until its backoff has passed, which grows with each attempt.
+        assert await world.index() == 0
+        async with world.engine.connect() as connection:
+            due = (await connection.execute(select(INDEX_QUEUE))).one()
+        assert due.attempts == 1
+        assert due.next_attempt_at.replace(tzinfo=UTC) == NOW + timedelta(
+            seconds=library.FIRST_RETRY_SECONDS
+        )
+        world.embedder.failure = None
+        world.clock[0] = NOW + timedelta(minutes=1)
+        assert await world.index() == 1
+        assert (await get(world, "WS-PRC-GBX-012")).document.status == "indexed"
+        # A refusal is final.
+        await upload(world, SET["oem/ws-prc-brg-021-r1.md"])
+        world.embedder.failure = embeddings.EmbeddingRefusedError(
+            "The embedding provider refused the request: 400"
+        )
+        assert await world.index() == 1 and await world.index() == 0
+        failed = (await get(world, "WS-PRC-BRG-021")).document
+        assert failed.status == "failed" and "400" in failed.status_reason
+
+    with_service(scenario)
+
+
+def test_the_list_gives_each_documents_newest_revision_a_page_at_a_time() -> None:
+    async def scenario(world: World) -> None:
+        demo = [d for d in SET.values() if d.purpose == "demo" and TENANT in d.tenants]
+        for document in demo:
+            await upload(world, document)
+        newest = sorted({d.document_id for d in demo})
+        seen, token = [], ""
+        while True:
+            page = await world.stub.ListDocuments(
+                pb.ListDocumentsRequest(page_size=4, page_token=token),
+                metadata=as_user("u-reader"), timeout=5)  # fmt: skip
+            seen += [(d.metadata.document_id, d.metadata.revision) for d in page.documents]
+            token = page.next_page_token
+            if not token:
+                break
+        assert [d for d, _ in seen] == newest
+        assert ("WS-PRC-GBX-012", 3) in seen
+        held = await world.stub.ListDocuments(pb.ListDocumentsRequest(status="not_indexed"),
+                                              metadata=as_user("u-reader"), timeout=5)  # fmt: skip
+        assert [d.metadata.document_id for d in held.documents] == ["NS-SITE-OFF-001"]
+
+    with_service(scenario)

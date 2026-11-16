@@ -14,6 +14,9 @@ MIGRATIONS = sorted(ROOT.glob("services/*/src/*/migrations/versions/*.py"))
 EXEMPT = {
     # Only each service's relay reads it, never a request, and it reads every tenant's rows.
     "outbox_events",
+    # The Knowledge Service's indexer reads it the same way, across tenants, and it holds only
+    # which document revision to index next, never content (M7.2).
+    "index_queue",
 }
 
 

@@ -17,6 +17,7 @@ members = [
     "windops-grpc",
     "windops-identity",
     "windops-investigation",
+    "windops-knowledge",
     "windops-migrations",
     "windops-observability",
     "windops-outbox",
@@ -1606,6 +1607,7 @@ dev = [
     { name = "windops-grpc" },
     { name = "windops-identity" },
     { name = "windops-investigation" },
+    { name = "windops-knowledge" },
     { name = "windops-migrations" },
     { name = "windops-observability" },
     { name = "windops-outbox" },
@@ -1651,6 +1653,7 @@ dev = [
     { name = "windops-grpc", editable = "shared/grpc" },
     { name = "windops-identity", editable = "services/identity-service" },
     { name = "windops-investigation", editable = "services/investigation-service" },
+    { name = "windops-knowledge", editable = "services/knowledge-service" },
     { name = "windops-migrations", editable = "shared/migrations" },
     { name = "windops-observability", editable = "shared/observability" },
     { name = "windops-outbox", editable = "shared/outbox" },
@@ -1948,6 +1951,37 @@ requires-dist = [
     { name = "windops-observability", editable = "shared/observability" },
     { name = "windops-outbox", editable = "shared/outbox" },
     { name = "windops-resilience", editable = "shared/resilience" },
+]
+
+[[package]]
+name = "windops-knowledge"
+version = "0.1.0"
+source = { editable = "services/knowledge-service" }
+dependencies = [
+    { name = "httpx" },
+    { name = "windops-auth" },
+    { name = "windops-contracts" },
+    { name = "windops-events" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-observability" },
+    { name = "windops-outbox" },
+    { name = "windops-resilience" },
+    { name = "windops-simulator" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-events", editable = "shared/events" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-observability", editable = "shared/observability" },
+    { name = "windops-outbox", editable = "shared/outbox" },
+    { name = "windops-resilience", editable = "shared/resilience" },
+    { name = "windops-simulator", editable = "simulator" },
 ]
 
 [[package]]

@@ -13,6 +13,7 @@ resources:
   - ../../../../services/fault-detection-service/deploy
   - ../../../../services/identity-service/deploy
   - ../../../../services/investigation-service/deploy
+  - ../../../../services/knowledge-service/deploy
   - ../../../../services/policy-service/deploy
   - ../../../../services/production-impact-service/deploy
   - ../../../../services/sample-caller-service/deploy
