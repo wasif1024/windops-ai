@@ -115,7 +115,7 @@ def make_turbine(assets: Caller, spec: Any) -> None:
     assets.call("CreateTurbine", asset_pb2.CreateTurbineRequest(
         turbine_id=TURBINE, wind_farm_id=FARM, name="Case gate T01",
         location=asset_pb2.Location(latitude=54.0, longitude=1.0),
-        model=asset_pb2.TurbineModel(manufacturer="WindOps Synthetic", model="SG-8.0-167",
+        model=asset_pb2.TurbineModel(manufacturer="WindOps Synthetic", model="WS-8.0-167",
                                      rated_power_kw=spec.rated_power_kw,
                                      rotor_diameter_m=spec.rotor_diameter_m),
     ), ADMIN, TENANT)  # fmt: skip

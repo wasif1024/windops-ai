@@ -1,0 +1,361 @@
+{
+  "set_version": "synthetic-documents-1",
+  "synthetic": true,
+  "documents": [
+    {
+      "path": "oem/ws-om-8167-r4.md",
+      "document_id": "WS-OM-8167",
+      "revision": 4,
+      "title": "WS-8.0-167 Operation and Maintenance Manual",
+      "type": "manual",
+      "published": "2025-09-01",
+      "issued_by": "WindOps Synthetic (fictional manufacturer)",
+      "applies_to": [
+        "WS-8.0-167"
+      ],
+      "classification": "internal",
+      "supersedes": null,
+      "tenants": [
+        "north-sea"
+      ],
+      "covers": [],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "oem/ws-om-4514-r2.md",
+      "document_id": "WS-OM-4514",
+      "revision": 2,
+      "title": "WS-4.5-145 Operation and Maintenance Manual",
+      "type": "manual",
+      "published": "2025-06-12",
+      "issued_by": "WindOps Synthetic (fictional manufacturer)",
+      "applies_to": [
+        "WS-4.5-145"
+      ],
+      "classification": "internal",
+      "supersedes": null,
+      "tenants": [
+        "atlas-wind"
+      ],
+      "covers": [],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "oem/ws-ref-alm-r1.md",
+      "document_id": "WS-REF-ALM",
+      "revision": 1,
+      "title": "Controller Alarm Reference",
+      "type": "reference",
+      "published": "2025-02-20",
+      "issued_by": "WindOps Synthetic (fictional manufacturer)",
+      "applies_to": [
+        "WS-8.0-167",
+        "WS-4.5-145"
+      ],
+      "classification": "internal",
+      "supersedes": null,
+      "tenants": [
+        "north-sea",
+        "atlas-wind"
+      ],
+      "covers": [
+        "GBX_OIL_TEMP_HIGH",
+        "GBX_OIL_TEMP_CRITICAL",
+        "GBX_BEARING_TEMP_HIGH",
+        "MAIN_BEARING_TEMP_HIGH",
+        "GEN_BEARING_TEMP_HIGH",
+        "NACELLE_VIBRATION_HIGH",
+        "SENSOR_SIGNAL_LOST"
+      ],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "oem/ws-prc-gbx-012-r2.md",
+      "document_id": "WS-PRC-GBX-012",
+      "revision": 2,
+      "title": "Gearbox Oil Cooling Fault: Diagnosis and Repair",
+      "type": "procedure",
+      "published": "2024-11-05",
+      "issued_by": "WindOps Synthetic (fictional manufacturer)",
+      "applies_to": [
+        "WS-8.0-167",
+        "WS-4.5-145"
+      ],
+      "classification": "internal",
+      "supersedes": null,
+      "tenants": [
+        "north-sea",
+        "atlas-wind"
+      ],
+      "covers": [
+        "gearbox_oil_overheating",
+        "GBX_OIL_TEMP_HIGH",
+        "GBX_OIL_TEMP_CRITICAL"
+      ],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "oem/ws-prc-gbx-012-r3.md",
+      "document_id": "WS-PRC-GBX-012",
+      "revision": 3,
+      "title": "Gearbox Oil Cooling Fault: Diagnosis and Repair",
+      "type": "procedure",
+      "published": "2026-04-08",
+      "issued_by": "WindOps Synthetic (fictional manufacturer)",
+      "applies_to": [
+        "WS-8.0-167",
+        "WS-4.5-145"
+      ],
+      "classification": "internal",
+      "supersedes": {
+        "document_id": "WS-PRC-GBX-012",
+        "revision": 2
+      },
+      "tenants": [
+        "north-sea",
+        "atlas-wind"
+      ],
+      "covers": [
+        "gearbox_oil_overheating",
+        "no_fault",
+        "GBX_OIL_TEMP_HIGH",
+        "GBX_OIL_TEMP_CRITICAL"
+      ],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "oem/ws-prc-brg-021-r1.md",
+      "document_id": "WS-PRC-BRG-021",
+      "revision": 1,
+      "title": "Main Bearing: Inspection, Regreasing and Wear Assessment",
+      "type": "procedure",
+      "published": "2025-05-30",
+      "issued_by": "WindOps Synthetic (fictional manufacturer)",
+      "applies_to": [
+        "WS-8.0-167",
+        "WS-4.5-145"
+      ],
+      "classification": "internal",
+      "supersedes": null,
+      "tenants": [
+        "north-sea",
+        "atlas-wind"
+      ],
+      "covers": [
+        "bearing_wear",
+        "MAIN_BEARING_TEMP_HIGH"
+      ],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "oem/ws-prc-rot-030-r1.md",
+      "document_id": "WS-PRC-ROT-030",
+      "revision": 1,
+      "title": "Rotor Imbalance: Assessment and Blade Mass Balancing",
+      "type": "procedure",
+      "published": "2025-05-12",
+      "issued_by": "WindOps Synthetic (fictional manufacturer)",
+      "applies_to": [
+        "WS-8.0-167",
+        "WS-4.5-145"
+      ],
+      "classification": "internal",
+      "supersedes": null,
+      "tenants": [
+        "north-sea",
+        "atlas-wind"
+      ],
+      "covers": [
+        "rotor_imbalance",
+        "NACELLE_VIBRATION_HIGH"
+      ],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "oem/ws-prc-sns-040-r2.md",
+      "document_id": "WS-PRC-SNS-040",
+      "revision": 2,
+      "title": "Temperature and Vibration Sensors: Verification, Drift and Dropout",
+      "type": "procedure",
+      "published": "2025-10-02",
+      "issued_by": "WindOps Synthetic (fictional manufacturer)",
+      "applies_to": [
+        "WS-8.0-167",
+        "WS-4.5-145"
+      ],
+      "classification": "internal",
+      "supersedes": null,
+      "tenants": [
+        "north-sea",
+        "atlas-wind"
+      ],
+      "covers": [
+        "sensor_drift",
+        "sensor_dropout",
+        "SENSOR_SIGNAL_LOST"
+      ],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "oem/ws-sb-2025-07-r1.md",
+      "document_id": "WS-SB-2025-07",
+      "revision": 1,
+      "title": "Service Bulletin: Gearbox Oil Cooler Fan Run Capacitor Failures",
+      "type": "bulletin",
+      "published": "2025-07-21",
+      "issued_by": "WindOps Synthetic (fictional manufacturer)",
+      "applies_to": [
+        "WS-8.0-167"
+      ],
+      "classification": "public",
+      "supersedes": null,
+      "tenants": [
+        "north-sea"
+      ],
+      "covers": [
+        "gearbox_oil_overheating",
+        "GBX_OIL_TEMP_HIGH"
+      ],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "oem/ws-sb-2026-03-r1.md",
+      "document_id": "WS-SB-2026-03",
+      "revision": 1,
+      "title": "Service Bulletin: WS-4.5-145 Main Bearing Regreasing Interval",
+      "type": "bulletin",
+      "published": "2026-03-10",
+      "issued_by": "WindOps Synthetic (fictional manufacturer)",
+      "applies_to": [
+        "WS-4.5-145"
+      ],
+      "classification": "internal",
+      "supersedes": null,
+      "tenants": [
+        "atlas-wind"
+      ],
+      "covers": [
+        "bearing_wear"
+      ],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "oem/ws-saf-001-r5.md",
+      "document_id": "WS-SAF-001",
+      "revision": 5,
+      "title": "Work at Height and Turbine Access: Safety Procedure",
+      "type": "procedure",
+      "published": "2026-01-15",
+      "issued_by": "WindOps Synthetic (fictional manufacturer)",
+      "applies_to": [
+        "WS-8.0-167",
+        "WS-4.5-145"
+      ],
+      "classification": "internal",
+      "supersedes": null,
+      "tenants": [
+        "north-sea",
+        "atlas-wind"
+      ],
+      "covers": [],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "oem/ws-eng-cms-001-r1.md",
+      "document_id": "WS-ENG-CMS-001",
+      "revision": 1,
+      "title": "CMS Vibration: Interpretation Guide",
+      "type": "engineering",
+      "published": "2025-04-03",
+      "issued_by": "WindOps Synthetic (fictional manufacturer)",
+      "applies_to": [
+        "WS-8.0-167",
+        "WS-4.5-145"
+      ],
+      "classification": "confidential",
+      "supersedes": null,
+      "tenants": [
+        "north-sea",
+        "atlas-wind"
+      ],
+      "covers": [
+        "bearing_wear",
+        "rotor_imbalance",
+        "gearbox_oil_overheating"
+      ],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "site/ns-site-off-001-r2.md",
+      "document_id": "NS-SITE-OFF-001",
+      "revision": 2,
+      "title": "Dogger East and Hornsea West: Offshore Access and Transfer",
+      "type": "procedure",
+      "published": "2026-02-02",
+      "issued_by": "North Sea operations team (synthetic tenant)",
+      "applies_to": [
+        "dogger-east",
+        "hornsea-west"
+      ],
+      "classification": "restricted",
+      "supersedes": null,
+      "tenants": [
+        "north-sea"
+      ],
+      "covers": [],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "site/aw-site-ons-001-r1.md",
+      "document_id": "AW-SITE-ONS-001",
+      "revision": 1,
+      "title": "Atlas Ridge: Site Access, Crane Work and Winter Working",
+      "type": "procedure",
+      "published": "2025-11-24",
+      "issued_by": "Atlas Wind operations team (synthetic tenant)",
+      "applies_to": [
+        "atlas-ridge"
+      ],
+      "classification": "restricted",
+      "supersedes": null,
+      "tenants": [
+        "atlas-wind"
+      ],
+      "covers": [],
+      "purpose": "demo",
+      "synthetic": true
+    },
+    {
+      "path": "evaluation/adv-sb-inj-001-r1.md",
+      "document_id": "ADV-SB-INJ-001",
+      "revision": 1,
+      "title": "Service Bulletin: Gearbox Oil Filter Housing Torque Values",
+      "type": "bulletin",
+      "published": "2026-05-04",
+      "issued_by": "Unverified sender (synthetic test document)",
+      "applies_to": [
+        "WS-8.0-167",
+        "WS-4.5-145"
+      ],
+      "classification": "internal",
+      "supersedes": null,
+      "tenants": [],
+      "covers": [],
+      "purpose": "evaluation",
+      "synthetic": true
+    }
+  ]
+}
