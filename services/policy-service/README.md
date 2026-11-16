@@ -15,7 +15,13 @@ and names a Production Impact estimate. The service gathers every other input **
 | `case.status`, `case.severity`, `evidence.status`, `evidence.age_hours` | Investigation |
 | `turbine.status`, and the turbine's site | Asset |
 | `impact.total_cost_eur`, the high end of the estimate's range, `impact.projected_lost_energy_mwh`, `impact.downtime_hours` | The Production Impact Service's estimate, `impact_result_id` (M6.2) |
-| `weather.max_wind_speed_mps`, `weather.max_gust_mps` | Weather, from M6.3. Until then, always `unavailable` |
+| `weather.max_wind_speed_mps`, the window's highest forecast hour at the hub, and `weather.max_gust_mps`, at 10 m, the only height the provider gives | The Weather Service's forecast for the proposal's planned window (FR-POL-004, M6.4) |
+
+**Weather comes only from the structured forecast provider (FR-POL-004).** The service gathers it only from the
+Weather Service, from a provider on its allowlist (Open-Meteo, [ADR 0010](../../docs/adr/0010-open-meteo-as-the-forecast-provider.md)),
+and the rule engine refuses any `weather.*` input from anywhere else. A forecast that is stale, unavailable, or doesn't
+cover every hour of the planned window isn't used, and a proposal with no planned window has no weather: either way,
+work at height blocks.
 
 The caller must be able to read the case's turbine (`investigation.read`), or the case is not found. The proposal's
 own estimated cost and downtime are kept with the result for the record, and judge nothing. Without a usable estimate

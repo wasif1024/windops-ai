@@ -371,14 +371,17 @@ class PolicyService(policy_pb2_grpc.PolicyServiceServicer):
     async def _gather(
         self, tenant: str, request: pb.EvaluateProposalRequest, now: datetime
     ) -> tuple[Any, str, list[rules.Input]]:
-        """As the service itself: the case, its evidence, the turbine, its site and the estimate."""
+        """As the service itself: the case and its evidence, the turbine and its site, the estimate
+        and the forecast."""
         with acting_as_service(SERVICE_NAME, tenant, self._secret):
             case = await self._sources.case(request.case_id)
             site, turbine = await sources.turbine_inputs(self._sources, case.turbine_id, now)
             found = await sources.case_inputs(self._sources, case, now)
             impact = await sources.impact_inputs(self._sources, request.impact_result_id, case)
+            weather = await sources.weather_inputs(self._sources, case.turbine_id,
+                                                   request.proposal)  # fmt: skip
         inputs = [*sources.proposal_inputs(request.proposal, now), *found, *turbine, *impact,
-                  *sources.weather_inputs()]  # fmt: skip
+                  *weather]  # fmt: skip
         return case, site, inputs
 
     async def EvaluateProposal(  # noqa: N802  # The name comes from the contract.

@@ -7,6 +7,7 @@ and records the result, which never changes.
 
 import hashlib
 import json
+import math
 import re
 import uuid
 from collections.abc import Callable
@@ -324,6 +325,23 @@ class ProductionImpactService(production_impact_pb2_grpc.ProductionImpactService
 
     # --- estimates
 
+    async def _forecast(
+        self, turbine_id: str, request: pb.EstimateImpactRequest, now: datetime
+    ) -> tuple[Any, str, Any]:
+        """The forecast hub wind for the downtime, or why the observed wind is held instead."""
+        if not request.HasField("planned_start"):
+            return None, "the downtime's start was not given", None
+        begin = request.planned_start.ToDatetime(tzinfo=UTC).replace(minute=0, second=0,
+                                                                      microsecond=0)  # fmt: skip
+        hours = math.ceil(request.downtime_hours)
+        try:
+            answer = await self._sources.forecast(turbine_id, begin,
+                                                  begin + timedelta(hours=hours))  # fmt: skip
+        except (UnavailableError, NotFoundError, InvalidRequestError) as error:
+            return None, f"the Weather Service gave no forecast: {error}", None
+        found, why = sources.forecast_wind(answer, hours)
+        return found, why, answer
+
     async def EstimateImpact(  # noqa: N802  # The name comes from the contract.
         self, request: pb.EstimateImpactRequest, context: Any
     ) -> pb.EstimateImpactResponse:
@@ -361,6 +379,7 @@ class ProductionImpactService(production_impact_pb2_grpc.ProductionImpactService
             turbine = await self._sources.turbine(case.turbine_id)
             farm = await self._sources.wind_farm(turbine.wind_farm_id)
             samples = await self._sources.samples(case.turbine_id, start, end)
+            forecast, no_forecast, answer = await self._forecast(case.turbine_id, request, now)
         # One the caller may not read is not found, the same as one that does not exist.
         if not await self._may_read_turbine(case.turbine_id, turbine.wind_farm_id):
             raise NotFoundError("No such case")
@@ -370,7 +389,7 @@ class ProductionImpactService(production_impact_pb2_grpc.ProductionImpactService
             figures = formulas.estimate(
                 samples, curve.parsed, price.parsed, costs.parsed, action=request.action,
                 downtime_hours=request.downtime_hours, offshore=farm.offshore,
-                site=turbine.wind_farm_id,
+                site=turbine.wind_farm_id, forecast=forecast, no_forecast=no_forecast,
             )  # fmt: skip
         except formulas.NotEnoughDataError as error:
             raise ConflictError(f"No estimate: {error}") from error
@@ -391,6 +410,9 @@ class ProductionImpactService(production_impact_pb2_grpc.ProductionImpactService
                        case.turbine_id, end),
                 _input("observed.seconds", round(figures.observed_seconds), "telemetry",
                        case.turbine_id, end),
+                *([_input("forecast.hub_wind_mps", list(forecast.hourly_mps), "weather",
+                           forecast.source, answer.forecast.retrieved_at.ToDatetime(tzinfo=UTC))]
+                  if forecast is not None else []),
                 *[
                     _input(f"reference.{item.reference_id}",
                            {"version": item.version, "content_hash": item.content_hash},

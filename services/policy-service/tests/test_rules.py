@@ -22,7 +22,9 @@ def rule(definition: dict[str, Any] = WIND) -> rules.Rule:
 
 
 def given(name: str, value: Any, age: timedelta = timedelta(0), state: str = "available") -> Any:
-    return rules.Input(name, value, "test", observed_at=NOW - age, state=state)
+    # Weather is gathered only from the Weather Service (FR-POL-004); the rest from wherever.
+    source = "weather" if name.startswith("weather.") else "test"
+    return rules.Input(name, value, source, observed_at=NOW - age, state=state)
 
 
 def judge(definition: dict[str, Any], *inputs: rules.Input, site: str = "dogger-east") -> Any:
@@ -147,3 +149,13 @@ def test_a_versions_hash_is_its_exact_content() -> None:
     assert first == rules.content_hash("r", 1, dict(reversed(list(WIND.items()))))
     assert first != rules.content_hash("r", 2, WIND)
     assert first != rules.content_hash("r", 1, {**WIND, "outcome": "escalate"})
+
+
+def test_weather_from_anywhere_but_the_structured_provider_is_never_used() -> None:
+    """FR-POL-004: research, a note or a caller's figure cannot feed a safety rule."""
+    for source in ("proposal", "tavily", "person"):
+        calm = rules.Input("weather.max_wind_speed_mps", 5.0, source, observed_at=NOW)
+        judged = judge(WIND, CLIMB, calm)
+        assert judged.outcome == "block" and "structured forecast provider" in judged.reason
+    forecast = rules.Input("weather.max_wind_speed_mps", 5.0, "weather", observed_at=NOW)
+    assert judge(WIND, CLIMB, forecast).outcome == "pass"

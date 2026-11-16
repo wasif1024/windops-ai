@@ -112,3 +112,17 @@ def test_reference_data_that_cannot_be_used_exactly_is_refused(
 ) -> None:
     with pytest.raises(references.ReferenceError, match=message):
         references.parse(definition)
+
+
+def test_near_cut_out_the_range_still_holds_the_value() -> None:
+    """A stronger wind there gives nothing, so the range's ends are not its least and most."""
+    for wind in (24.0, 24.6, 24.9, 25.2):
+        result = formulas.estimate(hour(wind, 0.0), CURVE, PRICE, COSTS, action="repair",
+                                   downtime_hours=4, offshore=True, site="")  # fmt: skip
+        for figure in result.figures:
+            assert figure.low <= figure.value <= figure.high, (wind, figure)
+        forecast = formulas.ForecastWind((wind,) * 4, "open-meteo:fct_x")
+        projected = formulas.estimate(hour(10.0, 0.0), CURVE, PRICE, COSTS, action="repair",
+                                      downtime_hours=4, offshore=True, site="",
+                                      forecast=forecast).figures[2]  # fmt: skip
+        assert projected.low <= projected.value <= projected.high, (wind, projected)
