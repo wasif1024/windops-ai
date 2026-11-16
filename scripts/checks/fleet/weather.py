@@ -84,7 +84,8 @@ def check_forecast(weather: Caller) -> Any:
         f"{f.licence}, valid {f.valid_from.ToDatetime():%d %b %H:%M} to "
         f"{f.valid_to.ToDatetime():%d %b %H:%M}",
     )  # fmt: skip
-    check(max(decimals) <= 2, f"Only rounded coordinates were sent: {f.latitude}, {f.longitude}")
+    # The coordinates themselves are not printed: a site's location stays out of logs.
+    check(max(decimals) <= 2, f"Only coordinates rounded to {max(decimals)} decimals were sent")
     hub = [p for p in answer.points if p.HasField("wind_speed_hub_mps")]
     s = answer.summary
     check(
