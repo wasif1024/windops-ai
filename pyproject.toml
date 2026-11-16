@@ -19,6 +19,7 @@ members = [
     "services/identity-service",
     "services/investigation-service",
     "services/policy-service",
+    "services/production-impact-service",
     "services/sample-caller-service",
     "services/sample-responder-service",
     "services/telemetry-service",
@@ -60,6 +61,7 @@ windops-alarm = { workspace = true }
 windops-fault-detection = { workspace = true }
 windops-investigation = { workspace = true }
 windops-policy = { workspace = true }
+windops-production-impact = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -97,6 +99,8 @@ files = [
     "services/investigation-service/tests",
     "services/policy-service/src",
     "services/policy-service/tests",
+    "services/production-impact-service/src",
+    "services/production-impact-service/tests",
     "services/sample-caller-service/src",
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
@@ -145,6 +149,8 @@ mypy_path = [
     "services/investigation-service/tests",
     "services/policy-service/src",
     "services/policy-service/tests",
+    "services/production-impact-service/src",
+    "services/production-impact-service/tests",
     "services/sample-caller-service/src",
     "services/sample-caller-service/tests",
     "services/sample-responder-service/src",
@@ -233,6 +239,7 @@ dev = [
     "windops-observability",
     "windops-outbox",
     "windops-policy",
+    "windops-production-impact",
     "windops-resilience",
     "windops-sample-caller",
     "windops-sample-responder",

@@ -34,10 +34,11 @@ class PolicyServiceStub:
     ever with who made it, when and why, and its content hash. An old version never changes.
 
     The service gathers the facts it judges by itself, from the services that own them: the case
-    and its evidence from Investigation, the turbine and its site from Asset, and, from M6.4, the
-    weather from the Weather Service. A caller supplies only the proposal being judged. When a
-    required input is missing, stale or cannot be reached, the rule's outcome is block or
-    escalate, never pass (FR-POL-005): a rule cannot be written to pass on a missing input.
+    and its evidence from Investigation, the turbine and its site from Asset, the cost and downtime
+    from the Production Impact Service's estimate, and, from M6.4, the weather. A caller supplies
+    only the proposal being judged. When a required input is missing, stale or cannot be reached,
+    the rule's outcome is block or escalate, never pass (FR-POL-005): a rule cannot be written to
+    pass on a missing input.
 
     The tenant comes from the caller's verified identity (GRP-004). Reading rules needs
     policy.read. Changing one needs policy.manage and a recent second factor (SEC-003), so only a
@@ -98,10 +99,11 @@ class PolicyServiceServicer:
     ever with who made it, when and why, and its content hash. An old version never changes.
 
     The service gathers the facts it judges by itself, from the services that own them: the case
-    and its evidence from Investigation, the turbine and its site from Asset, and, from M6.4, the
-    weather from the Weather Service. A caller supplies only the proposal being judged. When a
-    required input is missing, stale or cannot be reached, the rule's outcome is block or
-    escalate, never pass (FR-POL-005): a rule cannot be written to pass on a missing input.
+    and its evidence from Investigation, the turbine and its site from Asset, the cost and downtime
+    from the Production Impact Service's estimate, and, from M6.4, the weather. A caller supplies
+    only the proposal being judged. When a required input is missing, stale or cannot be reached,
+    the rule's outcome is block or escalate, never pass (FR-POL-005): a rule cannot be written to
+    pass on a missing input.
 
     The tenant comes from the caller's verified identity (GRP-004). Reading rules needs
     policy.read. Changing one needs policy.manage and a recent second factor (SEC-003), so only a
@@ -213,10 +215,11 @@ class PolicyService:
     ever with who made it, when and why, and its content hash. An old version never changes.
 
     The service gathers the facts it judges by itself, from the services that own them: the case
-    and its evidence from Investigation, the turbine and its site from Asset, and, from M6.4, the
-    weather from the Weather Service. A caller supplies only the proposal being judged. When a
-    required input is missing, stale or cannot be reached, the rule's outcome is block or
-    escalate, never pass (FR-POL-005): a rule cannot be written to pass on a missing input.
+    and its evidence from Investigation, the turbine and its site from Asset, the cost and downtime
+    from the Production Impact Service's estimate, and, from M6.4, the weather. A caller supplies
+    only the proposal being judged. When a required input is missing, stale or cannot be reached,
+    the rule's outcome is block or escalate, never pass (FR-POL-005): a rule cannot be written to
+    pass on a missing input.
 
     The tenant comes from the caller's verified identity (GRP-004). Reading rules needs
     policy.read. Changing one needs policy.manage and a recent second factor (SEC-003), so only a

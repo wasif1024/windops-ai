@@ -15,6 +15,7 @@ from windops.asset.v1 import asset_pb2_grpc
 from windops.authorization.v1 import authorization_pb2_grpc
 from windops.investigation.v1 import investigation_pb2_grpc
 from windops.policy.v1 import policy_pb2_grpc
+from windops.production_impact.v1 import production_impact_pb2_grpc
 from windops_auth import current_identity_token
 from windops_events import EventsUnavailableError, open_events
 from windops_grpc import ServiceClient, create_channel, run_service
@@ -93,8 +94,13 @@ def main() -> None:
                 "investigation": stub(investigation_pb2_grpc.InvestigationServiceStub,
                                       "WINDOPS_INVESTIGATION_ADDRESS"),
                 "asset": stub(asset_pb2_grpc.AssetServiceStub, "WINDOPS_ASSET_ADDRESS"),
+                "production-impact": stub(production_impact_pb2_grpc.ProductionImpactServiceStub,
+                                          "WINDOPS_PRODUCTION_IMPACT_ADDRESS"),
             },
-            {"investigation": _client("investigation"), "asset": _client("asset")},
+            {
+                "investigation": _client("investigation"), "asset": _client("asset"),
+                "production-impact": _client("production-impact"),
+            },
         )
     )  # fmt: skip
 

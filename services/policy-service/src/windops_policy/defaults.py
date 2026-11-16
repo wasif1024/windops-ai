@@ -7,7 +7,7 @@ for turbine technicians; the rest are business defaults for review.
 
 from typing import Any
 
-LIBRARY = "policy-rules-1"
+LIBRARY = "policy-rules-2"
 ACTIVE_CASE = ["open", "investigating", "pending_review"]
 CLIMB = {"input": "proposal.requires_climb", "equals": True}
 # A forecast older than this is stale for a decision about work at height (WTH-005).
@@ -59,13 +59,30 @@ DEFAULT_RULES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
       "parameters": {"input": "proposal.confidence", "below": 0.6},
       "outcome": "escalate", "when_missing": "escalate"}),
     ("cost-limit", "Cost above the approval limit",
-     "Spending above the limit needs a person's decision",
+     "Spending above the limit, at the high end of the Production Impact estimate, needs a "
+     "person's decision",
      {"kind": "limit", "category": "business",
-      "parameters": {"input": "proposal.estimated_cost_eur", "above": 50000.0},
+      "parameters": {"input": "impact.total_cost_eur", "above": 50000.0},
       "outcome": "escalate", "when_missing": "escalate"}),
     ("downtime-limit", "Downtime above the limit",
      "Taking a turbine down for longer than the limit needs a person's decision",
      {"kind": "limit", "category": "business",
-      "parameters": {"input": "proposal.estimated_downtime_hours", "above": 48.0},
+      "parameters": {"input": "impact.downtime_hours", "above": 48.0},
       "outcome": "escalate", "when_missing": "escalate"}),
 )  # fmt: skip
+
+# policy-rules-1 judged the caller's own cost and downtime. A tenant still on those versions, made
+# by the system and never changed, moves to policy-rules-2's as a new version (M6.2). A tenant who
+# changed them keeps their own.
+UPGRADES: dict[str, dict[str, Any]] = {
+    "cost-limit": {
+        "kind": "limit", "category": "business",
+        "parameters": {"input": "proposal.estimated_cost_eur", "above": 50000.0},
+        "outcome": "escalate", "when_missing": "escalate",
+    },
+    "downtime-limit": {
+        "kind": "limit", "category": "business",
+        "parameters": {"input": "proposal.estimated_downtime_hours", "above": 48.0},
+        "outcome": "escalate", "when_missing": "escalate",
+    },
+}  # fmt: skip

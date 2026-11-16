@@ -83,7 +83,10 @@ flowchart TB
     Policy --> Weather
     Policy --> Investigation
     Policy --> Asset
+    Policy --> Impact
     Impact --> Asset
+    Impact --> Telemetry
+    Impact --> Investigation
 ```
 
 WindOps MCP also has read tools for Asset, Telemetry and Alarm, which the table below lists.
@@ -150,8 +153,8 @@ Investigation listens for changes because they can make a recommendation stale (
 | Knowledge | Qdrant, the embedding provider | `evidence.changed`, audit events | None |
 | Weather | The forecast provider | None | None |
 | External Intelligence | Tavily | Audit events | None |
-| Production Impact | Asset | Audit events | None |
-| Policy | Investigation and Asset, for the facts it judges on ([ADR 0009](adr/0009-policy-judges-a-proposal-on-facts-it-gathers.md)), and Weather from M6.4 | Audit events | None |
+| Production Impact | Investigation, Asset and Telemetry, for the case, the turbine and its observed wind and power | Audit events | None |
+| Policy | Investigation, Asset and Production Impact, for the facts it judges on ([ADR 0009](adr/0009-policy-judges-a-proposal-on-facts-it-gathers.md)), and Weather from M6.4 | Audit events | None |
 | Maintenance | Asset, Policy, Inventory | `workorder.submitted`, `workorder.completed`, audit events | `approval.decided` |
 | Inventory | None | `evidence.changed`, audit events | None |
 | Approval | Maintenance, Investigation, Policy | `approval.decided`, audit events | `workorder.submitted` |

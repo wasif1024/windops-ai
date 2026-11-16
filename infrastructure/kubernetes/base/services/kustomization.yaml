@@ -14,6 +14,7 @@ resources:
   - ../../../../services/identity-service/deploy
   - ../../../../services/investigation-service/deploy
   - ../../../../services/policy-service/deploy
+  - ../../../../services/production-impact-service/deploy
   - ../../../../services/sample-caller-service/deploy
   - ../../../../services/sample-responder-service/deploy
   - ../../../../services/telemetry-service/deploy

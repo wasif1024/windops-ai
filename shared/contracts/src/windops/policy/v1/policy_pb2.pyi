@@ -312,7 +312,9 @@ class Proposal(_message.Message):
     requires_climb: _builtins.bool
     """Climbing the tower or working in the nacelle or hub: work at height."""
     estimated_cost_eur: _builtins.float
-    """Unset when not known, which a rule that needs it treats as missing."""
+    """As the caller states them, kept with the result for the record. The rules judge cost and
+    downtime from the Production Impact result instead (impact_result_id), never from these.
+    """
     estimated_downtime_hours: _builtins.float
     confidence: _builtins.float
     """From 0 to 1, as the recommendation states it."""
@@ -358,8 +360,13 @@ class EvaluateProposalRequest(_message.Message):
     CASE_ID_FIELD_NUMBER: _builtins.int
     PROPOSAL_FIELD_NUMBER: _builtins.int
     IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    IMPACT_RESULT_ID_FIELD_NUMBER: _builtins.int
     case_id: _builtins.str
     idempotency_key: _builtins.str
+    impact_result_id: _builtins.str
+    """The Production Impact Service's estimate for this case and action. Its cost and downtime are
+    what the rules judge. Without one, those inputs are missing, so their rules escalate.
+    """
     @_builtins.property
     def proposal(self) -> Global___Proposal: ...
     def __init__(
@@ -368,10 +375,11 @@ class EvaluateProposalRequest(_message.Message):
         case_id: _builtins.str = ...,
         proposal: Global___Proposal | None = ...,
         idempotency_key: _builtins.str = ...,
+        impact_result_id: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["proposal", b"proposal"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "idempotency_key", b"idempotency_key", "proposal", b"proposal"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "idempotency_key", b"idempotency_key", "impact_result_id", b"impact_result_id", "proposal", b"proposal"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
