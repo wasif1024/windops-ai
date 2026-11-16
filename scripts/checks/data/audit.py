@@ -11,12 +11,14 @@ import subprocess
 import sys
 import time
 import uuid
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import grpc
 from nats.aio.client import Client
 from nats.errors import Error as NatsError
+from nats.js.api import ConsumerConfig, DeliverPolicy
 from windops.audit.v1 import audit_pb2, audit_pb2_grpc
 from windops.events.v1 import events_pb2
 from windops_events import DEAD_LETTER_STREAM, audit_request_subject, build_envelope, connect
@@ -39,6 +41,9 @@ IMAGE = "windops-audit:local"
 AUDIT_HOST = "windops-audit.windops-application.svc.cluster.local"
 DATABASE = database_name("audit")
 RUN = uuid.uuid4().hex[:8]
+# Announcements are read from when the check began, a little before, not from the stream's start:
+# the stream holds every service's announcements, and this run's would be far down it.
+STARTED = datetime.now(UTC) - timedelta(minutes=1)
 TENANT = f"audit-check-{RUN}"
 OTHER_TENANT = f"audit-check-other-{RUN}"
 # Made an Auditor in both test tenants, since reading needs audit.read (SRS 3.2).
@@ -322,7 +327,8 @@ async def check_forgery(api: AuditApi, alarm: Client, admin: Client) -> None:
 
 async def check_announcement(admin: Client) -> None:
     js = admin.jetstream()
-    reader = await js.pull_subscribe("audit.recorded", stream=EVENTS_STREAM)
+    since = ConsumerConfig(deliver_policy=DeliverPolicy.BY_START_TIME, opt_start_time=STARTED)
+    reader = await js.pull_subscribe("audit.recorded", stream=EVENTS_STREAM, config=since)
     found = 0
     for _ in range(10):
         try:

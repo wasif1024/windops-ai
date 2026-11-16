@@ -205,7 +205,8 @@ only read access unless it needs more.
 | 4A. Azure alignment | Done, [deployed and proven on Azure](docs/phases/phase-04a-exit-gate.md) |
 | 4. Assets and telemetry | Done, [exit gate](docs/phases/phase-04-exit-gate.md) |
 | 5. Alarms, detection and cases | Done, [exit gate](docs/phases/phase-05-exit-gate.md) |
-| 6. Deterministic decisions | In progress: 4 of 5 modules, M6.5 next |
+| 6. Deterministic decisions | Done, [exit gate](docs/phases/phase-06-exit-gate.md) |
+| 7. Knowledge and external intelligence | Next: M7.1, synthetic documents |
 
 | Running today | |
 | --- | --- |
