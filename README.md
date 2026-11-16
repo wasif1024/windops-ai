@@ -205,14 +205,14 @@ only read access unless it needs more.
 | 4A. Azure alignment | Done, [deployed and proven on Azure](docs/phases/phase-04a-exit-gate.md) |
 | 4. Assets and telemetry | Done, [exit gate](docs/phases/phase-04-exit-gate.md) |
 | 5. Alarms, detection and cases | Done, [exit gate](docs/phases/phase-05-exit-gate.md) |
-| 6. Deterministic decisions | In progress: 2 of 5 modules, M6.3 next |
+| 6. Deterministic decisions | In progress: 3 of 5 modules, M6.4 next |
 
 | Running today | |
 | --- | --- |
 | Edge | API Gateway, Web BFF and the React frontend, with Keycloak sign-in and MFA |
 | Identity and tenancy | Identity, Authorization and Tenant services, with tenant branding and administration consoles |
 | Operations | Asset Service with synthetic demo fleets, and Telemetry Service with authenticated device ingestion, fed live by the simulator's 13 devices |
-| Faults and decisions | Alarm, Fault Detection and Investigation services: controller alarms, versioned fault rules, and one deduplicated case per fault, bound to immutable evidence. The Policy Service judges proposals against versioned rules, and fails closed, and the Production Impact Service prices them, with a range for every figure |
+| Faults and decisions | Alarm, Fault Detection and Investigation services: controller alarms, versioned fault rules, and one deduplicated case per fault, bound to immutable evidence. The Policy Service judges proposals against versioned rules, and fails closed, the Production Impact Service prices them, with a range for every figure, and the Weather Service gives each site's forecast, with its provenance and age |
 | Platform | Audit Service, with a tamper-evident trail, plus PostgreSQL, Redis, Qdrant, NATS JetStream and the full observability stack |
 | On Azure | Asset, Audit, Authorization and Tenant on AKS, with Service Bus, Azure Database for PostgreSQL, Key Vault and Azure Monitor |
 
@@ -319,6 +319,8 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0006](docs/adr/0006-azure-aligned-platform-services.md) | The platform aligned with Azure's reference architecture: Service Bus, Workload ID, Cilium and Azure Monitor |
 | [0007](docs/adr/0007-alarms-arrive-through-the-device-route.md) | Alarms arrive through the device route, as `alarm.reported` events |
 | [0008](docs/adr/0008-services-act-as-themselves-with-fixed-read-grants.md) | Services act as themselves, with fixed read-only grants |
+| [0009](docs/adr/0009-policy-judges-a-proposal-on-facts-it-gathers.md) | Policy judges a proposal on facts it gathers itself, cost and downtime from Production Impact, and fails closed |
+| [0010](docs/adr/0010-open-meteo-as-the-forecast-provider.md) | Open-Meteo as the forecast provider, on its free tier for non-commercial use |
 
 ## Repository layout
 

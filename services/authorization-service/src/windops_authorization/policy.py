@@ -155,6 +155,8 @@ SERVICE_GRANTS: dict[str, frozenset[str]] = {
     "policy": frozenset({"turbine.read", "investigation.read"}),
     # It estimates a case's impact from the turbine, its site and its observed wind and power.
     "production-impact": frozenset({"turbine.read", "telemetry.read", "investigation.read"}),
+    # It reads each turbine's coordinates and hub height, for the forecast at its site.
+    "weather": frozenset({"turbine.read"}),
 }
 
 
