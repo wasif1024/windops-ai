@@ -10,8 +10,10 @@ that matter, and authorized people approve every high-impact action, for each te
 The platform is advisory only: it never issues turbine commands. It is a portfolio-grade reference system, built
 to production standards and run on synthetic data from a seeded, physics-based turbine simulator.
 
-**Status:** Phases 1 to 3 and 4A are complete. The platform is **deployed and proven on Azure Kubernetes Service**
-by its Azure DevOps pipeline, and runs the same way on a laptop ([evidence](docs/phases/phase-04a-exit-gate.md)).
+**Status:** Phases 1 to 6 and 4A are complete. Faults are detected by versioned rules and become cases bound to
+immutable evidence. Proposals are priced by Production Impact and judged by Policy on the live weather forecast,
+failing closed when an input is missing. The platform is **deployed and proven on Azure Kubernetes Service** by
+its Azure DevOps pipeline, and runs the same way on a laptop ([evidence](docs/phases/phase-04a-exit-gate.md)).
 
 <table>
   <tr>
@@ -297,6 +299,8 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [Implementation tracker](docs/phases/README.md) | Every phase and its modules, with progress and exit gates |
 | [Phase 4 evidence](docs/phases/phase-04-exit-gate.md) | A seeded fault streamed into storage, every label matched to its ground truth, and every Phase 4 check |
 | [Phase 4A evidence](docs/phases/phase-04a-exit-gate.md) | The platform deployed and proven on Azure, and the phase gates run again on Cilium |
+| [Phase 5 evidence](docs/phases/phase-05-exit-gate.md) | A seeded fault detected by a versioned rule, opened as one deduplicated case with immutable evidence |
+| [Phase 6 evidence](docs/phases/phase-06-exit-gate.md) | Every boundary test passing 100%, and a missing weather input failing closed each way it can go missing |
 | [Architecture](docs/architecture.md) | How a request flows, and the detailed diagrams of every service, control and Azure resource |
 | [Microservices](docs/microservices.md) and [service map](docs/service-map.md) | Every service's calls and events, and its behavior when a dependency fails |
 | [gRPC contracts](docs/grpc-contracts.md) and [events](docs/events.md) | Versioning, breaking changes, subjects, dead letters and alerts |
