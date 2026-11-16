@@ -17,20 +17,26 @@ from windops.asset.v1 import asset_pb2
 from windops.investigation.v1 import investigation_pb2
 from windops.policy.v1 import policy_pb2 as pb
 from windops.production_impact.v1 import production_impact_pb2
+from windops.weather.v1 import weather_pb2
 from windops_grpc import InvalidRequestError, NotFoundError, ServiceClient, UnavailableError
 from windops_resilience import BreakerOpenError
 
 from windops_policy.rules import Input
 
 DEADLINE_SECONDS = 3.0
+# A forecast may be retrieved from the provider on the way, which allows up to 10 seconds.
+FORECAST_DEADLINE_SECONDS = 12.0
 ACTIONS = ("inspection", "repair", "replacement", "adjustment", "monitoring")
-WEATHER_LATER = "The Weather Service arrives in M6.3"
+# Safety rules take weather only from a structured forecast provider (FR-POL-004, ADR 0010):
+# never research, a person's note or a caller's figure.
+STRUCTURED_PROVIDERS = frozenset({"open-meteo"})
+WEATHER = ("weather.max_wind_speed_mps", "weather.max_gust_mps")
 
 
-async def ask(client: ServiceClient, method: Any, request: Message, who: str) -> Any:
+async def ask(client: ServiceClient, method: Any, request: Message, who: str,
+              deadline: float = DEADLINE_SECONDS) -> Any:  # fmt: skip
     try:
-        return await client.call(method, request, idempotent=True,
-                                 deadline_seconds=DEADLINE_SECONDS)  # fmt: skip
+        return await client.call(method, request, idempotent=True, deadline_seconds=deadline)
     except grpc.aio.AioRpcError as error:
         if error.code() in (grpc.StatusCode.NOT_FOUND, grpc.StatusCode.PERMISSION_DENIED):
             raise NotFoundError(f"{who} has no such record") from error
@@ -44,6 +50,7 @@ class Sources(Protocol):
     async def evidence(self, snapshot_id: str) -> Any: ...
     async def turbine(self, turbine_id: str) -> Any: ...
     async def impact(self, result_id: str) -> Any: ...
+    async def forecast(self, turbine_id: str, start: datetime, end: datetime) -> Any: ...
 
 
 class ServiceSources:
@@ -67,6 +74,12 @@ class ServiceSources:
         request = asset_pb2.GetTurbineRequest(turbine_id=turbine_id)
         return (await ask(self._clients["asset"], self._stubs["asset"].GetTurbine, request,
                           "The Asset Service")).turbine  # fmt: skip
+
+    async def forecast(self, turbine_id: str, start: datetime, end: datetime) -> Any:
+        request = weather_pb2.GetForecastRequest(turbine_id=turbine_id, from_time=_stamp(start),
+                                                 to_time=_stamp(end))  # fmt: skip
+        return await ask(self._clients["weather"], self._stubs["weather"].GetForecast, request,
+                         "The Weather Service", FORECAST_DEADLINE_SECONDS)  # fmt: skip
 
     async def impact(self, result_id: str) -> Any:
         request = production_impact_pb2.GetImpactResultRequest(result_id=result_id)
@@ -198,9 +211,56 @@ async def impact_inputs(sources: Sources, result_id: str, case: Any) -> list[Inp
     ]  # fmt: skip
 
 
-def weather_inputs() -> list[Input]:
-    return _unavailable(("weather.max_wind_speed_mps", "weather.max_gust_mps"), "weather",
-                        WEATHER_LATER)  # fmt: skip
+def _stamp(value: datetime) -> Timestamp:
+    result = Timestamp()
+    result.FromDatetime(value)
+    return result
+
+
+async def weather_inputs(sources: Sources, turbine_id: str, proposal: pb.Proposal) -> list[Input]:
+    """The forecast over the proposal's planned window, from the Weather Service (FR-POL-004).
+
+    Wind is the window's highest forecast hour at the turbine's hub, and gusts its highest at 10 m,
+    the only height the provider gives. A forecast that is stale, unavailable, from a provider that
+    is not a structured one, or that does not cover every hour of the window is not used.
+    """
+
+    def unusable(state: str, note: str, ref: str = "") -> list[Input]:
+        return [Input(name, None, "weather", ref, state=state, note=note) for name in WEATHER]
+
+    if not proposal.HasField("planned_start"):
+        return unusable("missing", "the proposal has no planned window to forecast")
+    start = proposal.planned_start.ToDatetime(tzinfo=UTC)
+    end = proposal.planned_end.ToDatetime(tzinfo=UTC)
+    try:
+        answer = await sources.forecast(turbine_id, start, end)
+    except (UnavailableError, NotFoundError, InvalidRequestError) as error:
+        return unusable("unavailable", str(error))
+    if answer.state != "fresh":
+        return unusable("stale" if answer.state == "stale" else "unavailable",
+                        answer.note or f"the forecast is {answer.state}")  # fmt: skip
+    forecast, summary = answer.forecast, answer.summary
+    ref = f"{forecast.provider}:{forecast.forecast_id}"
+    if forecast.provider not in STRUCTURED_PROVIDERS:
+        return unusable("unavailable", f"{forecast.provider} is not a structured forecast provider",
+                        ref)  # fmt: skip
+    if summary.hours_covered < summary.hours_wanted:
+        return unusable("missing", f"the forecast covers {summary.hours_covered} of the "
+                        f"{summary.hours_wanted} hours planned", ref)  # fmt: skip
+    retrieved = forecast.retrieved_at.ToDatetime(tzinfo=UTC)
+
+    def value(name: str, field: str, what: str) -> Input:
+        if not summary.HasField(field):
+            return Input(name, None, "weather", ref, retrieved, "missing",
+                         f"the provider gave no {what}")  # fmt: skip
+        return Input(name, float(getattr(summary, field)), "weather", ref, retrieved,
+                     note=what)  # fmt: skip
+
+    return [
+        value("weather.max_wind_speed_mps", "max_wind_speed_hub_mps",
+              f"wind at the {forecast.hub_height_m:g} m hub"),
+        value("weather.max_gust_mps", "max_wind_gusts_10m_mps", "gusts at 10 m"),
+    ]  # fmt: skip
 
 
 def to_input(item: Input) -> pb.PolicyInput:

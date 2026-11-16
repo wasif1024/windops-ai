@@ -243,12 +243,20 @@ class EstimateImpactRequest(_message.Message):
     ACTION_FIELD_NUMBER: _builtins.int
     DOWNTIME_HOURS_FIELD_NUMBER: _builtins.int
     IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    PLANNED_START_FIELD_NUMBER: _builtins.int
     case_id: _builtins.str
     action: _builtins.str
     """"inspection", "repair", "replacement", "adjustment" or "monitoring"."""
     downtime_hours: _builtins.float
     """How long the turbine will be down for it: more than 0, at most 720."""
     idempotency_key: _builtins.str
+    @_builtins.property
+    def planned_start(self) -> _timestamp_pb2.Timestamp:
+        """When the downtime starts. With it, the lost energy is projected hour by hour from the Weather
+        Service's forecast for the site (M6.4); without it, or without a usable forecast, from the
+        observed wind held steady. The result's assumptions say which.
+        """
+
     def __init__(
         self,
         *,
@@ -256,10 +264,11 @@ class EstimateImpactRequest(_message.Message):
         action: _builtins.str = ...,
         downtime_hours: _builtins.float = ...,
         idempotency_key: _builtins.str = ...,
+        planned_start: _timestamp_pb2.Timestamp | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["planned_start", b"planned_start"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "case_id", b"case_id", "downtime_hours", b"downtime_hours", "idempotency_key", b"idempotency_key"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "case_id", b"case_id", "downtime_hours", b"downtime_hours", "idempotency_key", b"idempotency_key", "planned_start", b"planned_start"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

@@ -12,6 +12,7 @@ from typing import Any
 
 import grpc
 import pytest
+from google.protobuf.timestamp_pb2 import Timestamp
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -19,6 +20,7 @@ from windops.asset.v1 import asset_pb2
 from windops.investigation.v1 import investigation_pb2
 from windops.production_impact.v1 import production_impact_pb2 as pb
 from windops.production_impact.v1 import production_impact_pb2_grpc
+from windops.weather.v1.weather_pb2 import Forecast, ForecastPoint, GetForecastResponse
 from windops_auth import LEVEL_MFA, LEVEL_PASSWORD
 from windops_grpc import (
     NotFoundError,
@@ -30,6 +32,7 @@ from windops_grpc import (
     sign_identity,
 )
 from windops_outbox import create_outbox_table
+from windops_production_impact import references
 from windops_production_impact.defaults import DEFAULT_REFERENCES, LIBRARY
 from windops_production_impact.formulas import Sample
 from windops_production_impact.service import ProductionImpactService
@@ -42,6 +45,12 @@ SETTINGS = Settings(
     shutdown_grace_seconds=1,
 )  # fmt: skip
 NOW = datetime(2026, 11, 16, 12, 0, tzinfo=UTC)
+
+
+def stamp(at: datetime) -> Timestamp:
+    value = Timestamp()
+    value.FromDatetime(at)
+    return value
 
 
 @dataclass
@@ -62,6 +71,7 @@ class FakeSources:
     model: str = "SG-8.0-167"
     telemetry_down: bool = False
     seconds: int = 3600
+    forecast_state: str = "fresh"
     asked_as: list[str] = field(default_factory=list)
 
     async def case(self, case_id: str) -> Any:
@@ -79,6 +89,17 @@ class FakeSources:
 
     async def wind_farm(self, wind_farm_id: str) -> Any:
         return asset_pb2.WindFarm(wind_farm_id=wind_farm_id, offshore=True, version=3)
+
+    async def forecast(self, turbine_id: str, start: datetime, end: datetime) -> Any:
+        """A steady 12 m/s at the hub, fresh, for every hour asked."""
+        hours = int((end - start).total_seconds() // 3600)
+        return GetForecastResponse(
+            state=self.forecast_state, note="" if self.forecast_state == "fresh" else "old",
+            forecast=Forecast(forecast_id="fct_" + "c" * 20, provider="open-meteo",
+                              retrieved_at=stamp(NOW - timedelta(minutes=10))),
+            points=[ForecastPoint(valid_at=stamp(start + timedelta(hours=i)),
+                                  wind_speed_hub_mps=12.0) for i in range(hours)],
+        )  # fmt: skip
 
     async def samples(self, turbine_id: str, start: datetime, end: datetime) -> list[Sample]:
         if self.telemetry_down:
@@ -174,7 +195,7 @@ def test_an_estimate_keeps_its_inputs_formula_assumptions_and_ranges() -> None:
     async def scenario(world: World) -> None:
         result = await estimate(world)
         assert result.result_id.startswith("imp_") and result.verified
-        assert result.formula_version == "impact-formulas-1"
+        assert result.formula_version == "impact-formulas-2"
         figures = {f.name: f for f in result.figures}
         total = figures["total_cost_eur"]
         assert total.low <= total.value <= total.high and total.unit == "EUR"
@@ -261,3 +282,38 @@ def test_who_may_ask_and_a_retry_and_a_changed_row() -> None:
         assert listed.results and not listed.results[0].verified
 
     with_service(scenario)
+
+
+def test_with_a_planned_start_the_loss_is_projected_from_the_forecast_hub_wind() -> None:
+    async def scenario(world: World) -> None:
+        planned = stamp(NOW + timedelta(hours=3))
+        result = await estimate(world, downtime_hours=6.0, planned_start=planned)
+        inputs = {i.name: i for i in result.inputs}
+        wind = inputs["forecast.hub_wind_mps"]
+        assert (wind.source, wind.source_ref, json.loads(wind.value_json)) == (
+            "weather", "open-meteo:fct_" + "c" * 20, [12.0] * 6,
+        )  # fmt: skip
+        projected = next(f for f in result.figures if f.name == "projected_lost_energy_mwh")
+        curve = references.parse(next(d for r, _, d in DEFAULT_REFERENCES
+                                      if r == "power-curve-sg-8-0-167"))  # fmt: skip
+        assert projected.value == pytest.approx(curve.kw(12.0) * 6 / 1000, abs=1e-3)
+        assert projected.low <= projected.value <= projected.high
+        assert any("forecast wind at the hub" in a for a in result.assumptions)
+
+    with_service(scenario)
+
+
+def test_without_a_start_or_a_fresh_forecast_the_observed_wind_is_held_and_it_says_why() -> None:
+    async def no_start(world: World) -> None:
+        result = await estimate(world)
+        assert any("stays as observed" in a and "start was not given" in a
+                   for a in result.assumptions)  # fmt: skip
+        assert "forecast.hub_wind_mps" not in {i.name for i in result.inputs}
+
+    async def stale(world: World) -> None:
+        result = await estimate(world, planned_start=stamp(NOW + timedelta(hours=1)))
+        assert any("stays as observed" in a and "the forecast is stale" in a
+                   for a in result.assumptions)  # fmt: skip
+
+    with_service(no_start)
+    with_service(stale, forecast_state="stale")

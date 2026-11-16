@@ -15,29 +15,31 @@ itself**, with fixed read grants (`turbine.read`, `telemetry.read`, `investigati
 | The case's turbine | Investigation |
 | The turbine's model, its site, and whether the site is offshore | Asset |
 | The last 6 hours of wind and power, at 1 Hz | Telemetry |
+| The forecast wind at the hub over the downtime, when its start is given | Weather (M6.4) |
 | The model's power curve, the energy price and the maintenance costs, each at its current version | This service's reference data |
 
 The caller must be able to read the case's turbine (`investigation.read`), or the case is not found. Without the
 telemetry, a power curve for the model, or at least 10 minutes of wind and power, there is no estimate, never a
 guess (SRS 7.7).
 
-## The formulas: `impact-formulas-1`
+## The formulas: `impact-formulas-2`
 
 | Figure | How |
 | --- | --- |
 | `observed_lost_energy_mwh` | What the power curve says the observed wind should have produced, less what was produced, never below 0 |
 | `observed_availability_pct` | Time producing, as a share of time with wind between cut-in and cut-out |
-| `projected_lost_energy_mwh` | The window's mean expected output, over the planned downtime |
+| `projected_lost_energy_mwh` | With the downtime's start, what the forecast hub wind would have produced, hour by hour. Without it, or without a fresh forecast from a structured provider covering every hour, the window's mean expected output over the downtime, as version 1 did |
 | `availability_impact_pct_points` | The downtime, as a share of a 730-hour month |
 | `lost_revenue_eur` | The projected lost energy at the site's energy price |
 | `maintenance_cost_eur` | Labour hours at the labour rate, and access days at the onshore or offshore day rate |
 | `total_cost_eur` | Lost revenue and maintenance together |
 
-- **The range:** each figure's low and high take the anemometer's ±0.5 m/s and the power curve's tolerance together,
-  at their worst in each direction.
+- **The range:** each figure's low and high take the wind's uncertainty and the power curve's tolerance together, at
+  their worst in each direction. That's ±0.5 m/s for the anemometer, and ±1.5 m/s for a forecast. Near cut-out, where
+  a stronger wind gives nothing, the speeds across the range are all looked at, so the range always holds the value.
 - **Gaps:** a sample stands for the time to the next one, up to 60 seconds, so a gap is missing data, not output.
-- **Assumptions:** each estimate states its own in words, among them that the wind holds as observed until the
-  Weather Service's forecasts arrive (M6.3), and that parts are priced once the Inventory Service arrives (Phase 9).
+- **Assumptions:** each estimate states its own in words. Among them: whether the loss was projected from the forecast
+  or the observed wind, and why; and that parts are priced once the Inventory Service arrives (Phase 9).
 
 ## The reference data: `impact-references-1`
 

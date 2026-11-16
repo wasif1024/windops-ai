@@ -16,6 +16,7 @@ from windops.authorization.v1 import authorization_pb2_grpc
 from windops.investigation.v1 import investigation_pb2_grpc
 from windops.production_impact.v1 import production_impact_pb2_grpc
 from windops.telemetry.v1 import telemetry_pb2_grpc
+from windops.weather.v1 import weather_pb2_grpc
 from windops_auth import current_identity_token
 from windops_events import EventsUnavailableError, open_events
 from windops_grpc import ServiceClient, create_channel, run_service
@@ -96,11 +97,13 @@ def main() -> None:
                 "asset": stub(asset_pb2_grpc.AssetServiceStub, "WINDOPS_ASSET_ADDRESS"),
                 "telemetry": stub(telemetry_pb2_grpc.TelemetryServiceStub,
                                   "WINDOPS_TELEMETRY_ADDRESS"),
+                "weather": stub(weather_pb2_grpc.WeatherServiceStub, "WINDOPS_WEATHER_ADDRESS"),
             },
             {
                 "investigation": _client("investigation"), "asset": _client("asset"),
                 # Six hours of wind and power is a long call, not a slow one.
                 "telemetry": _client("telemetry", slow_call_seconds=20.0),
+                "weather": _client("weather", slow_call_seconds=12.0),
             },
         )
     )  # fmt: skip

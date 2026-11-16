@@ -188,6 +188,9 @@ def parse(rule_id: str, version: int, name: str, definition: Mapping[str, Any]) 
 def _usable(rule: Rule, given: Input | None, now: datetime) -> tuple[bool, str]:
     if given is None:
         return False, f"{rule.input} is missing"
+    if rule.input.startswith("weather.") and given.source != "weather":
+        # FR-POL-004: weather for a rule comes only from the structured forecast provider.
+        return False, f"{rule.input} came from {given.source}, not the structured forecast provider"
     if given.state != "available" or given.value is None:
         state = "missing" if given.state == "available" else given.state
         return False, f"{rule.input} is {state}" + (f": {given.note}" if given.note else "")

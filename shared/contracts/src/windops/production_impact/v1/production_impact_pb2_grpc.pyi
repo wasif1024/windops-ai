@@ -35,7 +35,7 @@ class ProductionImpactServiceStub:
     change is a new version, kept for ever with who made it, when and why, and its content hash.
 
     An estimate gathers its facts as the service itself: the turbine, its model and its site from
-    Asset, and the observed wind and power from Telemetry. A caller supplies only the action and
+    Asset, the observed wind and power from Telemetry, and the forecast wind from Weather. A caller supplies only the action and
     how long the turbine will be down. Without the telemetry or a power curve there is no estimate,
     never a guess (SRS 7.7). Every result keeps its inputs, the formula version, its assumptions and
     a low to high range for each figure (FR-IMP-003), and never changes.
@@ -70,7 +70,7 @@ class ProductionImpactServiceAsyncStub(ProductionImpactServiceStub):
     change is a new version, kept for ever with who made it, when and why, and its content hash.
 
     An estimate gathers its facts as the service itself: the turbine, its model and its site from
-    Asset, and the observed wind and power from Telemetry. A caller supplies only the action and
+    Asset, the observed wind and power from Telemetry, and the forecast wind from Weather. A caller supplies only the action and
     how long the turbine will be down. Without the telemetry or a power curve there is no estimate,
     never a guess (SRS 7.7). Every result keeps its inputs, the formula version, its assumptions and
     a low to high range for each figure (FR-IMP-003), and never changes.
@@ -101,7 +101,7 @@ class ProductionImpactServiceServicer(metaclass=_abc_1.ABCMeta):
     change is a new version, kept for ever with who made it, when and why, and its content hash.
 
     An estimate gathers its facts as the service itself: the turbine, its model and its site from
-    Asset, and the observed wind and power from Telemetry. A caller supplies only the action and
+    Asset, the observed wind and power from Telemetry, and the forecast wind from Weather. A caller supplies only the action and
     how long the turbine will be down. Without the telemetry or a power curve there is no estimate,
     never a guess (SRS 7.7). Every result keeps its inputs, the formula version, its assumptions and
     a low to high range for each figure (FR-IMP-003), and never changes.

@@ -20,6 +20,7 @@ from windops.investigation.v1 import investigation_pb2
 from windops.policy.v1 import policy_pb2 as pb
 from windops.policy.v1 import policy_pb2_grpc
 from windops.production_impact.v1.production_impact_pb2 import Figure, ImpactResult
+from windops.weather.v1.weather_pb2 import Forecast, ForecastSummary, GetForecastResponse
 from windops_auth import LEVEL_MFA, LEVEL_PASSWORD
 from windops_events import parse_event
 from windops_grpc import (
@@ -77,6 +78,13 @@ class FakeSources:
     impact_cost_high: float = 32000.0
     impact_downtime: float = 24.0
     impact_case: str = "case_1"
+    # The Weather Service's answer for the planned window.
+    weather_state: str = "fresh"
+    weather_provider: str = "open-meteo"
+    hub_wind: float = 10.0
+    gusts: float = 15.0
+    hours_covered: int = 4
+    weather_age: timedelta = timedelta(minutes=20)
     asked_as: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -101,6 +109,20 @@ class FakeSources:
             raise UnavailableError("The Asset Service cannot be reached right now")
         return asset_pb2.Turbine(turbine_id=turbine_id, wind_farm_id="dogger-east",
                                  status=self.turbine_status, version=7)  # fmt: skip
+
+    async def forecast(self, turbine_id: str, start: datetime, end: datetime) -> Any:
+        wanted = int((end - start).total_seconds() // 3600)
+        if self.weather_state == "unavailable":
+            return GetForecastResponse(state="unavailable", note="the provider cannot be reached")
+        return GetForecastResponse(
+            state=self.weather_state, note="" if self.weather_state == "fresh" else "4.0 h old",
+            forecast=Forecast(forecast_id="fct_" + "b" * 20, provider=self.weather_provider,
+                              retrieved_at=stamp(NOW - self.weather_age), hub_height_m=109.0),
+            summary=ForecastSummary(max_wind_speed_hub_mps=self.hub_wind,
+                                    max_wind_gusts_10m_mps=self.gusts,
+                                    hours_covered=min(self.hours_covered, wanted),
+                                    hours_wanted=wanted),
+        )  # fmt: skip
 
     async def impact(self, result_id: str) -> Any:
         return ImpactResult(
@@ -238,7 +260,8 @@ def test_a_sound_proposal_passes_with_every_rule_version_and_input_recorded_and_
             '"high"', "case_1@3",
         )  # fmt: skip
         assert json.loads(inputs["evidence.age_hours"].value_json) == 2.0
-        assert inputs["weather.max_wind_speed_mps"].state == "unavailable"
+        # A proposal on the ground, with no planned window, has no forecast to judge.
+        assert inputs["weather.max_wind_speed_mps"].state == "missing"
         # Gathered as the service itself, while the caller's own permission was checked.
         assert world.sources.asked_as == ["service:policy"]
         assert "u-engineer" in world.authorizer.asked_as
@@ -252,14 +275,56 @@ def test_a_sound_proposal_passes_with_every_rule_version_and_input_recorded_and_
     with_service(scenario)
 
 
-def test_work_at_height_blocks_while_the_weather_cannot_be_known() -> None:
+async def climb(world: World) -> Any:
+    return await evaluate(world, requires_climb=True, planned_start=stamp(NOW + timedelta(hours=2)),
+                          planned_end=stamp(NOW + timedelta(hours=6)))  # fmt: skip
+
+
+def rule_of(result: Any, rule_id: str) -> Any:
+    return next(r for r in result.rules if r.rule_id == rule_id)
+
+
+def test_work_at_height_is_judged_on_the_forecast_hub_wind_and_10_m_gusts() -> None:
     async def scenario(world: World) -> None:
-        start = stamp(NOW + timedelta(hours=2))
-        result = await evaluate(world, requires_climb=True, planned_start=start,
-                                planned_end=stamp(NOW + timedelta(hours=6)))  # fmt: skip
-        assert result.outcome == "block"
-        wind = next(r for r in result.rules if r.rule_id == "work-at-height-wind")
-        assert wind.outcome == "block" and "unavailable" in wind.reason and "M6.3" in wind.reason
+        calm = await climb(world)
+        assert calm.outcome == "pass", by_rule(calm)
+        inputs = {i.name: i for i in calm.inputs}
+        wind = inputs["weather.max_wind_speed_mps"]
+        assert (wind.source, wind.source_ref, json.loads(wind.value_json)) == (
+            "weather", "open-meteo:fct_" + "b" * 20, 10.0,
+        )  # fmt: skip
+        assert "109 m hub" in wind.note and "10 m" in inputs["weather.max_gust_mps"].note
+        world.sources.hub_wind = 12.0
+        assert (await climb(world)).outcome == "pass", "at the limit passes"
+        world.sources.hub_wind = 12.01
+        windy = await climb(world)
+        assert (windy.outcome, by_rule(windy)["work-at-height-wind"]) == ("block", "block")
+        world.sources.hub_wind, world.sources.gusts = 10.0, 18.5
+        assert by_rule(await climb(world))["work-at-height-gusts"] == "block"
+
+    with_service(scenario)
+
+
+def test_work_at_height_blocks_on_weather_that_cannot_be_used() -> None:
+    async def scenario(world: World) -> None:
+        for change, why in (
+            ({"weather_state": "stale"}, "stale"),
+            ({"weather_state": "unavailable"}, "unavailable"),
+            ({"hours_covered": 3}, "covers 3 of the 4 hours"),
+            ({"weather_provider": "tavily"}, "not a structured forecast provider"),
+            ({"weather_age": timedelta(hours=3, seconds=1)}, "stale"),
+        ):
+            before = {name: getattr(world.sources, name) for name in change}
+            for name, value in change.items():
+                setattr(world.sources, name, value)
+            wind = rule_of(await climb(world), "work-at-height-wind")
+            assert wind.outcome == "block" and why in wind.reason, (change, wind.reason)
+            for name, value in before.items():
+                setattr(world.sources, name, value)
+        no_window = rule_of(await evaluate(world, requires_climb=True), "work-at-height-wind")
+        assert no_window.outcome == "block" and "no planned window" in no_window.reason
+        on_the_ground = rule_of(await evaluate(world), "work-at-height-wind")
+        assert on_the_ground.outcome == "not_applicable"
 
     with_service(scenario)
 

@@ -25,6 +25,7 @@ import re
 import secrets
 import subprocess
 import sys
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import grpc
@@ -36,6 +37,7 @@ from windops_auth import LEVEL_PASSWORD
 
 from scripts.checks.fleet import policy as policy_check
 from scripts.checks.fleet.asset import Caller, bootstrap, signing_key
+from scripts.checks.fleet.policy import stamp
 from scripts.checks.fleet.telemetry import kubectl
 from scripts.lib.tls_client import blocking_channel, client_bundle
 from scripts.setup.gateway_routes import port_forward
@@ -50,7 +52,7 @@ TENANT, OTHER, SITE = "north-sea", "atlas-wind", "dogger-east"
 ADMIN, ENGINEER = policy_check.ADMIN, policy_check.ENGINEER
 STRANGER = policy_check.STRANGER
 RUN = secrets.token_hex(3)
-# The service's own minimum of usable telemetry (impact-formulas-1): less, and there is no estimate.
+# The service's own minimum of usable telemetry (impact-formulas-2): less, and there is no estimate.
 LEAST_SECONDS = 600
 PRICE_KEY = f"impact-check-{RUN}-price"
 check = policy_check.check
@@ -101,7 +103,7 @@ def check_estimates(impact: Caller, case_id: str) -> Any:
     inputs = {i.name: i for i in result.inputs}
     total = figure(result, "total_cost_eur")
     check(
-        result.verified and result.formula_version == "impact-formulas-1"
+        result.verified and result.formula_version == "impact-formulas-2"
         and inputs["turbine.model"].source == "asset"
         and inputs["observed.mean_wind_mps"].source == "telemetry"
         and json.loads(inputs["observed.seconds"].value_json) >= LEAST_SECONDS
@@ -112,6 +114,17 @@ def check_estimates(impact: Caller, case_id: str) -> Any:
     )  # fmt: skip
     again = estimate(impact, case_id, key=f"impact-check-{RUN}-1")
     check(again.result_id == result.result_id, "A retry returns the first estimate, not a second")
+    start = datetime.now(UTC).replace(minute=0, second=0, microsecond=0) + timedelta(hours=2)
+    planned = impact.call("EstimateImpact", pb.EstimateImpactRequest(
+        case_id=case_id, action="repair", downtime_hours=24.0, planned_start=stamp(start),
+    ), ENGINEER, TENANT).result  # fmt: skip
+    wind = {i.name: i for i in planned.inputs}.get("forecast.hub_wind_mps")
+    check(
+        wind is not None and wind.source == "weather" and len(json.loads(wind.value_json)) == 24
+        and any("forecast wind at the hub" in a for a in planned.assumptions),
+        "With a planned start, the loss is projected hour by hour from Open-Meteo's hub wind: "
+        f"{figure(planned, 'projected_lost_energy_mwh').value:,.1f} MWh over 24 h",
+    )  # fmt: skip
     return result
 
 

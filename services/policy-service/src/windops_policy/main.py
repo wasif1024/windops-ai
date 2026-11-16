@@ -16,6 +16,7 @@ from windops.authorization.v1 import authorization_pb2_grpc
 from windops.investigation.v1 import investigation_pb2_grpc
 from windops.policy.v1 import policy_pb2_grpc
 from windops.production_impact.v1 import production_impact_pb2_grpc
+from windops.weather.v1 import weather_pb2_grpc
 from windops_auth import current_identity_token
 from windops_events import EventsUnavailableError, open_events
 from windops_grpc import ServiceClient, create_channel, run_service
@@ -65,10 +66,10 @@ class _Lazy:
         return getattr(self._made, name)
 
 
-def _client(dependency: str) -> ServiceClient:
+def _client(dependency: str, slow_call_seconds: float = 1.0) -> ServiceClient:
     breaker = CircuitBreaker(
         dependency,
-        BreakerConfig(slow_call_seconds=1.0),
+        BreakerConfig(slow_call_seconds=slow_call_seconds),
         on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
     )
     # Whoever is current goes along: the caller, or this service acting as itself (ADR 0008).
@@ -96,10 +97,13 @@ def main() -> None:
                 "asset": stub(asset_pb2_grpc.AssetServiceStub, "WINDOPS_ASSET_ADDRESS"),
                 "production-impact": stub(production_impact_pb2_grpc.ProductionImpactServiceStub,
                                           "WINDOPS_PRODUCTION_IMPACT_ADDRESS"),
+                "weather": stub(weather_pb2_grpc.WeatherServiceStub, "WINDOPS_WEATHER_ADDRESS"),
             },
             {
                 "investigation": _client("investigation"), "asset": _client("asset"),
                 "production-impact": _client("production-impact"),
+                # A forecast may be retrieved from the provider on the way: a long call, not slow.
+                "weather": _client("weather", slow_call_seconds=12.0),
             },
         )
     )  # fmt: skip

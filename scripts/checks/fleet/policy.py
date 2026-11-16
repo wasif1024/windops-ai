@@ -9,8 +9,9 @@ demo turbine, and once its evidence is frozen, the check proves:
   from the Investigation Service, the turbine and its site from the Asset Service, and the cost
   and downtime from the Production Impact Service's estimate, gathered by the Policy Service as
   itself (ADR 0009);
-- work at height blocks while the weather cannot be known, which it cannot until M6.3, and
-  without an estimate, cost and downtime escalate, as an unstated confidence does (FR-POL-005);
+- work at height is judged on the Weather Service's forecast from Open-Meteo, and blocks with no
+  planned window to forecast (FR-POL-004); without an estimate, cost and downtime escalate, as an
+  unstated confidence does (FR-POL-005);
 - a Tenant Administrator, with a recent second factor, gives a site a limit of its own as a new
   rule version, and the next proposal there is judged by it; a password alone is refused;
 - a result reads back verified, another tenant cannot find it, and the audit trail records it;
@@ -166,10 +167,18 @@ def check_judgements(policy: Caller, case_id: str, impact_id: str) -> Any:
         planned_end=stamp(datetime.now(UTC) + timedelta(hours=6)),
     ), impact=impact_id)  # fmt: skip
     wind = outcome_of(climb, "work-at-height-wind")
+    forecast = {i.name: i for i in climb.inputs}["weather.max_wind_speed_mps"]
+    hub = json.loads(forecast.value_json) if forecast.value_json else None
     check(
-        climb.outcome == "block" and wind.outcome == "block" and "unavailable" in wind.reason,
-        f"Work at height blocks while the weather cannot be known: {wind.reason}",
-    )
+        forecast.source == "weather" and forecast.source_ref.startswith("open-meteo:fct_")
+        and hub is not None and wind.outcome == ("block" if hub > 12.0 else "pass"),
+        f"Work at height is judged on Open-Meteo's forecast through the Weather Service: "
+        f"{hub} m/s at the hub, so {wind.outcome}",
+    )  # fmt: skip
+    unplanned = outcome_of(evaluate(policy, case_id, sound(requires_climb=True),
+                                    impact=impact_id), "work-at-height-wind")  # fmt: skip
+    check(unplanned.outcome == "block" and "no planned window" in unplanned.reason,
+          "A climb with no planned window to forecast blocks")  # fmt: skip
     # The caller's own cost is kept, and judges nothing: without an estimate, cost escalates.
     unpriced = evaluate(policy, case_id, sound(estimated_cost_eur=1.0, confidence=None))
     check(
