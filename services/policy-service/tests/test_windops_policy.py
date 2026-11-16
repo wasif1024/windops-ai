@@ -19,6 +19,7 @@ from windops.asset.v1 import asset_pb2
 from windops.investigation.v1 import investigation_pb2
 from windops.policy.v1 import policy_pb2 as pb
 from windops.policy.v1 import policy_pb2_grpc
+from windops.production_impact.v1.production_impact_pb2 import Figure, ImpactResult
 from windops_auth import LEVEL_MFA, LEVEL_PASSWORD
 from windops_events import parse_event
 from windops_grpc import (
@@ -31,9 +32,10 @@ from windops_grpc import (
     sign_identity,
 )
 from windops_outbox import OUTBOX_TABLE, create_outbox_table
-from windops_policy.defaults import DEFAULT_RULES, LIBRARY
+from windops_policy import library
+from windops_policy.defaults import DEFAULT_RULES, LIBRARY, UPGRADES
 from windops_policy.service import PolicyService
-from windops_policy.store import METADATA, POLICY_RESULTS, SERVICE_NAME
+from windops_policy.store import METADATA, POLICY_RESULTS, POLICY_RULES, SERVICE_NAME
 
 SECRET = "x" * 32
 TENANT = "north-sea"
@@ -71,6 +73,10 @@ class FakeSources:
     evidence_age: timedelta = timedelta(hours=2)
     turbine_status: str = "operating"
     asset_down: bool = False
+    # The Production Impact estimate: the high end of its cost range, and its downtime.
+    impact_cost_high: float = 32000.0
+    impact_downtime: float = 24.0
+    impact_case: str = "case_1"
     asked_as: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -95,6 +101,17 @@ class FakeSources:
             raise UnavailableError("The Asset Service cannot be reached right now")
         return asset_pb2.Turbine(turbine_id=turbine_id, wind_farm_id="dogger-east",
                                  status=self.turbine_status, version=7)  # fmt: skip
+
+    async def impact(self, result_id: str) -> Any:
+        return ImpactResult(
+            result_id=result_id, case_id=self.impact_case, downtime_hours=self.impact_downtime,
+            verified=True, estimated_at=stamp(NOW - timedelta(minutes=5)),
+            figures=[
+                Figure(name="total_cost_eur", value=self.impact_cost_high * 0.9,
+                       low=self.impact_cost_high * 0.8, high=self.impact_cost_high),
+                Figure(name="projected_lost_energy_mwh", value=40.0, low=35.0, high=45.0),
+            ],
+        )  # fmt: skip
 
 
 @dataclass
@@ -121,9 +138,13 @@ def proposal(**changes: Any) -> pb.Proposal:
     return pb.Proposal(**{k: v for k, v in fields.items() if v is not None})
 
 
-async def evaluate(world: World, user: str = "u-engineer", key: str = "", **changes: Any) -> Any:
+IMPACT_ID = "imp_" + "a" * 20
+
+
+async def evaluate(world: World, user: str = "u-engineer", key: str = "",
+                   impact: str = IMPACT_ID, **changes: Any) -> Any:  # fmt: skip
     request = pb.EvaluateProposalRequest(case_id="case_1", proposal=proposal(**changes),
-                                         idempotency_key=key)  # fmt: skip
+                                         idempotency_key=key, impact_result_id=impact)  # fmt: skip
     return (await world.stub.EvaluateProposal(request, metadata=as_user(user), timeout=5)).result
 
 
@@ -248,13 +269,20 @@ def test_each_risk_and_business_limit_escalates() -> None:
         for changes, rule in (
             ({"confidence": 0.59}, "low-confidence"),
             ({"confidence": None}, "low-confidence"),
-            ({"estimated_cost_eur": 50000.01}, "cost-limit"),
-            ({"estimated_downtime_hours": None}, "downtime-limit"),
         ):
             result = await evaluate(world, **changes)
             assert (result.outcome, by_rule(result)[rule]) == ("escalate", "escalate"), changes
-        at_limit = await evaluate(world, estimated_cost_eur=50000.0, confidence=0.6)
-        assert at_limit.outcome == "pass"
+        # Cost and downtime come from the estimate, judged at the high end of its range.
+        world.sources.impact_cost_high = 50000.01
+        assert by_rule(await evaluate(world))["cost-limit"] == "escalate"
+        world.sources.impact_cost_high, world.sources.impact_downtime = 50000.0, 48.5
+        assert by_rule(await evaluate(world))["downtime-limit"] == "escalate"
+        world.sources.impact_downtime = 48.0
+        at_limit = await evaluate(world, confidence=0.6)
+        assert at_limit.outcome == "pass", by_rule(at_limit)
+        # The caller's own figures are kept, and judge nothing.
+        stated = await evaluate(world, estimated_cost_eur=9e9, estimated_downtime_hours=9e5)
+        assert stated.outcome == "pass"
 
     with_service(scenario)
 
@@ -302,7 +330,8 @@ def test_a_site_gets_its_own_limit_from_a_new_rule_version() -> None:
         published = await world.stub.PublishPolicyRuleVersion(publish, metadata=as_user(),
                                                                timeout=5)  # fmt: skip
         assert published.rule.current.version == 2
-        result = await evaluate(world, estimated_cost_eur=20000.0)
+        world.sources.impact_cost_high = 20000.0
+        result = await evaluate(world)
         cost = next(r for r in result.rules if r.rule_id == "cost-limit")
         assert (cost.outcome, cost.version, cost.limit_json, cost.limit_from) == (
             "escalate", 2, "10000.0", "dogger-east",
@@ -393,3 +422,53 @@ def test_a_proposal_that_cannot_be_judged_as_stated_is_refused() -> None:
             assert await code_of(call) == grpc.StatusCode.INVALID_ARGUMENT, changes
 
     with_service(scenario)
+
+
+def test_without_a_usable_estimate_cost_and_downtime_escalate() -> None:
+    async def scenario(world: World) -> None:
+        none = await evaluate(world, impact="")
+        assert (by_rule(none)["cost-limit"], by_rule(none)["downtime-limit"]) == (
+            "escalate", "escalate",
+        )  # fmt: skip
+        cost = next(r for r in none.rules if r.rule_id == "cost-limit")
+        assert "no Production Impact estimate" in cost.reason
+        world.sources.impact_case = "case_other"
+        other = next(r for r in (await evaluate(world)).rules if r.rule_id == "cost-limit")
+        assert other.outcome == "escalate" and "another case" in other.reason
+        refused = world.stub.EvaluateProposal(
+            pb.EvaluateProposalRequest(case_id="case_1", proposal=proposal(),
+                                       impact_result_id="pol_wrong"),
+            metadata=as_user("u-engineer"), timeout=5,
+        )  # fmt: skip
+        assert await code_of(refused) == grpc.StatusCode.INVALID_ARGUMENT
+
+    with_service(scenario)
+
+
+def test_rules_still_on_the_systems_first_defaults_move_and_a_persons_own_stay() -> None:
+    async def run() -> None:
+        engine_ = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+        async with engine_.begin() as connection:
+            await connection.run_sync(METADATA.create_all)
+            await connection.run_sync(create_outbox_table)
+            for rule_id, definition in UPGRADES.items():
+                by = "system" if rule_id == "cost-limit" else "u-admin"
+                await library.write_version(connection, TENANT, rule_id, 1, definition, by,
+                                            "policy-rules-1", NOW)  # fmt: skip
+                await connection.execute(POLICY_RULES.insert().values(
+                    tenant_id=TENANT, rule_id=rule_id, name=rule_id, description="",
+                    enabled=True, current_version=1, created_at=NOW, updated_at=NOW,
+                ))  # fmt: skip
+        await library.install_defaults(engine_, TENANT, NOW)
+        async with engine_.connect() as connection:
+            enabled = await library.enabled_rules(connection, TENANT)
+        found = {rule.rule_id: rule for rule, _ in enabled}
+        assert (found["cost-limit"].version, found["cost-limit"].input) == (
+            2, "impact.total_cost_eur",
+        )  # fmt: skip
+        assert (found["downtime-limit"].version, found["downtime-limit"].input) == (
+            1, "proposal.estimated_downtime_hours",
+        ), "a rule a person changed stays theirs"  # fmt: skip
+        await engine_.dispose()
+
+    asyncio.run(run())

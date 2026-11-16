@@ -16,6 +16,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from windops.asset.v1 import asset_pb2
 from windops.investigation.v1 import investigation_pb2
 from windops.policy.v1 import policy_pb2 as pb
+from windops.production_impact.v1 import production_impact_pb2
 from windops_grpc import InvalidRequestError, NotFoundError, ServiceClient, UnavailableError
 from windops_resilience import BreakerOpenError
 
@@ -42,6 +43,7 @@ class Sources(Protocol):
     async def case(self, case_id: str) -> Any: ...
     async def evidence(self, snapshot_id: str) -> Any: ...
     async def turbine(self, turbine_id: str) -> Any: ...
+    async def impact(self, result_id: str) -> Any: ...
 
 
 class ServiceSources:
@@ -65,6 +67,12 @@ class ServiceSources:
         request = asset_pb2.GetTurbineRequest(turbine_id=turbine_id)
         return (await ask(self._clients["asset"], self._stubs["asset"].GetTurbine, request,
                           "The Asset Service")).turbine  # fmt: skip
+
+    async def impact(self, result_id: str) -> Any:
+        request = production_impact_pb2.GetImpactResultRequest(result_id=result_id)
+        stub = self._stubs["production-impact"]
+        return (await ask(self._clients["production-impact"], stub.GetImpactResult, request,
+                          "The Production Impact Service")).result  # fmt: skip
 
 
 def check_proposal(proposal: pb.Proposal) -> None:
@@ -149,6 +157,45 @@ async def turbine_inputs(
         return "", _unavailable(("turbine.status",), "asset", str(error))
     ref = f"{turbine.turbine_id}@{getattr(turbine, 'version', 0)}"
     return turbine.wind_farm_id, [Input("turbine.status", turbine.status, "asset", ref, now)]
+
+
+IMPACT = ("impact.total_cost_eur", "impact.projected_lost_energy_mwh", "impact.downtime_hours")
+
+
+async def impact_inputs(sources: Sources, result_id: str, case: Any) -> list[Input]:
+    """The cost and downtime, from the Production Impact Service's estimate for this case.
+
+    Cost and energy are the high end of the estimate's range, so a limit is judged on the worst
+    the estimate allows. An estimate for another case, or one that no longer verifies, is not used.
+    """
+    if not result_id:
+        note = "no Production Impact estimate was given"
+        return [Input(name, None, "production-impact", state="missing", note=note)
+                for name in IMPACT]  # fmt: skip
+    try:
+        result = await sources.impact(result_id)
+    except (UnavailableError, NotFoundError) as error:
+        return _unavailable(IMPACT, "production-impact", str(error))
+    if result.case_id != case.case_id:
+        return [Input(name, None, "production-impact", result_id, state="missing",
+                      note="the estimate is for another case") for name in IMPACT]  # fmt: skip
+    if not result.verified:
+        return _unavailable(IMPACT, "production-impact", "the estimate's hash does not verify")
+    figures = {f.name: f for f in result.figures}
+    at = result.estimated_at.ToDatetime(tzinfo=UTC)
+
+    def figure(input_name: str, figure_name: str) -> Input:
+        if figure_name not in figures:
+            return Input(input_name, None, "production-impact", result_id, at, "missing",
+                         f"the estimate has no {figure_name}")  # fmt: skip
+        return Input(input_name, figures[figure_name].high, "production-impact", result_id, at)
+
+    return [
+        figure("impact.total_cost_eur", "total_cost_eur"),
+        figure("impact.projected_lost_energy_mwh", "projected_lost_energy_mwh"),
+        Input("impact.downtime_hours", float(result.downtime_hours), "production-impact",
+              result_id, at),
+    ]  # fmt: skip
 
 
 def weather_inputs() -> list[Input]:

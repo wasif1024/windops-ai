@@ -1,0 +1,172 @@
+syntax = "proto3";
+
+package windops.production_impact.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Deterministic energy, availability and financial impact (FR-IMP-001 to FR-IMP-003). No model
+// computes or changes a figure here: an agent may only explain a result (FR-IMP-004).
+//
+// The reference data is versioned, as policy rules are: each turbine model's power curve, the
+// energy price, with a price of its own for any site, and the maintenance cost table. Every
+// change is a new version, kept for ever with who made it, when and why, and its content hash.
+//
+// An estimate gathers its facts as the service itself: the turbine, its model and its site from
+// Asset, and the observed wind and power from Telemetry. A caller supplies only the action and
+// how long the turbine will be down. Without the telemetry or a power curve there is no estimate,
+// never a guess (SRS 7.7). Every result keeps its inputs, the formula version, its assumptions and
+// a low to high range for each figure (FR-IMP-003), and never changes.
+//
+// The tenant comes from the caller's verified identity (GRP-004). Reading the reference data
+// needs policy.read, and changing it needs policy.manage and a recent second factor (SEC-003).
+// Estimating, and reading an estimate, needs investigation.read for the turbine. Each change and
+// each estimate is audited, and may be retried with the same idempotency_key (GRP-007).
+service ProductionImpactService {
+  rpc ListReferences(ListReferencesRequest) returns (ListReferencesResponse);
+  // With every version.
+  rpc GetReference(GetReferenceRequest) returns (GetReferenceResponse);
+  // A new reference, or a new version of one. Refused unless it can be used exactly.
+  rpc PublishReferenceVersion(PublishReferenceVersionRequest) returns (PublishReferenceVersionResponse);
+
+  rpc EstimateImpact(EstimateImpactRequest) returns (EstimateImpactResponse);
+  rpc GetImpactResult(GetImpactResultRequest) returns (GetImpactResultResponse);
+  // A case's results, newest first.
+  rpc ListImpactResults(ListImpactResultsRequest) returns (ListImpactResultsResponse);
+}
+
+message ReferenceVersion {
+  string reference_id = 1;
+  int64 version = 2;
+  // "power_curve", "energy_price" or "maintenance_costs".
+  string kind = 3;
+  // Canonical JSON. A power curve: {"kind", "model": {"manufacturer", "model"},
+  // "points": [[wind m/s, kW], ...], "tolerance_pct"}. An energy price: {"kind", "eur_per_mwh",
+  // "sites": {...}}. Maintenance costs: {"kind", "labour_eur_per_hour", "access_eur_per_day":
+  // {"onshore", "offshore"}, "actions": {"<action>": {"labour_hours", "access_days"}}}.
+  string definition_json = 4;
+  // sha256 of "windops-impact-reference-v1|<reference_id>|<version>|<definition_json>".
+  string content_hash = 5;
+  // A user, or "system" for the defaults.
+  string created_by = 6;
+  google.protobuf.Timestamp created_at = 7;
+  string reason = 8;
+}
+
+message Reference {
+  // Lowercase letters, digits and hyphens, such as "energy-price".
+  string reference_id = 1;
+  string name = 2;
+  ReferenceVersion current = 3;
+}
+
+message ListReferencesRequest {}
+
+message ListReferencesResponse {
+  repeated Reference references = 1;
+  // The defaults the tenant started from, such as "impact-references-1".
+  string library = 2;
+}
+
+message GetReferenceRequest {
+  string reference_id = 1;
+}
+
+message GetReferenceResponse {
+  Reference reference = 1;
+  // Oldest first.
+  repeated ReferenceVersion versions = 2;
+}
+
+message PublishReferenceVersionRequest {
+  string reference_id = 1;
+  string name = 2;
+  string definition_json = 3;
+  // Why, for whoever reviews it. Required.
+  string reason = 4;
+  // The version this replaces, or 0 for a new reference.
+  int64 expected_version = 5;
+  string idempotency_key = 6;
+}
+
+message PublishReferenceVersionResponse {
+  Reference reference = 1;
+}
+
+message EstimateImpactRequest {
+  string case_id = 1;
+  // "inspection", "repair", "replacement", "adjustment" or "monitoring".
+  string action = 2;
+  // How long the turbine will be down for it: more than 0, at most 720.
+  double downtime_hours = 3;
+  string idempotency_key = 4;
+}
+
+message ImpactInput {
+  // Such as "turbine.model", "observed.mean_wind_mps" or "reference.energy-price".
+  string name = 1;
+  // JSON.
+  string value_json = 2;
+  // "request", "asset", "telemetry" or "reference".
+  string source = 3;
+  // The record it came from, such as "dogger-east-t01@7" or "energy-price@2".
+  string source_ref = 4;
+  google.protobuf.Timestamp observed_at = 5;
+}
+
+message Figure {
+  // Such as "projected_lost_energy_mwh" or "total_cost_eur".
+  string name = 1;
+  double value = 2;
+  // The range, from the tolerances the assumptions name.
+  double low = 3;
+  double high = 4;
+  string unit = 5;
+}
+
+message ImpactResult {
+  // "imp_" and 20 lowercase letters and digits.
+  string result_id = 1;
+  string case_id = 2;
+  string turbine_id = 3;
+  string wind_farm_id = 4;
+  string action = 5;
+  double downtime_hours = 6;
+  // Such as "impact-formulas-1".
+  string formula_version = 7;
+  repeated ImpactInput inputs = 8;
+  repeated Figure figures = 9;
+  // In words, each one a figure rests on.
+  repeated string assumptions = 10;
+  google.protobuf.Timestamp window_start = 11;
+  google.protobuf.Timestamp window_end = 12;
+  // sha256 of the result's canonical JSON, with this field and verified empty.
+  string content_hash = 13;
+  // Reading a result checks its hash again.
+  bool verified = 14;
+  // The caller's user, or service, such as "service:policy".
+  string estimated_by = 15;
+  google.protobuf.Timestamp estimated_at = 16;
+}
+
+message EstimateImpactResponse {
+  ImpactResult result = 1;
+}
+
+message GetImpactResultRequest {
+  string result_id = 1;
+}
+
+message GetImpactResultResponse {
+  ImpactResult result = 1;
+}
+
+message ListImpactResultsRequest {
+  string case_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListImpactResultsResponse {
+  repeated ImpactResult results = 1;
+  string next_page_token = 2;
+}

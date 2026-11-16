@@ -7,17 +7,19 @@ with every rule version and input it was judged on, and the result never changes
 
 ## What is judged, and on what
 
-A caller sends only the **proposal**: its action, whether it needs work at height, a planned window, and an
-estimated cost, downtime and confidence. The service gathers every other input **as itself**, with fixed read
-grants:
+A caller sends the **proposal** (its action, whether it needs work at height, a planned window, and its confidence)
+and names a Production Impact estimate. The service gathers every other input **as itself**, with fixed read grants:
 
 | Input | From |
 | --- | --- |
 | `case.status`, `case.severity`, `evidence.status`, `evidence.age_hours` | Investigation |
 | `turbine.status`, and the turbine's site | Asset |
+| `impact.total_cost_eur`, the high end of the estimate's range, `impact.projected_lost_energy_mwh`, `impact.downtime_hours` | The Production Impact Service's estimate, `impact_result_id` (M6.2) |
 | `weather.max_wind_speed_mps`, `weather.max_gust_mps` | Weather, from M6.3. Until then, always `unavailable` |
 
-The caller must be able to read the case's turbine (`investigation.read`), or the case is not found.
+The caller must be able to read the case's turbine (`investigation.read`), or the case is not found. The proposal's
+own estimated cost and downtime are kept with the result for the record, and judge nothing. Without a usable estimate
+(none named, one for another case, or one whose hash no longer verifies), the cost and downtime rules escalate.
 
 ## The kinds of rule
 
@@ -39,7 +41,7 @@ Crossing it gives its `outcome`, block or escalate. The result is the worst outc
 - **If the Investigation Service can't be reached, nothing is judged:** the call answers UNAVAILABLE, and no result
   means no recommendation reaches `pending_review` (SRS 7.7).
 
-## The default library: `policy-rules-1`
+## The default library: `policy-rules-2`
 
 A tenant starts with 10 rules, as version 1 of each, made by `system`. They are starting values for review, not a
 site's approved figures:
@@ -54,8 +56,11 @@ site's approved figures:
 | `critical-case` | risk | Escalate a critical case |
 | `turbine-offline` | safety | Escalate if the turbine is offline |
 | `low-confidence` | risk | Escalate below 0.6 confidence |
-| `cost-limit` | business | Escalate above €50,000 |
+| `cost-limit` | business | Escalate above €50,000, at the high end of the estimate |
 | `downtime-limit` | business | Escalate above 48 h of downtime |
+
+`policy-rules-1` judged the caller's own cost and downtime. A tenant still on those two system versions, never changed,
+moves to `policy-rules-2`'s as a new version, audited; a rule a person changed stays theirs.
 
 ## Versions, results, and who may do what
 

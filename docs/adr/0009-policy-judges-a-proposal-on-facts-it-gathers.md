@@ -75,3 +75,18 @@ checks its hash again. Investigation results reference it by ID (SRS 6).
   - escalation at a critical case, confidence below 0.6, cost above €50,000 or downtime above 48 hours.
 - Every evaluation is a stored record, so a proposal judged twice is two results, unless the same idempotency key
   is reused.
+
+## Amendment, 2026-11-16 (M6.2): cost and downtime come from Production Impact
+
+As first written, the proposal carried its own estimated cost and downtime, and the cost and downtime rules judged
+those. That left two figures the caller supplied. With the Production Impact Service (M6.2), the Policy Service
+gathers them too:
+- **The request:** `EvaluateProposalRequest` names a Production Impact estimate, `impact_result_id`.
+- **What Policy reads:** it reads the estimate as itself, and judges `impact.total_cost_eur`, the high end of the
+  estimate's cost range, and `impact.downtime_hours`.
+- **When an estimate isn't used:** a missing estimate, one for another case, or one whose hash no longer verifies
+  leaves those inputs missing, so their rules escalate.
+- **The proposal's own figures:** kept with the result for the record, and they judge nothing.
+
+The default library becomes `policy-rules-2`. A tenant whose cost and downtime rules are still the system's version 1,
+never changed, moves to the new definitions as a new version, audited. A rule a person changed stays as they left it.

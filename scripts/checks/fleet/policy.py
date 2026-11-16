@@ -6,10 +6,11 @@ demo turbine, and once its evidence is frozen, the check proves:
 
 - a tenant starts with the default library, policy-rules-1, readable with policy.read;
 - a sound proposal passes, with every rule version and input recorded: the case and its evidence
-  from the Investigation Service and the turbine and its site from the Asset Service, gathered
-  by the Policy Service as itself (ADR 0009);
-- work at height blocks while the weather cannot be known, which it cannot until M6.3, and an
-  unstated confidence or a cost over the limit escalates (FR-POL-005);
+  from the Investigation Service, the turbine and its site from the Asset Service, and the cost
+  and downtime from the Production Impact Service's estimate, gathered by the Policy Service as
+  itself (ADR 0009);
+- work at height blocks while the weather cannot be known, which it cannot until M6.3, and
+  without an estimate, cost and downtime escalate, as an unstated confidence does (FR-POL-005);
 - a Tenant Administrator, with a recent second factor, gives a site a limit of its own as a new
   rule version, and the next proposal there is judged by it; a password alone is refused;
 - a result reads back verified, another tenant cannot find it, and the audit trail records it;
@@ -34,6 +35,8 @@ from windops.audit.v1 import audit_pb2, audit_pb2_grpc
 from windops.investigation.v1 import investigation_pb2, investigation_pb2_grpc
 from windops.policy.v1 import policy_pb2 as pb
 from windops.policy.v1 import policy_pb2_grpc
+from windops.production_impact.v1 import production_impact_pb2 as impact_pb2
+from windops.production_impact.v1 import production_impact_pb2_grpc as impact_pb2_grpc
 from windops_auth import LEVEL_PASSWORD
 
 from scripts.checks.fleet import cases
@@ -44,6 +47,7 @@ from scripts.setup.gateway_routes import port_forward
 
 APPLICATION, DATA = "windops-application", "windops-data"
 HOST = "windops-policy.windops-application.svc.cluster.local"
+IMPACT_HOST = "windops-production-impact.windops-application.svc.cluster.local"
 CASE_HOST = "windops-investigation.windops-application.svc.cluster.local"
 AUDIT_HOST = "windops-audit.windops-application.svc.cluster.local"
 DATABASE = "windops_policy"
@@ -116,8 +120,12 @@ def open_case(investigation: Caller) -> str:
     return case_id
 
 
-def evaluate(policy: Caller, case_id: str, proposal: pb.Proposal, key: str = "") -> Any:
-    request = pb.EvaluateProposalRequest(case_id=case_id, proposal=proposal, idempotency_key=key)
+def evaluate(
+    policy: Caller, case_id: str, proposal: pb.Proposal, key: str = "", impact: str = ""
+) -> Any:
+    request = pb.EvaluateProposalRequest(
+        case_id=case_id, proposal=proposal, idempotency_key=key, impact_result_id=impact
+    )
     return policy.call("EvaluateProposal", request, ENGINEER, TENANT).result
 
 
@@ -125,41 +133,51 @@ def outcome_of(result: Any, rule_id: str) -> Any:
     return next(r for r in result.rules if r.rule_id == rule_id)
 
 
-def check_judgements(policy: Caller, case_id: str) -> Any:
+def estimate(impact: Caller, case_id: str) -> str:
+    """The Production Impact Service's estimate for a 4-hour inspection, which Policy judges."""
+    request = impact_pb2.EstimateImpactRequest(case_id=case_id, action="inspection",
+                                               downtime_hours=4.0)  # fmt: skip
+    return str(impact.call("EstimateImpact", request, ENGINEER, TENANT).result.result_id)
+
+
+def check_judgements(policy: Caller, case_id: str, impact_id: str) -> Any:
     listed = policy.call("ListPolicyRules", pb.ListPolicyRulesRequest(), ADMIN, TENANT)
     check(
-        listed.library == "policy-rules-1" and len(listed.rules) >= 10
+        listed.library == "policy-rules-2" and len(listed.rules) >= 10
         and all(r.current.created_by == "system" for r in listed.rules if r.rule_id != RULE),
         f"The tenant has the default library, {listed.library}: {len(listed.rules)} rules",
     )  # fmt: skip
-    passed = evaluate(policy, case_id, sound(), key=f"policy-check-{RUN}-1")
+    passed = evaluate(policy, case_id, sound(), key=f"policy-check-{RUN}-1", impact=impact_id)
     inputs = {i.name: i for i in passed.inputs}
     check(
         passed.outcome == "pass" and passed.verified and passed.wind_farm_id == SITE
         and inputs["case.severity"].source == "investigation"
         and inputs["case.severity"].source_ref.startswith(f"{case_id}@")
         and inputs["turbine.status"].source == "asset"
-        and inputs["evidence.age_hours"].state == "available",
+        and inputs["evidence.age_hours"].state == "available"
+        and inputs["impact.total_cost_eur"].source == "production-impact",
         f"A sound proposal passes, judged by {len(passed.rules)} rule versions on inputs gathered "
-        "from Investigation and Asset",
+        "from Investigation, Asset and Production Impact",
     )  # fmt: skip
-    again = evaluate(policy, case_id, sound(), key=f"policy-check-{RUN}-1")
+    again = evaluate(policy, case_id, sound(), key=f"policy-check-{RUN}-1", impact=impact_id)
     check(again.result_id == passed.result_id, "A retry returns the first result, not a second")
     climb = evaluate(policy, case_id, sound(
         requires_climb=True, planned_start=stamp(datetime.now(UTC) + timedelta(hours=2)),
         planned_end=stamp(datetime.now(UTC) + timedelta(hours=6)),
-    ))  # fmt: skip
+    ), impact=impact_id)  # fmt: skip
     wind = outcome_of(climb, "work-at-height-wind")
     check(
         climb.outcome == "block" and wind.outcome == "block" and "unavailable" in wind.reason,
         f"Work at height blocks while the weather cannot be known: {wind.reason}",
     )
-    costly = evaluate(policy, case_id, sound(estimated_cost_eur=60000.0, confidence=None))
+    # The caller's own cost is kept, and judges nothing: without an estimate, cost escalates.
+    unpriced = evaluate(policy, case_id, sound(estimated_cost_eur=1.0, confidence=None))
     check(
-        costly.outcome == "escalate"
-        and outcome_of(costly, "cost-limit").outcome == "escalate"
-        and outcome_of(costly, "low-confidence").outcome == "escalate",
-        "A cost over the limit and an unstated confidence escalate",
+        unpriced.outcome == "escalate"
+        and outcome_of(unpriced, "cost-limit").outcome == "escalate"
+        and outcome_of(unpriced, "downtime-limit").outcome == "escalate"
+        and outcome_of(unpriced, "low-confidence").outcome == "escalate",
+        "Without an estimate, cost and downtime escalate, and so does an unstated confidence",
     )
     return passed
 
@@ -246,6 +264,19 @@ def clean_up() -> None:
         "ALTER TABLE policy_rule_versions ENABLE TRIGGER policy_rule_versions_never_change; "
         "SELECT 1"
     )
+    # The estimates it asked for. The Production Impact Service's tables, as its own login.
+    estimates = kubectl(
+        "exec", "windops-postgres-0", "--", "psql", "--no-psqlrc", "-q", "-At",
+        "--username=windops_production_impact", "--dbname=windops_production_impact",
+        "--set=ON_ERROR_STOP=1", "--command=SELECT set_config('windops.all_tenants', 'on', "
+        "false); ALTER TABLE impact_results DISABLE TRIGGER impact_results_never_change; "
+        "DELETE FROM impact_results WHERE estimated_by LIKE 'policy-check-%'; ALTER TABLE "
+        "impact_results ENABLE TRIGGER impact_results_never_change; DELETE FROM "
+        "idempotency_keys WHERE user_id LIKE 'policy-check-%'",
+        namespace=DATA,
+    )  # fmt: skip
+    if estimates.returncode != 0 and "does not exist" not in estimates.stderr:
+        raise RuntimeError(f"SQL failed: {estimates.stderr.strip()}")
     cases.clean_up()
 
 
@@ -263,13 +294,16 @@ def main() -> int:
             blocking_channel(case_port, CASE_HOST, bundle) as case_channel,
             port_forward("deployment/windops-policy", APPLICATION, 50051) as port,
             blocking_channel(port, HOST, bundle) as channel,
+            port_forward("deployment/windops-production-impact", APPLICATION, 50051) as i_port,
+            blocking_channel(i_port, IMPACT_HOST, bundle) as impact_channel,
         ):
             investigation = Caller(
                 investigation_pb2_grpc.InvestigationServiceStub(case_channel), key
             )
             policy = Caller(policy_pb2_grpc.PolicyServiceStub(channel), key)
+            impact = Caller(impact_pb2_grpc.ProductionImpactServiceStub(impact_channel), key)
             case_id = open_case(investigation)
-            result = check_judgements(policy, case_id)
+            result = check_judgements(policy, case_id, estimate(impact, case_id))
             check_site_limit(policy, case_id)
             check_reads(policy, result)
         check_audit(bundle, key, result)

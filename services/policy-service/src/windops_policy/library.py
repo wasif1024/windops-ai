@@ -4,13 +4,13 @@ import json
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from windops_migrations import in_tenant
 
 from windops_policy import rules
-from windops_policy.defaults import DEFAULT_RULES, LIBRARY
+from windops_policy.defaults import DEFAULT_RULES, LIBRARY, UPGRADES
 from windops_policy.store import POLICY_RULE_VERSIONS, POLICY_RULES, audit
 
 SYSTEM = "system"
@@ -38,6 +38,7 @@ async def install_defaults(engine: AsyncEngine, tenant: str, now: datetime) -> N
             select(POLICY_RULES.c.rule_id).where(POLICY_RULES.c.tenant_id == tenant).limit(1)
         )
         if any_rule.first() is not None:
+            await upgrade_defaults(engine, tenant, now)
             return
     try:
         async with engine.begin() as connection:
@@ -81,3 +82,53 @@ async def enabled_rules(connection: AsyncConnection, tenant: str) -> list[tuple[
         )
         for row in rows
     ]
+
+
+async def upgrade_defaults(engine: AsyncEngine, tenant: str, now: datetime) -> None:
+    """Move each rule still on the system's earlier default to the current library's version.
+
+    Only a rule whose current version the system made, and nobody changed, moves: one a person
+    changed is theirs, and stays as they left it. Each move is a new version, audited.
+    """
+    r, v = POLICY_RULES.c, POLICY_RULE_VERSIONS.c
+    wanted = {rule_id: definition for rule_id, _, _, definition in DEFAULT_RULES}
+    async with engine.connect() as connection:
+        await in_tenant(connection, tenant)
+        rows = (
+            await connection.execute(
+                select(r.rule_id, v.version, v.definition, v.created_by)
+                .join(
+                    POLICY_RULE_VERSIONS,
+                    (v.tenant_id == r.tenant_id)
+                    & (v.rule_id == r.rule_id)
+                    & (v.version == r.current_version),
+                )
+                .where(r.tenant_id == tenant, r.rule_id.in_(list(UPGRADES)))
+            )
+        ).all()
+    due = [
+        row for row in rows
+        if row.created_by == SYSTEM and row.definition == rules.canonical(UPGRADES[row.rule_id])
+    ]  # fmt: skip
+    if not due:
+        return
+    try:
+        async with engine.begin() as connection:
+            await in_tenant(connection, tenant)
+            for row in due:
+                await write_version(connection, tenant, row.rule_id, row.version + 1,
+                                    wanted[row.rule_id], SYSTEM,
+                                    f"The default library, {LIBRARY}", now)  # fmt: skip
+                await connection.execute(
+                    update(POLICY_RULES)
+                    .where(r.tenant_id == tenant, r.rule_id == row.rule_id,
+                           r.current_version == row.version)
+                    .values(current_version=row.version + 1, updated_at=now)
+                )  # fmt: skip
+                await audit(
+                    connection, tenant_id=tenant, actor_type=SYSTEM, actor_id=SYSTEM,
+                    action="policy_rule.version_published", resource_id=row.rule_id,
+                )  # fmt: skip
+    except IntegrityError:
+        # Another call moved them first.
+        return

@@ -92,6 +92,14 @@
     "receives": []
   },
   {
+    "name": "windops-production-impact",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
     "name": "windops-sample-caller",
     "namespace": "windops-application",
     "events": false,

@@ -39,6 +39,10 @@ INPUTS: dict[str, type] = {
     "evidence.status": str,
     "evidence.age_hours": float,
     "turbine.status": str,
+    # From the Production Impact Service's estimate: the high end of its cost range (M6.2).
+    "impact.total_cost_eur": float,
+    "impact.projected_lost_energy_mwh": float,
+    "impact.downtime_hours": float,
     "weather.max_wind_speed_mps": float,
     "weather.max_gust_mps": float,
 }

@@ -17,6 +17,7 @@ patches:
 - path: patches/windops-identity.yaml
 - path: patches/windops-investigation.yaml
 - path: patches/windops-policy.yaml
+- path: patches/windops-production-impact.yaml
 - path: patches/windops-sample-caller.yaml
 - path: patches/windops-sample-responder.yaml
 - path: patches/windops-telemetry.yaml

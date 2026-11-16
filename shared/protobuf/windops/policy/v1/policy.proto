@@ -12,10 +12,11 @@ import "google/protobuf/timestamp.proto";
 // ever with who made it, when and why, and its content hash. An old version never changes.
 //
 // The service gathers the facts it judges by itself, from the services that own them: the case
-// and its evidence from Investigation, the turbine and its site from Asset, and, from M6.4, the
-// weather from the Weather Service. A caller supplies only the proposal being judged. When a
-// required input is missing, stale or cannot be reached, the rule's outcome is block or
-// escalate, never pass (FR-POL-005): a rule cannot be written to pass on a missing input.
+// and its evidence from Investigation, the turbine and its site from Asset, the cost and downtime
+// from the Production Impact Service's estimate, and, from M6.4, the weather. A caller supplies
+// only the proposal being judged. When a required input is missing, stale or cannot be reached,
+// the rule's outcome is block or escalate, never pass (FR-POL-005): a rule cannot be written to
+// pass on a missing input.
 //
 // The tenant comes from the caller's verified identity (GRP-004). Reading rules needs
 // policy.read. Changing one needs policy.manage and a recent second factor (SEC-003), so only a
@@ -119,7 +120,8 @@ message Proposal {
   bool requires_climb = 3;
   google.protobuf.Timestamp planned_start = 4;
   google.protobuf.Timestamp planned_end = 5;
-  // Unset when not known, which a rule that needs it treats as missing.
+  // As the caller states them, kept with the result for the record. The rules judge cost and
+  // downtime from the Production Impact result instead (impact_result_id), never from these.
   optional double estimated_cost_eur = 6;
   optional double estimated_downtime_hours = 7;
   // From 0 to 1, as the recommendation states it.
@@ -130,6 +132,9 @@ message EvaluateProposalRequest {
   string case_id = 1;
   Proposal proposal = 2;
   string idempotency_key = 3;
+  // The Production Impact Service's estimate for this case and action. Its cost and downtime are
+  // what the rules judge. Without one, those inputs are missing, so their rules escalate.
+  string impact_result_id = 4;
 }
 
 // One input as the rules saw it.

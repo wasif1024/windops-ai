@@ -61,6 +61,7 @@ DEFAULT_PAGE, MAXIMUM_PAGE = 50, 200
 MAXIMUM_KEY, MAXIMUM_TEXT, MAXIMUM_DEFINITION = 64, 500, 8000
 _RULE_ID = re.compile(r"[a-z0-9][a-z0-9-]{1,62}[a-z0-9]")
 _RESULT_ID = re.compile(r"pol_[a-z0-9]{20}")
+_IMPACT_ID = re.compile(r"imp_[a-z0-9]{20}")
 
 
 class Authorizer(Protocol):
@@ -368,14 +369,15 @@ class PolicyService(policy_pb2_grpc.PolicyServiceServicer):
     # --- judging a proposal
 
     async def _gather(
-        self, tenant: str, case_id: str, proposal: pb.Proposal, now: datetime
+        self, tenant: str, request: pb.EvaluateProposalRequest, now: datetime
     ) -> tuple[Any, str, list[rules.Input]]:
-        """As the service itself: the case, its evidence, the turbine and its site."""
+        """As the service itself: the case, its evidence, the turbine, its site and the estimate."""
         with acting_as_service(SERVICE_NAME, tenant, self._secret):
-            case = await self._sources.case(case_id)
+            case = await self._sources.case(request.case_id)
             site, turbine = await sources.turbine_inputs(self._sources, case.turbine_id, now)
             found = await sources.case_inputs(self._sources, case, now)
-        inputs = [*sources.proposal_inputs(proposal, now), *found, *turbine,
+            impact = await sources.impact_inputs(self._sources, request.impact_result_id, case)
+        inputs = [*sources.proposal_inputs(request.proposal, now), *found, *turbine, *impact,
                   *sources.weather_inputs()]  # fmt: skip
         return case, site, inputs
 
@@ -389,6 +391,8 @@ class PolicyService(policy_pb2_grpc.PolicyServiceServicer):
         if len(request.idempotency_key) > MAXIMUM_KEY:
             raise InvalidRequestError(f"idempotency_key is at most {MAXIMUM_KEY} characters")
         sources.check_proposal(request.proposal)
+        if request.impact_result_id and not _IMPACT_ID.fullmatch(request.impact_result_id):
+            raise InvalidRequestError('impact_result_id is "imp_" and 20 letters and digits')
         identity = current_identity()
         tenant, caller = identity.tenant_id, identity.user_id or identity.subject
         now = self._now()
@@ -404,7 +408,7 @@ class PolicyService(policy_pb2_grpc.PolicyServiceServicer):
         if first is not None:
             return pb.EvaluateProposalResponse.FromString(first)
         try:
-            case, site, inputs = await self._gather(tenant, request.case_id, request.proposal, now)
+            case, site, inputs = await self._gather(tenant, request, now)
         except NotFoundError as error:
             raise NotFoundError("No such case") from error
         # One the caller may not read is not found, the same as one that does not exist.
