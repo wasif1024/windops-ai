@@ -136,6 +136,12 @@ Every version is exact, and `package-lock.json` holds the rest. `npm audit` must
 or above. ESLint 10 still asks for `minimatch` 10, which has a known denial-of-service bug (GHSA-g3hv-75wg-m249), so
 `overrides` sets the patched 11.0.5. ESLint works with it, which CI proves on every build.
 
+`npm run audit` runs that audit, and allows only the advisories in `audit-exceptions.json`. An advisory may be listed
+only while no fixed version exists, as the image scan's `ignore-unfixed` rule allows. Each entry gives its package,
+its last vulnerable version, a review date and the reason. The audit fails once a fixed version is published, on the
+review date, or when an entry no longer matches anything. The one entry today is `picomatch` (GHSA-fc5q-39xc-vjpf),
+a denial-of-service bug with no fix yet, in the build and test tools only.
+
 ## Limits
 
 - **Plain HTTP from the gateway.** The gateway reaches this pod over plain HTTP. It serves the same public files to

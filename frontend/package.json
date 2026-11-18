@@ -13,6 +13,7 @@
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
     "e2e": "playwright test",
+    "audit": "node scripts/audit.mjs",
     "build:app": "tsc --noEmit -p tsconfig.json && vite build"
   },
   "dependencies": {

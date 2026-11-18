@@ -306,7 +306,7 @@ token-exchange-check: ## Prove token exchange for agents with a real login (SEC-
 	uv run python -m scripts.checks.identity.token_exchange
 
 frontend-test: ## Lint, type-check, test and build the frontend, as CI does
-	cd frontend && npm ci --no-audit --no-fund && npm run lint && npm run typecheck && npm test && npm run build && npm audit --audit-level=moderate
+	cd frontend && npm ci --no-audit --no-fund && npm run lint && npm run typecheck && npm test && npm run build && npm run audit
 
 frontend-check: ## Sign in through a real browser, and see the branded, role-aware shell
 	uv run python -m scripts.checks.consoles.frontend
