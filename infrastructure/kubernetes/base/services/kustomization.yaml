@@ -10,6 +10,7 @@ resources:
   - ../../../../services/asset-service/deploy
   - ../../../../services/audit-service/deploy
   - ../../../../services/authorization-service/deploy
+  - ../../../../services/external-intelligence-service/deploy
   - ../../../../services/fault-detection-service/deploy
   - ../../../../services/identity-service/deploy
   - ../../../../services/investigation-service/deploy

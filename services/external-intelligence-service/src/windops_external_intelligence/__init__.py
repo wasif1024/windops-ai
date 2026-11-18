@@ -1,0 +1,1 @@
+"""WindOps external-intelligence service."""

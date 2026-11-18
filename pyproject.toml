@@ -15,6 +15,7 @@ members = [
     "services/asset-service",
     "services/audit-service",
     "services/authorization-service",
+    "services/external-intelligence-service",
     "services/fault-detection-service",
     "services/identity-service",
     "services/investigation-service",
@@ -36,6 +37,7 @@ members = [
     "shared/observability",
     "shared/outbox",
     "shared/resilience",
+    "shared/screening",
     "simulator",
 ]
 
@@ -47,6 +49,7 @@ windops-migrations = { workspace = true }
 windops-outbox = { workspace = true }
 windops-observability = { workspace = true }
 windops-resilience = { workspace = true }
+windops-screening = { workspace = true }
 windops-grpc = { workspace = true }
 windops-contracts = { workspace = true }
 windops-sample-caller = { workspace = true }
@@ -66,6 +69,7 @@ windops-policy = { workspace = true }
 windops-production-impact = { workspace = true }
 windops-weather = { workspace = true }
 windops-knowledge = { workspace = true }
+windops-external-intelligence = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -95,6 +99,8 @@ files = [
     "services/audit-service/tests",
     "services/authorization-service/src",
     "services/authorization-service/tests",
+    "services/external-intelligence-service/src",
+    "services/external-intelligence-service/tests",
     "services/fault-detection-service/src",
     "services/fault-detection-service/tests",
     "services/identity-service/src",
@@ -135,6 +141,8 @@ files = [
     "shared/outbox/tests",
     "shared/resilience/src",
     "shared/resilience/tests",
+    "shared/screening/src",
+    "shared/screening/tests",
     "simulator/src",
     "simulator/tests",
     "tests",
@@ -149,6 +157,8 @@ mypy_path = [
     "services/audit-service/tests",
     "services/authorization-service/src",
     "services/authorization-service/tests",
+    "services/external-intelligence-service/src",
+    "services/external-intelligence-service/tests",
     "services/fault-detection-service/src",
     "services/fault-detection-service/tests",
     "services/identity-service/src",
@@ -190,6 +200,8 @@ mypy_path = [
     "shared/outbox/tests",
     "shared/resilience/src",
     "shared/resilience/tests",
+    "shared/screening/src",
+    "shared/screening/tests",
     "simulator/src",
 ]
 
@@ -214,6 +226,7 @@ testpaths = [
     "shared/observability/tests",
     "shared/outbox/tests",
     "shared/resilience/tests",
+    "shared/screening/tests",
     "simulator/tests",
 ]
 addopts = "-ra --strict-markers --import-mode=importlib"
@@ -243,6 +256,7 @@ dev = [
     "windops-cache",
     "windops-contracts",
     "windops-events",
+    "windops-external-intelligence",
     "windops-fault-detection",
     "windops-grpc",
     "windops-identity",
@@ -255,6 +269,7 @@ dev = [
     "windops-production-impact",
     "windops-resilience",
     "windops-sample-caller",
+    "windops-screening",
     "windops-sample-responder",
     "windops-simulator",
     "windops-telemetry",

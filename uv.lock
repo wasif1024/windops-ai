@@ -13,6 +13,7 @@ members = [
     "windops-cache",
     "windops-contracts",
     "windops-events",
+    "windops-external-intelligence",
     "windops-fault-detection",
     "windops-grpc",
     "windops-identity",
@@ -26,6 +27,7 @@ members = [
     "windops-resilience",
     "windops-sample-caller",
     "windops-sample-responder",
+    "windops-screening",
     "windops-simulator",
     "windops-telemetry",
     "windops-tenant",
@@ -1603,6 +1605,7 @@ dev = [
     { name = "windops-cache" },
     { name = "windops-contracts" },
     { name = "windops-events" },
+    { name = "windops-external-intelligence" },
     { name = "windops-fault-detection" },
     { name = "windops-grpc" },
     { name = "windops-identity" },
@@ -1616,6 +1619,7 @@ dev = [
     { name = "windops-resilience" },
     { name = "windops-sample-caller" },
     { name = "windops-sample-responder" },
+    { name = "windops-screening" },
     { name = "windops-simulator" },
     { name = "windops-telemetry" },
     { name = "windops-tenant" },
@@ -1649,6 +1653,7 @@ dev = [
     { name = "windops-cache", editable = "shared/cache" },
     { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-events", editable = "shared/events" },
+    { name = "windops-external-intelligence", editable = "services/external-intelligence-service" },
     { name = "windops-fault-detection", editable = "services/fault-detection-service" },
     { name = "windops-grpc", editable = "shared/grpc" },
     { name = "windops-identity", editable = "services/identity-service" },
@@ -1662,6 +1667,7 @@ dev = [
     { name = "windops-resilience", editable = "shared/resilience" },
     { name = "windops-sample-caller", editable = "services/sample-caller-service" },
     { name = "windops-sample-responder", editable = "services/sample-responder-service" },
+    { name = "windops-screening", editable = "shared/screening" },
     { name = "windops-simulator", editable = "simulator" },
     { name = "windops-telemetry", editable = "services/telemetry-service" },
     { name = "windops-tenant", editable = "services/tenant-service" },
@@ -1840,6 +1846,37 @@ requires-dist = [
 ]
 
 [[package]]
+name = "windops-external-intelligence"
+version = "0.1.0"
+source = { editable = "services/external-intelligence-service" }
+dependencies = [
+    { name = "httpx" },
+    { name = "windops-auth" },
+    { name = "windops-contracts" },
+    { name = "windops-events" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-observability" },
+    { name = "windops-outbox" },
+    { name = "windops-resilience" },
+    { name = "windops-screening" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-events", editable = "shared/events" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-observability", editable = "shared/observability" },
+    { name = "windops-outbox", editable = "shared/outbox" },
+    { name = "windops-resilience", editable = "shared/resilience" },
+    { name = "windops-screening", editable = "shared/screening" },
+]
+
+[[package]]
 name = "windops-fault-detection"
 version = "0.1.0"
 source = { editable = "services/fault-detection-service" }
@@ -1967,6 +2004,7 @@ dependencies = [
     { name = "windops-observability" },
     { name = "windops-outbox" },
     { name = "windops-resilience" },
+    { name = "windops-screening" },
     { name = "windops-simulator" },
 ]
 
@@ -1981,6 +2019,7 @@ requires-dist = [
     { name = "windops-observability", editable = "shared/observability" },
     { name = "windops-outbox", editable = "shared/outbox" },
     { name = "windops-resilience", editable = "shared/resilience" },
+    { name = "windops-screening", editable = "shared/screening" },
     { name = "windops-simulator", editable = "simulator" },
 ]
 
@@ -2138,6 +2177,11 @@ requires-dist = [
     { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-grpc", editable = "shared/grpc" },
 ]
+
+[[package]]
+name = "windops-screening"
+version = "0.1.0"
+source = { editable = "shared/screening" }
 
 [[package]]
 name = "windops-simulator"

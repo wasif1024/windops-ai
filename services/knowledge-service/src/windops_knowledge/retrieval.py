@@ -19,8 +19,9 @@ from typing import Any
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncConnection
+from windops_screening import credentials_in
 
-from windops_knowledge import embeddings, library, uploads, vectors
+from windops_knowledge import embeddings, library, vectors
 from windops_knowledge.store import DOCUMENTS, PASSAGES
 
 READ = "knowledge.read"
@@ -80,7 +81,7 @@ def check_query(query: str) -> str:
         raise QueryRefusedError("A query is needed")
     if len(text) > MAXIMUM_QUERY:
         raise QueryRefusedError(f"A query is at most {MAXIMUM_QUERY} characters")
-    found = uploads.credentials_in(text)
+    found = credentials_in(text)
     if found:
         raise QueryRefusedError(
             f"The query holds {found[0][0]}, so it is not sent to be embedded. Remove it"

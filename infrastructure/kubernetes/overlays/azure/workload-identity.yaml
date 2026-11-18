@@ -186,6 +186,52 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: windops-external-intelligence
+  namespace: windops-application
+  labels:
+    app.kubernetes.io/name: windops-external-intelligence
+    app.kubernetes.io/part-of: windops
+  annotations:
+    azure.workload.identity/client-id: ${AZURE_CLIENT_ID_WINDOPS_EXTERNAL_INTELLIGENCE}
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: windops-external-intelligence
+  namespace: windops-application
+spec:
+  provider: azure
+  parameters:
+    clientID: ${AZURE_CLIENT_ID_WINDOPS_EXTERNAL_INTELLIGENCE}
+    keyvaultName: ${AZURE_KEYVAULT_NAME}
+    tenantId: ${AZURE_TENANT_ID}
+    objects: "array:\n- 'objectName: windops-external-intelligence-database--database\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-external-intelligence-database--host\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-external-intelligence-database--port\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-external-intelligence-database--username\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-internal-identity--signing-key\n\
+      \n  objectType: secret\n\n  '\n"
+  secretObjects:
+  - secretName: windops-external-intelligence-database
+    type: Opaque
+    data:
+    - key: database
+      objectName: windops-external-intelligence-database--database
+    - key: host
+      objectName: windops-external-intelligence-database--host
+    - key: port
+      objectName: windops-external-intelligence-database--port
+    - key: username
+      objectName: windops-external-intelligence-database--username
+  - secretName: windops-internal-identity
+    type: Opaque
+    data:
+    - key: signing-key
+      objectName: windops-internal-identity--signing-key
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: windops-fault-detection
   namespace: windops-application
   labels:

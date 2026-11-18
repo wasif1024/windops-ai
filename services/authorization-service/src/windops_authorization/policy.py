@@ -143,6 +143,9 @@ def permissions_of(role: str, custom: Mapping[str, frozenset[str]] | None) -> fr
 # grant a service more.
 SERVICE_PREFIX = "service:"
 SERVICE_GRANTS: dict[str, frozenset[str]] = {
+    # It reads the tenant's wind farms and turbines, for the names it takes out of a research
+    # query, a site's approximate region and a turbine's generic class (EXT-006, M7.4).
+    "external-intelligence": frozenset({"turbine.read"}),
     # Its detector reads each streaming turbine's telemetry and alarms on its own schedule.
     "fault-detection": frozenset({"turbine.read", "telemetry.read", "alarm.read"}),
     # Its evidence builder freezes each case's turbine, telemetry, alarms, detections and their

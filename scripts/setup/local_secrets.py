@@ -194,6 +194,8 @@ def redis_secrets(passwords: dict[str, str]) -> list[dict[str, object]]:
 PROVIDER_KEYS = (
     # The Knowledge Service's embeddings (M7.2, ADR 0011).
     ("OPENAI_API_KEY", "windops-openai-api-key", ("windops-application",)),
+    # The External Intelligence Service's web research, and only its pod mounts it (EXT-005).
+    ("TAVILY_API_KEY", "windops-tavily-api-key", ("windops-application",)),
 )
 
 

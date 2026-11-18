@@ -5,7 +5,7 @@ from scripts.setup.local_secrets import PROVIDER_KEYS, provider_secrets
 
 def test_an_unset_key_makes_no_secret() -> None:
     assert provider_secrets({}) == []
-    assert provider_secrets({"OPENAI_API_KEY": "  "}) == []
+    assert provider_secrets({"OPENAI_API_KEY": "  ", "TAVILY_API_KEY": ""}) == []
 
 
 def test_a_set_key_goes_only_to_the_namespaces_that_use_it() -> None:
