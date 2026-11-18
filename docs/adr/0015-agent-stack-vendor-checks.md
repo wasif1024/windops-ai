@@ -20,7 +20,7 @@ to LLM-010 set what each call must do.
 
 ## Decision
 
-**The stack, pinned:** releases at least two weeks old when chosen. The Agent Runtime takes the same pins (M8.2).
+**The stack, pinned:** releases at least two weeks old when chosen. The Agent Runtime takes the same pins when it first calls Claude (M8.3).
 
 | Package | Version |
 | --- | --- |

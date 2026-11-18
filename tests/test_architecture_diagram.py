@@ -111,7 +111,8 @@ def test_the_azure_diagram_draws_the_pipeline_stages_in_order() -> None:
 def test_a_service_runs_once_it_has_an_image_or_a_deployment() -> None:
     assert is_running("Asset")
     assert is_running("API Gateway")
-    assert not is_running("Agent Runtime")
+    assert is_running("Agent Runtime")
+    assert not is_running("Approval")
 
 
 def test_end_to_end_diagram_draws_every_srs_service_once() -> None:
@@ -167,4 +168,4 @@ def test_the_kubernetes_view_marks_what_the_pipeline_deploys_as_on_azure() -> No
     on_azure = {name for name in BACK_END if status_of(name) == ON_AZURE}
     assert on_azure == {"Asset", "Audit"}  # Authorization and Tenant are drawn in the front end
     assert status_of("Authorization") == status_of("Tenant") == ON_AZURE
-    assert status_of("Agent Runtime") == PLANNED
+    assert status_of("Approval") == PLANNED

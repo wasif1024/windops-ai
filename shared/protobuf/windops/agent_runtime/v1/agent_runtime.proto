@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+package windops.agent_runtime.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Agent runs, as queued jobs (ARC-007). A run is kept in PostgreSQL before StartRun answers, so it
+// waits through any outage, and any worker replica may take it (ARC-006). A worker holds a run
+// under a lease that it renews while it works. If the worker stops, the lease runs out and another
+// replica takes the run over from its last completed step, so the run is never lost. Each claim
+// counts as an attempt, and a run that has used them all fails (FR-INV-007).
+//
+// The Investigation Service owns cases, and decides who may start, read or cancel a case's runs.
+// So only its certificate may call this service, and the tenant comes from the verified identity
+// it sends (GRP-004). A run pins its workflow and version (AGT-004). Starting and cancelling are
+// audited, as is every run's end, and StartRun may be retried with the same idempotency_key
+// (GRP-007).
+service AgentRuntimeService {
+  // Queues a run and answers at once, before any work starts.
+  rpc StartRun(StartRunRequest) returns (StartRunResponse);
+  rpc GetRun(GetRunRequest) returns (GetRunResponse);
+  // A case's runs, newest first.
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+  // A queued run ends at once. A running one ends at its next step, as cancelled.
+  rpc CancelRun(CancelRunRequest) returns (CancelRunResponse);
+}
+
+message Step {
+  // From 1, in the workflow's order.
+  int64 position = 1;
+  string name = 2;
+  // The attempt that completed it.
+  int64 attempt = 3;
+  google.protobuf.Timestamp started_at = 4;
+  google.protobuf.Timestamp finished_at = 5;
+}
+
+message Run {
+  // "run_" and 20 lowercase letters and digits.
+  string run_id = 1;
+  string case_id = 2;
+  string snapshot_id = 3;
+  // Pinned when queued (AGT-004).
+  string workflow = 4;
+  string workflow_version = 5;
+  // "queued", "running", or one of the terminal states in SRS 5.6: "completed", "failed",
+  // "cancelled", "budget_exhausted" or "stale".
+  string status = 6;
+  // Why it ended, for any terminal state other than "completed".
+  string reason = 7;
+  // Claims so far, and the most allowed.
+  int64 attempt = 8;
+  int64 max_attempts = 9;
+  // The person or service that asked for it.
+  string requested_by = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp started_at = 12;
+  google.protobuf.Timestamp finished_at = 13;
+  bool cancel_requested = 14;
+  // Completed steps, in order.
+  repeated Step steps = 15;
+  int64 total_steps = 16;
+}
+
+message StartRunRequest {
+  string case_id = 1;
+  string snapshot_id = 2;
+  // A registered workflow, such as "rehearsal". Its current version is pinned to the run.
+  string workflow = 3;
+  // Checked against the workflow's own limits.
+  map<string, string> parameters = 4;
+  // The person or service the run is for, such as "user:<id>" or "service:investigation".
+  string requested_by = 5;
+  // The same key with the same request returns the same run. With a different request, it is
+  // refused.
+  string idempotency_key = 6;
+}
+
+message StartRunResponse {
+  Run run = 1;
+}
+
+message GetRunRequest {
+  string run_id = 1;
+}
+
+message GetRunResponse {
+  Run run = 1;
+}
+
+message ListRunsRequest {
+  string case_id = 1;
+  // 20 by default, and at most 100.
+  int32 limit = 2;
+}
+
+message ListRunsResponse {
+  repeated Run runs = 1;
+}
+
+message CancelRunRequest {
+  string run_id = 1;
+  // The person or service cancelling it.
+  string requested_by = 2;
+  string reason = 3;
+  // Cancelling twice changes nothing, so a retry is always safe (GRP-007). The key is accepted
+  // for callers that send one on every change.
+  string idempotency_key = 4;
+}
+
+message CancelRunResponse {
+  Run run = 1;
+}

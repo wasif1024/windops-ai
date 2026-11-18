@@ -9,6 +9,7 @@ resources:
   - ../../../../mcp-servers/documentation-mcp/deploy
   - ../../../../mcp-servers/tavily-mcp/deploy
   - ../../../../mcp-servers/weather-mcp/deploy
+  - ../../../../services/agent-runtime-service/deploy
   - ../../../../services/alarm-service/deploy
   - ../../../../services/api-gateway/deploy
   - ../../../../services/asset-service/deploy

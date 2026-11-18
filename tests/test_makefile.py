@@ -77,6 +77,7 @@ BUILT_TARGETS = {
     "mcp-check",
     "mcp-servers-check",
     "vendor-check",
+    "runtime-check",
     "frontend-test",
     "frontend-check",
     "postgres-provision",

@@ -4,6 +4,7 @@ requires-python = "==3.13.*"
 
 [manifest]
 members = [
+    "windops-agent-runtime",
     "windops-ai",
     "windops-alarm",
     "windops-asset",
@@ -2252,6 +2253,31 @@ wheels = [
 ]
 
 [[package]]
+name = "windops-agent-runtime"
+version = "0.1.0"
+source = { editable = "services/agent-runtime-service" }
+dependencies = [
+    { name = "windops-auth" },
+    { name = "windops-contracts" },
+    { name = "windops-events" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-observability" },
+    { name = "windops-outbox" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-events", editable = "shared/events" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-observability", editable = "shared/observability" },
+    { name = "windops-outbox", editable = "shared/outbox" },
+]
+
+[[package]]
 name = "windops-ai"
 version = "0.1.0"
 source = { virtual = "." }
@@ -2282,6 +2308,7 @@ dev = [
     { name = "ruff" },
     { name = "types-grpcio" },
     { name = "types-pyyaml" },
+    { name = "windops-agent-runtime" },
     { name = "windops-alarm" },
     { name = "windops-asset" },
     { name = "windops-audit" },
@@ -2346,6 +2373,7 @@ dev = [
     { name = "ruff", specifier = ">=0.17.3" },
     { name = "types-grpcio", specifier = ">=1.85.0.20261028" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20261103" },
+    { name = "windops-agent-runtime", editable = "services/agent-runtime-service" },
     { name = "windops-alarm", editable = "services/alarm-service" },
     { name = "windops-asset", editable = "services/asset-service" },
     { name = "windops-audit", editable = "services/audit-service" },
