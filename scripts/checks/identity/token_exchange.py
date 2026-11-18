@@ -72,11 +72,11 @@ def verified(token: str, audience: str) -> dict[str, Any]:
 
 
 class Caller:
-    def __init__(self, stub: Any, key: str) -> None:
-        self.stub, self.key = stub, key
+    def __init__(self, stub: Any, key: str, tenant: str = TENANT) -> None:
+        self.stub, self.key, self.tenant = stub, key, tenant
 
     def options(self, user: str) -> dict[str, Any]:
-        identity = VerifiedIdentity(subject=user, tenant_id=TENANT, user_id=user)
+        identity = VerifiedIdentity(subject=user, tenant_id=self.tenant, user_id=user)
         token = sign_identity(identity, self.key, ttl_seconds=60)
         return {"metadata": (("x-windops-identity", token),), "timeout": 15}
 

@@ -90,7 +90,13 @@ Inside the envelope:
   - `make mcp-check` proves this with a real login, real exchanges and Keycloak's real keys, against a probe server
     built with the library.
   - The probe server keeps its limits and audit records in memory.
-  - M7.6 deploys the first servers, each with its own Redis and NATS users, and proves Redis-backed limits and the
-    audit stream on the cluster.
+  - M7.6 deploys the first servers, each with its own Redis and NATS users. `make mcp-servers-check` proves
+    Redis-backed limits and the audit stream on the cluster ([MCP integrations](../mcp-integrations.md)).
+- **Audit without an outbox:** an MCP server changes nothing, so it has no state for a record to commit with
+  (EVT-002). Each record is published straight to JetStream, on the server's own subject, and acknowledged before
+  the result is returned. That keeps it durable (EVT-004). NATS lets each server publish only that subject.
+- **Mutual TLS:** a server's MCP endpoint is served only over HTTPS, to clients presenting a certificate from the
+  cluster's CA, so a token alone, taken out of the cluster, reaches nothing. Plain HTTP carries only health and
+  metrics.
 - **Deferred to M8.6:** per-agent allowlists, and keeping write tools from agents that read external content.
   Here, a tool returning external content can only read, and says so in its annotations.

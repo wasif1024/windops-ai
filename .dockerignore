@@ -8,10 +8,13 @@
 .mypy_cache
 .ruff_cache
 docs
-evaluations
+# Only the fixtures the Filesystem MCP serves.
+evaluations/*
+!evaluations/datasets
+!evaluations/scenarios
 frontend
 infrastructure
-mcp-servers
+mcp-servers/*/tests
 scripts
 tests
 **/*.md
@@ -19,5 +22,6 @@ tests
 !shared/*/README.md
 !services/*/README.md
 !simulator/README.md
+!mcp-servers/*/README.md
 # The synthetic document set is package data: the Knowledge Service's demo seed reads it (M7.2).
 !simulator/src/windops_simulator/documents/**/*.md

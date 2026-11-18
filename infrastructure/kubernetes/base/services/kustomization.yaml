@@ -5,6 +5,10 @@ commonAnnotations:
   windops.io/managed-by: kustomize
 resources:
   - ../../../../frontend/deploy
+  # The MCP servers agents use, in windops-mcp (SRS 6.3).
+  - ../../../../mcp-servers/documentation-mcp/deploy
+  - ../../../../mcp-servers/tavily-mcp/deploy
+  - ../../../../mcp-servers/weather-mcp/deploy
   - ../../../../services/alarm-service/deploy
   - ../../../../services/api-gateway/deploy
   - ../../../../services/asset-service/deploy

@@ -14,7 +14,7 @@ import sys
 from scripts.lib.settings import KUBE_CONTEXT, ROOT, cluster_settings
 
 NAME = "windops-settings"
-NAMESPACES = ("windops-system", "windops-application")
+NAMESPACES = ("windops-system", "windops-application", "windops-mcp")
 
 
 def kubectl(*arguments: str, stdin: str | None = None) -> str:

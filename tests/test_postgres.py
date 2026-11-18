@@ -148,9 +148,13 @@ def test_error_text_never_contains_a_password() -> None:
 
 def test_each_secret_reaches_only_its_service_namespace() -> None:
     """ARC-003: distinct credentials, and no administrator password for services."""
-    passwords = {ADMIN_KEY: "admin-password", "keycloak": "kc-value", **TEMPLATE_PASSWORDS}
+    passwords = {
+        ADMIN_KEY: "admin-password", "keycloak": "kc-value", "mcp-postgres": "diagnostics-value",
+        **TEMPLATE_PASSWORDS,
+    }  # fmt: skip
     manifests = postgres_secrets(passwords)
-    assert len(manifests) == len(SERVICE_NAMESPACES) + 2
+    # The administrator's, then Keycloak's and the PostgreSQL MCP's, beside each service's.
+    assert len(manifests) == len(SERVICE_NAMESPACES) + 3
     by_name: dict[str, Any] = {item["metadata"]["name"]: item for item in manifests}  # type: ignore[index]
     assert by_name["windops-postgres-admin"]["metadata"]["namespace"] == "windops-data"
     for service, namespace in SERVICE_NAMESPACES.items():

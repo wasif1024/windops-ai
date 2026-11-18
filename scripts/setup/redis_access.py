@@ -8,7 +8,12 @@ reader of that namespace could not already reach. Redis hashes these passwords w
 import re
 from pathlib import Path
 
-from scripts.setup.provision_postgres import ADMIN_KEY, SERVICE_NAMESPACES, database_name
+from scripts.setup.provision_postgres import (
+    ADMIN_KEY,
+    MCP_SERVERS,
+    SERVICE_NAMESPACES,
+    database_name,
+)
 
 NAMESPACE = "windops-data"
 ADMIN_USER = "windops_admin"
@@ -30,8 +35,9 @@ def _password_rule(password: str) -> str:
     return f">{password}"
 
 
-# Web BFF stores nothing, but counts each user's requests here (SRS 7.5).
-CACHE_SERVICES = {**SERVICE_NAMESPACES, "web-bff": "windops-system"}
+# Web BFF stores nothing, but counts each user's requests here (SRS 7.5). The MCP servers count
+# their tools' limits here (MCP-003).
+CACHE_SERVICES = {**SERVICE_NAMESPACES, "web-bff": "windops-system", **MCP_SERVERS}
 
 
 def acl_file(passwords: dict[str, str]) -> str:

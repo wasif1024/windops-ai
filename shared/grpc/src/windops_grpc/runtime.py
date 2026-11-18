@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import signal
+import ssl
 from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Any
@@ -50,6 +51,7 @@ class ServiceRuntime:
         http_router: APIRouter | None = None,
         http_exception_handlers: Mapping[type[Exception], ExceptionHandler] | None = None,
         api_over_https: bool = False,
+        api_client_certificates: bool = False,
         install_global_telemetry: bool = True,
     ) -> None:
         self.name = name
@@ -60,6 +62,8 @@ class ServiceRuntime:
         self._http_exception_handlers = dict(http_exception_handlers or {})
         # The API only over TLS, and plain HTTP only for probes and Prometheus, which carry no data.
         self._api_over_https = api_over_https and settings.tls_dir is not None
+        # Callers of the HTTPS API must then present a certificate from the cluster's own CA.
+        self._api_client_certificates = api_client_certificates
         self._https: _HttpServer | None = None
         self._https_task: asyncio.Task[None] | None = None
         self.https_port = settings.https_port
@@ -179,6 +183,12 @@ class ServiceRuntime:
                 access_log=False,
                 ssl_certfile=str(settings.tls_dir / "tls.crt"),
                 ssl_keyfile=str(settings.tls_dir / "tls.key"),
+                ssl_ca_certs=(
+                    str(settings.tls_dir / "ca.crt") if self._api_client_certificates else None
+                ),
+                ssl_cert_reqs=(
+                    ssl.CERT_REQUIRED if self._api_client_certificates else ssl.CERT_NONE
+                ),
             )
             self._https, self._https_task = await self._serve(secure)
             self.https_port = self._https.servers[0].sockets[0].getsockname()[1]
@@ -213,6 +223,7 @@ async def run_service(
     http_router: APIRouter | None = None,
     http_exception_handlers: Mapping[type[Exception], ExceptionHandler] | None = None,
     api_over_https: bool = False,
+    api_client_certificates: bool = False,
     background: Sequence[Background] = (),
 ) -> None:
     """Run a service until SIGTERM or SIGINT, then shut it down gracefully.
@@ -228,6 +239,7 @@ async def run_service(
         http_router=http_router,
         http_exception_handlers=http_exception_handlers,
         api_over_https=api_over_https,
+        api_client_certificates=api_client_certificates,
     )
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

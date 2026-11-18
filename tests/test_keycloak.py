@@ -104,7 +104,11 @@ def test_keycloak_has_its_own_database_and_login() -> None:
 
 
 def test_database_credentials_stay_in_its_namespace() -> None:
-    passwords = {ADMIN_KEY: "a", "keycloak": "k", **dict.fromkeys(SERVICE_NAMESPACES, "s")}
+    passwords = {
+        ADMIN_KEY: "a",
+        **dict.fromkeys(PLATFORM_DATABASES, "k"),
+        **dict.fromkeys(SERVICE_NAMESPACES, "s"),
+    }
     secret: Any = next(
         item
         for item in postgres_secrets(passwords)
@@ -271,3 +275,14 @@ def test_each_mcp_tool_has_its_own_scope_offered_only_for_exchange() -> None:
     source = (ROOT / "scripts" / "setup" / "identity_seed.py").read_text()
     assert "for tool_scope in sorted(EXCHANGE_TARGETS[target]):" in source
     assert "optional-client-scopes/" in source
+
+
+def test_the_diagnostics_login_can_only_read_statistics() -> None:
+    """The PostgreSQL MCP's login: pg_monitor and an empty database, in windops-mcp only."""
+    from scripts.setup.provision_postgres import DIAGNOSTICS
+
+    sql = provisioning_sql({DIAGNOSTICS: "p", "asset": "q"})
+    assert "GRANT pg_monitor TO windops_mcp_postgres;" in sql
+    assert sql.count("GRANT ") == 1
+    assert "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS" in sql
+    assert PLATFORM_DATABASES[DIAGNOSTICS] == "windops-mcp"

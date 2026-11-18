@@ -465,6 +465,144 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: windops-mcp-documentation
+  namespace: windops-mcp
+  labels:
+    app.kubernetes.io/name: windops-mcp-documentation
+    app.kubernetes.io/part-of: windops
+  annotations:
+    azure.workload.identity/client-id: ${AZURE_CLIENT_ID_WINDOPS_MCP_DOCUMENTATION}
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: windops-mcp-documentation
+  namespace: windops-mcp
+spec:
+  provider: azure
+  parameters:
+    clientID: ${AZURE_CLIENT_ID_WINDOPS_MCP_DOCUMENTATION}
+    keyvaultName: ${AZURE_KEYVAULT_NAME}
+    tenantId: ${AZURE_TENANT_ID}
+    objects: "array:\n- 'objectName: windops-internal-identity--signing-key\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-mcp-documentation-cache--host\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-mcp-documentation-cache--password\n\n\
+      \  objectType: secret\n\n  '\n- 'objectName: windops-mcp-documentation-cache--port\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-mcp-documentation-cache--username\n\
+      \n  objectType: secret\n\n  '\n"
+  secretObjects:
+  - secretName: windops-internal-identity
+    type: Opaque
+    data:
+    - key: signing-key
+      objectName: windops-internal-identity--signing-key
+  - secretName: windops-mcp-documentation-cache
+    type: Opaque
+    data:
+    - key: host
+      objectName: windops-mcp-documentation-cache--host
+    - key: password
+      objectName: windops-mcp-documentation-cache--password
+    - key: port
+      objectName: windops-mcp-documentation-cache--port
+    - key: username
+      objectName: windops-mcp-documentation-cache--username
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: windops-mcp-tavily
+  namespace: windops-mcp
+  labels:
+    app.kubernetes.io/name: windops-mcp-tavily
+    app.kubernetes.io/part-of: windops
+  annotations:
+    azure.workload.identity/client-id: ${AZURE_CLIENT_ID_WINDOPS_MCP_TAVILY}
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: windops-mcp-tavily
+  namespace: windops-mcp
+spec:
+  provider: azure
+  parameters:
+    clientID: ${AZURE_CLIENT_ID_WINDOPS_MCP_TAVILY}
+    keyvaultName: ${AZURE_KEYVAULT_NAME}
+    tenantId: ${AZURE_TENANT_ID}
+    objects: "array:\n- 'objectName: windops-internal-identity--signing-key\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-mcp-tavily-cache--host\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-mcp-tavily-cache--password\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-mcp-tavily-cache--port\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-mcp-tavily-cache--username\n\n  objectType:\
+      \ secret\n\n  '\n"
+  secretObjects:
+  - secretName: windops-internal-identity
+    type: Opaque
+    data:
+    - key: signing-key
+      objectName: windops-internal-identity--signing-key
+  - secretName: windops-mcp-tavily-cache
+    type: Opaque
+    data:
+    - key: host
+      objectName: windops-mcp-tavily-cache--host
+    - key: password
+      objectName: windops-mcp-tavily-cache--password
+    - key: port
+      objectName: windops-mcp-tavily-cache--port
+    - key: username
+      objectName: windops-mcp-tavily-cache--username
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: windops-mcp-weather
+  namespace: windops-mcp
+  labels:
+    app.kubernetes.io/name: windops-mcp-weather
+    app.kubernetes.io/part-of: windops
+  annotations:
+    azure.workload.identity/client-id: ${AZURE_CLIENT_ID_WINDOPS_MCP_WEATHER}
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: windops-mcp-weather
+  namespace: windops-mcp
+spec:
+  provider: azure
+  parameters:
+    clientID: ${AZURE_CLIENT_ID_WINDOPS_MCP_WEATHER}
+    keyvaultName: ${AZURE_KEYVAULT_NAME}
+    tenantId: ${AZURE_TENANT_ID}
+    objects: "array:\n- 'objectName: windops-internal-identity--signing-key\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-mcp-weather-cache--host\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-mcp-weather-cache--password\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-mcp-weather-cache--port\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-mcp-weather-cache--username\n\n  objectType:\
+      \ secret\n\n  '\n"
+  secretObjects:
+  - secretName: windops-internal-identity
+    type: Opaque
+    data:
+    - key: signing-key
+      objectName: windops-internal-identity--signing-key
+  - secretName: windops-mcp-weather-cache
+    type: Opaque
+    data:
+    - key: host
+      objectName: windops-mcp-weather-cache--host
+    - key: password
+      objectName: windops-mcp-weather-cache--password
+    - key: port
+      objectName: windops-mcp-weather-cache--port
+    - key: username
+      objectName: windops-mcp-weather-cache--username
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: windops-policy
   namespace: windops-application
   labels:

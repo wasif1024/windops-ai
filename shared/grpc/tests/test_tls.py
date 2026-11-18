@@ -449,3 +449,63 @@ def test_an_api_over_https_is_not_also_served_in_plain(
             root.setLevel(saved_level)
 
     asyncio.run(scenario())
+
+
+def test_an_api_can_require_a_client_certificate_from_the_cluster_ca(
+    tmp_path: Path, authority: Authority
+) -> None:
+    """MCP servers: only a workload holding the cluster's certificate may connect."""
+    import ssl
+
+    import httpx
+    from fastapi import APIRouter
+
+    router = APIRouter()
+
+    @router.get("/api/v1/hello")
+    async def hello() -> dict[str, str]:
+        return {"hello": "world"}
+
+    async def scenario() -> None:
+        files = issue(authority, SERVER_NAME, tmp_path / "server", trusted=authority)
+        client_files = issue(authority, "caller", tmp_path / "client", trusted=authority)
+        stranger = make_authority("stranger")
+        outsider = issue(stranger, "outsider", tmp_path / "outsider", trusted=authority)
+        root = logging.getLogger()
+        saved_handlers, saved_level = list(root.handlers), root.level
+        runtime = ServiceRuntime(
+            "https-client-test",
+            Settings(
+                environment="test", version="test", identity_secret=SECRET, grpc_port=0,
+                http_port=0, https_port=0, shutdown_grace_seconds=1, tls_dir=files,
+            ),
+            lambda server: None,
+            http_router=router,
+            api_over_https=True,
+            api_client_certificates=True,
+            install_global_telemetry=False,
+        )  # fmt: skip
+        await runtime.start()
+        try:
+            secure = f"https://localhost:{runtime.https_port}/api/v1/hello"
+
+            def context(certificate: Path | None) -> ssl.SSLContext:
+                made = ssl.create_default_context(cafile=str(files / "ca.crt"))
+                if certificate is not None:
+                    made.load_cert_chain(certificate / "tls.crt", certificate / "tls.key")
+                return made
+
+            async with httpx.AsyncClient(timeout=5, verify=context(client_files)) as client:
+                assert (await client.get(secure)).json() == {"hello": "world"}
+            for certificate in (None, outsider):
+                async with httpx.AsyncClient(timeout=5, verify=context(certificate)) as client:
+                    with pytest.raises(
+                        (httpx.ConnectError, httpx.ReadError, httpx.RemoteProtocolError)
+                    ):
+                        await client.get(secure)
+        finally:
+            await runtime.stop()
+            root.handlers[:] = saved_handlers
+            root.setLevel(saved_level)
+
+    asyncio.run(scenario())

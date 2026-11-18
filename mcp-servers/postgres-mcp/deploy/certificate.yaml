@@ -1,0 +1,29 @@
+# This server's identity for TLS. Its MCP endpoint needs its callers' certificates too (MCP-001).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-mcp-postgres-tls
+  labels:
+    app.kubernetes.io/name: windops-mcp-postgres
+    app.kubernetes.io/part-of: windops
+spec:
+  secretName: windops-mcp-postgres-tls
+  commonName: windops-mcp-postgres
+  dnsNames:
+    - windops-mcp-postgres
+    - windops-mcp-postgres.windops-mcp
+    - windops-mcp-postgres.windops-mcp.svc
+    - windops-mcp-postgres.windops-mcp.svc.cluster.local
+  duration: 720h
+  renewBefore: 168h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - client auth
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io

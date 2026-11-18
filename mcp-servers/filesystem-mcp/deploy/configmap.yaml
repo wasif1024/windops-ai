@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: windops-mcp-filesystem-config
+  labels:
+    app.kubernetes.io/name: windops-mcp-filesystem
+    app.kubernetes.io/part-of: windops
+# Environment-wide values, such as the release and addresses, are in windops-settings (make config).
+data:
+  WINDOPS_GRPC_PORT: "50051"
+  WINDOPS_HTTP_PORT: "8080"
+  WINDOPS_HTTPS_PORT: "8443"
+  WINDOPS_SHUTDOWN_GRACE_SECONDS: "20"
+  # The Keycloak client its tokens must name, and nothing else (MCP-001, ADR 0014).
+  WINDOPS_MCP_AUDIENCE: windops-mcp-filesystem

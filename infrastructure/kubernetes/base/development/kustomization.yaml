@@ -1,0 +1,9 @@
+# Development only (SRS 6.3): never an agent's data path, and never deployed on Azure. Only the
+# local overlay includes it.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+commonAnnotations:
+  windops.io/managed-by: kustomize
+resources:
+  - ../../../../mcp-servers/filesystem-mcp/deploy
+  - ../../../../mcp-servers/postgres-mcp/deploy

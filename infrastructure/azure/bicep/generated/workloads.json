@@ -100,6 +100,30 @@
     "receives": []
   },
   {
+    "name": "windops-mcp-documentation",
+    "namespace": "windops-mcp",
+    "events": true,
+    "database": false,
+    "keyVault": true,
+    "receives": []
+  },
+  {
+    "name": "windops-mcp-tavily",
+    "namespace": "windops-mcp",
+    "events": true,
+    "database": false,
+    "keyVault": true,
+    "receives": []
+  },
+  {
+    "name": "windops-mcp-weather",
+    "namespace": "windops-mcp",
+    "events": true,
+    "database": false,
+    "keyVault": true,
+    "receives": []
+  },
+  {
     "name": "windops-policy",
     "namespace": "windops-application",
     "events": true,

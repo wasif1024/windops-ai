@@ -48,8 +48,19 @@ SERVICE_NAMESPACES = {
     "notification": "windops-application",
     "evaluation": "windops-application",
 }
-# Not services, so they get a database only: no template, cache login or event login.
-PLATFORM_DATABASES = {"keycloak": "windops-system"}
+# The MCP servers, in windops-mcp (SRS 6.3). Not services: each gets a Redis login for its limits
+# and a NATS login for its audit records, and no database. Filesystem and PostgreSQL are
+# development only, and never deployed on Azure.
+MCP_SERVERS = {
+    f"mcp-{server}": "windops-mcp"
+    for server in ("documentation", "tavily", "weather", "filesystem", "postgres")
+}
+DEVELOPMENT_MCP_SERVERS = ("mcp-filesystem", "mcp-postgres")
+# The PostgreSQL MCP's login: server statistics through pg_monitor, never a service's tables.
+DIAGNOSTICS = "mcp-postgres"
+# Not services, so they get a database only: no template, cache login or event login. The
+# diagnostics login's database is empty: it is only somewhere to connect.
+PLATFORM_DATABASES = {"keycloak": "windops-system", DIAGNOSTICS: "windops-mcp"}
 _SAFE_PASSWORD = re.compile(r"[A-Za-z0-9_-]+")
 _SAFE_SERVICE = re.compile(r"[a-z]+(-[a-z]+)*")
 
@@ -94,6 +105,9 @@ def provisioning_sql(passwords: dict[str, str]) -> str:
             f"ALTER DATABASE {name} OWNER TO {name};",
             f"REVOKE ALL ON DATABASE {name} FROM PUBLIC;",
         ]
+        if service == DIAGNOSTICS:
+            # Statistics views only. It holds no grant on any service's database or tables.
+            lines.append(f"GRANT pg_monitor TO {name};")
     return "\n".join(lines) + "\n"
 
 
