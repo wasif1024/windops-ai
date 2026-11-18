@@ -220,7 +220,7 @@ def test_research_goes_out_generic_and_comes_back_recorded_and_flagged() -> None
             "week",
             "united kingdom",
         )
-        assert "facebook.com" in sent["exclude_domains"]
+        assert set(sent["exclude_domains"]) >= {"facebook.com"}
         assert found.state == "complete" and found.query == "Storm warnings for Dogger East T01"
         assert (found.wind_farm_id, found.turbine_class) == (
             "dogger-east",
@@ -343,7 +343,7 @@ def test_the_domain_policy_goes_out_with_every_search() -> None:
         found = await research(world)
         sent = world.provider.searches[-1]
         assert sent["include_domains"] == ["metoffice.gov.uk"]
-        assert "example.com" in sent["exclude_domains"]
+        assert set(sent["exclude_domains"]) >= {"example.com"}
         assert [s.domain for s in found.sources] == ["metoffice.gov.uk"]
 
     with_service(scenario)
