@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: windops-agent-runtime-config
+  labels:
+    app.kubernetes.io/name: windops-agent-runtime
+    app.kubernetes.io/part-of: windops
+# Environment-wide values, such as the release and addresses, are in windops-settings (make config).
+data:
+  WINDOPS_GRPC_PORT: "50051"
+  WINDOPS_HTTP_PORT: "8080"
+  WINDOPS_SHUTDOWN_GRACE_SECONDS: "20"
+  # Runs each replica works on at once (ARC-006). More runs at once means more replicas.
+  WINDOPS_RUNTIME_WORKER_SLOTS: "2"
+  # How long a stopped worker's run waits before another replica takes it over (ARC-007).
+  # Renewed every third of it, while the run works.
+  WINDOPS_RUNTIME_LEASE_SECONDS: "30"
+  # Claims of a run, counting takeovers, before it fails (FR-INV-007).
+  WINDOPS_RUNTIME_MAX_ATTEMPTS: "3"
+  # A run not started within this is ended as stale: its evidence is too old to start on.
+  WINDOPS_RUNTIME_QUEUE_HOURS: "24"
+  WINDOPS_RUNTIME_POLL_SECONDS: "1"

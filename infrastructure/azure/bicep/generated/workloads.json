@@ -1,5 +1,13 @@
 [
   {
+    "name": "windops-agent-runtime",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
     "name": "windops-alarm",
     "namespace": "windops-application",
     "events": true,

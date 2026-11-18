@@ -2,6 +2,52 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: windops-agent-runtime
+  namespace: windops-application
+  labels:
+    app.kubernetes.io/name: windops-agent-runtime
+    app.kubernetes.io/part-of: windops
+  annotations:
+    azure.workload.identity/client-id: ${AZURE_CLIENT_ID_WINDOPS_AGENT_RUNTIME}
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: windops-agent-runtime
+  namespace: windops-application
+spec:
+  provider: azure
+  parameters:
+    clientID: ${AZURE_CLIENT_ID_WINDOPS_AGENT_RUNTIME}
+    keyvaultName: ${AZURE_KEYVAULT_NAME}
+    tenantId: ${AZURE_TENANT_ID}
+    objects: "array:\n- 'objectName: windops-agent-runtime-database--database\n\n\
+      \  objectType: secret\n\n  '\n- 'objectName: windops-agent-runtime-database--host\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-agent-runtime-database--port\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-agent-runtime-database--username\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-internal-identity--signing-key\n\
+      \n  objectType: secret\n\n  '\n"
+  secretObjects:
+  - secretName: windops-agent-runtime-database
+    type: Opaque
+    data:
+    - key: database
+      objectName: windops-agent-runtime-database--database
+    - key: host
+      objectName: windops-agent-runtime-database--host
+    - key: port
+      objectName: windops-agent-runtime-database--port
+    - key: username
+      objectName: windops-agent-runtime-database--username
+  - secretName: windops-internal-identity
+    type: Opaque
+    data:
+    - key: signing-key
+      objectName: windops-internal-identity--signing-key
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: windops-alarm
   namespace: windops-application
   labels:
