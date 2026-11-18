@@ -14,9 +14,10 @@ down hands its run back at once, and that does not count as an attempt.
 Claiming works across tenants, as only platform work may. Everything else names the tenant.
 """
 
+import contextlib
 import json
 import secrets
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -31,6 +32,7 @@ from windops_agent_runtime.store import (
     ACTOR,
     CANCELLED,
     FAILED,
+    PAUSED,
     QUEUED,
     RUN_CALLS,
     RUN_STEPS,
@@ -68,12 +70,17 @@ class Claim:
     policy_hash: str = ""
     token_budget: int = 0
     cost_budget_usd: Decimal = Decimal(0)
+    # The graph, prompt, tool and skill versions it was queued with (AGT-004).
+    pins: dict[str, Any] | None = None
+    case_id: str = ""
+    snapshot_id: str = ""
 
 
 @dataclass(frozen=True)
 class Renewal:
     held: bool
     cancel_requested: bool
+    pause_requested: bool = False
 
 
 def _utc(value: datetime | None) -> datetime | None:
@@ -127,6 +134,15 @@ class Queue:
                     status, reason = ended
                     await _end(connection, row, status=status, reason=reason, now=now)
                     continue
+                if row.pause_requested_at is not None:
+                    # Its worker stopped before it could pause it: pause it now, as asked.
+                    await connection.execute(
+                        update(RUNS)
+                        .where(r.tenant_id == row.tenant_id, r.run_id == row.run_id)
+                        .values(status=PAUSED, lease_token="", lease_owner="",
+                                lease_expires_at=None, updated_at=now)
+                    )  # fmt: skip
+                    continue
                 token = secrets.token_hex(16)
                 await connection.execute(
                     update(RUNS)
@@ -153,6 +169,8 @@ class Queue:
                     reclaimed=row.status == RUNNING, policy_version=row.policy_version,
                     policy_hash=row.policy_hash, token_budget=row.token_budget,
                     cost_budget_usd=Decimal(str(row.cost_budget_usd)),
+                    pins=json.loads(row.pins or "{}"), case_id=row.case_id,
+                    snapshot_id=row.snapshot_id,
                 )  # fmt: skip
         return None
 
@@ -180,14 +198,16 @@ class Queue:
             )
             if result.rowcount != 1:
                 return Renewal(held=False, cancel_requested=False)
-            cancel = (
+            cancel, pause = (
                 await connection.execute(
-                    select(r.cancel_requested_at).where(
+                    select(r.cancel_requested_at, r.pause_requested_at).where(
                         r.tenant_id == claim.tenant_id, r.run_id == claim.run_id
                     )
                 )
-            ).scalar_one()
-            return Renewal(held=True, cancel_requested=cancel is not None)
+            ).one()
+            return Renewal(
+                held=True, cancel_requested=cancel is not None, pause_requested=pause is not None
+            )
 
     async def complete_step(
         self, claim: Claim, *, position: int, name: str, started_at: datetime
@@ -209,6 +229,26 @@ class Queue:
                     finished_at=now,
                 )
             )  # fmt: skip
+
+    @contextlib.asynccontextmanager
+    async def reading(self, claim: Claim) -> AsyncIterator[AsyncConnection]:
+        """A transaction in the run's tenant, for reads."""
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, claim.tenant_id)
+            yield connection
+
+    @contextlib.asynccontextmanager
+    async def holding(self, claim: Claim) -> AsyncIterator[AsyncConnection]:
+        """A transaction that writes only while the claim is still the run's. The lease check
+        takes the run's row lock, so the check and the writes are one decision."""
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, claim.tenant_id)
+            result = await connection.execute(
+                update(RUNS).where(*self._mine(claim)).values(updated_at=self._clock())
+            )
+            if result.rowcount != 1:
+                raise LeaseLostError(claim.run_id)
+            yield connection
 
     async def spent(self, claim: Claim) -> Spent:
         """What the run has used, over every attempt."""
@@ -279,6 +319,22 @@ class Queue:
                     status=QUEUED, reason=reason, lease_token="", lease_owner="",
                     lease_expires_at=None, not_before=now + timedelta(seconds=delay_seconds),
                     updated_at=now,
+                )
+            )  # fmt: skip
+            return result.rowcount == 1
+
+    async def pause(self, claim: Claim) -> bool:
+        """Stop the run as paused, as asked, keeping its checkpoints. Not an attempt."""
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, claim.tenant_id)
+            now = self._clock()
+            r = RUNS.c
+            result = await connection.execute(
+                update(RUNS)
+                .where(*self._mine(claim))
+                .values(
+                    status=PAUSED, attempt=case((r.attempt > 0, r.attempt - 1), else_=0),
+                    lease_token="", lease_owner="", lease_expires_at=None, updated_at=now,
                 )
             )  # fmt: skip
             return result.rowcount == 1

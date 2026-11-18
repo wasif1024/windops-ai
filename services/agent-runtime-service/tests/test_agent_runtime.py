@@ -3,9 +3,13 @@ triggers, so runtime-check proves those, and two real replicas, on PostgreSQL.""
 
 import asyncio
 import contextlib
+import dataclasses
 import functools
 import inspect
-from collections.abc import Awaitable, Callable, Iterator
+import json
+import shutil
+import tempfile
+from collections.abc import Awaitable, Callable, Iterator, Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -14,13 +18,16 @@ import pytest
 from langchain_core.messages import AIMessage
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool
 from windops.agent_runtime.v1 import agent_runtime_pb2 as pb
+from windops_agent_runtime.checkpoints import RunCheckpointer
+from windops_agent_runtime.investigation import STEPS, Investigation, build
 from windops_agent_runtime.queue import LeaseLostError, Queue
+from windops_agent_runtime.registry import REGISTRY
 from windops_agent_runtime.service import INVESTIGATION, AgentRuntimeService
-from windops_agent_runtime.store import METADATA, RUN_CALLS, RUN_STEPS, RUNS
+from windops_agent_runtime.store import METADATA, RUN_CALLS, RUN_CHECKPOINTS, RUN_STEPS, RUNS
 from windops_agent_runtime.worker import Worker, WorkerSettings
-from windops_agent_runtime.workflows import REGISTRY, Rehearsal
+from windops_agent_runtime.workflows import Rehearsal
 from windops_auth import identity_scope
 from windops_claude import Call, Claude, Policy, Usage, load
 from windops_events import parse_event
@@ -58,9 +65,12 @@ def scenario(test: Callable[..., Awaitable[None]]) -> Callable[..., None]:
     @functools.wraps(test)
     def wrapper(*args: Any, **kwargs: Any) -> None:
         async def body() -> None:
+            # A file, with a connection per use, as workers, heartbeats and the test's own reads
+            # overlap. One shared connection would let one's rollback undo another's writes.
+            folder = tempfile.mkdtemp(prefix="windops-runtime-test-")
             engine = create_async_engine(
-                "sqlite+aiosqlite://", poolclass=StaticPool,
-                connect_args={"check_same_thread": False},
+                f"sqlite+aiosqlite:///{folder}/runs.db", poolclass=NullPool,
+                connect_args={"timeout": 30},
             )  # fmt: skip
             async with engine.begin() as connection:
                 await connection.run_sync(METADATA.create_all)
@@ -73,6 +83,7 @@ def scenario(test: Callable[..., Awaitable[None]]) -> Callable[..., None]:
                 await test(*args, **kwargs, **{k: v for k, v in given.items() if k in wanted})
             finally:
                 await engine.dispose()
+                shutil.rmtree(folder, ignore_errors=True)
 
         asyncio.run(body())
 
@@ -194,7 +205,7 @@ async def test_another_tenant_never_sees_a_run(engine: AsyncEngine, clock: Clock
 @pytest.mark.parametrize(
     ("change", "message"),
     [
-        ({"workflow": "investigation"}, "No workflow"),
+        ({"workflow": "unknown-workflow"}, "No workflow"),
         ({"case_id": "case_1"}, "case_id"),
         ({"snapshot_id": "snap"}, "snapshot_id"),
         ({"requested_by": "engineer"}, "requested_by"),
@@ -603,3 +614,183 @@ async def test_a_worker_that_lost_its_lease_records_no_call(
                 cost_usd=Decimal(0))  # fmt: skip
     with pytest.raises(LeaseLostError):
         await queue.record_call(late, call)
+
+
+# --- The investigation graph (M8.4)
+
+
+async def start_investigation(
+    engine: AsyncEngine, clock: Clock | None = None, key: str = "graph-key-1", **parameters: str
+) -> pb.Run:
+    request = pb.StartRunRequest(
+        case_id=CASE, snapshot_id=SNAPSHOT, workflow="investigation", parameters=parameters,
+        requested_by="service:investigation", idempotency_key=key,
+    )  # fmt: skip
+    with caller():
+        api = AgentRuntimeService(
+            engine, REGISTRY, peer=lambda: INVESTIGATION, clock=clock or Clock()
+        )
+        return (await api.StartRun(request, None)).run
+
+
+async def rows_of(engine: AsyncEngine, table: Any, run_id: str) -> list[Any]:
+    async with engine.connect() as connection:
+        return list((await connection.execute(select(table).where(table.c.run_id == run_id))).all())
+
+
+async def wait_until(test: Callable[[], Awaitable[bool]], seconds: float = 10) -> None:
+    for _ in range(int(seconds / 0.02)):
+        if await test():
+            return
+        await asyncio.sleep(0.02)
+    raise AssertionError("Timed out")
+
+
+def test_the_graph_has_srs_steps_in_order_and_no_interrupt() -> None:
+    assert [name for name, _ in STEPS] == [
+        "receive", "validate", "snapshot", "plan", "specialists", "documents", "research",
+        "impact", "aggregate", "validate_output", "policy_checks", "recommend", "conclude",
+    ]  # fmt: skip
+    graph = build(None, {"step_seconds": 0, "plan_with_claude": False}).compile()  # type: ignore[arg-type]
+    # AGT-003: a human decision never waits inside the graph.
+    assert not graph.interrupt_before_nodes and not graph.interrupt_after_nodes
+
+
+@scenario
+async def test_an_investigation_runs_every_step_and_checkpoints_each(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    run = await start_investigation(engine, clock)
+    assert json.loads(run.pins_json)["graph"] == "investigation@1"
+    claim = await queue.claim("replica-a/0")
+    assert claim is not None
+    assert await Worker(queue, REGISTRY).execute(claim, asyncio.Event()) == "completed"
+    done = await steps(engine, run.run_id)
+    assert [s.name for s in done] == [name for name, _ in STEPS]
+    checkpoints = await rows_of(engine, RUN_CHECKPOINTS, run.run_id)
+    assert len(checkpoints) >= len(STEPS)
+
+
+@scenario
+async def test_a_run_taken_over_mid_graph_carries_on_from_its_newest_checkpoint(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    run = await start_investigation(engine, clock, step_seconds="0.05", plan_with_claude="true")
+    first = await queue.claim("replica-a/0")
+    assert first is not None
+    stalled = asyncio.create_task(claude_worker(queue).execute(first, asyncio.Event()))
+
+    async def past_the_plan() -> bool:
+        return len(await steps(engine, run.run_id)) >= 6
+
+    await wait_until(past_the_plan)
+    # Its lease runs out while it is still working, as a frozen or cut-off worker's would.
+    clock.advance(LEASE + 1)
+    second = await queue.claim("replica-b/0")
+    assert second is not None and second.reclaimed and second.attempt == 2
+    # The first worker's next write is refused, so it stops. It is awaited first only because
+    # SQLite here is one shared connection: on PostgreSQL each worker has its own.
+    assert await asyncio.wait_for(stalled, timeout=5) == "lost"
+    assert await claude_worker(queue).execute(second, asyncio.Event()) == "completed"
+    done = await steps(engine, run.run_id)
+    assert [s.name for s in sorted(done, key=lambda s: s.position)] == [n for n, _ in STEPS]
+    taken_over = second.completed
+    assert {s.attempt for s in done if s.position in taken_over} == {1}
+    assert {s.attempt for s in done if s.position not in taken_over} == {2}
+    assert len(taken_over) >= 6
+    # The Supervisor's plan was asked for once: the resumed run read it from the checkpoint.
+    calls = await rows_of(engine, RUN_CALLS, run.run_id)
+    assert len(calls) == 1 and calls[0].attempt == 1
+    checkpoints = await rows_of(engine, RUN_CHECKPOINTS, run.run_id)
+    by_id = {c.checkpoint_id: c for c in checkpoints}
+    resumed = min((c for c in checkpoints if c.attempt == 2), key=lambda c: c.checkpoint_id)
+    assert by_id[resumed.parent_id].attempt == 1
+
+
+@scenario
+async def test_a_paused_run_keeps_its_checkpoints_and_resumes_where_it_stopped(
+    engine: AsyncEngine,
+) -> None:
+    live = Queue(engine, lease_seconds=0.3, queue_limit=timedelta(hours=24))
+    run = await start_investigation(engine, step_seconds="0.1")
+    claim = await live.claim("replica-a/0")
+    assert claim is not None
+    working = asyncio.create_task(Worker(live, REGISTRY).execute(claim, asyncio.Event()))
+
+    async def started() -> bool:
+        return len(await steps(engine, run.run_id)) >= 3
+
+    await wait_until(started)
+    api = AgentRuntimeService(engine, REGISTRY, peer=lambda: INVESTIGATION)
+    with caller():
+        asked = (await api.PauseRun(pb.PauseRunRequest(
+            run_id=run.run_id, requested_by="user:engineer-1", reason="Waiting on a site visit",
+        ), None)).run  # fmt: skip
+    assert asked.status == "running" and asked.pause_requested
+    assert await asyncio.wait_for(working, timeout=5) == "paused"
+    paused = await get(engine, Clock(), run.run_id)
+    assert (paused.status, paused.attempt) == ("paused", 0)
+    held = len(await steps(engine, run.run_id))
+    assert await live.claim("replica-b/0") is None
+    with caller():
+        resumed = (await api.ResumeRun(pb.ResumeRunRequest(
+            run_id=run.run_id, requested_by="user:engineer-1"), None)).run  # fmt: skip
+    assert resumed.status == "queued" and not resumed.pause_requested
+    again = await live.claim("replica-b/0")
+    assert again is not None and again.attempt == 1 and len(again.completed) == held
+    assert await Worker(live, REGISTRY).execute(again, asyncio.Event()) == "completed"
+    done = await steps(engine, run.run_id)
+    assert sorted(s.position for s in done) == list(range(1, len(STEPS) + 1))
+    assert (await audits(engine))[-3:-1] == ["agent_run.pause_requested", "agent_run.resumed"]
+
+
+@scenario
+async def test_a_queued_run_pauses_at_once_and_a_paused_run_can_be_cancelled(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    run = await start_investigation(engine, clock)
+    api = service(engine, clock)
+    with caller():
+        hold = pb.PauseRunRequest(run_id=run.run_id, requested_by="user:engineer-1", reason="Hold")
+        paused = (await api.PauseRun(hold, None)).run
+        assert paused.status == "paused"
+        assert await queue.claim("replica-a/0") is None
+        stop = pb.CancelRunRequest(
+            run_id=run.run_id, requested_by="user:engineer-1", reason="Not needed"
+        )
+        cancelled = (await api.CancelRun(stop, None)).run
+    assert cancelled.status == "cancelled"
+
+
+@scenario
+async def test_a_run_never_resumes_on_other_pins(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    @dataclasses.dataclass(frozen=True)
+    class Reshaped(Investigation):
+        def pins(self, parameters: Mapping[str, Any]) -> dict[str, Any]:
+            return {**super().pins(parameters), "graph_shape": "another"}
+
+    run = await start_investigation(engine, clock)
+    claim = await queue.claim("replica-a/0")
+    assert claim is not None
+    worker = Worker(queue, {"investigation": Reshaped()})
+    assert await worker.execute(claim, asyncio.Event()) == "stale"
+    assert "versions changed" in (await get(engine, clock, run.run_id)).reason
+
+
+@scenario
+async def test_a_worker_that_lost_its_lease_writes_no_checkpoint(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    from langgraph.checkpoint.base import empty_checkpoint
+
+    run = await start_investigation(engine, clock)
+    late = await queue.claim("replica-a/0")
+    assert late is not None
+    clock.advance(LEASE + 1)
+    assert await queue.claim("replica-b/0") is not None
+    config: Any = {"configurable": {"thread_id": run.run_id, "checkpoint_ns": ""}}
+    with pytest.raises(LeaseLostError):
+        await RunCheckpointer(queue, late).aput(config, empty_checkpoint(), {}, {})
+    assert not await rows_of(engine, RUN_CHECKPOINTS, run.run_id)

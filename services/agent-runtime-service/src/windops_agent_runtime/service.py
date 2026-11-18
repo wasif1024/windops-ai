@@ -29,13 +29,17 @@ from windops_grpc import (
 )
 from windops_migrations import in_tenant
 
+from windops_agent_runtime.investigation import canonical_pins
 from windops_agent_runtime.queue import new_run_id
 from windops_agent_runtime.store import (
     ACTOR,
     CANCELLED,
+    PAUSED,
     QUEUED,
     RUN_CALLS,
+    RUN_CHECKPOINTS,
     RUN_STEPS,
+    RUNNING,
     RUNS,
     TERMINAL,
     audit,
@@ -78,9 +82,11 @@ def usage_message(row: Any, used: Any) -> pb.Usage:
     )  # fmt: skip
 
 
-def run_message(row: Any, steps: list[Any], used: Any = None) -> pb.Run:
+def run_message(row: Any, steps: list[Any], used: Any = None, checkpoints: int = 0) -> pb.Run:
     return pb.Run(
         policy_version=row.policy_version, policy_hash=row.policy_hash,
+        pause_requested=row.pause_requested_at is not None, pins_json=row.pins,
+        checkpoints=checkpoints,
         usage=usage_message(row, used) if used is not None else None,
         run_id=row.run_id, case_id=row.case_id, snapshot_id=row.snapshot_id,
         workflow=row.workflow, workflow_version=row.workflow_version, status=row.status,
@@ -144,7 +150,13 @@ class AgentRuntimeService(agent_runtime_pb2_grpc.AgentRuntimeServiceServicer):
                 ).where(c.tenant_id == tenant, c.run_id == run_id)
             )
         ).one()
-        return run_message(row, list(steps), used)
+        k = RUN_CHECKPOINTS.c
+        checkpoints = (
+            await connection.execute(
+                select(func.count()).where(k.tenant_id == tenant, k.run_id == run_id)
+            )
+        ).scalar_one()
+        return run_message(row, list(steps), used, int(checkpoints))
 
     async def StartRun(  # noqa: N802  # The name comes from the contract.
         self, request: pb.StartRunRequest, context: Any
@@ -182,6 +194,7 @@ class AgentRuntimeService(agent_runtime_pb2_grpc.AgentRuntimeServiceServicer):
                         policy_version=self._policy.version,
                         policy_hash=self._policy.content_hash, token_budget=token_budget,
                         cost_budget_usd=cost_budget,
+                        pins=canonical_pins(workflow.pins(parameters)),
                     )
                 )  # fmt: skip
                 await audit(
@@ -294,10 +307,10 @@ class AgentRuntimeService(agent_runtime_pb2_grpc.AgentRuntimeServiceServicer):
                 # Already ended, or already asked: nothing changes, so a retry is harmless.
                 return pb.CancelRunResponse(run=await self._load(connection, tenant, row.run_id))
             now = self._clock()
-            # A queued run ends now. A running one ends at its worker's next heartbeat.
+            # A queued or paused run ends now. A running one ends at its worker's next heartbeat.
             ending = (
                 {"status": CANCELLED, "reason": reason, "finished_at": now}
-                if row.status == QUEUED
+                if row.status in (QUEUED, PAUSED)
                 else {}
             )
             await connection.execute(
@@ -319,3 +332,74 @@ class AgentRuntimeService(agent_runtime_pb2_grpc.AgentRuntimeServiceServicer):
                     run_id=row.run_id,
                 )  # fmt: skip
             return pb.CancelRunResponse(run=await self._load(connection, tenant, row.run_id))
+
+    async def _locked(self, connection: AsyncConnection, tenant: str, run_id: str) -> Any:
+        r = RUNS.c
+        row = (
+            await connection.execute(
+                select(RUNS).where(r.tenant_id == tenant, r.run_id == run_id).with_for_update()
+            )
+        ).one_or_none()
+        if row is None:
+            raise NotFoundError("No such run")
+        return row
+
+    async def PauseRun(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.PauseRunRequest, context: Any
+    ) -> pb.PauseRunResponse:
+        tenant = self._tenant()
+        if not _RUN.fullmatch(request.run_id):
+            raise InvalidRequestError("run_id must be a run's ID")
+        actor_type, by = _actor(request.requested_by)
+        reason = request.reason.strip()
+        if not reason or len(reason) > MAXIMUM_REASON:
+            raise InvalidRequestError(f"A reason of 1 to {MAXIMUM_REASON} characters is needed")
+        r = RUNS.c
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, tenant)
+            row = await self._locked(connection, tenant, request.run_id)
+            if row.status not in (QUEUED, RUNNING) or row.pause_requested_at is not None:
+                # Paused already, asked already, or ended: nothing changes.
+                return pb.PauseRunResponse(run=await self._load(connection, tenant, row.run_id))
+            now = self._clock()
+            # A queued run pauses now. A running one at its worker's next heartbeat.
+            status = {"status": PAUSED} if row.status == QUEUED else {}
+            await connection.execute(
+                update(RUNS)
+                .where(r.tenant_id == tenant, r.run_id == row.run_id)
+                .values(pause_requested_at=now, pause_requested_by=by, pause_reason=reason,
+                        updated_at=now, **status)
+            )  # fmt: skip
+            await audit(
+                connection, tenant_id=tenant, actor_type=actor_type, actor_id=by,
+                action="agent_run.pause_requested", run_id=row.run_id,
+            )  # fmt: skip
+            return pb.PauseRunResponse(run=await self._load(connection, tenant, row.run_id))
+
+    async def ResumeRun(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.ResumeRunRequest, context: Any
+    ) -> pb.ResumeRunResponse:
+        tenant = self._tenant()
+        if not _RUN.fullmatch(request.run_id):
+            raise InvalidRequestError("run_id must be a run's ID")
+        actor_type, by = _actor(request.requested_by)
+        r = RUNS.c
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, tenant)
+            row = await self._locked(connection, tenant, request.run_id)
+            if row.pause_requested_at is None or row.status in TERMINAL:
+                return pb.ResumeRunResponse(run=await self._load(connection, tenant, row.run_id))
+            now = self._clock()
+            # Queued again if it had paused; a run still working just carries on.
+            status = {"status": QUEUED, "not_before": now} if row.status == PAUSED else {}
+            await connection.execute(
+                update(RUNS)
+                .where(r.tenant_id == tenant, r.run_id == row.run_id)
+                .values(pause_requested_at=None, pause_requested_by="", pause_reason="",
+                        updated_at=now, **status)
+            )  # fmt: skip
+            await audit(
+                connection, tenant_id=tenant, actor_type=actor_type, actor_id=by,
+                action="agent_run.resumed", run_id=row.run_id,
+            )  # fmt: skip
+            return pb.ResumeRunResponse(run=await self._load(connection, tenant, row.run_id))

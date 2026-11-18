@@ -14,7 +14,9 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from opentelemetry import metrics
+from sqlalchemy.exc import IntegrityError
 from windops_claude import (
     Budget,
     BudgetExhaustedError,
@@ -28,6 +30,8 @@ from windops_claude import (
     StructuredOutputError,
 )
 
+from windops_agent_runtime.checkpoints import RunCheckpointer
+from windops_agent_runtime.investigation import canonical_pins
 from windops_agent_runtime.queue import Claim, LeaseLostError, Queue
 from windops_agent_runtime.store import BUDGET_EXHAUSTED, CANCELLED, COMPLETED, FAILED, STALE
 from windops_agent_runtime.workflows import ClaudeUnavailableError, StepFailedError, Workflow
@@ -83,6 +87,20 @@ class _Steps:
     def __init__(self, queue: Queue, claim: Claim, claude: Claude | None) -> None:
         self._queue, self._claim, self._position = queue, claim, 0
         self.claude = claude
+        self.checkpointer: BaseCheckpointSaver[str] | None = RunCheckpointer(queue, claim)
+        self.run_id, self.case_id = claim.run_id, claim.case_id
+        self.snapshot_id = claim.snapshot_id
+
+    async def record(self, position: int, name: str, started_at: datetime) -> None:
+        if position in self._claim.completed:
+            return
+        try:
+            await self._queue.complete_step(
+                self._claim, position=position, name=name, started_at=started_at
+            )
+        except IntegrityError:
+            # Recorded by an attempt that stopped before its checkpoint: the node ran again.
+            return
 
     async def step(self, name: str, work: Callable[[], Awaitable[None]]) -> None:
         self._position += 1
@@ -150,6 +168,11 @@ class Worker:
             return await self._end(
                 claim, STALE, "Its workflow version is no longer available: start it again"
             )
+        if canonical_pins(workflow.pins(claim.parameters)) != canonical_pins(claim.pins or {}):
+            # Nor on a graph, prompt, tool or skill version other than its own (AGT-004, AGT-005).
+            return await self._end(
+                claim, STALE, "Its graph, prompt, tool or skill versions changed: start it again"
+            )
         if (
             self._policy is not None
             and claim.policy_hash
@@ -159,10 +182,10 @@ class Worker:
             return await self._end(
                 claim, STALE, "Its Claude policy version is no longer in force: start it again"
             )
-        cancelled, lost = asyncio.Event(), asyncio.Event()
+        cancelled, lost, paused = asyncio.Event(), asyncio.Event(), asyncio.Event()
         context = _Steps(self._queue, claim, self._claude_for(claim))
         work = asyncio.create_task(workflow.run(context, claim.parameters))
-        beat = asyncio.create_task(self._heartbeat(claim, work, cancelled, lost))
+        beat = asyncio.create_task(self._heartbeat(claim, work, cancelled, lost, paused))
         shutdown = asyncio.create_task(stop.wait())
         try:
             await asyncio.wait({work, shutdown}, return_when=asyncio.FIRST_COMPLETED)
@@ -178,7 +201,7 @@ class Worker:
             await self._queue.release(claim)
             logger.info("Handed a run back", extra={"run_id": claim.run_id})
             return "released"
-        return await self._settle(claim, work, cancelled, lost)
+        return await self._settle(claim, work, cancelled, lost, paused)
 
     def _claude_for(self, claim: Claim) -> Claude | None:
         if self._policy is None or not claim.token_budget:
@@ -197,11 +220,19 @@ class Worker:
         work: "asyncio.Task[None]",
         cancelled: asyncio.Event,
         lost: asyncio.Event,
+        paused: asyncio.Event,
     ) -> str:
         if lost.is_set():
             return "lost"
         if cancelled.is_set():
             return await self._end(claim, CANCELLED, "Cancelled")
+        if paused.is_set():
+            # Its newest checkpoint stays: resumed, the run carries on from there.
+            if await self._queue.pause(claim):
+                logger.info("Paused a run", extra={"run_id": claim.run_id})
+                return "paused"
+            _note_lost(claim)
+            return "lost"
         if work.cancelled():
             return "lost"
         error = work.exception()
@@ -239,6 +270,7 @@ class Worker:
         work: "asyncio.Task[None]",
         cancelled: asyncio.Event,
         lost: asyncio.Event,
+        paused: asyncio.Event,
     ) -> None:
         every = self._queue.lease_seconds / 3
         while not work.done():
@@ -256,5 +288,9 @@ class Worker:
                 return
             if renewal.cancel_requested:
                 cancelled.set()
+                work.cancel()
+                return
+            if renewal.pause_requested:
+                paused.set()
                 work.cancel()
                 return

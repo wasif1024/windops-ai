@@ -18,10 +18,11 @@ from windops_migrations import create_service_engine
 from windops_outbox import OutboxRelay
 
 from windops_agent_runtime.queue import Queue
+from windops_agent_runtime.registry import REGISTRY
 from windops_agent_runtime.service import AgentRuntimeService
 from windops_agent_runtime.store import SERVICE_NAME
 from windops_agent_runtime.worker import Worker, WorkerSettings
-from windops_agent_runtime.workflows import REGISTRY, ClaudeUnavailableError
+from windops_agent_runtime.workflows import ClaudeUnavailableError
 
 logger = logging.getLogger("windops.service")
 RECONNECT_SECONDS = 5

@@ -28,6 +28,11 @@ service AgentRuntimeService {
   rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
   // A queued run ends at once. A running one ends at its next step, as cancelled.
   rpc CancelRun(CancelRunRequest) returns (CancelRunResponse);
+  // A queued run waits as paused. A running one stops at its worker's next heartbeat, keeping
+  // its last checkpoint, and hands its lease back. Pausing is not an attempt (FR-INV-007).
+  rpc PauseRun(PauseRunRequest) returns (PauseRunResponse);
+  // Queues a paused run again. It carries on from its last checkpoint.
+  rpc ResumeRun(ResumeRunRequest) returns (ResumeRunResponse);
 }
 
 message Step {
@@ -48,8 +53,8 @@ message Run {
   // Pinned when queued (AGT-004).
   string workflow = 4;
   string workflow_version = 5;
-  // "queued", "running", or one of the terminal states in SRS 5.6: "completed", "failed",
-  // "cancelled", "budget_exhausted" or "stale".
+  // "queued", "running", "paused", or one of the terminal states in SRS 5.6: "completed",
+  // "failed", "cancelled", "budget_exhausted" or "stale".
   string status = 6;
   // Why it ended, for any terminal state other than "completed".
   string reason = 7;
@@ -69,6 +74,13 @@ message Run {
   int64 policy_version = 17;
   string policy_hash = 18;
   Usage usage = 19;
+  bool pause_requested = 20;
+  // What the run is pinned to, besides the policy, as canonical JSON: the graph's version and
+  // the prompt, tool and skill versions (AGT-004). A resume checks them, and a run whose pins
+  // are no longer deployed ends as "stale" (AGT-005).
+  string pins_json = 21;
+  // LangGraph checkpoints saved so far, over every attempt.
+  int64 checkpoints = 22;
 }
 
 // What a run has used, and its budget (LLM-010). Tokens count what the model processed: input
@@ -133,5 +145,28 @@ message CancelRunRequest {
 }
 
 message CancelRunResponse {
+  Run run = 1;
+}
+
+message PauseRunRequest {
+  string run_id = 1;
+  string requested_by = 2;
+  string reason = 3;
+  // Pausing twice changes nothing, so a retry is always safe (GRP-007).
+  string idempotency_key = 4;
+}
+
+message PauseRunResponse {
+  Run run = 1;
+}
+
+message ResumeRunRequest {
+  string run_id = 1;
+  string requested_by = 2;
+  // Resuming a run that is not paused changes nothing, so a retry is always safe (GRP-007).
+  string idempotency_key = 3;
+}
+
+message ResumeRunResponse {
   Run run = 1;
 }
