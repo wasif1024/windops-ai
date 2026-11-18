@@ -273,6 +273,18 @@ pythonpath = [".", "shared/grpc/tests", "shared/mcp/tests", "shared/resilience/t
 
 [dependency-groups]
 dev = [
+    # The agent stack, pinned for the vendor checks (M8.1). Each is a release at least two weeks old
+    # when chosen; the Agent Runtime takes the same pins (M8.2).
+    "anthropic==2.4.0",
+    "deepagents==0.7.32",
+    "langchain==1.4.9",
+    "langchain-anthropic==1.7.10",
+    "langchain-core==1.7.5",
+    "langgraph==1.2.19",
+    "langgraph-checkpoint==4.3.1",
+    "langgraph-prebuilt==1.1.1",
+    "langgraph-sdk==0.4.12",
+    "langsmith[sandbox]==0.14.17",
     "aiosqlite>=0.22",
     "cryptography>=46",
     "grpcio>=1.85.1",
