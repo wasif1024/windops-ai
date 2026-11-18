@@ -55,6 +55,8 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make mtls-check` | Only services with a certificate from our CA can connect, and a renewed certificate is picked up |
 | `make phase-1-gate` | A call is traced through the gateway, and its breaker opens under a fault |
 | `make phase-2-gate` | An event survives a pod restart, and a redelivered audit event creates only one record |
+| `make citation-check` | Through the MCP servers, every result carries its citation or provenance, and other tenants', other wind farms' and role-less users get nothing |
+| `make phase-7-gate` | `citation-check` with every Phase 7 check and the earlier ones Phase 7 touched: 14 in all |
 
 ## Data
 

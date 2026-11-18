@@ -208,7 +208,7 @@ only read access unless it needs more.
 | 4. Assets and telemetry | Done, [exit gate](docs/phases/phase-04-exit-gate.md) |
 | 5. Alarms, detection and cases | Done, [exit gate](docs/phases/phase-05-exit-gate.md) |
 | 6. Deterministic decisions | Done, [exit gate](docs/phases/phase-06-exit-gate.md) |
-| 7. Knowledge and external intelligence | In progress: documents, ingestion, retrieval, web research, the MCP foundation and the first MCP servers are done; next, M7.7, the Phase 7 gate |
+| 7. Knowledge and external intelligence | Done, [exit gate](docs/phases/phase-07-exit-gate.md) |
 
 | Running today | |
 | --- | --- |
