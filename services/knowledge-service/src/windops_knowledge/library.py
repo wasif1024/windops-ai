@@ -18,10 +18,12 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import and_, delete, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
+from windops.events.v1 import events_pb2
 from windops_grpc import ConflictError, InvalidRequestError, NotFoundError
 from windops_migrations import in_tenant
+from windops_outbox import add_event
 
 from windops_knowledge import embeddings, passages, uploads, vectors
 from windops_knowledge.store import DOCUMENTS, INDEX_QUEUE, PASSAGES, SETTINGS, audit
@@ -34,6 +36,8 @@ PENDING, INDEXED, HELD, NOT_INDEXED, FAILED = (
 DEFAULT_ALLOWANCE = "confidential"
 SERVICE = "knowledge"
 FIRST_RETRY_SECONDS, LONGEST_RETRY_SECONDS = 30, 1800
+REINDEXED = "knowledge_document.reindexed"
+EVIDENCE_SUBJECT = "evidence.changed"
 
 
 def rank(classification: str) -> int:
@@ -272,6 +276,76 @@ async def _finish(connection: AsyncConnection, entry: Any, **values: Any) -> Non
         )  # fmt: skip
 
 
+async def announce_replaced(connection: AsyncConnection, tenant: str, row: Any) -> None:
+    """Say which cited revisions this one replaces, so evidence citing them goes stale (SRS 8.5).
+
+    It replaces every earlier indexed revision of its document, and the revision it says it
+    supersedes, with any earlier ones of that document. Each is announced as the document whose
+    version changed, and the revision that replaced it.
+    """
+    d = DOCUMENTS.c
+    replaced = (
+        await connection.execute(
+            select(d.document_id, d.revision).where(
+                d.tenant_id == tenant, d.status == INDEXED,
+                or_(
+                    and_(d.document_id == row.document_id, d.revision < row.revision),
+                    and_(d.document_id == row.supersedes_document_id,
+                         d.document_id != row.document_id,
+                         d.revision <= row.supersedes_revision),
+                ),
+            )
+        )
+    ).all()  # fmt: skip
+    for document_id in sorted({r.document_id for r in replaced}):
+        await add_event(
+            connection, EVIDENCE_SUBJECT, tenant_id=tenant,
+            payload=events_pb2.EvidenceChanged(source_service=SERVICE, record_id=document_id,
+                                               version=f"{row.document_id}@{row.revision}"),
+            producer=SERVICE,
+        )  # fmt: skip
+
+
+async def queue_again(connection: AsyncConnection, tenant: str, actor: str, document_id: str,
+                      now: datetime) -> int:  # fmt: skip
+    """Queue a document's indexed and failed revisions, or all the tenant's, to be indexed again.
+
+    Their passages and citations stay as they are (FR-KNW-005). A failed one goes back to pending.
+    Return how many were queued; one already queued is not queued twice.
+    """
+    d, q = DOCUMENTS.c, INDEX_QUEUE.c
+    query = select(d.document_id, d.revision, d.status).where(
+        d.tenant_id == tenant, d.status.in_([INDEXED, FAILED])
+    )
+    if document_id:
+        query = query.where(d.document_id == document_id)
+    rows = (await connection.execute(query)).all()
+    if document_id and not rows:
+        raise NotFoundError("No indexed or failed revision of that document")
+    queued = {
+        (r.document_id, r.revision)
+        for r in await connection.execute(
+            select(q.document_id, q.revision).where(q.tenant_id == tenant))
+    }  # fmt: skip
+    count = 0
+    for row in rows:
+        if (row.document_id, row.revision) in queued:
+            continue
+        if row.status == FAILED:
+            await connection.execute(
+                update(DOCUMENTS)
+                .where(d.tenant_id == tenant, d.document_id == row.document_id,
+                       d.revision == row.revision)
+                .values(status=PENDING, status_reason="Waiting to be indexed again")
+            )  # fmt: skip
+        await _enqueue(connection, tenant, row.document_id, row.revision, now)
+        count += 1
+    await audit(connection, tenant_id=tenant, actor_type="user", actor_id=actor,
+                action="knowledge_document.reindex_requested",
+                resource_id=document_id or tenant)  # fmt: skip
+    return count
+
+
 def embedding_input(title: str, section: str, text: str) -> str:
     """What is embedded: the passage under its document's title and section, as it is read."""
     return "\n".join(part for part in (title, section) if part) + "\n\n" + text
@@ -298,21 +372,23 @@ async def index_next(engine: AsyncEngine, embedder: embeddings.Embedder, store: 
                                        p.revision == entry.revision).order_by(p.ordinal)
             )
         ).all()  # fmt: skip
-    if row is None or row.status != PENDING:
+    if row is None or row.status not in (PENDING, INDEXED):
         async with engine.begin() as connection:
             await in_tenant(connection, tenant)
             await _finish(connection, entry)
         return True
+    # An indexed revision in the queue is being indexed again (FR-KNW-005). It stays searchable
+    # on its earlier vectors until its new ones replace them, under the same point IDs.
+    again = row.status == INDEXED
     if rank(row.classification) > rank(allowed):
         # The allowance was lowered after it was queued: it is not sent.
+        reason = _not_indexed_reason(row.classification, allowed)
         async with engine.begin() as connection:
             await in_tenant(connection, tenant)
-            await _finish(
-                connection,
-                entry,
-                status=NOT_INDEXED,
-                status_reason=_not_indexed_reason(row.classification, allowed),
-            )
+            if again:
+                await _finish(connection, entry, status_reason=f"Not indexed again. {reason}")
+            else:
+                await _finish(connection, entry, status=NOT_INDEXED, status_reason=reason)
         return True
     try:
         embedded = await embedder.embed(
@@ -342,16 +418,22 @@ async def index_next(engine: AsyncEngine, embedder: embeddings.Embedder, store: 
                 update(DOCUMENTS)
                 .where(d.tenant_id == tenant, d.document_id == row.document_id,
                        d.revision == row.revision)
-                .values(status_reason=f"Waiting to be indexed: {error}")
+                .values(status_reason=f"Waiting to be indexed{' again' if again else ''}: "
+                                      f"{error}")
             )  # fmt: skip
         return True
     except embeddings.EmbeddingRefusedError as error:
         async with engine.begin() as connection:
             await in_tenant(connection, tenant)
-            await _finish(connection, entry, status=FAILED, status_reason=str(error))
+            if again:
+                # Its earlier vectors stand: it stays searchable on them.
+                await _finish(connection, entry,
+                              status_reason=f"Not indexed again: {error}")  # fmt: skip
+            else:
+                await _finish(connection, entry, status=FAILED, status_reason=str(error))
             await audit(connection, tenant_id=tenant, actor_type=SERVICE, actor_id=SERVICE,
-                        action="knowledge_document.indexed", resource_id=resource,
-                        outcome="failed")  # fmt: skip
+                        action=REINDEXED if again else "knowledge_document.indexed",
+                        resource_id=resource, outcome="failed")  # fmt: skip
         return True
     async with engine.begin() as connection:
         await in_tenant(connection, tenant)
@@ -361,6 +443,10 @@ async def index_next(engine: AsyncEngine, embedder: embeddings.Embedder, store: 
             embedding_version=embedder.version, indexed_at=now,
         )  # fmt: skip
         await audit(connection, tenant_id=tenant, actor_type=SERVICE, actor_id=SERVICE,
-                    action="knowledge_document.indexed", resource_id=resource)  # fmt: skip
-    logger.info("Document indexed", extra={"passages": len(found), "tokens": embedded.tokens})
+                    action=REINDEXED if again else "knowledge_document.indexed",
+                    resource_id=resource)  # fmt: skip
+        if not again:
+            await announce_replaced(connection, tenant, row)
+    logger.info("Document indexed", extra={"passages": len(found), "tokens": embedded.tokens,
+                                           "again": again})  # fmt: skip
     return True

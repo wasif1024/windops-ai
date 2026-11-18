@@ -71,6 +71,21 @@ class KnowledgeServiceStub:
                 request_serializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.GetIngestionSettingsRequest.SerializeToString,
                 response_deserializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.GetIngestionSettingsResponse.FromString,
                 _registered_method=True)
+        self.SearchPassages = channel.unary_unary(
+                '/windops.knowledge.v1.KnowledgeService/SearchPassages',
+                request_serializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.SearchPassagesRequest.SerializeToString,
+                response_deserializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.SearchPassagesResponse.FromString,
+                _registered_method=True)
+        self.GetPassage = channel.unary_unary(
+                '/windops.knowledge.v1.KnowledgeService/GetPassage',
+                request_serializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.GetPassageRequest.SerializeToString,
+                response_deserializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.GetPassageResponse.FromString,
+                _registered_method=True)
+        self.ReindexDocuments = channel.unary_unary(
+                '/windops.knowledge.v1.KnowledgeService/ReindexDocuments',
+                request_serializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ReindexDocumentsRequest.SerializeToString,
+                response_deserializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ReindexDocumentsResponse.FromString,
+                _registered_method=True)
         self.SetIngestionSettings = channel.unary_unary(
                 '/windops.knowledge.v1.KnowledgeService/SetIngestionSettings',
                 request_serializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.SetIngestionSettingsRequest.SerializeToString,
@@ -128,6 +143,29 @@ class KnowledgeServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SearchPassages(self, request, context):
+        """Passages that answer a question, each with a citation (FR-KNW-003). Only the caller's tenant is
+        searched, and only documents the caller may read are returned, checked before any text leaves
+        the service (FR-KNW-004, DAT-006, ADR 0012). Current revisions only, unless asked otherwise.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetPassage(self, request, context):
+        """One cited passage, as it was: a citation stays valid when its revision is replaced.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReindexDocuments(self, request, context):
+        """Embed again, under the same citations (FR-KNW-005). Needs knowledge.manage and a second factor.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SetIngestionSettings(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -161,6 +199,21 @@ def add_KnowledgeServiceServicer_to_server(servicer, server):
                     servicer.GetIngestionSettings,
                     request_deserializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.GetIngestionSettingsRequest.FromString,
                     response_serializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.GetIngestionSettingsResponse.SerializeToString,
+            ),
+            'SearchPassages': grpc.unary_unary_rpc_method_handler(
+                    servicer.SearchPassages,
+                    request_deserializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.SearchPassagesRequest.FromString,
+                    response_serializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.SearchPassagesResponse.SerializeToString,
+            ),
+            'GetPassage': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetPassage,
+                    request_deserializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.GetPassageRequest.FromString,
+                    response_serializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.GetPassageResponse.SerializeToString,
+            ),
+            'ReindexDocuments': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReindexDocuments,
+                    request_deserializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ReindexDocumentsRequest.FromString,
+                    response_serializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ReindexDocumentsResponse.SerializeToString,
             ),
             'SetIngestionSettings': grpc.unary_unary_rpc_method_handler(
                     servicer.SetIngestionSettings,
@@ -315,6 +368,87 @@ class KnowledgeService:
             '/windops.knowledge.v1.KnowledgeService/GetIngestionSettings',
             windops_dot_knowledge_dot_v1_dot_knowledge__pb2.GetIngestionSettingsRequest.SerializeToString,
             windops_dot_knowledge_dot_v1_dot_knowledge__pb2.GetIngestionSettingsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SearchPassages(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.knowledge.v1.KnowledgeService/SearchPassages',
+            windops_dot_knowledge_dot_v1_dot_knowledge__pb2.SearchPassagesRequest.SerializeToString,
+            windops_dot_knowledge_dot_v1_dot_knowledge__pb2.SearchPassagesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetPassage(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.knowledge.v1.KnowledgeService/GetPassage',
+            windops_dot_knowledge_dot_v1_dot_knowledge__pb2.GetPassageRequest.SerializeToString,
+            windops_dot_knowledge_dot_v1_dot_knowledge__pb2.GetPassageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReindexDocuments(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.knowledge.v1.KnowledgeService/ReindexDocuments',
+            windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ReindexDocumentsRequest.SerializeToString,
+            windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ReindexDocumentsResponse.FromString,
             options,
             channel_credentials,
             insecure,

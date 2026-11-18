@@ -56,6 +56,15 @@ class KnowledgeServiceStub:
     ReleaseDocument: _grpc.UnaryUnaryMultiCallable[_knowledge_pb2.ReleaseDocumentRequest, _knowledge_pb2.ReleaseDocumentResponse]
     """Release a held document for indexing. Never by the person who uploaded it."""
     GetIngestionSettings: _grpc.UnaryUnaryMultiCallable[_knowledge_pb2.GetIngestionSettingsRequest, _knowledge_pb2.GetIngestionSettingsResponse]
+    SearchPassages: _grpc.UnaryUnaryMultiCallable[_knowledge_pb2.SearchPassagesRequest, _knowledge_pb2.SearchPassagesResponse]
+    """Passages that answer a question, each with a citation (FR-KNW-003). Only the caller's tenant is
+    searched, and only documents the caller may read are returned, checked before any text leaves
+    the service (FR-KNW-004, DAT-006, ADR 0012). Current revisions only, unless asked otherwise.
+    """
+    GetPassage: _grpc.UnaryUnaryMultiCallable[_knowledge_pb2.GetPassageRequest, _knowledge_pb2.GetPassageResponse]
+    """One cited passage, as it was: a citation stays valid when its revision is replaced."""
+    ReindexDocuments: _grpc.UnaryUnaryMultiCallable[_knowledge_pb2.ReindexDocumentsRequest, _knowledge_pb2.ReindexDocumentsResponse]
+    """Embed again, under the same citations (FR-KNW-005). Needs knowledge.manage and a second factor."""
     SetIngestionSettings: _grpc.UnaryUnaryMultiCallable[_knowledge_pb2.SetIngestionSettingsRequest, _knowledge_pb2.SetIngestionSettingsResponse]
 
 @_typing.type_check_only
@@ -86,6 +95,15 @@ class KnowledgeServiceAsyncStub(KnowledgeServiceStub):
     ReleaseDocument: _aio.UnaryUnaryMultiCallable[_knowledge_pb2.ReleaseDocumentRequest, _knowledge_pb2.ReleaseDocumentResponse]  # type: ignore[assignment]
     """Release a held document for indexing. Never by the person who uploaded it."""
     GetIngestionSettings: _aio.UnaryUnaryMultiCallable[_knowledge_pb2.GetIngestionSettingsRequest, _knowledge_pb2.GetIngestionSettingsResponse]  # type: ignore[assignment]
+    SearchPassages: _aio.UnaryUnaryMultiCallable[_knowledge_pb2.SearchPassagesRequest, _knowledge_pb2.SearchPassagesResponse]  # type: ignore[assignment]
+    """Passages that answer a question, each with a citation (FR-KNW-003). Only the caller's tenant is
+    searched, and only documents the caller may read are returned, checked before any text leaves
+    the service (FR-KNW-004, DAT-006, ADR 0012). Current revisions only, unless asked otherwise.
+    """
+    GetPassage: _aio.UnaryUnaryMultiCallable[_knowledge_pb2.GetPassageRequest, _knowledge_pb2.GetPassageResponse]  # type: ignore[assignment]
+    """One cited passage, as it was: a citation stays valid when its revision is replaced."""
+    ReindexDocuments: _aio.UnaryUnaryMultiCallable[_knowledge_pb2.ReindexDocumentsRequest, _knowledge_pb2.ReindexDocumentsResponse]  # type: ignore[assignment]
+    """Embed again, under the same citations (FR-KNW-005). Needs knowledge.manage and a second factor."""
     SetIngestionSettings: _aio.UnaryUnaryMultiCallable[_knowledge_pb2.SetIngestionSettingsRequest, _knowledge_pb2.SetIngestionSettingsResponse]  # type: ignore[assignment]
 
 class KnowledgeServiceServicer(metaclass=_abc_1.ABCMeta):
@@ -143,6 +161,33 @@ class KnowledgeServiceServicer(metaclass=_abc_1.ABCMeta):
         request: _knowledge_pb2.GetIngestionSettingsRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_knowledge_pb2.GetIngestionSettingsResponse, _abc.Awaitable[_knowledge_pb2.GetIngestionSettingsResponse]]: ...
+
+    @_abc_1.abstractmethod
+    def SearchPassages(
+        self,
+        request: _knowledge_pb2.SearchPassagesRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_knowledge_pb2.SearchPassagesResponse, _abc.Awaitable[_knowledge_pb2.SearchPassagesResponse]]:
+        """Passages that answer a question, each with a citation (FR-KNW-003). Only the caller's tenant is
+        searched, and only documents the caller may read are returned, checked before any text leaves
+        the service (FR-KNW-004, DAT-006, ADR 0012). Current revisions only, unless asked otherwise.
+        """
+
+    @_abc_1.abstractmethod
+    def GetPassage(
+        self,
+        request: _knowledge_pb2.GetPassageRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_knowledge_pb2.GetPassageResponse, _abc.Awaitable[_knowledge_pb2.GetPassageResponse]]:
+        """One cited passage, as it was: a citation stays valid when its revision is replaced."""
+
+    @_abc_1.abstractmethod
+    def ReindexDocuments(
+        self,
+        request: _knowledge_pb2.ReindexDocumentsRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_knowledge_pb2.ReindexDocumentsResponse, _abc.Awaitable[_knowledge_pb2.ReindexDocumentsResponse]]:
+        """Embed again, under the same citations (FR-KNW-005). Needs knowledge.manage and a second factor."""
 
     @_abc_1.abstractmethod
     def SetIngestionSettings(

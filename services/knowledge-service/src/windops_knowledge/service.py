@@ -29,6 +29,7 @@ from windops_auth import (
 from windops_grpc import (
     ConflictError,
     InvalidRequestError,
+    NotFoundError,
     PermissionDeniedError,
     ServiceClient,
     UnavailableError,
@@ -37,7 +38,7 @@ from windops_grpc import (
 from windops_migrations import in_tenant
 from windops_resilience import BreakerOpenError
 
-from windops_knowledge import library, uploads
+from windops_knowledge import embeddings, library, retrieval, uploads, vectors
 from windops_knowledge.store import DOCUMENTS, PASSAGES, KeyReusedError, remember, remembered
 
 READ, MANAGE = "knowledge.read", "knowledge.manage"
@@ -48,7 +49,7 @@ STATUSES = (library.PENDING, library.INDEXED, library.HELD, library.NOT_INDEXED,
 
 
 class Authorizer(Protocol):
-    async def allowed(self, permission: str) -> bool: ...
+    async def allowed(self, permission: str, wind_farm_id: str = "") -> bool: ...
 
 
 class AuthorizationClient:
@@ -57,8 +58,10 @@ class AuthorizationClient:
     def __init__(self, stub: Any, client: ServiceClient) -> None:
         self._stub, self._client = stub, client
 
-    async def allowed(self, permission: str) -> bool:
-        request = authorization_pb2.CheckRequest(permission=permission)
+    async def allowed(self, permission: str, wind_farm_id: str = "") -> bool:
+        request = authorization_pb2.CheckRequest(
+            permission=permission, scope=authorization_pb2.Scope(wind_farm_id=wind_farm_id)
+        )
         try:
             answer = await self._client.call(self._stub.Check, request, idempotent=True,
                                              deadline_seconds=DEADLINE_SECONDS)  # fmt: skip
@@ -125,8 +128,10 @@ def _settings(allowance: library.Allowance) -> pb.IngestionSettings:
 
 class KnowledgeService(knowledge_pb2_grpc.KnowledgeServiceServicer):
     def __init__(self, engine_: AsyncEngine, authorizer: Authorizer,
+                 embedder: embeddings.Embedder, store: vectors.VectorStore,
                  clock: Callable[[], datetime] | None = None) -> None:  # fmt: skip
         self._engine, self._authorizer = engine_, authorizer
+        self._embedder, self._store = embedder, store
         self._now = clock or (lambda: datetime.now(UTC))
 
     # --- who may do what
@@ -284,6 +289,93 @@ class KnowledgeService(knowledge_pb2_grpc.KnowledgeServiceServicer):
         response: pb.ReleaseDocumentResponse = await self._change(
             "ReleaseDocument", request, request.idempotency_key, pb.ReleaseDocumentResponse, act
         )
+        return response
+
+    # --- retrieval
+
+    def _passage(self, hit: retrieval.Hit) -> pb.Passage:
+        row, passage = hit.document, hit.passage
+        message = to_message(row, 0)
+        return pb.Passage(
+            citation_id=hit.citation_id, document=message.metadata, source=row.source,
+            section=passage.section, text=passage.text, start_offset=passage.start_offset,
+            end_offset=passage.end_offset, first_line=passage.first_line,
+            last_line=passage.last_line, content_hash=passage.content_hash,
+            current=not hit.superseded_by, superseded_by=hit.superseded_by,
+            embedding_model=row.embedding_model, embedding_version=row.embedding_version,
+            score=round(hit.score, 6),
+        )  # fmt: skip
+
+    async def SearchPassages(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.SearchPassagesRequest, context: Any
+    ) -> pb.SearchPassagesResponse:
+        if request.wind_farm_id and not retrieval.WIND_FARM.fullmatch(request.wind_farm_id):
+            raise InvalidRequestError("wind_farm_id is a wind farm's ID")
+        if not await self._authorizer.allowed(READ, request.wind_farm_id):
+            raise PermissionDeniedError("You do not have permission to do this")
+        tenant = current_identity().tenant_id
+        limit = request.limit or retrieval.DEFAULT_LIMIT
+        if not 1 <= limit <= retrieval.MAXIMUM_LIMIT:
+            raise InvalidRequestError(f"limit is from 1 to {retrieval.MAXIMUM_LIMIT}")
+        unknown = set(request.types) - set(uploads.TYPES)
+        if unknown:
+            raise InvalidRequestError(f"types are among {', '.join(uploads.TYPES)}")
+        if len(request.applies_to) > 64:
+            raise InvalidRequestError("applies_to is a turbine model or wind farm ID")
+        try:
+            async with self._engine.connect() as connection:
+                await in_tenant(connection, tenant)
+                hits = await retrieval.search(
+                    connection, tenant, request.query, embedder=self._embedder,
+                    store=self._store, allowed=self._authorizer.allowed,
+                    wind_farm_id=request.wind_farm_id, applies_to=request.applies_to,
+                    types=tuple(request.types), limit=limit,
+                    include_superseded=request.include_superseded,
+                )  # fmt: skip
+        except retrieval.QueryRefusedError as error:
+            raise InvalidRequestError(str(error)) from error
+        except (embeddings.EmbeddingUnavailableError, embeddings.EmbeddingRefusedError,
+                vectors.VectorsUnavailableError) as error:  # fmt: skip
+            # Paused, never answered with passages that were not ranked and checked (SRS 7.7).
+            raise UnavailableError(f"Document search is paused: {error}") from error
+        return pb.SearchPassagesResponse(
+            passages=[self._passage(hit) for hit in hits],
+            embedding_model=self._embedder.model, embedding_version=self._embedder.version,
+        )  # fmt: skip
+
+    async def GetPassage(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.GetPassageRequest, context: Any
+    ) -> pb.GetPassageResponse:
+        if request.wind_farm_id and not retrieval.WIND_FARM.fullmatch(request.wind_farm_id):
+            raise InvalidRequestError("wind_farm_id is a wind farm's ID")
+        if not await self._authorizer.allowed(READ, request.wind_farm_id):
+            raise PermissionDeniedError("You do not have permission to do this")
+        tenant = current_identity().tenant_id
+        try:
+            async with self._engine.connect() as connection:
+                await in_tenant(connection, tenant)
+                hit = await retrieval.read(connection, tenant, request.citation_id,
+                                           wind_farm_id=request.wind_farm_id,
+                                           allowed=self._authorizer.allowed)  # fmt: skip
+        except retrieval.NoSuchCitationError as error:
+            raise NotFoundError(str(error)) from error
+        return pb.GetPassageResponse(passage=self._passage(hit))
+
+    async def ReindexDocuments(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.ReindexDocumentsRequest, context: Any
+    ) -> pb.ReindexDocumentsResponse:
+        reason = request.reason.strip()
+        if not reason or len(reason) > MAXIMUM_TEXT:
+            raise InvalidRequestError(f"reason is required, and at most {MAXIMUM_TEXT} characters")
+
+        async def act(connection: AsyncConnection, tenant: str, user: str, now: datetime) -> Any:
+            queued = await library.queue_again(connection, tenant, user, request.document_id, now)
+            return pb.ReindexDocumentsResponse(queued=queued)
+
+        response: pb.ReindexDocumentsResponse = await self._change(
+            "ReindexDocuments", request, request.idempotency_key, pb.ReindexDocumentsResponse,
+            act,
+        )  # fmt: skip
         return response
 
     # --- settings
