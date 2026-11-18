@@ -75,13 +75,22 @@ class Caller:
     def __init__(self, stub: Any, key: str) -> None:
         self.stub, self.key = stub, key
 
-    def exchange(self, user: str, token: str, audience: str = AGENT) -> Any:
+    def options(self, user: str) -> dict[str, Any]:
         identity = VerifiedIdentity(subject=user, tenant_id=TENANT, user_id=user)
-        metadata = (("x-windops-identity", sign_identity(identity, self.key, ttl_seconds=60)),)
+        token = sign_identity(identity, self.key, ttl_seconds=60)
+        return {"metadata": (("x-windops-identity", token),), "timeout": 15}
+
+    @staticmethod
+    def exchange_request(
+        user: str, token: str, audience: str, scopes: list[str] | None = None
+    ) -> Any:
+        return pb.ExchangeTokenRequest(subject_token=token, audience=audience, scopes=scopes or [])
+
+    def exchange(
+        self, user: str, token: str, audience: str = AGENT, scopes: list[str] | None = None
+    ) -> Any:
         return self.stub.ExchangeToken(
-            pb.ExchangeTokenRequest(subject_token=token, audience=audience),
-            metadata=metadata,
-            timeout=15,
+            self.exchange_request(user, token, audience, scopes), **self.options(user)
         )
 
     def code(self, user: str, token: str, audience: str = AGENT) -> grpc.StatusCode:

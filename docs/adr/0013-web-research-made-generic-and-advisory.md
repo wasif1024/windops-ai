@@ -46,7 +46,7 @@ The SRS leaves open who may research, how a query is made generic, and what "con
   - **undated:** the provider could not tell when it was published.
   - **low_confidence:** a weak match, below 0.5, from a domain not on the authoritative list.
   - **conflicting:** for forecasts and severe weather, sources giving different warning levels.
-  - **instructions_to_ai:** its text addresses an AI. It is only text, and M7.5 wraps it as untrusted.
+  - **instructions_to_ai:** its text addresses an AI. It is only text, and the MCP layer wraps it as untrusted ([ADR 0014](0014-mcp-tools-behind-per-call-tool-tokens.md)).
 - **Domains:** user-generated sites are never searched. A tenant may block more, or allow only a list.
 
 **Limits (EXT-005):**

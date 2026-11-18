@@ -570,19 +570,27 @@ class ExchangeTokenRequest(_message.Message):
 
     SUBJECT_TOKEN_FIELD_NUMBER: _builtins.int
     AUDIENCE_FIELD_NUMBER: _builtins.int
+    SCOPES_FIELD_NUMBER: _builtins.int
     subject_token: _builtins.str
     """The caller's own Keycloak access token. It is never stored or logged."""
     audience: _builtins.str
     """The one service the new token is for. Only allowed services may be named."""
+    @_builtins.property
+    def scopes(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """For an MCP server, the tools the token may call, each as its scope, such as
+        "mcp.documentation.search_documents". At least one, and only that server's own.
+        """
+
     def __init__(
         self,
         *,
         subject_token: _builtins.str = ...,
         audience: _builtins.str = ...,
+        scopes: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["audience", b"audience", "subject_token", b"subject_token"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["audience", b"audience", "scopes", b"scopes", "subject_token", b"subject_token"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -595,19 +603,25 @@ class ExchangeTokenResponse(_message.Message):
     ACCESS_TOKEN_FIELD_NUMBER: _builtins.int
     EXPIRES_IN_SECONDS_FIELD_NUMBER: _builtins.int
     AUDIENCE_FIELD_NUMBER: _builtins.int
+    SCOPES_FIELD_NUMBER: _builtins.int
     access_token: _builtins.str
     expires_in_seconds: _builtins.int
     audience: _builtins.str
+    @_builtins.property
+    def scopes(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """The tool scopes the token carries."""
+
     def __init__(
         self,
         *,
         access_token: _builtins.str = ...,
         expires_in_seconds: _builtins.int = ...,
         audience: _builtins.str = ...,
+        scopes: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["access_token", b"access_token", "audience", b"audience", "expires_in_seconds", b"expires_in_seconds"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["access_token", b"access_token", "audience", b"audience", "expires_in_seconds", b"expires_in_seconds", "scopes", b"scopes"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

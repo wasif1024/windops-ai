@@ -16,6 +16,7 @@ from typing import Any
 
 import httpx
 from windops_auth import LEVEL_MFA, LEVEL_PASSWORD, MFA_LEVEL_SECONDS
+from windops_identity.targets import EXCHANGE_TARGETS, audience_scope
 
 from scripts.lib import settings
 from scripts.lib.tls_client import trust_cluster_ca
@@ -182,10 +183,10 @@ def identity_client_settings() -> dict[str, Any]:
 
 
 # Token exchange (SEC-008). windops-api is in every user token's audience, so Keycloak lets it
-# exchange one. Each allowed target gets a client scope, and nothing else can be asked for.
+# exchange one. Each allowed target gets a client scope, and each MCP server's tool a scope of its
+# own, from the Identity Service's own list, and nothing else can be asked for (MCP-001).
 EXCHANGE_CLIENT_ID = API_AUDIENCE
 EXCHANGE_LIFETIME_SECONDS = 120
-EXCHANGE_TARGETS = ("windops-agent-runtime",)
 
 
 def exchange_client_settings() -> dict[str, Any]:
@@ -222,12 +223,22 @@ def target_client_settings(client_id: str) -> dict[str, Any]:
 
 
 def target_scope_name(client_id: str) -> str:
-    return f"{client_id}-audience"
+    return audience_scope(client_id)
 
 
-def ensure_target_scope(api: httpx.Client, exchange_client: str, target: str) -> None:
-    """A scope that names one target in the audience, offered only to the exchange client."""
-    name = target_scope_name(target)
+def target_audience_mapper(target: str) -> dict[str, Any]:
+    return {
+        "name": "audience",
+        "protocol": "openid-connect",
+        "protocolMapper": "oidc-audience-mapper",
+        "config": {"included.client.audience": target, "access.token.claim": "true"},
+    }
+
+
+def ensure_offered_scope(
+    api: httpx.Client, exchange_client: str, name: str, mappers: list[dict[str, Any]]
+) -> None:
+    """A client scope, written into a token's scope claim, offered only to the exchange client."""
     scopes = api.get(f"/{REALM}/client-scopes")
     scopes.raise_for_status()
     found = [item["id"] for item in scopes.json() if item["name"] == name]
@@ -240,17 +251,7 @@ def ensure_target_scope(api: httpx.Client, exchange_client: str, target: str) ->
                 "name": name,
                 "protocol": "openid-connect",
                 "attributes": {"include.in.token.scope": "true"},
-                "protocolMappers": [
-                    {
-                        "name": "audience",
-                        "protocol": "openid-connect",
-                        "protocolMapper": "oidc-audience-mapper",
-                        "config": {
-                            "included.client.audience": target,
-                            "access.token.claim": "true",
-                        },
-                    }
-                ],
+                "protocolMappers": mappers,
             },
         )
         created.raise_for_status()
@@ -258,6 +259,15 @@ def ensure_target_scope(api: httpx.Client, exchange_client: str, target: str) ->
     api.put(
         f"/{REALM}/clients/{exchange_client}/optional-client-scopes/{scope_id}"
     ).raise_for_status()
+
+
+def ensure_target_scope(api: httpx.Client, exchange_client: str, target: str) -> None:
+    """A scope that names one target in the audience, and one for each of its tools."""
+    ensure_offered_scope(
+        api, exchange_client, target_scope_name(target), [target_audience_mapper(target)]
+    )
+    for tool_scope in sorted(EXCHANGE_TARGETS[target]):
+        ensure_offered_scope(api, exchange_client, tool_scope, [])
 
 
 def ensure_exchange_client(api: httpx.Client) -> str:

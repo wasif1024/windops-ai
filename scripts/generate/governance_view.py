@@ -145,7 +145,8 @@ THEMES = (
         (
             Answer("Dependency audits and image scans in CI", "M1.2, M1.6"),
             Answer("Vendor checks: forecast provider, Claude's data handling", "M6.3, M8.1"),
-            Answer("Allowlisted MCP tools; untrusted content wrapped", "M7.5"),
+            Answer("Per-call MCP tool tokens; untrusted content wrapped", "M7.5"),
+            Answer("A tool allowlist for each agent", "M8.6"),
         ),
     ),
     Theme(

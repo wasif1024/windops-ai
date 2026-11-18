@@ -7,7 +7,7 @@
   domain, such as a meteorological office, a standards body or a regulator.
 - **conflicting:** sources from the same search give different weather warning levels.
 - **instructions_to_ai:** its text addresses an AI, as an injected instruction does. It is still
-  only text, and the MCP layer wraps it as untrusted (M7.5).
+  only text, and the MCP layer wraps it as untrusted (windops-mcp).
 
 Nothing is dropped for a flag: the reader sees each, with its note, and decides.
 """

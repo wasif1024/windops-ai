@@ -74,6 +74,7 @@ BUILT_TARGETS = {
     "bff-check",
     "gateway-policy-check",
     "token-exchange-check",
+    "mcp-check",
     "frontend-test",
     "frontend-check",
     "postgres-provision",
