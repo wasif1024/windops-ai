@@ -1,9 +1,1 @@
-{
-  "GHSA-fc5q-39xc-vjpf": {
-    "package": "picomatch",
-    "vulnerable_through": "4.0.7",
-    "review_by": "2027-01-31",
-    "added": "2026-11-18",
-    "reason": "ReDoS through repeated extglobs, with no fixed version published. picomatch is only in the build and test toolchain (Vite, Vitest, typescript-eslint), never in what ships to browsers, and it only matches the project's own file patterns, never input from a user. The exception ends when a version after 4.0.7 is published, or on the review date, whichever comes first."
-  }
-}
+{}
