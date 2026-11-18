@@ -20,3 +20,5 @@ data:
   # A run not started within this is ended as stale: its evidence is too old to start on.
   WINDOPS_RUNTIME_QUEUE_HOURS: "24"
   WINDOPS_RUNTIME_POLL_SECONDS: "1"
+  # Off until traces are redacted and their leakage tests pass (M8.9, EGR-003).
+  LANGSMITH_TRACING: "false"

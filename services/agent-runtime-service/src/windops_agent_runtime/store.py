@@ -6,10 +6,12 @@ run taken over by another replica carries on after its last completed step.
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     DateTime,
     Index,
     MetaData,
+    Numeric,
     Table,
     Text,
 )
@@ -62,6 +64,11 @@ RUNS = Table(
     Column("lease_owner", Text, nullable=False, server_default=""),
     Column("lease_expires_at", DateTime(timezone=True)),
     Column("updated_at", DateTime(timezone=True), nullable=False),
+    # The Claude policy it runs under, and its budget, pinned when queued (AGT-004, LLM-010).
+    Column("policy_version", BigInteger, nullable=False, server_default="0"),
+    Column("policy_hash", Text, nullable=False, server_default=""),
+    Column("token_budget", BigInteger, nullable=False, server_default="0"),
+    Column("cost_budget_usd", Numeric(12, 6), nullable=False, server_default="0"),
     Index("runs_by_case", "tenant_id", "case_id", "created_at"),
     Index("runs_one_key", "tenant_id", "idempotency_key", unique=True),
     Index("runs_by_status", "status", "not_before"),
@@ -77,6 +84,32 @@ RUN_STEPS = Table(
     Column("worker", Text, nullable=False),
     Column("started_at", DateTime(timezone=True), nullable=False),
     Column("finished_at", DateTime(timezone=True), nullable=False),
+)
+
+# Every call to Claude, as made, whatever its answer: each is paid for (LLM-010). Never changed.
+RUN_CALLS = Table(
+    "run_calls",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("run_id", Text, primary_key=True),
+    Column("position", BigInteger, primary_key=True),
+    Column("attempt", BigInteger, nullable=False),
+    Column("worker", Text, nullable=False),
+    Column("role", Text, nullable=False),
+    Column("requested_model", Text, nullable=False),
+    Column("served_model", Text, nullable=False),
+    Column("effort", Text, nullable=False),
+    Column("stop_reason", Text, nullable=False),
+    Column("fallback", Boolean, nullable=False),
+    Column("input_tokens", BigInteger, nullable=False),
+    Column("cache_write_5m_tokens", BigInteger, nullable=False),
+    Column("cache_write_1h_tokens", BigInteger, nullable=False),
+    Column("cache_read_tokens", BigInteger, nullable=False),
+    Column("output_tokens", BigInteger, nullable=False),
+    # What counts against the token budget: everything but cache reads.
+    Column("processed_tokens", BigInteger, nullable=False),
+    Column("cost_usd", Numeric(12, 6), nullable=False),
+    Column("at", DateTime(timezone=True), nullable=False),
 )
 
 

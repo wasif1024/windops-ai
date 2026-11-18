@@ -344,10 +344,9 @@ def check_database(run_id: str) -> None:
     )
 
 
-def check_audit(key: str, run_ids: list[str]) -> None:
+def check_audit(key: str, wanted: set[tuple[str, str]], message: str) -> None:
+    """Wait for each (run ID, action) to reach the audit trail."""
     bootstrap(TENANT, AUDITOR, "auditor")
-    wanted = {(run_ids[0], "agent_run.queued"), (run_ids[0], "agent_run.completed"),
-              (run_ids[-1], "agent_run.failed")}  # fmt: skip
     with (
         port_forward("deployment/windops-audit", APPLICATION, 50051) as port,
         blocking_channel(port, AUDIT_HOST, client_bundle()) as channel,
@@ -365,7 +364,7 @@ def check_audit(key: str, run_ids: list[str]) -> None:
             return wanted <= seen
 
         wait_for("the audit records", found, timeout=60)
-    check(True, "Queuing and each run's end reached the tamper-evident audit trail")
+    check(True, message)
 
 
 def main() -> int:
@@ -394,7 +393,12 @@ def main() -> int:
         check_handback(investigation, key)
         ended = check_cancel_and_attempts(investigation, key)
         check_database(taken)
-        check_audit(key, [queued[0], *ended])
+        check_audit(
+            key,
+            {(queued[0], "agent_run.queued"), (queued[0], "agent_run.completed"),
+             (ended[-1], "agent_run.failed")},
+            "Queuing and each run's end reached the tamper-evident audit trail",
+        )  # fmt: skip
     except (RuntimeError, grpc.RpcError) as error:
         print(error, file=sys.stderr)
         return 1

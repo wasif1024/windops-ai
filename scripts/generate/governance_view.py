@@ -92,6 +92,7 @@ THEMES = (
         (
             Answer("Immutable, hashed evidence behind every case", "M5.5"),
             Answer("Policy results keep every rule version and input", "M6.1"),
+            Answer("Each call follows a versioned Claude policy, metered per run", "M8.3"),
             Answer("Runs pin model, prompt and tool versions; results cite sources", "M8.8"),
             Answer("A published system card for each AI capability", "M14.6"),
         ),

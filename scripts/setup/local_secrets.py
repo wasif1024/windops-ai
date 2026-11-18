@@ -196,6 +196,8 @@ PROVIDER_KEYS = (
     ("OPENAI_API_KEY", "windops-openai-api-key", ("windops-application",)),
     # The External Intelligence Service's web research, and only its pod mounts it (EXT-005).
     ("TAVILY_API_KEY", "windops-tavily-api-key", ("windops-application",)),
+    # Claude, for the Agent Runtime only, whose pod alone mounts it (M8.3).
+    ("ANTHROPIC_API_KEY", "windops-anthropic-api-key", ("windops-application",)),
 )
 
 

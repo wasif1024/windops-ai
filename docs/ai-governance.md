@@ -77,7 +77,9 @@ ISO/IEC 42001 A.9; NIST MAP 3 and MANAGE 2; NCA identity and access; SDAIA human
 ISO/IEC 42001 A.6 and A.8; NIST GOVERN 1.6 and MEASURE 2.8, 2.9; NCA logging and monitoring; SDAIA transparency.
 - **In place:**
   - immutable, hashed evidence behind every case (M5.5, `make fault-case-check`);
-  - policy results that keep every rule version and input (M6.1).
+  - policy results that keep every rule version and input (M6.1);
+  - every call to Claude follows a versioned model policy, which each run pins. Each call is recorded with its model,
+    effort, stop reason, any fallback, tokens and cost, within the run's budget (M8.3, `make claude-check`).
 - **Planned:** every run pins its model, prompt and tool versions (AGT-004), and results cite their sources (M8.8).
 - **Planned:** a published system card for each AI capability: purpose, inputs, limits, models, evaluation results
   and owners (M14.6).

@@ -224,6 +224,25 @@
           "enabled": true
         }
       ]
+    },
+    {
+      "name": "windops-agents",
+      "interval": "PT1M",
+      "rules": [
+        {
+          "alert": "WindopsAgentBudgetExhausted",
+          "expression": "sum(increase(windops_audit_records_total{action=\"agent_run.budget_exhausted\"}[15m]) and windops_audit_records_total{action=\"agent_run.budget_exhausted\"} offset 15m or windops_audit_records_total{action=\"agent_run.budget_exhausted\"}) > 0",
+          "for": "PT1M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "An agent run reached its token or cost budget and stopped (LLM-010). Its audit record names the run"
+          },
+          "enabled": true
+        }
+      ]
     }
   ],
   "coveredByServiceBusAlerts": [

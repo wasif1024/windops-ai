@@ -7,19 +7,22 @@ import functools
 import inspect
 from collections.abc import Awaitable, Callable, Iterator
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 import pytest
+from langchain_core.messages import AIMessage
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import StaticPool
 from windops.agent_runtime.v1 import agent_runtime_pb2 as pb
 from windops_agent_runtime.queue import LeaseLostError, Queue
 from windops_agent_runtime.service import INVESTIGATION, AgentRuntimeService
-from windops_agent_runtime.store import METADATA, RUN_STEPS, RUNS
+from windops_agent_runtime.store import METADATA, RUN_CALLS, RUN_STEPS, RUNS
 from windops_agent_runtime.worker import Worker, WorkerSettings
 from windops_agent_runtime.workflows import REGISTRY, Rehearsal
 from windops_auth import identity_scope
+from windops_claude import Call, Claude, Policy, Usage, load
 from windops_events import parse_event
 from windops_grpc import (
     ConflictError,
@@ -35,6 +38,7 @@ CASE = "case_" + "a" * 20
 SNAPSHOT = "evs_" + "b" * 20
 START = datetime(2026, 11, 18, 12, 0, tzinfo=UTC)
 LEASE = 30.0
+POLICY = load()
 
 
 class Clock:
@@ -441,3 +445,161 @@ async def test_a_worker_whose_run_was_taken_logs_and_changes_nothing(
     assert "Lost a run's lease" in caplog.text
     assert not await steps(engine, run.run_id)
     assert (await status(engine, run.run_id)).lease_owner == "replica-b/0"
+
+
+# --- The Claude policy in a run (M8.3)
+
+
+class FakeChat:
+    """Stands in for ChatAnthropic: answers at once, with the usage Claude would report."""
+
+    def __init__(self, stop: str, max_tokens: int) -> None:
+        self.stop, self.max_tokens = stop, max_tokens
+
+    def _answer(self, text: str) -> AIMessage:
+        return AIMessage(
+            content=text,
+            response_metadata={
+                "model": "claude-opus-5-5", "stop_reason": self.stop,
+                "usage": {"input_tokens": 400, "output_tokens": 100,
+                          "cache_read_input_tokens": 1000},
+            },
+        )  # fmt: skip
+
+    async def ainvoke(self, messages: list[Any]) -> AIMessage:
+        return self._answer("ready")
+
+    def with_structured_output(self, schema: Any, **kwargs: Any) -> Any:
+        chat = self
+
+        class Bound:
+            async def ainvoke(self, messages: list[Any]) -> dict[str, Any]:
+                parsed = schema(ready=True, role="supervisor")
+                return {"raw": chat._answer(parsed.model_dump_json()), "parsed": parsed,
+                        "parsing_error": None}  # fmt: skip
+
+        return Bound()
+
+
+def claude_worker(queue: Queue, stop: str = "end_turn", policy: Policy = POLICY) -> Worker:
+    def make(claim: Any, meter: Any) -> Claude:
+        def model(_: Any, role: str, *, api_key: str, max_tokens: int) -> FakeChat:
+            return FakeChat(stop, max_tokens)
+
+        return Claude(policy, meter, lambda: "key", make_model=model)  # type: ignore[arg-type]
+
+    return Worker(queue, REGISTRY, policy=policy, make_claude=make)
+
+
+async def start_check(
+    engine: AsyncEngine, clock: Clock, key: str = "check-key-1", **budget: Any
+) -> pb.Run:
+    request = pb.StartRunRequest(
+        case_id=CASE, snapshot_id=SNAPSHOT, workflow="model-check",
+        parameters={"roles": "supervisor,metadata-extraction"},
+        requested_by="service:investigation", idempotency_key=key, **budget,
+    )  # fmt: skip
+    with caller():
+        return (await service(engine, clock).StartRun(request, None)).run
+
+
+async def get(engine: AsyncEngine, clock: Clock, run_id: str) -> pb.Run:
+    with caller():
+        return (await service(engine, clock).GetRun(pb.GetRunRequest(run_id=run_id), None)).run
+
+
+@scenario
+async def test_a_run_pins_the_policy_and_its_tenants_budget(
+    engine: AsyncEngine, clock: Clock
+) -> None:
+    run = await start_check(engine, clock)
+    assert (run.policy_version, run.policy_hash) == (POLICY.version, POLICY.content_hash)
+    assert run.usage.token_budget == POLICY.budgets.default.tokens
+    assert run.usage.cost_budget_usd == f"{POLICY.budgets.default.cost_usd:.6f}"
+    lowered = await start_check(
+        engine, clock, "check-key-2", token_budget=10**9, cost_budget_usd="0.5"
+    )
+    # A request may lower a budget, never raise it.
+    assert lowered.usage.token_budget == POLICY.budgets.default.tokens
+    assert lowered.usage.cost_budget_usd == "0.500000"
+    for bad in ("-1", "lots", "NaN", "0"):
+        with pytest.raises(InvalidRequestError):
+            await start_check(engine, clock, f"check-key-{bad}", cost_budget_usd=bad)
+
+
+@scenario
+async def test_each_call_is_recorded_with_its_tokens_and_cost(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    run = await start_check(engine, clock)
+    claim = await queue.claim("replica-a/0")
+    assert claim is not None and claim.token_budget == POLICY.budgets.default.tokens
+    assert await claude_worker(queue).execute(claim, asyncio.Event()) == "completed"
+    done = await get(engine, clock, run.run_id)
+    # Two roles, a structured answer and the cached prompt: four calls of 500 processed tokens.
+    assert (done.usage.calls, done.usage.tokens, done.usage.cache_read_tokens) == (4, 2000, 4000)
+    # Each: 400 x $4 + 1000 x $0.20 + 100 x $20, per million.
+    assert done.usage.cost_usd == "0.015200"
+    async with engine.connect() as connection:
+        calls = (await connection.execute(select(RUN_CALLS).order_by(RUN_CALLS.c.position))).all()
+    assert [(c.role, c.effort, c.attempt) for c in calls] == [
+        ("supervisor", "high", 1), ("metadata-extraction", "low", 1),
+        ("supervisor", "high", 1), ("supervisor", "high", 1),
+    ]  # fmt: skip
+
+
+@scenario
+async def test_a_run_that_reaches_its_budget_ends_as_budget_exhausted(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    run = await start_check(engine, clock, token_budget=700)
+    claim = await queue.claim("replica-a/0")
+    assert claim is not None
+    assert await claude_worker(queue).execute(claim, asyncio.Event()) == "budget_exhausted"
+    ended = await get(engine, clock, run.run_id)
+    assert ended.status == "budget_exhausted" and "tokens" in ended.reason
+    # The second call reached the budget, and no third was made.
+    assert ended.usage.calls == 2
+    assert (await audits(engine))[-1] == "agent_run.budget_exhausted"
+    assert await queue.claim("replica-a/0") is None
+
+
+@scenario
+async def test_a_refusal_fails_the_run_without_trying_again(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    run = await start_check(engine, clock)
+    claim = await queue.claim("replica-a/0")
+    assert claim is not None
+    assert await claude_worker(queue, stop="refusal").execute(claim, asyncio.Event()) == "failed"
+    ended = await get(engine, clock, run.run_id)
+    assert (ended.status, ended.attempt, ended.usage.calls) == ("failed", 1, 1)
+    assert ended.reason.startswith("RefusedError")
+
+
+@scenario
+async def test_a_run_never_continues_under_another_policy(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    run = await start_check(engine, clock)
+    claim = await queue.claim("replica-a/0")
+    assert claim is not None
+    changed = POLICY.model_copy(update={"version": POLICY.version + 1})
+    assert await claude_worker(queue, policy=changed).execute(claim, asyncio.Event()) == "stale"
+    assert "policy" in (await get(engine, clock, run.run_id)).reason
+
+
+@scenario
+async def test_a_worker_that_lost_its_lease_records_no_call(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    await start_check(engine, clock)
+    late = await queue.claim("replica-a/0")
+    assert late is not None
+    clock.advance(LEASE + 1)
+    assert await queue.claim("replica-b/0") is not None
+    call = Call(role="supervisor", requested_model="m", served_model="m", effort="high",
+                stop_reason="end_turn", fallback=False, usage=Usage(input_tokens=1),
+                cost_usd=Decimal(0))  # fmt: skip
+    with pytest.raises(LeaseLostError):
+        await queue.record_call(late, call)

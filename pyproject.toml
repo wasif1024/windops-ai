@@ -36,6 +36,7 @@ members = [
     "services/web-bff-service",
     "shared/auth",
     "shared/cache",
+    "shared/claude",
     "shared/contracts",
     "shared/events",
     "shared/grpc",
@@ -51,6 +52,7 @@ members = [
 [tool.uv.sources]
 windops-auth = { workspace = true }
 windops-cache = { workspace = true }
+windops-claude = { workspace = true }
 windops-events = { workspace = true }
 windops-migrations = { workspace = true }
 windops-outbox = { workspace = true }
@@ -146,6 +148,8 @@ files = [
     "shared/auth/tests",
     "shared/cache/src",
     "shared/cache/tests",
+    "shared/claude/src",
+    "shared/claude/tests",
     "shared/events/src",
     "shared/events/tests",
     "shared/grpc/src",
@@ -218,6 +222,8 @@ mypy_path = [
     "shared/auth/tests",
     "shared/cache/src",
     "shared/cache/tests",
+    "shared/claude/src",
+    "shared/claude/tests",
     "shared/contracts/src",
     "shared/events/src",
     "shared/events/tests",
@@ -263,6 +269,7 @@ testpaths = [
     "services/*/tests",
     "shared/auth/tests",
     "shared/cache/tests",
+    "shared/claude/tests",
     "shared/events/tests",
     "shared/grpc/tests",
     "shared/migrations/tests",
@@ -312,6 +319,7 @@ dev = [
     "windops-auth",
     "windops-authorization",
     "windops-cache",
+    "windops-claude",
     "windops-contracts",
     "windops-events",
     "windops-external-intelligence",

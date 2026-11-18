@@ -1,0 +1,51 @@
+# The Claude model policy (SRS 5.2, LLM-001). Every model, effort, price and budget an agent uses
+# comes from here, never from a prompt or the code.
+#
+# A change is a new version: bump `version`, then run `make claude-policy-lock` to record the new
+# content hash in policy.lock.json. A test fails until both are done, so no change slips in
+# unnoticed. A model or effort change must also pass the Section 10 gates before release
+# (LLM-002). Each run pins the version and hash it started with (AGT-004).
+version: 1
+
+# Each role's model and effort, set explicitly: Opus 5.5 would otherwise default to medium
+# (LLM-003). max_tokens bounds one call's output, thinking included.
+roles:
+  supervisor: {model: claude-opus-5-5, effort: high, max_tokens: 16000}
+  reliability-engineer: {model: claude-opus-5-5, effort: high, max_tokens: 16000}
+  maintenance-planner: {model: claude-opus-5-5, effort: high, max_tokens: 16000}
+  safety-researcher: {model: claude-opus-5-5, effort: high, max_tokens: 16000}
+  scada-analyst: {model: claude-opus-5-5, effort: medium, max_tokens: 8000}
+  production-impact: {model: claude-opus-5-5, effort: medium, max_tokens: 8000}
+  metadata-extraction: {model: claude-haiku-5-5, effort: low, max_tokens: 2000}
+  evaluator: {model: claude-opus-5-5, effort: high, max_tokens: 8000}
+
+# USD per million tokens, from the pricing page on the date below. Fallbacks from Opus 5.5 are
+# served by Opus 5 or Opus 4.8, so they are priced too. A model not listed here is charged at the
+# highest rates listed, so a budget is never under-counted.
+pricing:
+  source: https://platform.claude.com/docs/en/about-claude/pricing
+  checked: 2026-11-19
+  # inference_geo "us". The API's default, "global", is the standard price.
+  us_inference_multiplier: 1.1
+  models:
+    claude-opus-5-5:
+      {input: 4.00, cache_write_5m: 5.00, cache_write_1h: 8.00, cache_read: 0.20, output: 20.00}
+    claude-opus-5:
+      {input: 5.00, cache_write_5m: 6.25, cache_write_1h: 10.00, cache_read: 0.50, output: 25.00}
+    claude-opus-4-8:
+      {input: 5.00, cache_write_5m: 6.25, cache_write_1h: 10.00, cache_read: 0.50, output: 25.00}
+    claude-haiku-5-5:
+      {input: 0.10, cache_write_5m: 0.125, cache_write_1h: 0.20, cache_read: 0.01, output: 0.50}
+  # A request whose prompt, cache reads and writes included, is over the threshold pays these.
+  long_context:
+    claude-haiku-5-5:
+      above_prompt_tokens: 100000
+      rates:
+        {input: 0.50, cache_write_5m: 0.625, cache_write_1h: 1.00, cache_read: 0.05, output: 2.50}
+
+# Each investigation's budget, per tenant (LLM-010). Tokens count what the model processed: input
+# not read from the cache, cache writes and output. Cache reads count only in the cost. A run that
+# reaches either ends as budget_exhausted, and a person is alerted.
+budgets:
+  default: {tokens: 2000000, cost_usd: 10.00}
+  tenants: {}
