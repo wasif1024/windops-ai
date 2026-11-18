@@ -135,3 +135,17 @@ groups:
           category: security
         annotations:
           summary: "An administrator role was granted: {{ $labels.action }}"
+  - name: windops-agents
+    rules:
+      # LLM-010: a run that reaches its token or cost budget ends, and a person is told. The
+      # Notification Service takes this over in M10.5.
+      # The first such run ever counts from its series' first sample, as increase() needs two.
+      - alert: WindopsAgentBudgetExhausted
+        expr: >-
+          sum(increase(windops_audit_records_total{action="agent_run.budget_exhausted"}[15m])
+          and windops_audit_records_total{action="agent_run.budget_exhausted"} offset 15m
+          or windops_audit_records_total{action="agent_run.budget_exhausted"}) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "An agent run reached its token or cost budget and stopped (LLM-010). Its audit record names the run"

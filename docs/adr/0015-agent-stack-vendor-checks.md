@@ -20,7 +20,7 @@ to LLM-010 set what each call must do.
 
 ## Decision
 
-**The stack, pinned:** releases at least two weeks old when chosen. The Agent Runtime takes the same pins when it first calls Claude (M8.3).
+**The stack, pinned:** releases at least two weeks old when chosen. The `windops-claude` library, which the Agent Runtime calls Claude through, takes the same pins (M8.3, [ADR 0017](0017-the-claude-policy-as-versioned-configuration.md)).
 
 | Package | Version |
 | --- | --- |

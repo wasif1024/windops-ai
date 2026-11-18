@@ -15,12 +15,29 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from opentelemetry import metrics
+from windops_claude import (
+    Budget,
+    BudgetExhaustedError,
+    Call,
+    Claude,
+    HistoryEditedError,
+    Meter,
+    Policy,
+    Spent,
+    StopError,
+    StructuredOutputError,
+)
 
 from windops_agent_runtime.queue import Claim, LeaseLostError, Queue
-from windops_agent_runtime.store import CANCELLED, COMPLETED, STALE
-from windops_agent_runtime.workflows import StepFailedError, Workflow
+from windops_agent_runtime.store import BUDGET_EXHAUSTED, CANCELLED, COMPLETED, FAILED, STALE
+from windops_agent_runtime.workflows import ClaudeUnavailableError, StepFailedError, Workflow
 
 logger = logging.getLogger("windops.agent_runtime")
+
+
+# Errors another attempt would only repeat: a refusal after fallback, a cut-off or malformed
+# answer, an edited history, or no key at all.
+FINAL = (StopError, StructuredOutputError, HistoryEditedError, ClaudeUnavailableError)
 _meter = metrics.get_meter("windops.agent_runtime")
 _claims = _meter.create_counter(
     "windops_agent_run_claims", description="Runs claimed, and whether each was taken over"
@@ -46,11 +63,26 @@ class WorkerSettings:
     retry_seconds: float = 5.0
 
 
-class _Steps:
-    """The workflow's context: counts steps, skips those already done, and records each one."""
+class RunLedger:
+    """A run's calls to Claude, kept with the run, over every attempt (LLM-010)."""
 
     def __init__(self, queue: Queue, claim: Claim) -> None:
+        self._queue, self._claim = queue, claim
+
+    async def spent(self) -> Spent:
+        return await self._queue.spent(self._claim)
+
+    async def record(self, call: Call) -> Spent:
+        return await self._queue.record_call(self._claim, call)
+
+
+class _Steps:
+    """The workflow's context: counts steps, skips those already done, and records each one.
+    Its Claude client meters every call against the run's budget."""
+
+    def __init__(self, queue: Queue, claim: Claim, claude: Claude | None) -> None:
         self._queue, self._claim, self._position = queue, claim, 0
+        self.claude = claude
 
     async def step(self, name: str, work: Callable[[], Awaitable[None]]) -> None:
         self._position += 1
@@ -71,8 +103,14 @@ class Worker:
         settings: WorkerSettings | None = None,
         *,
         name: str | None = None,
+        policy: Policy | None = None,
+        api_key: Callable[[], str] | None = None,
+        make_claude: Callable[[Claim, Meter], Claude] | None = None,
     ) -> None:
         self._queue, self._workflows = queue, workflows
+        self._policy = policy
+        self._api_key = api_key
+        self._make_claude = make_claude
         self._settings = settings or WorkerSettings()
         self._name = name or socket.gethostname()
 
@@ -112,8 +150,18 @@ class Worker:
             return await self._end(
                 claim, STALE, "Its workflow version is no longer available: start it again"
             )
+        if (
+            self._policy is not None
+            and claim.policy_hash
+            and (claim.policy_hash != self._policy.content_hash)
+        ):
+            # Nor under a Claude policy other than its own (AGT-004, AGT-005).
+            return await self._end(
+                claim, STALE, "Its Claude policy version is no longer in force: start it again"
+            )
         cancelled, lost = asyncio.Event(), asyncio.Event()
-        work = asyncio.create_task(workflow.run(_Steps(self._queue, claim), claim.parameters))
+        context = _Steps(self._queue, claim, self._claude_for(claim))
+        work = asyncio.create_task(workflow.run(context, claim.parameters))
         beat = asyncio.create_task(self._heartbeat(claim, work, cancelled, lost))
         shutdown = asyncio.create_task(stop.wait())
         try:
@@ -131,6 +179,17 @@ class Worker:
             logger.info("Handed a run back", extra={"run_id": claim.run_id})
             return "released"
         return await self._settle(claim, work, cancelled, lost)
+
+    def _claude_for(self, claim: Claim) -> Claude | None:
+        if self._policy is None or not claim.token_budget:
+            return None
+        budget = Budget(tokens=claim.token_budget, cost_usd=claim.cost_budget_usd)
+        meter = Meter(budget, RunLedger(self._queue, claim))
+        if self._make_claude is not None:
+            return self._make_claude(claim, meter)
+        if self._api_key is None:
+            return None
+        return Claude(self._policy, meter, self._api_key)
 
     async def _settle(
         self,
@@ -151,6 +210,12 @@ class Worker:
             return "lost"
         if error is None:
             return await self._end(claim, COMPLETED, "")
+        if isinstance(error, BudgetExhaustedError):
+            # LLM-010. WindopsAgentBudgetExhausted alerts a person, until Notification (M10.5).
+            return await self._end(claim, BUDGET_EXHAUSTED, str(error))
+        if isinstance(error, FINAL):
+            # Trying again would get the same answer, and pay for it again.
+            return await self._end(claim, FAILED, f"{type(error).__name__}: {error}")
         reason = str(error) if isinstance(error, StepFailedError) else type(error).__name__
         if not isinstance(error, StepFailedError):
             logger.warning(

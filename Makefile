@@ -18,7 +18,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate phase-4-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check mcp-check mcp-servers-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check simulator-check telemetry-storage-check cms-check data-quality-check snapshot-check freshness-check fault-stream-check alarm-check fault-rules-check detection-check case-check fault-case-check phase-5-gate policy-check impact-check weather-check boundary-check weather-outage-check phase-6-gate citation-check phase-7-gate vendor-check runtime-check knowledge-seed knowledge-check retrieval-check research-check servicebus-provision servicebus-check azure-overlay azure-monitoring azure-foundation azure-plan azure-up azure-down azure-destroy azure-platform azure-prove azure-stop-postgres azure-logs azure-pipeline-identity $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate phase-4-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check mcp-check mcp-servers-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check simulator-check telemetry-storage-check cms-check data-quality-check snapshot-check freshness-check fault-stream-check alarm-check fault-rules-check detection-check case-check fault-case-check phase-5-gate policy-check impact-check weather-check boundary-check weather-outage-check phase-6-gate citation-check phase-7-gate vendor-check runtime-check claude-check claude-policy-lock knowledge-seed knowledge-check retrieval-check research-check servicebus-provision servicebus-check azure-overlay azure-monitoring azure-foundation azure-plan azure-up azure-down azure-destroy azure-platform azure-prove azure-stop-postgres azure-logs azure-pipeline-identity $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -405,6 +405,12 @@ vendor-check: ## Confirm Claude through LangChain and Deep Agents, LangSmith and
 
 runtime-check: ## Prove agent runs as queued jobs: two replicas, one stalled mid-run, the run carried on (M8.2)
 	uv run python -m scripts.checks.agents.runtime
+
+claude-check: ## Prove the Claude policy with real calls through the runtime: models, caching, costs, budgets (M8.3)
+	uv run python -m scripts.checks.agents.claude
+
+claude-policy-lock: ## Record the Claude policy's hash for its version, after changing it (LLM-001)
+	uv run python -m windops_claude.lock
 
 route-sweep: ## Call every Web BFF route as callers who must be refused, and require each to be
 	uv run python -m scripts.checks.edge.route_sweep

@@ -3,8 +3,11 @@
 Agent runs, as queued jobs on worker replicas (ARC-006, ARC-007). A replica can stop at any moment, and its runs carry
 on elsewhere. The decisions behind it are in [ADR 0016](../../docs/adr/0016-agent-runs-as-leased-jobs-in-postgresql.md).
 
-The investigation workflow itself comes in M8.4. Until then the only workflow is `rehearsal`: timed steps with no
-model and no tools, so the queue and its recovery can be proved without spending anything.
+The investigation workflow itself comes in M8.4. Until then there are two workflows:
+- **`rehearsal`:** timed steps with no model and no tools, so the queue and its recovery can be proved without
+  spending anything.
+- **`model-check`:** one short call per role, a structured answer and a cached prompt, a few cents of synthetic
+  text, so the Claude policy can be proved against Claude itself.
 
 ## A run
 
@@ -43,11 +46,26 @@ sends. A run pins its workflow and version when queued (AGT-004), and `StartRun`
 
 Queuing, cancelling and each run's end are audited.
 
+## Claude
+
+Every call goes through the `windops-claude` library and its versioned policy
+([ADR 0017](../../docs/adr/0017-the-claude-policy-as-versioned-configuration.md)).
+- **Pins:** a run pins the policy's version and hash when queued, and its tenant's token and cost budget. A caller
+  may lower the budget, never raise it.
+- **Ledger:** each call is a row in `run_calls`, never changed, with its role, the model asked for and the one that
+  answered, effort, stop reason, any fallback, tokens and cost. Only the worker holding the run's lease can add one.
+- **Budget:** a run that reaches its budget ends as `budget_exhausted`. A refusal, a cut-off answer or an edited
+  history ends it as `failed` at once, as another attempt would only pay for the same answer.
+- **The key:** `ANTHROPIC_API_KEY` in `.env` becomes the Secret `windops-anthropic-api-key`, which only this pod
+  mounts. LangSmith tracing stays off until traces are redacted (M8.9).
+
 ## Checks
 
 ```bash
 make runtime-check
+make claude-check
 ```
 
 It scales the runtime to two replicas, kills one mid-run, and proves the other takes the run over from its last
 completed step, along with handing back on shutdown, cancelling, the attempt limit, tenant isolation and who may call.
+`claude-check` makes real calls through the runtime, and proves the policy, the costs and a budget ending a run.

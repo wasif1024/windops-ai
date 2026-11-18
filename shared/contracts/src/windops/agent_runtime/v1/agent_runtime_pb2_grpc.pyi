@@ -38,6 +38,11 @@ class AgentRuntimeServiceStub:
     it sends (GRP-004). A run pins its workflow and version (AGT-004). Starting and cancelling are
     audited, as is every run's end, and StartRun may be retried with the same idempotency_key
     (GRP-007).
+
+    Every call to Claude follows the Claude policy (SRS 5.2), whose version and hash a run pins
+    when queued, with its tenant's token and cost budget (LLM-010). Each call is recorded with its
+    model, effort, stop reason, any fallback, tokens and cost. A run that reaches its budget ends as
+    "budget_exhausted".
     """
 
     @_typing.overload
@@ -65,6 +70,11 @@ class AgentRuntimeServiceAsyncStub(AgentRuntimeServiceStub):
     it sends (GRP-004). A run pins its workflow and version (AGT-004). Starting and cancelling are
     audited, as is every run's end, and StartRun may be retried with the same idempotency_key
     (GRP-007).
+
+    Every call to Claude follows the Claude policy (SRS 5.2), whose version and hash a run pins
+    when queued, with its tenant's token and cost budget (LLM-010). Each call is recorded with its
+    model, effort, stop reason, any fallback, tokens and cost. A run that reaches its budget ends as
+    "budget_exhausted".
     """
 
     def __init__(self, channel: _aio.Channel) -> None: ...
@@ -88,6 +98,11 @@ class AgentRuntimeServiceServicer(metaclass=_abc_1.ABCMeta):
     it sends (GRP-004). A run pins its workflow and version (AGT-004). Starting and cancelling are
     audited, as is every run's end, and StartRun may be retried with the same idempotency_key
     (GRP-007).
+
+    Every call to Claude follows the Claude policy (SRS 5.2), whose version and hash a run pins
+    when queued, with its tenant's token and cost budget (LLM-010). Each call is recorded with its
+    model, effort, stop reason, any fallback, tokens and cost. A run that reaches its budget ends as
+    "budget_exhausted".
     """
 
     @_abc_1.abstractmethod

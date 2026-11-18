@@ -78,6 +78,8 @@ BUILT_TARGETS = {
     "mcp-servers-check",
     "vendor-check",
     "runtime-check",
+    "claude-check",
+    "claude-policy-lock",
     "frontend-test",
     "frontend-check",
     "postgres-provision",

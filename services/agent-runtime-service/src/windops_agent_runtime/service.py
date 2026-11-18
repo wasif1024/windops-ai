@@ -9,15 +9,17 @@ import hashlib
 import re
 from collections.abc import Callable, Collection, Mapping
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from google.protobuf.timestamp_pb2 import Timestamp
-from sqlalchemy import select, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from windops.agent_runtime.v1 import agent_runtime_pb2 as pb
 from windops.agent_runtime.v1 import agent_runtime_pb2_grpc
 from windops_auth import current_peer_service
+from windops_claude import Policy, load
 from windops_grpc import (
     ConflictError,
     InvalidRequestError,
@@ -32,6 +34,7 @@ from windops_agent_runtime.store import (
     ACTOR,
     CANCELLED,
     QUEUED,
+    RUN_CALLS,
     RUN_STEPS,
     RUNS,
     TERMINAL,
@@ -63,8 +66,22 @@ def _actor(value: str) -> tuple[str, str]:
     return value.split(":", 1)[0], value
 
 
-def run_message(row: Any, steps: list[Any]) -> pb.Run:
+def _money(value: Any) -> str:
+    return f"{Decimal(str(value)):.6f}"
+
+
+def usage_message(row: Any, used: Any) -> pb.Usage:
+    return pb.Usage(
+        calls=int(used.calls), tokens=int(used.tokens), cache_read_tokens=int(used.cache_read),
+        cost_usd=_money(used.cost), fallbacks=int(used.fallbacks),
+        token_budget=int(row.token_budget), cost_budget_usd=_money(row.cost_budget_usd),
+    )  # fmt: skip
+
+
+def run_message(row: Any, steps: list[Any], used: Any = None) -> pb.Run:
     return pb.Run(
+        policy_version=row.policy_version, policy_hash=row.policy_hash,
+        usage=usage_message(row, used) if used is not None else None,
         run_id=row.run_id, case_id=row.case_id, snapshot_id=row.snapshot_id,
         workflow=row.workflow, workflow_version=row.workflow_version, status=row.status,
         reason=row.reason, attempt=row.attempt, max_attempts=row.max_attempts,
@@ -86,6 +103,7 @@ class AgentRuntimeService(agent_runtime_pb2_grpc.AgentRuntimeServiceServicer):
         workflows: Mapping[str, Workflow],
         *,
         max_attempts: int = 3,
+        policy: Policy | None = None,
         callers: Collection[str] = (INVESTIGATION,),
         peer: Callable[[], str | None] = current_peer_service,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
@@ -93,6 +111,7 @@ class AgentRuntimeService(agent_runtime_pb2_grpc.AgentRuntimeServiceServicer):
         self._engine, self._workflows = engine, workflows
         self._max_attempts, self._callers, self._peer = max_attempts, frozenset(callers), peer
         self._clock = clock
+        self._policy = policy or load()
 
     def _tenant(self) -> str:
         if self._peer() not in self._callers:
@@ -113,7 +132,19 @@ class AgentRuntimeService(agent_runtime_pb2_grpc.AgentRuntimeServiceServicer):
                 .order_by(s.position)
             )
         ).all()
-        return run_message(row, list(steps))
+        c = RUN_CALLS.c
+        used = (
+            await connection.execute(
+                select(
+                    func.count().label("calls"),
+                    func.coalesce(func.sum(c.processed_tokens), 0).label("tokens"),
+                    func.coalesce(func.sum(c.cache_read_tokens), 0).label("cache_read"),
+                    func.coalesce(func.sum(c.cost_usd), 0).label("cost"),
+                    func.coalesce(func.sum(case((c.fallback, 1), else_=0)), 0).label("fallbacks"),
+                ).where(c.tenant_id == tenant, c.run_id == run_id)
+            )
+        ).one()
+        return run_message(row, list(steps), used)
 
     async def StartRun(  # noqa: N802  # The name comes from the contract.
         self, request: pb.StartRunRequest, context: Any
@@ -130,6 +161,7 @@ class AgentRuntimeService(agent_runtime_pb2_grpc.AgentRuntimeServiceServicer):
         if workflow is None:
             raise InvalidRequestError(f"No workflow named {request.workflow!r}")
         parameters = workflow.check(dict(request.parameters))
+        token_budget, cost_budget = self._budget(tenant, request)
         request_hash = hashlib.sha256(request.SerializeToString(deterministic=True)).hexdigest()
         run_id, now = new_run_id(), self._clock()
         try:
@@ -147,6 +179,9 @@ class AgentRuntimeService(agent_runtime_pb2_grpc.AgentRuntimeServiceServicer):
                         attempt=0, max_attempts=self._max_attempts, requested_by=requested_by,
                         idempotency_key=request.idempotency_key, request_hash=request_hash,
                         created_at=now, not_before=now, updated_at=now,
+                        policy_version=self._policy.version,
+                        policy_hash=self._policy.content_hash, token_budget=token_budget,
+                        cost_budget_usd=cost_budget,
                     )
                 )  # fmt: skip
                 await audit(
@@ -162,6 +197,24 @@ class AgentRuntimeService(agent_runtime_pb2_grpc.AgentRuntimeServiceServicer):
                 if existing is None:
                     raise
                 return await self._repeat(connection, tenant, existing, request_hash)
+
+    def _budget(self, tenant: str, request: pb.StartRunRequest) -> tuple[int, Decimal]:
+        """The tenant's budget (LLM-010), lowered if the request asks. It is never raised."""
+        budget = self._policy.budget_for(tenant)
+        tokens, cost = budget.tokens, budget.cost_usd
+        if request.token_budget < 0:
+            raise InvalidRequestError("token_budget cannot be negative")
+        if request.token_budget:
+            tokens = min(tokens, request.token_budget)
+        if request.cost_budget_usd:
+            try:
+                asked = Decimal(request.cost_budget_usd)
+            except InvalidOperation as error:
+                raise InvalidRequestError("cost_budget_usd must be a decimal number") from error
+            if not asked.is_finite() or asked <= 0:
+                raise InvalidRequestError("cost_budget_usd must be above zero")
+            cost = min(cost, asked)
+        return tokens, cost
 
     @staticmethod
     async def _by_key(connection: AsyncConnection, tenant: str, key: str) -> Any | None:

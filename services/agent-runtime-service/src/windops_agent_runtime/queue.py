@@ -19,10 +19,12 @@ import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import and_, case, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
+from windops_claude import Call, Spent
 from windops_migrations import across_tenants, in_tenant
 
 from windops_agent_runtime.store import (
@@ -30,6 +32,7 @@ from windops_agent_runtime.store import (
     CANCELLED,
     FAILED,
     QUEUED,
+    RUN_CALLS,
     RUN_STEPS,
     RUNNING,
     RUNS,
@@ -60,6 +63,11 @@ class Claim:
     # Completed steps, by position, from earlier attempts.
     completed: frozenset[int]
     reclaimed: bool
+    # The Claude policy and budget it was queued with (AGT-004, LLM-010).
+    policy_version: int = 0
+    policy_hash: str = ""
+    token_budget: int = 0
+    cost_budget_usd: Decimal = Decimal(0)
 
 
 @dataclass(frozen=True)
@@ -142,7 +150,9 @@ class Queue:
                     attempt=row.attempt + 1, max_attempts=row.max_attempts,
                     workflow=row.workflow, workflow_version=row.workflow_version,
                     parameters=json.loads(row.parameters), completed=frozenset(done),
-                    reclaimed=row.status == RUNNING,
+                    reclaimed=row.status == RUNNING, policy_version=row.policy_version,
+                    policy_hash=row.policy_hash, token_budget=row.token_budget,
+                    cost_budget_usd=Decimal(str(row.cost_budget_usd)),
                 )  # fmt: skip
         return None
 
@@ -199,6 +209,47 @@ class Queue:
                     finished_at=now,
                 )
             )  # fmt: skip
+
+    async def spent(self, claim: Claim) -> Spent:
+        """What the run has used, over every attempt."""
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, claim.tenant_id)
+            return await _spent(connection, claim)
+
+    async def record_call(self, claim: Claim, call: Call) -> Spent:
+        """Record a call to Claude, only while the claim is still the run's, and return what the
+        run has used. A worker that lost its lease records nothing, and is stopped."""
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, claim.tenant_id)
+            now = self._clock()
+            result = await connection.execute(
+                update(RUNS).where(*self._mine(claim)).values(updated_at=now)
+            )
+            if result.rowcount != 1:
+                raise LeaseLostError(claim.run_id)
+            c = RUN_CALLS.c
+            position = (
+                await connection.execute(
+                    select(func.coalesce(func.max(c.position), 0)).where(
+                        c.tenant_id == claim.tenant_id, c.run_id == claim.run_id
+                    )
+                )
+            ).scalar_one() + 1
+            usage = call.usage
+            await connection.execute(
+                insert(RUN_CALLS).values(
+                    tenant_id=claim.tenant_id, run_id=claim.run_id, position=position,
+                    attempt=claim.attempt, worker=claim.owner, role=call.role,
+                    requested_model=call.requested_model, served_model=call.served_model,
+                    effort=call.effort, stop_reason=call.stop_reason, fallback=call.fallback,
+                    input_tokens=usage.input_tokens,
+                    cache_write_5m_tokens=usage.cache_write_5m_tokens,
+                    cache_write_1h_tokens=usage.cache_write_1h_tokens,
+                    cache_read_tokens=usage.cache_read_tokens, output_tokens=usage.output_tokens,
+                    processed_tokens=usage.processed_tokens, cost_usd=call.cost_usd, at=now,
+                )
+            )  # fmt: skip
+            return await _spent(connection, claim)
 
     async def finish(self, claim: Claim, status: str, reason: str = "") -> bool:
         """End the run, if the claim is still its own. False if another replica has it."""
@@ -258,6 +309,18 @@ class Queue:
             r.status == RUNNING,
             r.lease_token == claim.token,
         )
+
+
+async def _spent(connection: AsyncConnection, claim: Claim) -> Spent:
+    c = RUN_CALLS.c
+    tokens, cost = (
+        await connection.execute(
+            select(func.coalesce(func.sum(c.processed_tokens), 0),
+                   func.coalesce(func.sum(c.cost_usd), 0))
+            .where(c.tenant_id == claim.tenant_id, c.run_id == claim.run_id)
+        )
+    ).one()  # fmt: skip
+    return Spent(tokens=int(tokens), cost_usd=Decimal(str(cost)))
 
 
 async def _end(

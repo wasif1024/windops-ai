@@ -12,6 +12,7 @@ members = [
     "windops-auth",
     "windops-authorization",
     "windops-cache",
+    "windops-claude",
     "windops-contracts",
     "windops-events",
     "windops-external-intelligence",
@@ -2258,6 +2259,7 @@ version = "0.1.0"
 source = { editable = "services/agent-runtime-service" }
 dependencies = [
     { name = "windops-auth" },
+    { name = "windops-claude" },
     { name = "windops-contracts" },
     { name = "windops-events" },
     { name = "windops-grpc" },
@@ -2269,6 +2271,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-claude", editable = "shared/claude" },
     { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-events", editable = "shared/events" },
     { name = "windops-grpc", editable = "shared/grpc" },
@@ -2315,6 +2318,7 @@ dev = [
     { name = "windops-auth" },
     { name = "windops-authorization" },
     { name = "windops-cache" },
+    { name = "windops-claude" },
     { name = "windops-contracts" },
     { name = "windops-events" },
     { name = "windops-external-intelligence" },
@@ -2380,6 +2384,7 @@ dev = [
     { name = "windops-auth", editable = "shared/auth" },
     { name = "windops-authorization", editable = "services/authorization-service" },
     { name = "windops-cache", editable = "shared/cache" },
+    { name = "windops-claude", editable = "shared/claude" },
     { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-events", editable = "shared/events" },
     { name = "windops-external-intelligence", editable = "services/external-intelligence-service" },
@@ -2538,6 +2543,27 @@ dependencies = [
 requires-dist = [
     { name = "redis", specifier = ">=8.1.0" },
     { name = "windops-resilience", editable = "shared/resilience" },
+]
+
+[[package]]
+name = "windops-claude"
+version = "0.1.0"
+source = { editable = "shared/claude" }
+dependencies = [
+    { name = "anthropic" },
+    { name = "langchain-anthropic" },
+    { name = "langchain-core" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = "==2.4.0" },
+    { name = "langchain-anthropic", specifier = "==1.7.10" },
+    { name = "langchain-core", specifier = "==1.7.5" },
+    { name = "pydantic", specifier = ">=2.12" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
 ]
 
 [[package]]

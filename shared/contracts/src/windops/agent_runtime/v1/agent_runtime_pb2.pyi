@@ -74,6 +74,9 @@ class Run(_message.Message):
     CANCEL_REQUESTED_FIELD_NUMBER: _builtins.int
     STEPS_FIELD_NUMBER: _builtins.int
     TOTAL_STEPS_FIELD_NUMBER: _builtins.int
+    POLICY_VERSION_FIELD_NUMBER: _builtins.int
+    POLICY_HASH_FIELD_NUMBER: _builtins.int
+    USAGE_FIELD_NUMBER: _builtins.int
     run_id: _builtins.str
     """"run_" and 20 lowercase letters and digits."""
     case_id: _builtins.str
@@ -94,6 +97,9 @@ class Run(_message.Message):
     """The person or service that asked for it."""
     cancel_requested: _builtins.bool
     total_steps: _builtins.int
+    policy_version: _builtins.int
+    """The Claude policy it runs under (AGT-004)."""
+    policy_hash: _builtins.str
     @_builtins.property
     def created_at(self) -> _timestamp_pb2.Timestamp: ...
     @_builtins.property
@@ -104,6 +110,8 @@ class Run(_message.Message):
     def steps(self) -> _containers.RepeatedCompositeFieldContainer[Global___Step]:
         """Completed steps, in order."""
 
+    @_builtins.property
+    def usage(self) -> Global___Usage: ...
     def __init__(
         self,
         *,
@@ -123,14 +131,58 @@ class Run(_message.Message):
         cancel_requested: _builtins.bool = ...,
         steps: _abc.Iterable[Global___Step] | None = ...,
         total_steps: _builtins.int = ...,
+        policy_version: _builtins.int = ...,
+        policy_hash: _builtins.str = ...,
+        usage: Global___Usage | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "finished_at", b"finished_at", "started_at", b"started_at"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "finished_at", b"finished_at", "started_at", b"started_at", "usage", b"usage"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["attempt", b"attempt", "cancel_requested", b"cancel_requested", "case_id", b"case_id", "created_at", b"created_at", "finished_at", b"finished_at", "max_attempts", b"max_attempts", "reason", b"reason", "requested_by", b"requested_by", "run_id", b"run_id", "snapshot_id", b"snapshot_id", "started_at", b"started_at", "status", b"status", "steps", b"steps", "total_steps", b"total_steps", "workflow", b"workflow", "workflow_version", b"workflow_version"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["attempt", b"attempt", "cancel_requested", b"cancel_requested", "case_id", b"case_id", "created_at", b"created_at", "finished_at", b"finished_at", "max_attempts", b"max_attempts", "policy_hash", b"policy_hash", "policy_version", b"policy_version", "reason", b"reason", "requested_by", b"requested_by", "run_id", b"run_id", "snapshot_id", b"snapshot_id", "started_at", b"started_at", "status", b"status", "steps", b"steps", "total_steps", b"total_steps", "usage", b"usage", "workflow", b"workflow", "workflow_version", b"workflow_version"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___Run: _TypeAlias = Run  # noqa: Y015
+
+@_typing.final
+class Usage(_message.Message):
+    """What a run has used, and its budget (LLM-010). Tokens count what the model processed: input
+    not read from the cache, cache writes and output. Costs are USD, as decimal strings.
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CALLS_FIELD_NUMBER: _builtins.int
+    TOKENS_FIELD_NUMBER: _builtins.int
+    CACHE_READ_TOKENS_FIELD_NUMBER: _builtins.int
+    COST_USD_FIELD_NUMBER: _builtins.int
+    FALLBACKS_FIELD_NUMBER: _builtins.int
+    TOKEN_BUDGET_FIELD_NUMBER: _builtins.int
+    COST_BUDGET_USD_FIELD_NUMBER: _builtins.int
+    calls: _builtins.int
+    tokens: _builtins.int
+    cache_read_tokens: _builtins.int
+    cost_usd: _builtins.str
+    fallbacks: _builtins.int
+    token_budget: _builtins.int
+    cost_budget_usd: _builtins.str
+    def __init__(
+        self,
+        *,
+        calls: _builtins.int = ...,
+        tokens: _builtins.int = ...,
+        cache_read_tokens: _builtins.int = ...,
+        cost_usd: _builtins.str = ...,
+        fallbacks: _builtins.int = ...,
+        token_budget: _builtins.int = ...,
+        cost_budget_usd: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["cache_read_tokens", b"cache_read_tokens", "calls", b"calls", "cost_budget_usd", b"cost_budget_usd", "cost_usd", b"cost_usd", "fallbacks", b"fallbacks", "token_budget", b"token_budget", "tokens", b"tokens"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___Usage: _TypeAlias = Usage  # noqa: Y015
 
 @_typing.final
 class StartRunRequest(_message.Message):
@@ -162,6 +214,8 @@ class StartRunRequest(_message.Message):
     PARAMETERS_FIELD_NUMBER: _builtins.int
     REQUESTED_BY_FIELD_NUMBER: _builtins.int
     IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    TOKEN_BUDGET_FIELD_NUMBER: _builtins.int
+    COST_BUDGET_USD_FIELD_NUMBER: _builtins.int
     case_id: _builtins.str
     snapshot_id: _builtins.str
     workflow: _builtins.str
@@ -172,6 +226,9 @@ class StartRunRequest(_message.Message):
     """The same key with the same request returns the same run. With a different request, it is
     refused.
     """
+    token_budget: _builtins.int
+    """Lower the tenant's budget for this run. Neither may raise it. Zero or empty keeps it."""
+    cost_budget_usd: _builtins.str
     @_builtins.property
     def parameters(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]:
         """Checked against the workflow's own limits."""
@@ -185,10 +242,12 @@ class StartRunRequest(_message.Message):
         parameters: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
         requested_by: _builtins.str = ...,
         idempotency_key: _builtins.str = ...,
+        token_budget: _builtins.int = ...,
+        cost_budget_usd: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "idempotency_key", b"idempotency_key", "parameters", b"parameters", "requested_by", b"requested_by", "snapshot_id", b"snapshot_id", "workflow", b"workflow"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "cost_budget_usd", b"cost_budget_usd", "idempotency_key", b"idempotency_key", "parameters", b"parameters", "requested_by", b"requested_by", "snapshot_id", b"snapshot_id", "token_budget", b"token_budget", "workflow", b"workflow"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
