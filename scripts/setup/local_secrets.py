@@ -12,6 +12,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from scripts.lib import settings
 from scripts.lib.settings import KUBE_CONTEXT
 from scripts.setup.nats_access import ADMIN_USER as NATS_ADMIN_USER
 from scripts.setup.nats_access import EVENT_SERVICES, configuration
@@ -188,6 +189,31 @@ def redis_secrets(passwords: dict[str, str]) -> list[dict[str, object]]:
     return manifests
 
 
+# Provider keys you add to .env, never generated. Each becomes a Secret only where it is used, and
+# only once it is set: a module that needs one waits for it (README, "Settings").
+PROVIDER_KEYS = (
+    # The Knowledge Service's embeddings (M7.2, ADR 0011).
+    ("OPENAI_API_KEY", "windops-openai-api-key", ("windops-application",)),
+)
+
+
+def provider_secrets(values: dict[str, str]) -> list[dict[str, object]]:
+    return [
+        secret_manifest(name, namespace, {"api-key": values[setting]})
+        for setting, name, namespaces in PROVIDER_KEYS
+        if values.get(setting, "").strip()
+        for namespace in namespaces
+    ]
+
+
+def apply_provider_secrets() -> None:
+    manifests = provider_secrets(settings.load())
+    apply_manifests(manifests)
+    found = {m["metadata"]["name"] for m in manifests}  # type: ignore[index]
+    for setting, name, _ in PROVIDER_KEYS:
+        print(f"{'Applied' if name in found else 'Skipped, not set:'} {setting}")
+
+
 def apply_manifests(manifests: list[dict[str, object]]) -> None:
     # Sent over stdin, so no password appears in a process listing.
     for manifest in manifests:
@@ -254,6 +280,7 @@ def main() -> int:
         apply_postgres_secrets()
         apply_redis_secrets()
         apply_nats_secrets()
+        apply_provider_secrets()
     except subprocess.CalledProcessError as error:
         # Never print the rendered manifest, because it contains the key.
         print(f"Could not apply a secret: {error.stderr}", file=sys.stderr)

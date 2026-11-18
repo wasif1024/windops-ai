@@ -84,6 +84,14 @@
     ]
   },
   {
+    "name": "windops-knowledge",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
     "name": "windops-policy",
     "namespace": "windops-application",
     "events": true,

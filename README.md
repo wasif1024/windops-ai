@@ -208,7 +208,7 @@ only read access unless it needs more.
 | 4. Assets and telemetry | Done, [exit gate](docs/phases/phase-04-exit-gate.md) |
 | 5. Alarms, detection and cases | Done, [exit gate](docs/phases/phase-05-exit-gate.md) |
 | 6. Deterministic decisions | Done, [exit gate](docs/phases/phase-06-exit-gate.md) |
-| 7. Knowledge and external intelligence | In progress: the synthetic document set is done; next, M7.2, knowledge ingestion |
+| 7. Knowledge and external intelligence | In progress: the synthetic document set and knowledge ingestion are done; next, M7.3, retrieval |
 
 | Running today | |
 | --- | --- |
@@ -216,6 +216,7 @@ only read access unless it needs more.
 | Identity and tenancy | Identity, Authorization and Tenant services, with tenant branding and administration consoles |
 | Operations | Asset Service with synthetic demo fleets, and Telemetry Service with authenticated device ingestion, fed live by the simulator's 13 devices |
 | Faults and decisions | Alarm, Fault Detection and Investigation services: controller alarms, versioned fault rules, and one deduplicated case per fault, bound to immutable evidence. The Policy Service judges proposals against versioned rules, and fails closed, the Production Impact Service prices them, with a range for every figure, and the Weather Service gives each site's forecast, with its provenance and age |
+| Knowledge | Knowledge Service: checked uploads of manuals, bulletins and procedures, their metadata from their own headers, and passages indexed with OpenAI embeddings in Qdrant, only up to each tenant's allowed classification |
 | Platform | Audit Service, with a tamper-evident trail, plus PostgreSQL, Redis, Qdrant, NATS JetStream and the full observability stack |
 | On Azure | Asset, Audit, Authorization and Tenant on AKS, with Service Bus, Azure Database for PostgreSQL, Key Vault and Azure Monitor |
 
@@ -326,6 +327,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0008](docs/adr/0008-services-act-as-themselves-with-fixed-read-grants.md) | Services act as themselves, with fixed read-only grants |
 | [0009](docs/adr/0009-policy-judges-a-proposal-on-facts-it-gathers.md) | Policy judges a proposal on facts it gathers itself, cost and downtime from Production Impact, and fails closed |
 | [0010](docs/adr/0010-open-meteo-as-the-forecast-provider.md) | Open-Meteo as the forecast provider, on its free tier for non-commercial use |
+| [0011](docs/adr/0011-openai-embeddings-through-the-adapter.md) | OpenAI `text-embedding-3-large` through the embedding adapter, and what each tenant lets it be sent |
 
 ## Repository layout
 

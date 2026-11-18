@@ -46,7 +46,9 @@ TENANT, OTHER = "north-sea", "atlas-wind"
 # Every service that stores data so far. A new one must be added here.
 DATABASES = ("audit", "authorization", "identity", "tenant")
 # Tables with a tenant that need no policy, and why. The repository test exempts the same.
-EXEMPT = {"outbox_events"}  # Only the service's relay reads it, never a request.
+# Only the service itself reads these, across tenants, never a request: the relay its outbox, and
+# the Knowledge Service's indexer its queue, which holds identifiers only (M7.2).
+EXEMPT = {"outbox_events", "index_queue"}
 FORBIDDEN = {grpc.StatusCode.PERMISSION_DENIED, grpc.StatusCode.NOT_FOUND}
 _NAME = re.compile(r"^[a-z_][a-z0-9_]{0,62}$|^[a-z0-9][a-z0-9-]{1,62}$")
 Calls = list[tuple[str, Any]]
