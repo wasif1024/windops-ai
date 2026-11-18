@@ -1,0 +1,29 @@
+# This server's identity for TLS. Its MCP endpoint needs its callers' certificates too (MCP-001).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-mcp-tavily-tls
+  labels:
+    app.kubernetes.io/name: windops-mcp-tavily
+    app.kubernetes.io/part-of: windops
+spec:
+  secretName: windops-mcp-tavily-tls
+  commonName: windops-mcp-tavily
+  dnsNames:
+    - windops-mcp-tavily
+    - windops-mcp-tavily.windops-mcp
+    - windops-mcp-tavily.windops-mcp.svc
+    - windops-mcp-tavily.windops-mcp.svc.cluster.local
+  duration: 720h
+  renewBefore: 168h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - client auth
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io

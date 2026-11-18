@@ -44,6 +44,7 @@ from windops_mcp.tokens import TokenRefusedError, ToolCaller, Verifier, bearer
 from windops_mcp.tools import Tool, ToolRefusedError, ToolUnavailableError
 
 PATH = "/mcp"
+METHODS = ("POST", "GET", "DELETE")
 # A tool's arguments are small. Anything larger is refused before it is parsed.
 MAXIMUM_REQUEST_BYTES = 64 * 1024
 # Shown to the caller for each outcome, with nothing from the failure itself.
@@ -225,10 +226,14 @@ class ToolServer:
             max_request_body_size=MAXIMUM_REQUEST_BYTES,
         )
 
-    def app(self) -> Starlette:
-        """The ASGI app: the MCP endpoint behind token checks, and its session manager."""
+    def parts(self) -> tuple["_Authenticated", StreamableHTTPSessionManager]:
+        """The endpoint, behind token checks, and the session manager that must run beside it."""
         manager = self._manager()
-        endpoint = _Authenticated(manager, self._verifier)
+        return _Authenticated(manager, self._verifier), manager
+
+    def app(self) -> Starlette:
+        """A whole ASGI app, for tests and checks: the endpoint, and its manager's lifespan."""
+        endpoint, manager = self.parts()
 
         @asynccontextmanager
         async def lifespan(_: Starlette) -> AsyncIterator[None]:
@@ -236,7 +241,7 @@ class ToolServer:
                 yield
 
         return Starlette(
-            routes=[Route(PATH, endpoint=endpoint, methods=["POST", "GET", "DELETE"])],
+            routes=[Route(PATH, endpoint=endpoint, methods=list(METHODS))],
             lifespan=lifespan,
         )
 

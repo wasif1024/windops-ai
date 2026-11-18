@@ -208,7 +208,7 @@ only read access unless it needs more.
 | 4. Assets and telemetry | Done, [exit gate](docs/phases/phase-04-exit-gate.md) |
 | 5. Alarms, detection and cases | Done, [exit gate](docs/phases/phase-05-exit-gate.md) |
 | 6. Deterministic decisions | Done, [exit gate](docs/phases/phase-06-exit-gate.md) |
-| 7. Knowledge and external intelligence | In progress: documents, ingestion, retrieval, web research and the MCP foundation are done; next, M7.6, the first MCP servers |
+| 7. Knowledge and external intelligence | In progress: documents, ingestion, retrieval, web research, the MCP foundation and the first MCP servers are done; next, M7.7, the Phase 7 gate |
 
 | Running today | |
 | --- | --- |
@@ -340,7 +340,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | `frontend/` | React and TypeScript application |
 | `services/` | The 23 services, each with its own image, contracts and data boundary |
 | `simulator/` | Seeded turbine physics, fault profiles, data problems and scenarios with ground truth |
-| `mcp-servers/` | Agent-facing tool servers |
+| `mcp-servers/` | Agent-facing tool servers: Documentation, Tavily and Weather, and Filesystem and PostgreSQL for development only ([MCP integrations](docs/mcp-integrations.md)) |
 | `agents/` | Supervisor and specialist agent definitions |
 | `skills/` | Agent skills |
 | `evaluations/` | Datasets, evaluators and regression runs |

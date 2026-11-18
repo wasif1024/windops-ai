@@ -10,7 +10,7 @@ A definition is checked when it is made, so a server cannot start with a tool th
 """
 
 import re
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any
 
@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict
 MAXIMUM_TIMEOUT_SECONDS = 60.0
 _NAME = re.compile(r"[a-z][a-z0-9_]{1,62}")
 _SERVER = re.compile(r"[a-z][a-z0-9]{1,30}")
+_FORMATS = frozenset({"date-time", "date", "time", "uuid"})
 
 
 class ToolInput(BaseModel):
@@ -33,7 +34,7 @@ class ToolOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-Handler = Callable[[Any], Awaitable[ToolOutput]]
+Handler = Callable[[Any], Coroutine[Any, Any, ToolOutput]]
 
 
 class ToolRefusedError(Exception):
@@ -64,7 +65,8 @@ def _unbounded(schema: Any, definitions: dict[str, Any], path: str, seen: set[st
             return []
         return _unbounded(definitions.get(name, {}), definitions, path, seen | {name})
     kind = schema.get("type")
-    limited = "enum" in schema or "const" in schema
+    # A fixed format, such as a date-time, bounds a string as a length would.
+    limited = "enum" in schema or "const" in schema or schema.get("format") in _FORMATS
     if kind == "string" and not limited and "maxLength" not in schema:
         found.append(path or "(input)")
     if kind == "array" and "maxItems" not in schema:

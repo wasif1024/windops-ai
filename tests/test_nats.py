@@ -186,3 +186,17 @@ def test_each_secret_reaches_only_its_service_namespace() -> None:
         assert secret["metadata"]["namespace"] == namespace
         assert secret["stringData"]["password"] == PASSWORDS[service]
         assert PASSWORDS[ADMIN_KEY] not in json.dumps(secret)
+
+
+def test_mcp_servers_may_send_only_their_own_audit_records() -> None:
+    """ADR 0014: they change nothing, so they have no outbox, and publish nothing else."""
+    from scripts.setup.provision_postgres import MCP_SERVERS
+
+    config = json.loads(configuration(PASSWORDS))
+    for server in MCP_SERVERS:
+        users = config["authorization"]["users"]
+        user = next(u for u in users if u["user"] == database_name(server))
+        published = user["permissions"]["publish"]["allow"]
+        assert f"audit.requested.{server}" in published
+        events = [s for s in published if not s.startswith(("$JS", "_INBOX", "deadletter"))]
+        assert events == [f"audit.requested.{server}"]

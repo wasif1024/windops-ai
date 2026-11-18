@@ -12,6 +12,9 @@ MCP_TOOLS: dict[str, tuple[str, ...]] = {
     "documentation": ("search_documents", "read_passage"),
     "tavily": ("search_web", "extract_page", "get_research"),
     "weather": ("get_forecast",),
+    # Development only, never deployed on Azure.
+    "filesystem": ("list_files", "read_file"),
+    "postgres": ("database_overview", "connection_activity"),
 }
 
 

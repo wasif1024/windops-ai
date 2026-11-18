@@ -65,6 +65,8 @@ def overlay_with_service(tmp_path: Path, overlay: str) -> list[dict[str, Any]]:
     # Start from an empty list, because the repository may already have services.
     empty = "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources: []\n"
     file.write_text(add_service_to_kustomization("telemetry-service", empty))
+    # The development-only servers are outside this copy, so they are left out of it too.
+    (kubernetes / "base" / "development" / "kustomization.yaml").write_text(empty)
     return render(kubernetes / "overlays" / overlay)
 
 
@@ -105,3 +107,21 @@ def test_service_is_listed_once_in_the_kustomization() -> None:
         "../../../../services/alarm-service/deploy",
         "../../../../services/telemetry-service/deploy",
     ]
+
+
+def test_development_only_servers_run_locally_and_nowhere_else() -> None:
+    """SRS 6.3: the Filesystem and PostgreSQL MCP servers are development only."""
+    development = {"windops-mcp-filesystem", "windops-mcp-postgres"}
+    agents = {"windops-mcp-documentation", "windops-mcp-tavily", "windops-mcp-weather"}
+    for overlay in ("local", "ci", "production-example"):
+        names = {
+            item["metadata"]["name"]
+            for item in render(OVERLAYS / overlay)
+            if item["kind"] == "Deployment"
+        }
+        assert agents <= names
+        assert (development <= names) is (overlay == "local")
+        assert not development & names or overlay == "local"
+    azure = (OVERLAYS / "azure" / "kustomization.yaml").read_text()
+    assert "base/development" not in azure
+    assert not any(name in azure for name in development)

@@ -5,7 +5,7 @@ A user signs in, and the Identity Service exchanges their token for one MCP serv
 tools. A probe server, built with windops-mcp exactly as the MCP servers are, then checks that
 token as each server must: the official MCP client calls it over streamable HTTP (MCP-001,
 MCP-003, MCP-004, MCP-005). Its limits and audit records are kept in memory here: the servers
-count in Redis and audit to the Audit Service once deployed (M7.6).
+count in Redis and audit to the Audit Service: `make mcp-servers-check` proves those (M7.6).
 
 Run `make identity-seed` and `make services` first. Needs local port 9443.
 """

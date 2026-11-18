@@ -173,8 +173,8 @@ servers are also separate workloads, and call only these services (SRS 6.3):
 | Documentation MCP | Knowledge |
 | Tavily MCP | External Intelligence |
 | Weather MCP | Weather |
-| Filesystem MCP (development only) | Local fixtures |
-| PostgreSQL MCP (development only) | A read-only diagnostic role |
+| Filesystem MCP (development only) | Its read-only fixtures, and Authorization for `knowledge.read` |
+| PostgreSQL MCP (development only) | PostgreSQL's statistics views, as a `pg_monitor` role, and Authorization for `evaluation.manage` |
 
 ## What a circuit breaker does
 

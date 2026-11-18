@@ -7,6 +7,7 @@ COPY pyproject.toml uv.lock README.md ./
 COPY shared shared
 COPY services services
 COPY simulator simulator
+COPY mcp-servers mcp-servers
 RUN uv sync --locked --no-dev --no-editable --package windops-investigation
 
 FROM python:3.13-slim-bookworm@sha256:413041be39649714885528a06586416279db85744b6dcdf290af0ae557d782f6 AS runtime

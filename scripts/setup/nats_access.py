@@ -9,7 +9,12 @@ from pathlib import Path
 
 from windops_events import audit_request_subject
 
-from scripts.setup.provision_postgres import ADMIN_KEY, SERVICE_NAMESPACES, database_name
+from scripts.setup.provision_postgres import (
+    ADMIN_KEY,
+    MCP_SERVERS,
+    SERVICE_NAMESPACES,
+    database_name,
+)
 
 NAMESPACE = "windops-data"
 ADMIN_USER = "windops_admin"
@@ -17,8 +22,9 @@ URL = f"tls://windops-nats.{NAMESPACE}.svc.cluster.local:4222"
 SECRETS_FILE = (
     Path(__file__).resolve().parents[2] / "infrastructure" / "minikube" / "secrets.local.nats.env"
 )
-# Web BFF stores nothing, but listens for live progress (API-003).
-EVENT_SERVICES = {**SERVICE_NAMESPACES, "web-bff": "windops-system"}
+# Web BFF stores nothing, but listens for live progress (API-003). The MCP servers only send audit
+# records, each acknowledged by JetStream before a tool's result is returned (ADR 0014).
+EVENT_SERVICES = {**SERVICE_NAMESPACES, "web-bff": "windops-system", **MCP_SERVERS}
 # Who owns each subject. docs/service-map.md shows the same, and a test keeps them matched.
 PUBLISHERS = {
     "telemetry": ("telemetry.received", "telemetry.quality", "alarm.reported"),
@@ -51,8 +57,13 @@ def _service_user(service: str, password: str) -> dict[str, object]:
             "publish": {
                 "allow": [
                     *PUBLISHERS.get(service, ()),
-                    # Its own subject only, and only with an outbox to send it from (EVT-004).
-                    *([audit_request_subject(service)] if service in SERVICE_NAMESPACES else []),
+                    # Its own subject only, and only with an outbox to send it from (EVT-004),
+                    # or for an MCP server, which changes nothing and has nothing to commit.
+                    *(
+                        [audit_request_subject(service)]
+                        if service in SERVICE_NAMESPACES or service in MCP_SERVERS
+                        else []
+                    ),
                     "deadletter.>",
                     "$JS.API.>",
                     "$JS.ACK.>",

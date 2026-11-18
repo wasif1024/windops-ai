@@ -11,6 +11,11 @@ package = false
 
 [tool.uv.workspace]
 members = [
+    "mcp-servers/documentation-mcp",
+    "mcp-servers/filesystem-mcp",
+    "mcp-servers/postgres-mcp",
+    "mcp-servers/tavily-mcp",
+    "mcp-servers/weather-mcp",
     "services/alarm-service",
     "services/asset-service",
     "services/audit-service",
@@ -53,6 +58,11 @@ windops-resilience = { workspace = true }
 windops-screening = { workspace = true }
 windops-grpc = { workspace = true }
 windops-mcp = { workspace = true }
+windops-mcp-documentation = { workspace = true }
+windops-mcp-filesystem = { workspace = true }
+windops-mcp-postgres = { workspace = true }
+windops-mcp-tavily = { workspace = true }
+windops-mcp-weather = { workspace = true }
 windops-contracts = { workspace = true }
 windops-sample-caller = { workspace = true }
 windops-sample-responder = { workspace = true }
@@ -86,6 +96,7 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "S", "SIM", "RUF"]
 "shared/*/tests/**" = ["S101", "S105", "S106"]
 "services/*/tests/**" = ["S101", "S105", "S106"]
 "simulator/tests/**" = ["S101"]
+"mcp-servers/*/tests/**" = ["S101"]
 "scripts/**" = ["S603", "S607"]
 
 [tool.mypy]
@@ -147,6 +158,16 @@ files = [
     "shared/screening/tests",
     "shared/mcp/src",
     "shared/mcp/tests",
+    "mcp-servers/documentation-mcp/src",
+    "mcp-servers/documentation-mcp/tests",
+    "mcp-servers/filesystem-mcp/src",
+    "mcp-servers/filesystem-mcp/tests",
+    "mcp-servers/postgres-mcp/src",
+    "mcp-servers/postgres-mcp/tests",
+    "mcp-servers/tavily-mcp/src",
+    "mcp-servers/tavily-mcp/tests",
+    "mcp-servers/weather-mcp/src",
+    "mcp-servers/weather-mcp/tests",
     "simulator/src",
     "simulator/tests",
     "tests",
@@ -208,6 +229,16 @@ mypy_path = [
     "shared/screening/tests",
     "shared/mcp/src",
     "shared/mcp/tests",
+    "mcp-servers/documentation-mcp/src",
+    "mcp-servers/documentation-mcp/tests",
+    "mcp-servers/filesystem-mcp/src",
+    "mcp-servers/filesystem-mcp/tests",
+    "mcp-servers/postgres-mcp/src",
+    "mcp-servers/postgres-mcp/tests",
+    "mcp-servers/tavily-mcp/src",
+    "mcp-servers/tavily-mcp/tests",
+    "mcp-servers/weather-mcp/src",
+    "mcp-servers/weather-mcp/tests",
     "simulator/src",
 ]
 
@@ -234,6 +265,7 @@ testpaths = [
     "shared/resilience/tests",
     "shared/screening/tests",
     "shared/mcp/tests",
+    "mcp-servers/*/tests",
     "simulator/tests",
 ]
 addopts = "-ra --strict-markers --import-mode=importlib"
@@ -270,6 +302,11 @@ dev = [
     "windops-investigation",
     "windops-knowledge",
     "windops-mcp",
+    "windops-mcp-documentation",
+    "windops-mcp-filesystem",
+    "windops-mcp-postgres",
+    "windops-mcp-tavily",
+    "windops-mcp-weather",
     "windops-migrations",
     "windops-observability",
     "windops-outbox",
