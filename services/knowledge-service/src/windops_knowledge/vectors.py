@@ -20,6 +20,9 @@ from windops_resilience import BreakerOpenError, CircuitBreaker
 # A fixed namespace, so a passage's point ID is the same on every run.
 _POINTS = uuid.UUID("5f0e8a51-7c1b-4f7e-9d0a-3c2b6e4f9a11")
 TIMEOUT_SECONDS = 30.0
+# The payload fields searches filter on, beside the tenant, and their index types.
+INDEXED_FIELDS = {"document_id": "keyword", "revision": "integer", "applies_to": "keyword",
+                  "type": "keyword"}  # fmt: skip
 
 
 class VectorsUnavailableError(Exception):
@@ -41,10 +44,40 @@ class Point:
         return str(uuid.uuid5(_POINTS, key))
 
 
+@dataclass(frozen=True)
+class Found:
+    document_id: str
+    revision: int
+    ordinal: int
+    score: float
+    payload: dict[str, Any]
+
+
+def search_filter(tenant_id: str, applies_to: str = "",
+                  types: tuple[str, ...] = ()) -> dict[str, Any]:  # fmt: skip
+    """The tenant comes first, always, from the caller's verified identity (DAT-006)."""
+    must: list[dict[str, Any]] = [{"key": "tenant_id", "match": {"value": tenant_id}}]
+    if applies_to:
+        must.append({"key": "applies_to", "match": {"value": applies_to}})
+    if types:
+        must.append({"key": "type", "match": {"any": list(types)}})
+    return {"must": must}
+
+
 class VectorStore(Protocol):
     async def ensure_collection(self, name: str, dimensions: int) -> None: ...
 
     async def upsert(self, collection: str, points: list[Point]) -> None: ...
+
+    async def search(
+        self,
+        collection: str,
+        vector: list[float],
+        tenant_id: str,
+        limit: int,
+        applies_to: str = "",
+        types: tuple[str, ...] = (),
+    ) -> list[Found]: ...
 
     async def close(self) -> None: ...
 
@@ -103,16 +136,18 @@ class Qdrant:
                 "field_name": "tenant_id",
                 "field_schema": {"type": "keyword", "is_tenant": True},
             })  # fmt: skip
-            await self._call("PUT", f"/collections/{name}/index",
-                             {"field_name": "document_id", "field_schema": "keyword"})  # fmt: skip
-            await self._call("PUT", f"/collections/{name}/index",
-                             {"field_name": "revision", "field_schema": "integer"})  # fmt: skip
         else:
             size = found["config"]["params"]["vectors"]["size"]
             if size != dimensions:
                 raise VectorsUnavailableError(
                     f"The collection {name} holds vectors of {size}, not {dimensions}"
                 )
+        # What searches filter on. Each is added if missing, so an older collection gets it too.
+        have = set((found or {}).get("payload_schema", {}))
+        for field, schema in INDEXED_FIELDS.items():
+            if field not in have:
+                await self._call("PUT", f"/collections/{name}/index?wait=true",
+                                 {"field_name": field, "field_schema": schema})  # fmt: skip
         self._ready.add(name)
 
     async def upsert(self, collection: str, points: list[Point]) -> None:
@@ -122,6 +157,35 @@ class Qdrant:
                          "revision": p.revision, "ordinal": p.ordinal, **p.payload}}
             for p in points
         ]})  # fmt: skip
+
+    async def search(
+        self,
+        collection: str,
+        vector: list[float],
+        tenant_id: str,
+        limit: int,
+        applies_to: str = "",
+        types: tuple[str, ...] = (),
+    ) -> list[Found]:
+        """The closest points in the tenant, best first. A collection not made yet has none."""
+        if not tenant_id:
+            raise ValueError("A search is always within one tenant")
+        if collection not in self._ready:
+            found = await self._call("GET", f"/collections/{collection}")
+            if found is None:
+                return []
+            await self.ensure_collection(collection, found["config"]["params"]["vectors"]["size"])
+        result = await self._call("POST", f"/collections/{collection}/points/query", {
+            "query": vector, "limit": limit, "with_payload": True,
+            "filter": search_filter(tenant_id, applies_to, types),
+        })  # fmt: skip
+        return [
+            Found(p["payload"]["document_id"], int(p["payload"]["revision"]),
+                  int(p["payload"]["ordinal"]), float(p["score"]), p["payload"])
+            for p in result["points"]
+            # Qdrant was told the tenant; this makes sure it kept to it.
+            if p["payload"].get("tenant_id") == tenant_id
+        ]  # fmt: skip
 
     async def count(self, collection: str, tenant_id: str, document_id: str, revision: int) -> int:
         result = await self._call("POST", f"/collections/{collection}/points/count", {

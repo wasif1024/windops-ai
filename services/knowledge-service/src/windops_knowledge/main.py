@@ -110,25 +110,27 @@ def main() -> None:
             await connection.execute(text("SELECT 1"))
         return True
 
+    # One of each, shared by the API's searches and the indexer. The provider's TLS is verified
+    # against the system's authorities, and Qdrant's against the cluster's, always (ADR 0011).
+    embedder = _Lazy(lambda: embeddings.OpenAIEmbedder(
+        os.environ.get("WINDOPS_EMBEDDING_URL", embeddings.OPENAI_URL),
+        SECRETS / "openai" / "api-key",
+        _breaker("openai-embeddings", slow_call_seconds=10.0), httpx.AsyncClient(),
+    ))  # fmt: skip
+    store = _Lazy(lambda: vectors.Qdrant(
+        os.environ.get("WINDOPS_QDRANT_URL", DEFAULT_QDRANT_URL),
+        SECRETS / "qdrant" / "api-key", tls / "ca.crt", _breaker("qdrant", 5.0),
+    ))  # fmt: skip
+
     def register(server: grpc.aio.Server) -> None:
         knowledge_pb2_grpc.add_KnowledgeServiceServicer_to_server(
-            KnowledgeService(engine, authorizer), server
+            KnowledgeService(engine, authorizer, embedder, store), server
         )
 
     async def relay(stop: asyncio.Event) -> None:
         await relay_events(engine, stop)
 
     async def indexer(stop: asyncio.Event) -> None:
-        # The provider's TLS is verified against the system's authorities, always (ADR 0011).
-        embedder = embeddings.OpenAIEmbedder(
-            os.environ.get("WINDOPS_EMBEDDING_URL", embeddings.OPENAI_URL),
-            SECRETS / "openai" / "api-key",
-            _breaker("openai-embeddings", slow_call_seconds=10.0), httpx.AsyncClient(),
-        )  # fmt: skip
-        store = vectors.Qdrant(
-            os.environ.get("WINDOPS_QDRANT_URL", DEFAULT_QDRANT_URL),
-            SECRETS / "qdrant" / "api-key", tls / "ca.crt", _breaker("qdrant", 5.0),
-        )  # fmt: skip
         await run_indexer(engine, embedder, store, stop)
 
     # Ready once the database answers: an outage of the provider or Qdrant pauses indexing,

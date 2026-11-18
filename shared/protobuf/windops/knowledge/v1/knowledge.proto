@@ -27,6 +27,15 @@ service KnowledgeService {
   // Release a held document for indexing. Never by the person who uploaded it.
   rpc ReleaseDocument(ReleaseDocumentRequest) returns (ReleaseDocumentResponse);
   rpc GetIngestionSettings(GetIngestionSettingsRequest) returns (GetIngestionSettingsResponse);
+
+  // Passages that answer a question, each with a citation (FR-KNW-003). Only the caller's tenant is
+  // searched, and only documents the caller may read are returned, checked before any text leaves
+  // the service (FR-KNW-004, DAT-006, ADR 0012). Current revisions only, unless asked otherwise.
+  rpc SearchPassages(SearchPassagesRequest) returns (SearchPassagesResponse);
+  // One cited passage, as it was: a citation stays valid when its revision is replaced.
+  rpc GetPassage(GetPassageRequest) returns (GetPassageResponse);
+  // Embed again, under the same citations (FR-KNW-005). Needs knowledge.manage and a second factor.
+  rpc ReindexDocuments(ReindexDocumentsRequest) returns (ReindexDocumentsResponse);
   rpc SetIngestionSettings(SetIngestionSettingsRequest) returns (SetIngestionSettingsResponse);
 }
 
@@ -165,4 +174,75 @@ message SetIngestionSettingsRequest {
 
 message SetIngestionSettingsResponse {
   IngestionSettings settings = 1;
+}
+
+message SearchPassagesRequest {
+  // What to find, in words. At most 1,000 characters.
+  string query = 1;
+  // Where the search is made, for a caller whose knowledge.read covers only some wind farms. Empty
+  // for the whole tenant.
+  string wind_farm_id = 2;
+  // Only documents that apply to this turbine model or wind farm, when set.
+  string applies_to = 3;
+  // Only these types, when set: "manual", "bulletin", "procedure", "reference", "engineering".
+  repeated string types = 4;
+  // At most 20; 0 means 5.
+  int32 limit = 5;
+  // Superseded revisions too, each marked so.
+  bool include_superseded = 6;
+}
+
+// A passage, with what a citation needs to point at it and show it in place.
+message Passage {
+  // "kn:" then the document ID, "@" its revision and "#" the passage's number, such as
+  // "kn:WS-PRC-GBX-012@3#4". Stable: it names this text of this revision for ever.
+  string citation_id = 1;
+  DocumentMetadata document = 2;
+  string source = 3;
+  // The headings it sits under, joined by " > ".
+  string section = 4;
+  string text = 5;
+  // Where it is in the document: characters, and 1-based lines.
+  int32 start_offset = 6;
+  int32 end_offset = 7;
+  int32 first_line = 8;
+  int32 last_line = 9;
+  // sha256 of the text.
+  string content_hash = 10;
+  // Whether this is the document's current revision, and what replaced it when not.
+  bool current = 11;
+  string superseded_by = 12;
+  // The embedding it was found by, and how close: from -1 to 1, higher is closer. 0 for a read.
+  string embedding_model = 13;
+  string embedding_version = 14;
+  double score = 15;
+}
+
+message SearchPassagesResponse {
+  repeated Passage passages = 1;
+  // What the query was embedded with, so the search can be repeated exactly.
+  string embedding_model = 2;
+  string embedding_version = 3;
+}
+
+message GetPassageRequest {
+  string citation_id = 1;
+  // Where it is read, as for a search. Empty for the whole tenant.
+  string wind_farm_id = 2;
+}
+
+message GetPassageResponse {
+  Passage passage = 1;
+}
+
+message ReindexDocumentsRequest {
+  // One document, every revision of it that is indexed or failed. Empty for all of the tenant's.
+  string document_id = 1;
+  string reason = 2;
+  string idempotency_key = 3;
+}
+
+message ReindexDocumentsResponse {
+  // How many revisions were queued.
+  int32 queued = 1;
 }

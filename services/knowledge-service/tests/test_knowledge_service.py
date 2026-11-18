@@ -3,7 +3,10 @@ for Authorization, the embedding provider and Qdrant. SQLite has no row-level se
 triggers, so `make knowledge-check` proves those on PostgreSQL."""
 
 import asyncio
+import hashlib
 import logging
+import math
+import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -17,7 +20,14 @@ from sqlalchemy.pool import StaticPool
 from windops.knowledge.v1 import knowledge_pb2 as pb
 from windops.knowledge.v1 import knowledge_pb2_grpc
 from windops_auth import LEVEL_MFA, LEVEL_PASSWORD
-from windops_grpc import ServiceRuntime, Settings, VerifiedIdentity, current_identity, sign_identity
+from windops_grpc import (
+    ServiceRuntime,
+    Settings,
+    UnavailableError,
+    VerifiedIdentity,
+    current_identity,
+    sign_identity,
+)
 from windops_knowledge import embeddings, library, vectors
 from windops_knowledge.service import KnowledgeService
 from windops_knowledge.store import INDEX_QUEUE, METADATA, SERVICE_NAME
@@ -37,10 +47,32 @@ INJECTED = SET["evaluation/adv-sb-inj-001-r1.md"]
 
 @dataclass
 class FakeAuthorizer:
-    grants: set[tuple[str, str]]
+    """Grants as (user, permission, wind farm), the farm empty for the whole tenant."""
 
-    async def allowed(self, permission: str) -> bool:
-        return (current_identity().user_id, permission) in self.grants
+    grants: set[tuple[str, str, str]]
+    asked: list[tuple[str, str]] = field(default_factory=list)
+    down: bool = False
+
+    async def allowed(self, permission: str, wind_farm_id: str = "") -> bool:
+        if self.down:
+            raise UnavailableError("Permissions cannot be checked right now")
+        self.asked.append((permission, wind_farm_id))
+        user = current_identity().user_id
+        return (user, permission, "") in self.grants or (
+            bool(wind_farm_id) and (user, permission, wind_farm_id) in self.grants
+        )
+
+
+DIMENSIONS = 64
+
+
+def bag_of_words(text: str) -> list[float]:
+    """A stand-in for a real embedding: texts sharing words point the same way."""
+    vector = [0.0] * DIMENSIONS
+    for word in re.findall(r"[a-z]{3,}", text.lower()):
+        vector[int(hashlib.sha256(word.encode()).hexdigest(), 16) % DIMENSIONS] += 1.0
+    norm = math.sqrt(sum(v * v for v in vector)) or 1.0
+    return [v / norm for v in vector]
 
 
 @dataclass
@@ -48,7 +80,7 @@ class FakeEmbedder:
     provider: str = "openai"
     model: str = "text-embedding-3-large"
     version: str = embeddings.ADAPTER_VERSION
-    dimensions: int = 4
+    dimensions: int = DIMENSIONS
     failure: Exception | None = None
     sent: list[str] = field(default_factory=list)
 
@@ -56,20 +88,44 @@ class FakeEmbedder:
         if self.failure is not None:
             raise self.failure
         self.sent.extend(texts)
-        return embeddings.Embedded([[1.0, 0.0, 0.0, float(i)] for i in range(len(texts))],
-                                   self.model, len(texts))  # fmt: skip
+        return embeddings.Embedded([bag_of_words(t) for t in texts], self.model, len(texts))
 
 
 @dataclass
 class FakeQdrant:
     points: dict[str, vectors.Point] = field(default_factory=dict)
     collections: dict[str, int] = field(default_factory=dict)
+    searched: list[str] = field(default_factory=list)
+    down: bool = False
 
     async def ensure_collection(self, name: str, dimensions: int) -> None:
         self.collections[name] = dimensions
 
     async def upsert(self, collection: str, points: list[vectors.Point]) -> None:
         self.points.update({p.point_id: p for p in points})
+
+    async def search(
+        self,
+        collection: str,
+        vector: list[float],
+        tenant_id: str,
+        limit: int,
+        applies_to: str = "",
+        types: tuple[str, ...] = (),
+    ) -> list[vectors.Found]:
+        self.searched.append(tenant_id)
+        if self.down:
+            raise vectors.VectorsUnavailableError("The vector store cannot be reached right now")
+        found = [
+            vectors.Found(p.document_id, p.revision, p.ordinal,
+                          sum(a * b for a, b in zip(vector, p.vector, strict=True)),
+                          {"tenant_id": p.tenant_id, **p.payload})
+            for p in self.points.values()
+            if p.tenant_id == tenant_id
+            and (not applies_to or applies_to in p.payload["applies_to"])
+            and (not types or p.payload["type"] in types)
+        ]  # fmt: skip
+        return sorted(found, key=lambda f: -f.score)[:limit]
 
     async def close(self) -> None:
         return None
@@ -82,6 +138,7 @@ class World:
     embedder: FakeEmbedder
     qdrant: FakeQdrant
     clock: list[datetime]
+    authorizer: FakeAuthorizer
 
     async def index(self) -> int:
         """Run the indexer until nothing is due, and return how many it took."""
@@ -139,14 +196,18 @@ def with_service(scenario: Callable[[World], Awaitable[None]]) -> None:
         async with engine_.begin() as connection:
             await connection.run_sync(METADATA.create_all)
             await connection.run_sync(create_outbox_table)
-        grants = {(u, p) for u in ("u-admin", "u-engineer")
+        grants = {(u, p, "") for u in ("u-admin", "u-engineer")
                   for p in ("knowledge.read", "knowledge.manage")}  # fmt: skip
-        grants.add(("u-reader", "knowledge.read"))
+        grants |= {("u-reader", "knowledge.read", ""),
+                   ("u-dogger", "knowledge.read", "dogger-east"),
+                   ("u-hornsea", "knowledge.read", "hornsea-west")}  # fmt: skip
         clock = [NOW]
+        authorizer, embedder, qdrant = FakeAuthorizer(grants), FakeEmbedder(), FakeQdrant()
 
         def register(server: grpc.aio.Server) -> None:
             knowledge_pb2_grpc.add_KnowledgeServiceServicer_to_server(
-                KnowledgeService(engine_, FakeAuthorizer(grants), clock=lambda: clock[0]), server
+                KnowledgeService(engine_, authorizer, embedder, qdrant, clock=lambda: clock[0]),
+                server,
             )
 
         runtime = ServiceRuntime(SERVICE_NAME, SETTINGS, register, install_global_telemetry=False)
@@ -154,7 +215,7 @@ def with_service(scenario: Callable[[World], Awaitable[None]]) -> None:
         try:
             async with grpc.aio.insecure_channel(f"127.0.0.1:{runtime.grpc_port}") as channel:
                 stub = knowledge_pb2_grpc.KnowledgeServiceStub(channel)
-                await scenario(World(stub, engine_, FakeEmbedder(), FakeQdrant(), clock))
+                await scenario(World(stub, engine_, embedder, qdrant, clock, authorizer))
         finally:
             await runtime.stop()
             await engine_.dispose()
@@ -200,7 +261,7 @@ def test_an_upload_keeps_its_metadata_and_is_indexed_with_its_model_recorded() -
                    "text-embedding-3-large" and p.payload["embedding_version"] ==
                    embeddings.ADAPTER_VERSION and "text" not in p.payload
                    for p in points)  # fmt: skip
-        assert world.qdrant.collections == {"knowledge_text_embedding_3_large_4": 4}
+        assert world.qdrant.collections == {"knowledge_text_embedding_3_large_64": 64}
         # What was embedded is each passage under its document's title and section.
         assert world.embedder.sent[0].startswith(GEARBOX.title)
         assert await audited(world) == ["knowledge_document.ingested",

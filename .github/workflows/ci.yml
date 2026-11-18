@@ -44,8 +44,9 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      # Moderate too, because the toolchain runs on every build.
-      - run: npm audit --audit-level=moderate
+      # Moderate too, because the toolchain runs on every build. Only an advisory with no fixed
+      # version may be excepted, in audit-exceptions.json, until a fix or its review date.
+      - run: npm run audit
 
   dependency-audit:
     name: dependency-audit

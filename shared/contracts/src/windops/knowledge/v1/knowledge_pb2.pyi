@@ -505,3 +505,235 @@ class SetIngestionSettingsResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___SetIngestionSettingsResponse: _TypeAlias = SetIngestionSettingsResponse  # noqa: Y015
+
+@_typing.final
+class SearchPassagesRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    QUERY_FIELD_NUMBER: _builtins.int
+    WIND_FARM_ID_FIELD_NUMBER: _builtins.int
+    APPLIES_TO_FIELD_NUMBER: _builtins.int
+    TYPES_FIELD_NUMBER: _builtins.int
+    LIMIT_FIELD_NUMBER: _builtins.int
+    INCLUDE_SUPERSEDED_FIELD_NUMBER: _builtins.int
+    query: _builtins.str
+    """What to find, in words. At most 1,000 characters."""
+    wind_farm_id: _builtins.str
+    """Where the search is made, for a caller whose knowledge.read covers only some wind farms. Empty
+    for the whole tenant.
+    """
+    applies_to: _builtins.str
+    """Only documents that apply to this turbine model or wind farm, when set."""
+    limit: _builtins.int
+    """At most 20; 0 means 5."""
+    include_superseded: _builtins.bool
+    """Superseded revisions too, each marked so."""
+    @_builtins.property
+    def types(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Only these types, when set: "manual", "bulletin", "procedure", "reference", "engineering"."""
+
+    def __init__(
+        self,
+        *,
+        query: _builtins.str = ...,
+        wind_farm_id: _builtins.str = ...,
+        applies_to: _builtins.str = ...,
+        types: _abc.Iterable[_builtins.str] | None = ...,
+        limit: _builtins.int = ...,
+        include_superseded: _builtins.bool = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["applies_to", b"applies_to", "include_superseded", b"include_superseded", "limit", b"limit", "query", b"query", "types", b"types", "wind_farm_id", b"wind_farm_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SearchPassagesRequest: _TypeAlias = SearchPassagesRequest  # noqa: Y015
+
+@_typing.final
+class Passage(_message.Message):
+    """A passage, with what a citation needs to point at it and show it in place."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CITATION_ID_FIELD_NUMBER: _builtins.int
+    DOCUMENT_FIELD_NUMBER: _builtins.int
+    SOURCE_FIELD_NUMBER: _builtins.int
+    SECTION_FIELD_NUMBER: _builtins.int
+    TEXT_FIELD_NUMBER: _builtins.int
+    START_OFFSET_FIELD_NUMBER: _builtins.int
+    END_OFFSET_FIELD_NUMBER: _builtins.int
+    FIRST_LINE_FIELD_NUMBER: _builtins.int
+    LAST_LINE_FIELD_NUMBER: _builtins.int
+    CONTENT_HASH_FIELD_NUMBER: _builtins.int
+    CURRENT_FIELD_NUMBER: _builtins.int
+    SUPERSEDED_BY_FIELD_NUMBER: _builtins.int
+    EMBEDDING_MODEL_FIELD_NUMBER: _builtins.int
+    EMBEDDING_VERSION_FIELD_NUMBER: _builtins.int
+    SCORE_FIELD_NUMBER: _builtins.int
+    citation_id: _builtins.str
+    """"kn:" then the document ID, "@" its revision and "#" the passage's number, such as
+    "kn:WS-PRC-GBX-012@3#4". Stable: it names this text of this revision for ever.
+    """
+    source: _builtins.str
+    section: _builtins.str
+    """The headings it sits under, joined by " > "."""
+    text: _builtins.str
+    start_offset: _builtins.int
+    """Where it is in the document: characters, and 1-based lines."""
+    end_offset: _builtins.int
+    first_line: _builtins.int
+    last_line: _builtins.int
+    content_hash: _builtins.str
+    """sha256 of the text."""
+    current: _builtins.bool
+    """Whether this is the document's current revision, and what replaced it when not."""
+    superseded_by: _builtins.str
+    embedding_model: _builtins.str
+    """The embedding it was found by, and how close: from -1 to 1, higher is closer. 0 for a read."""
+    embedding_version: _builtins.str
+    score: _builtins.float
+    @_builtins.property
+    def document(self) -> Global___DocumentMetadata: ...
+    def __init__(
+        self,
+        *,
+        citation_id: _builtins.str = ...,
+        document: Global___DocumentMetadata | None = ...,
+        source: _builtins.str = ...,
+        section: _builtins.str = ...,
+        text: _builtins.str = ...,
+        start_offset: _builtins.int = ...,
+        end_offset: _builtins.int = ...,
+        first_line: _builtins.int = ...,
+        last_line: _builtins.int = ...,
+        content_hash: _builtins.str = ...,
+        current: _builtins.bool = ...,
+        superseded_by: _builtins.str = ...,
+        embedding_model: _builtins.str = ...,
+        embedding_version: _builtins.str = ...,
+        score: _builtins.float = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["document", b"document"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["citation_id", b"citation_id", "content_hash", b"content_hash", "current", b"current", "document", b"document", "embedding_model", b"embedding_model", "embedding_version", b"embedding_version", "end_offset", b"end_offset", "first_line", b"first_line", "last_line", b"last_line", "score", b"score", "section", b"section", "source", b"source", "start_offset", b"start_offset", "superseded_by", b"superseded_by", "text", b"text"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___Passage: _TypeAlias = Passage  # noqa: Y015
+
+@_typing.final
+class SearchPassagesResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PASSAGES_FIELD_NUMBER: _builtins.int
+    EMBEDDING_MODEL_FIELD_NUMBER: _builtins.int
+    EMBEDDING_VERSION_FIELD_NUMBER: _builtins.int
+    embedding_model: _builtins.str
+    """What the query was embedded with, so the search can be repeated exactly."""
+    embedding_version: _builtins.str
+    @_builtins.property
+    def passages(self) -> _containers.RepeatedCompositeFieldContainer[Global___Passage]: ...
+    def __init__(
+        self,
+        *,
+        passages: _abc.Iterable[Global___Passage] | None = ...,
+        embedding_model: _builtins.str = ...,
+        embedding_version: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["embedding_model", b"embedding_model", "embedding_version", b"embedding_version", "passages", b"passages"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SearchPassagesResponse: _TypeAlias = SearchPassagesResponse  # noqa: Y015
+
+@_typing.final
+class GetPassageRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CITATION_ID_FIELD_NUMBER: _builtins.int
+    WIND_FARM_ID_FIELD_NUMBER: _builtins.int
+    citation_id: _builtins.str
+    wind_farm_id: _builtins.str
+    """Where it is read, as for a search. Empty for the whole tenant."""
+    def __init__(
+        self,
+        *,
+        citation_id: _builtins.str = ...,
+        wind_farm_id: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["citation_id", b"citation_id", "wind_farm_id", b"wind_farm_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetPassageRequest: _TypeAlias = GetPassageRequest  # noqa: Y015
+
+@_typing.final
+class GetPassageResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PASSAGE_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def passage(self) -> Global___Passage: ...
+    def __init__(
+        self,
+        *,
+        passage: Global___Passage | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["passage", b"passage"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["passage", b"passage"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetPassageResponse: _TypeAlias = GetPassageResponse  # noqa: Y015
+
+@_typing.final
+class ReindexDocumentsRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DOCUMENT_ID_FIELD_NUMBER: _builtins.int
+    REASON_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    document_id: _builtins.str
+    """One document, every revision of it that is indexed or failed. Empty for all of the tenant's."""
+    reason: _builtins.str
+    idempotency_key: _builtins.str
+    def __init__(
+        self,
+        *,
+        document_id: _builtins.str = ...,
+        reason: _builtins.str = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["document_id", b"document_id", "idempotency_key", b"idempotency_key", "reason", b"reason"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ReindexDocumentsRequest: _TypeAlias = ReindexDocumentsRequest  # noqa: Y015
+
+@_typing.final
+class ReindexDocumentsResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    QUEUED_FIELD_NUMBER: _builtins.int
+    queued: _builtins.int
+    """How many revisions were queued."""
+    def __init__(
+        self,
+        *,
+        queued: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["queued", b"queued"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ReindexDocumentsResponse: _TypeAlias = ReindexDocumentsResponse  # noqa: Y015
