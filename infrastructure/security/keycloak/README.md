@@ -114,6 +114,8 @@ An agent acting for a user gets its own token, not the user's login:
 | `windops-api` | A confidential client with standard token exchange. It is in every user token's audience, which Keycloak requires, and only the Identity Service holds its secret |
 | `windops-agent-runtime` | A bearer-only client, which only receives exchanged tokens |
 | `windops-agent-runtime-audience` | A client scope, offered only to `windops-api`, which names the agent runtime in an exchanged token's audience |
+| `windops-mcp-documentation`, `-tavily`, `-weather` | Bearer-only clients for the MCP servers, each with its own audience scope |
+| `mcp.<server>.<tool>` | One client scope per MCP tool, offered only to `windops-api`. A token for an MCP server carries only the tools asked for ([ADR 0014](../../../docs/adr/0014-mcp-tools-behind-per-call-tool-tokens.md)) |
 
 An exchanged token is for the same user and tenant, lasts 120 seconds, and names only the target service, so the
 gateway refuses it on the user's own API. A target with no scope cannot be asked for. `make token-exchange-check`

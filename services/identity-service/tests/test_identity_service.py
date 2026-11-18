@@ -462,8 +462,10 @@ def own_token(world: World, user: str = ADMIN, tenant: str = TENANT) -> str:
     return "user-token"
 
 
-def exchange(token: str, audience: str = AGENT) -> Any:
-    return identity_pb2.ExchangeTokenRequest(subject_token=token, audience=audience)
+def exchange(token: str, audience: str = AGENT, scopes: tuple[str, ...] = ()) -> Any:
+    return identity_pb2.ExchangeTokenRequest(
+        subject_token=token, audience=audience, scopes=list(scopes)
+    )
 
 
 def test_a_user_exchanges_their_own_token_for_one_allowed_service() -> None:
@@ -510,6 +512,52 @@ def test_only_allowed_services_can_receive_an_exchanged_token(audience: str) -> 
     async def scenario(world: World) -> None:
         call = world.stub.ExchangeToken(
             exchange(own_token(world), audience), metadata=as_user(), timeout=5
+        )
+        assert await code_of(call) is grpc.StatusCode.INVALID_ARGUMENT
+        assert world.keycloak.exchanges == []
+
+    with_service(scenario)
+
+
+DOCUMENTATION = "windops-mcp-documentation"
+SEARCH = "mcp.documentation.search_documents"
+
+
+def test_a_token_for_an_mcp_server_carries_only_the_tools_asked_for() -> None:
+    """SEC-008, MCP-001: audience-bound and scoped per tool."""
+
+    async def scenario(world: World) -> None:
+        response = await world.stub.ExchangeToken(
+            exchange(own_token(world), DOCUMENTATION, (SEARCH, SEARCH)),
+            metadata=as_user(),
+            timeout=5,
+        )
+        assert (response.audience, list(response.scopes)) == (DOCUMENTATION, [SEARCH])
+        sent = world.keycloak.exchanges[0]
+        assert (sent["audience"], sent["scope"]) == (
+            DOCUMENTATION,
+            f"{DOCUMENTATION}-audience {SEARCH}",
+        )
+
+    with_service(scenario)
+
+
+@pytest.mark.parametrize(
+    ("audience", "scopes"),
+    [
+        (DOCUMENTATION, ()),
+        (DOCUMENTATION, ("mcp.tavily.search_web",)),
+        (DOCUMENTATION, (SEARCH, "mcp.documentation.delete_documents")),
+        (DOCUMENTATION, (f"{DOCUMENTATION}-audience",)),
+        (AGENT, (SEARCH,)),
+    ],
+)
+def test_a_token_cannot_carry_a_scope_its_service_does_not_have(
+    audience: str, scopes: tuple[str, ...]
+) -> None:
+    async def scenario(world: World) -> None:
+        call = world.stub.ExchangeToken(
+            exchange(own_token(world), audience, scopes), metadata=as_user(), timeout=5
         )
         assert await code_of(call) is grpc.StatusCode.INVALID_ARGUMENT
         assert world.keycloak.exchanges == []

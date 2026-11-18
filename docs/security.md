@@ -27,6 +27,7 @@ flowchart LR
 | Step-up | Every administrative change needs a second factor from the last 5 minutes. The API answers `step_up_required` (RFC 9470), and the console asks for a code only | SEC-003 |
 | Tenant in every token | Keycloak Organizations put `tenant_id` in each token. A user of a suspended tenant gets none, so the gateway refuses them | SEC-005 |
 | Token exchange | A user's token can be swapped for one lasting 2 minutes, for one allowed service such as the agent runtime | SEC-008 |
+| MCP tool tokens | A token for an MCP server names that server alone and each tool it may call, as a scope. Every call checks it again: a user's own login, another server's token, or one issued for over 5 minutes is refused ([ADR 0014](adr/0014-mcp-tools-behind-per-call-tool-tokens.md)) | MCP-001, MCP-004 |
 
 ## Between services
 

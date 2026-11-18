@@ -33,6 +33,7 @@ members = [
     "shared/contracts",
     "shared/events",
     "shared/grpc",
+    "shared/mcp",
     "shared/migrations",
     "shared/observability",
     "shared/outbox",
@@ -51,6 +52,7 @@ windops-observability = { workspace = true }
 windops-resilience = { workspace = true }
 windops-screening = { workspace = true }
 windops-grpc = { workspace = true }
+windops-mcp = { workspace = true }
 windops-contracts = { workspace = true }
 windops-sample-caller = { workspace = true }
 windops-sample-responder = { workspace = true }
@@ -143,6 +145,8 @@ files = [
     "shared/resilience/tests",
     "shared/screening/src",
     "shared/screening/tests",
+    "shared/mcp/src",
+    "shared/mcp/tests",
     "simulator/src",
     "simulator/tests",
     "tests",
@@ -202,6 +206,8 @@ mypy_path = [
     "shared/resilience/tests",
     "shared/screening/src",
     "shared/screening/tests",
+    "shared/mcp/src",
+    "shared/mcp/tests",
     "simulator/src",
 ]
 
@@ -227,10 +233,11 @@ testpaths = [
     "shared/outbox/tests",
     "shared/resilience/tests",
     "shared/screening/tests",
+    "shared/mcp/tests",
     "simulator/tests",
 ]
 addopts = "-ra --strict-markers --import-mode=importlib"
-pythonpath = [".", "shared/grpc/tests", "shared/resilience/tests", "services/identity-service/tests", "services/investigation-service/tests", "services/knowledge-service/tests", "services/telemetry-service/tests", "services/tenant-service/tests", "services/web-bff-service/tests"]
+pythonpath = [".", "shared/grpc/tests", "shared/mcp/tests", "shared/resilience/tests", "services/identity-service/tests", "services/investigation-service/tests", "services/knowledge-service/tests", "services/telemetry-service/tests", "services/tenant-service/tests", "services/web-bff-service/tests"]
 
 [dependency-groups]
 dev = [
@@ -262,6 +269,7 @@ dev = [
     "windops-identity",
     "windops-investigation",
     "windops-knowledge",
+    "windops-mcp",
     "windops-migrations",
     "windops-observability",
     "windops-outbox",

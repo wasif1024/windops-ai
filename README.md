@@ -208,7 +208,7 @@ only read access unless it needs more.
 | 4. Assets and telemetry | Done, [exit gate](docs/phases/phase-04-exit-gate.md) |
 | 5. Alarms, detection and cases | Done, [exit gate](docs/phases/phase-05-exit-gate.md) |
 | 6. Deterministic decisions | Done, [exit gate](docs/phases/phase-06-exit-gate.md) |
-| 7. Knowledge and external intelligence | In progress: documents, ingestion, retrieval and web research are done; next, M7.5, the MCP foundation |
+| 7. Knowledge and external intelligence | In progress: documents, ingestion, retrieval, web research and the MCP foundation are done; next, M7.6, the first MCP servers |
 
 | Running today | |
 | --- | --- |
@@ -331,6 +331,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0011](docs/adr/0011-openai-embeddings-through-the-adapter.md) | OpenAI `text-embedding-3-large` through the embedding adapter, and what each tenant lets it be sent |
 | [0012](docs/adr/0012-document-permissions-and-current-revisions.md) | Who may read a document, which revision is current, and why a citation stays valid |
 | [0013](docs/adr/0013-web-research-made-generic-and-advisory.md) | Web research made generic before it leaves, recorded and flagged, and advisory only |
+| [0014](docs/adr/0014-mcp-tools-behind-per-call-tool-tokens.md) | MCP tools behind per-call tool tokens, schemas, limits, audit and untrusted-content wrapping |
 
 ## Repository layout
 

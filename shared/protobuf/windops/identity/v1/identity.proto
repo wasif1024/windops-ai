@@ -171,10 +171,15 @@ message ExchangeTokenRequest {
   string subject_token = 1;
   // The one service the new token is for. Only allowed services may be named.
   string audience = 2;
+  // For an MCP server, the tools the token may call, each as its scope, such as
+  // "mcp.documentation.search_documents". At least one, and only that server's own.
+  repeated string scopes = 3;
 }
 
 message ExchangeTokenResponse {
   string access_token = 1;
   int32 expires_in_seconds = 2;
   string audience = 3;
+  // The tool scopes the token carries.
+  repeated string scopes = 4;
 }

@@ -44,6 +44,7 @@ modules. `make help` lists what each one does, and which module delivers it.
 | `make gateway-policy-check` | The gateway refuses missing, forged and tenantless tokens, enforces CORS, and limits sign-ins |
 | `make frontend-check` | A real browser signs in through the gateway, and sees the branded, role-aware shell |
 | `make token-exchange-check` | A user's token becomes a 2-minute one for the agent runtime only, and only its owner can exchange it |
+| `make mcp-check` | A token for an MCP server carries only the tools asked for, and the MCP foundation refuses any other token, checks schemas and limits, audits each call and wraps external text |
 | `make bff-check` | Real logins reach Web BFF through the gateway, bad tokens are refused, and limits fail closed |
 | `make cross-tenant-check` | Every tenant table forces row-level security, and every API refuses another tenant's data (DAT-008) |
 | `make tenant-check` | Tenants, branding and row-level security keep each tenant's data to itself |

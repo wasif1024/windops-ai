@@ -257,3 +257,17 @@ def test_keycloak_serves_only_https_at_one_fixed_address(documents: list[dict[st
 def test_the_image_builds_in_the_path_prefix() -> None:
     """A pre-built image refuses to start if this changes at runtime."""
     assert "--http-relative-path=/auth" in DOCKERFILE.read_text()
+
+
+def test_each_mcp_tool_has_its_own_scope_offered_only_for_exchange() -> None:
+    """SEC-008, MCP-001: a token names one MCP server and only the tools asked for."""
+    from windops_identity.targets import EXCHANGE_TARGETS, MCP_TOOLS, mcp_audience, tool_scope
+
+    for server, tools in MCP_TOOLS.items():
+        assert EXCHANGE_TARGETS[mcp_audience(server)] == {tool_scope(server, t) for t in tools}
+    scopes = [scope for allowed in EXCHANGE_TARGETS.values() for scope in allowed]
+    assert len(scopes) == len(set(scopes))
+    assert all(scope.startswith("mcp.") for scope in scopes)
+    source = (ROOT / "scripts" / "setup" / "identity_seed.py").read_text()
+    assert "for tool_scope in sorted(EXCHANGE_TARGETS[target]):" in source
+    assert "optional-client-scopes/" in source

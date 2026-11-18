@@ -31,12 +31,11 @@ from windops_resilience import BreakerOpenError
 
 from windops_identity.keycloak import KeycloakAdmin, KeycloakError
 from windops_identity.store import KeyReusedError, audit, created_before, record_created
+from windops_identity.targets import EXCHANGE_TARGETS, audience_scope
 
 logger = logging.getLogger("windops.service")
 PERMISSION = "users.manage"
 TENANT_PERMISSION = "tenant.manage"
-# The services a token may be exchanged for, each with its own scope in Keycloak (SEC-008).
-EXCHANGE_TARGETS = frozenset({"windops-agent-runtime"})
 _MAXIMUM_TOKEN = 16_384
 _MAXIMUM_TENANT_NAME = 200
 STEP_UP = STEP_UP_MESSAGE
@@ -440,6 +439,12 @@ class IdentityService(identity_pb2_grpc.IdentityServiceServicer):
             raise PermissionDeniedError("Only a user's own token can be exchanged")
         if request.audience not in EXCHANGE_TARGETS:
             raise InvalidRequestError("This service cannot receive exchanged tokens")
+        allowed = EXCHANGE_TARGETS[request.audience]
+        scopes = sorted(set(request.scopes))
+        if allowed and not scopes:
+            raise InvalidRequestError("Name the tools the token is for")
+        if any(scope not in allowed for scope in scopes):
+            raise InvalidRequestError("A token for this service cannot carry that scope")
         if not request.subject_token or len(request.subject_token) > _MAXIMUM_TOKEN:
             raise InvalidRequestError("A token is required")
 
@@ -454,7 +459,9 @@ class IdentityService(identity_pb2_grpc.IdentityServiceServicer):
                 raise PermissionDeniedError("Only the caller's own, current token can be exchanged")
             try:
                 issued = await self._keycloak.exchange(
-                    request.subject_token, request.audience, f"{request.audience}-audience"
+                    request.subject_token,
+                    request.audience,
+                    " ".join([audience_scope(request.audience), *scopes]),
                 )
             except KeycloakError as error:
                 if error.status == 400:
@@ -472,6 +479,7 @@ class IdentityService(identity_pb2_grpc.IdentityServiceServicer):
                 access_token=str(issued["access_token"]),
                 expires_in_seconds=int(issued.get("expires_in", 0)),
                 audience=request.audience,
+                scopes=scopes,
             )
 
         return await self._guarded(work())
