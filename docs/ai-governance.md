@@ -118,10 +118,10 @@ ISO/IEC 42001 clause 9 and A.6; NIST MEASURE 1 to 4; SDAIA reliability and safet
 ISO/IEC 42001 A.10; NIST GOVERN 6 and MANAGE 3; NCA third-party cybersecurity; SDAIA accountability.
 - **In place:**
   - dependency audits and image scans in CI (M1.2, M1.6);
+  - vendor checks on the forecast provider, Claude's data handling and LangSmith Sandbox, with the Sandbox's egress
+    gap accepted with compensating controls (M6.3, M8.1, [ADR 0015](adr/0015-agent-stack-vendor-checks.md));
   - MCP tools behind per-call tool tokens, with untrusted content wrapped and labelled (M7.5).
-- **Planned:**
-  - vendor checks on the forecast provider and Claude's data handling (M6.3, M8.1);
-  - a tool allowlist for each agent (M8.6).
+- **Planned:** a tool allowlist for each agent (M8.6).
 
 ### Monitoring and improvement
 
