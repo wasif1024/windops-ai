@@ -14,6 +14,7 @@ dependencies = [
     "windops-observability",
     "windops-outbox",
     "windops-resilience",
+    "windops-screening",
     # The synthetic document set, for the demo seed.
     "windops-simulator",
 ]
@@ -27,6 +28,7 @@ windops-migrations = { workspace = true }
 windops-observability = { workspace = true }
 windops-outbox = { workspace = true }
 windops-resilience = { workspace = true }
+windops-screening = { workspace = true }
 windops-simulator = { workspace = true }
 
 [build-system]

@@ -20,6 +20,10 @@ service:
 | --- | --- |
 | `fault-detection` | `turbine.read`, `telemetry.read`, `alarm.read` |
 | `investigation` | `turbine.read`, `telemetry.read`, `alarm.read`, `policy.read`, `investigation.read`, to freeze each case's evidence (M5.5) |
+| `policy` | `turbine.read`, `investigation.read`, `weather.read`, to gather the facts it judges on (M6.1, M6.4) |
+| `production-impact` | `turbine.read`, `telemetry.read`, `investigation.read`, `weather.read`, for its estimates (M6.2, M6.4) |
+| `weather` | `turbine.read`, for a turbine's site and hub height (M6.3) |
+| `external-intelligence` | `turbine.read`, for the names it takes out of a research query, a site's region and a turbine's class (M7.4) |
 
 Every grant is tenant-wide, and only in the tenant the identity names. A service is never allowed across tenants,
 never a `.manage` permission, and never an approval. A test fails if a grant that is not `.read` is ever added. A

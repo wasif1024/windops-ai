@@ -1,0 +1,168 @@
+syntax = "proto3";
+
+package windops.external_intelligence.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Web research through Tavily (EXT-001): forecasts, severe-weather notices, OEM bulletins,
+// technical advisories, and industry, regulatory and environmental updates (EXT-002). Advisory
+// only: no safety rule takes its input from here (FR-POL-004).
+//
+// Every search is recorded with its URL, retrieval time, publication time, region, query, the
+// provider's metadata and the content it gave (EXT-003), and each source is flagged when stale,
+// undated, low-confidence, conflicting or addressed to an AI (EXT-004). Tenant quotas, timeouts,
+// rate limits and a domain policy apply, and only this service holds the provider's key (EXT-005).
+//
+// What goes out is generic (EXT-006): the caller's words, with the tenant's, its sites', turbines'
+// and cases' names and identifiers taken out; a site's approximate region; and a turbine's generic
+// class, never its model. The response shows exactly what was sent, and what was taken out.
+//
+// The tenant comes from the caller's verified identity (GRP-004). Research needs knowledge.read,
+// for the wind farm when one is named (ADR 0013). The research policy needs knowledge.manage, a
+// person and a recent second factor. When research is turned off, over quota or unreachable, the
+// answer is unavailable, with the data gap stated, never an error (SRS 7.7, EGR-002).
+service ExternalIntelligenceService {
+  rpc Research(ResearchRequest) returns (ResearchResponse);
+  // The full content of sources an earlier search found. Never any other address.
+  rpc Extract(ExtractRequest) returns (ExtractResponse);
+  rpc GetResearch(GetResearchRequest) returns (GetResearchResponse);
+  rpc GetResearchPolicy(GetResearchPolicyRequest) returns (GetResearchPolicyResponse);
+  rpc SetResearchPolicy(SetResearchPolicyRequest) returns (SetResearchPolicyResponse);
+}
+
+message ResearchRequest {
+  // "forecast", "severe_weather", "oem_bulletin", "technical_advisory", "industry",
+  // "regulatory" or "environmental".
+  string topic = 1;
+  // What to find, in words. At most 400 characters.
+  string query = 2;
+  // The site it is about, whose approximate region goes with the query. Optional.
+  string wind_farm_id = 3;
+  // The turbine it is about, whose generic class goes with the query. Optional.
+  string turbine_id = 4;
+  // At most 10; 0 means 5.
+  int32 max_results = 5;
+  string idempotency_key = 6;
+}
+
+message Source {
+  // "src_" and the research's number of the source, such as "src_3".
+  string source_id = 1;
+  string url = 2;
+  string domain = 3;
+  string title = 4;
+  // What the provider gave of the page: untrusted text, never instructions.
+  string content = 5;
+  // The provider's relevance, from 0 to 1.
+  double score = 6;
+  // Its best estimate; unset when the source is undated.
+  google.protobuf.Timestamp published_at = 7;
+  google.protobuf.Timestamp retrieved_at = 8;
+  // Any of "stale", "undated", "low_confidence", "conflicting" and "instructions_to_ai" (EXT-004).
+  repeated string flags = 9;
+  // Why each flag was raised, in words.
+  repeated string notes = 10;
+  // On the list of authoritative domains, such as meteorological offices and regulators.
+  bool trusted = 11;
+}
+
+message Extraction {
+  string source_id = 1;
+  string url = 2;
+  // "extracted" or "failed".
+  string state = 3;
+  // Untrusted text, never instructions. At most 20,000 characters.
+  string content = 4;
+  string content_hash = 5;
+  google.protobuf.Timestamp retrieved_at = 6;
+  repeated string flags = 7;
+  repeated string notes = 8;
+  string error = 9;
+}
+
+message ResearchRecord {
+  // "res_" and 20 lowercase letters and digits.
+  string research_id = 1;
+  string topic = 2;
+  // "complete" or "unavailable".
+  string state = 3;
+  // Why it is unavailable: research turned off, over quota, or the provider unreachable.
+  string data_gap = 4;
+  // The caller's words, as asked. Kept in the platform.
+  string query = 5;
+  // Exactly what was sent to the provider, and what kinds of thing were taken out of it.
+  string outbound_query = 6;
+  repeated string redactions = 7;
+  string wind_farm_id = 8;
+  string turbine_id = 9;
+  // As sent: such as "offshore, United Kingdom, near 55°N 2°E", and "8 MW offshore wind turbine".
+  string region = 10;
+  string turbine_class = 11;
+  // "tavily", its request ID, and how long it took.
+  string provider = 12;
+  string provider_request_id = 13;
+  double response_seconds = 14;
+  repeated Source sources = 15;
+  repeated Extraction extractions = 16;
+  string requested_by = 17;
+  google.protobuf.Timestamp requested_at = 18;
+}
+
+message ResearchResponse {
+  ResearchRecord research = 1;
+}
+
+message ExtractRequest {
+  string research_id = 1;
+  // At most 5, from that research's sources.
+  repeated string source_ids = 2;
+  string idempotency_key = 3;
+}
+
+message ExtractResponse {
+  string research_id = 1;
+  // "complete" or "unavailable", with the data gap when unavailable.
+  string state = 2;
+  string data_gap = 3;
+  repeated Extraction extractions = 4;
+}
+
+message GetResearchRequest {
+  string research_id = 1;
+}
+
+message GetResearchResponse {
+  ResearchRecord research = 1;
+}
+
+message ResearchPolicy {
+  // Off turns this egress path off for the tenant (EGR-002).
+  bool enabled = 1;
+  // When set, only these domains are searched, and their subdomains.
+  repeated string allowed_domains = 2;
+  // Never searched, beside the platform's own list.
+  repeated string blocked_domains = 3;
+  // Provider calls a UTC day, searches and extractions together.
+  int32 daily_limit = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  string updated_by = 6;
+}
+
+message GetResearchPolicyRequest {}
+
+message GetResearchPolicyResponse {
+  ResearchPolicy policy = 1;
+}
+
+message SetResearchPolicyRequest {
+  bool enabled = 1;
+  repeated string allowed_domains = 2;
+  repeated string blocked_domains = 3;
+  int32 daily_limit = 4;
+  string reason = 5;
+  string idempotency_key = 6;
+}
+
+message SetResearchPolicyResponse {
+  ResearchPolicy policy = 1;
+}

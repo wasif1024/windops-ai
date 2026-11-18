@@ -16,6 +16,8 @@ import re
 from dataclasses import dataclass, field
 from datetime import date
 
+from windops_screening import Finding, credentials_in, screen
+
 MAXIMUM_BYTES = 1024 * 1024
 CONTENT_TYPES = {"text/markdown": (".md",), "text/plain": (".txt",)}
 CLASSIFICATIONS = ("public", "internal", "confidential", "restricted")
@@ -37,33 +39,6 @@ _ROW = re.compile(r"^\| *(?P<label>[A-Za-z][A-Za-z ]*?) *\| *(?P<value>.*?) *\|$
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 MAXIMUM_TEXT = 500
 
-# Credentials, by their shape. Each is refused, wherever it appears.
-CREDENTIALS = (
-    ("a private key", re.compile(r"-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----")),
-    ("an AWS access key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
-    ("an API key", re.compile(r"\bsk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}")),
-    ("a GitHub token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{36,}")),
-    ("a Slack token", re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}")),
-    ("a JSON web token",
-     re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+")),
-    ("a password", re.compile(r"(?i)\b(?:password|passwd|pwd)\s*[:=]\s*\S{4,}")),
-)  # fmt: skip
-# Text addressed to an AI, as an injected instruction is (LLM-008). A finding holds the document
-# for a person; it does not decide anything about it.
-INSTRUCTIONS_TO_AI = (
-    ("It tells the reader to ignore earlier instructions",
-     re.compile(r"(?i)\b(?:ignore|disregard|forget)\b[^.\n]{0,40}\b(?:previous|prior|earlier|above"
-                r"|system)\b[^.\n]{0,20}\b(?:instructions?|prompts?|rules)\b")),
-    ("It claims to override the system", re.compile(r"(?i)\bsystem\s+override\b")),
-    ("It addresses AI assistants or models directly",
-     re.compile(r"(?i)\b(?:note|message|instructions?)\s+(?:to|for)\s+(?:the\s+)?(?:ai|automated|"
-                r"llm|language model|assistant)")),
-    ("It tells the reader to hide something from the user",
-     re.compile(r"(?i)\bdo not (?:mention|reveal|tell)\b[^.\n]{0,40}\b(?:this|the user|the "
-                r"operator)\b")),
-    ("It tells the reader what role to take", re.compile(r"(?i)\byou are now\b")),
-)  # fmt: skip
-
 
 class UploadRefusedError(ValueError):
     """The upload cannot be kept, and why, in words a person can act on."""
@@ -81,13 +56,6 @@ class Metadata:
     classification: str
     supersedes_document_id: str = ""
     supersedes_revision: int = 0
-
-
-@dataclass(frozen=True)
-class Finding:
-    kind: str
-    description: str
-    line: int
 
 
 @dataclass(frozen=True)
@@ -127,25 +95,6 @@ def decode(filename: str, content_type: str, content: bytes) -> str:
     if not text.strip():
         raise UploadRefusedError("The document is empty")
     return text
-
-
-def credentials_in(text: str) -> list[tuple[str, int]]:
-    """Each credential found, by what it is and its line. Never the credential itself."""
-    found = []
-    for number, line in enumerate(text.splitlines(), start=1):
-        for name, pattern in CREDENTIALS:
-            if pattern.search(line):
-                found.append((name, number))
-    return found
-
-
-def screen(text: str) -> tuple[Finding, ...]:
-    findings = []
-    for number, line in enumerate(text.splitlines(), start=1):
-        for description, pattern in INSTRUCTIONS_TO_AI:
-            if pattern.search(line):
-                findings.append(Finding("instructions_to_ai", description, number))
-    return tuple(findings)
 
 
 def header_of(text: str) -> dict[str, str]:

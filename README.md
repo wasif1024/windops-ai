@@ -208,7 +208,7 @@ only read access unless it needs more.
 | 4. Assets and telemetry | Done, [exit gate](docs/phases/phase-04-exit-gate.md) |
 | 5. Alarms, detection and cases | Done, [exit gate](docs/phases/phase-05-exit-gate.md) |
 | 6. Deterministic decisions | Done, [exit gate](docs/phases/phase-06-exit-gate.md) |
-| 7. Knowledge and external intelligence | In progress: the synthetic document set, knowledge ingestion and retrieval are done; next, M7.4, External Intelligence |
+| 7. Knowledge and external intelligence | In progress: documents, ingestion, retrieval and web research are done; next, M7.5, the MCP foundation |
 
 | Running today | |
 | --- | --- |
@@ -217,6 +217,7 @@ only read access unless it needs more.
 | Operations | Asset Service with synthetic demo fleets, and Telemetry Service with authenticated device ingestion, fed live by the simulator's 13 devices |
 | Faults and decisions | Alarm, Fault Detection and Investigation services: controller alarms, versioned fault rules, and one deduplicated case per fault, bound to immutable evidence. The Policy Service judges proposals against versioned rules, and fails closed, the Production Impact Service prices them, with a range for every figure, and the Weather Service gives each site's forecast, with its provenance and age |
 | Knowledge | Knowledge Service: checked uploads of manuals, bulletins and procedures, their metadata from their own headers, and passages indexed with OpenAI embeddings in Qdrant, only up to each tenant's allowed classification. Search returns cited passages of current revisions, each checked against the caller's permissions first |
+| External intelligence | External Intelligence Service: Tavily web research with generic queries only, every source recorded and flagged when stale, undated, low-confidence or conflicting, within each tenant's policy and quotas |
 | Platform | Audit Service, with a tamper-evident trail, plus PostgreSQL, Redis, Qdrant, NATS JetStream and the full observability stack |
 | On Azure | Asset, Audit, Authorization and Tenant on AKS, with Service Bus, Azure Database for PostgreSQL, Key Vault and Azure Monitor |
 
@@ -329,6 +330,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0010](docs/adr/0010-open-meteo-as-the-forecast-provider.md) | Open-Meteo as the forecast provider, on its free tier for non-commercial use |
 | [0011](docs/adr/0011-openai-embeddings-through-the-adapter.md) | OpenAI `text-embedding-3-large` through the embedding adapter, and what each tenant lets it be sent |
 | [0012](docs/adr/0012-document-permissions-and-current-revisions.md) | Who may read a document, which revision is current, and why a citation stays valid |
+| [0013](docs/adr/0013-web-research-made-generic-and-advisory.md) | Web research made generic before it leaves, recorded and flagged, and advisory only |
 
 ## Repository layout
 
