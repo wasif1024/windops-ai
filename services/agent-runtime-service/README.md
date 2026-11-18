@@ -3,7 +3,10 @@
 Agent runs, as queued jobs on worker replicas (ARC-006, ARC-007). A replica can stop at any moment, and its runs carry
 on elsewhere. The decisions behind it are in [ADR 0016](../../docs/adr/0016-agent-runs-as-leased-jobs-in-postgresql.md).
 
-The investigation workflow itself comes in M8.4. Until then there are two workflows:
+There are three workflows:
+- **`investigation`:** SRS 5.4's steps 1 to 13 as a LangGraph graph, checkpointed after every node
+  ([ADR 0018](../../docs/adr/0018-the-investigation-graph-and-its-checkpoints.md)). Steps 4 to 12 record data gaps
+  until the agents and their tools arrive (M8.6 to M8.8). Investigation starts these runs from M8.11.
 - **`rehearsal`:** timed steps with no model and no tools, so the queue and its recovery can be proved without
   spending anything.
 - **`model-check`:** one short call per role, a structured answer and a cached prompt, a few cents of synthetic
@@ -14,6 +17,7 @@ The investigation workflow itself comes in M8.4. Until then there are two workfl
 | State | What it means |
 | --- | --- |
 | `queued` | Kept in PostgreSQL before `StartRun` answers. It waits through any outage |
+| `paused` | Paused at once if queued, or at its worker's next heartbeat, keeping its checkpoint. `ResumeRun` queues it again |
 | `running` | A worker holds it, under a lease it renews every third of the lease while it works |
 | `completed` | Every step is done |
 | `failed` | An attempt failed with none left, or the last attempt's worker stopped. The reason is kept |
@@ -39,7 +43,7 @@ failed attempt is tried again after a pause, up to `WINDOPS_RUNTIME_MAX_ATTEMPTS
 
 ## The API
 
-`StartRun`, `GetRun`, `ListRuns` and `CancelRun`. The Investigation Service owns cases and decides who may start, read
+`StartRun`, `GetRun`, `ListRuns`, `CancelRun`, `PauseRun` and `ResumeRun`. The Investigation Service owns cases and decides who may start, read
 or cancel their runs (SRS 5.5), so only its certificate is let in. The tenant comes from the verified identity it
 sends. A run pins its workflow and version when queued (AGT-004), and `StartRun` may be retried with the same
 `idempotency_key`.
@@ -63,9 +67,11 @@ Every call goes through the `windops-claude` library and its versioned policy
 
 ```bash
 make runtime-check
+make workflow-check
 make claude-check
 ```
 
 It scales the runtime to two replicas, kills one mid-run, and proves the other takes the run over from its last
 completed step, along with handing back on shutdown, cancelling, the attempt limit, tenant isolation and who may call.
-`claude-check` makes real calls through the runtime, and proves the policy, the costs and a budget ending a run.
+`workflow-check` kills a worker with SIGKILL mid-graph and proves the run resumes from its last checkpoint, and
+proves pausing. `claude-check` makes real calls through the runtime, and proves the policy, the costs and a budget ending a run.

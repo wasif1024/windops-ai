@@ -5,6 +5,9 @@ description = "WindOps agent runtime: agent runs as queued jobs, on worker repli
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    # Pinned exactly, as confirmed by make vendor-check (ADR 0015).
+    "langgraph==1.2.19",
+    "langgraph-checkpoint==4.3.1",
     "windops-auth",
     "windops-claude",
     "windops-contracts",

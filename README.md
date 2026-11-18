@@ -335,6 +335,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0015](docs/adr/0015-agent-stack-vendor-checks.md) | Claude through LangChain and Deep Agents confirmed, Claude's data handling, and LangSmith Sandbox with its accepted egress gap |
 | [0016](docs/adr/0016-agent-runs-as-leased-jobs-in-postgresql.md) | Agent runs as leased jobs in PostgreSQL: claimed with SKIP LOCKED, fenced by a lease token, taken over when a worker stops |
 | [0017](docs/adr/0017-the-claude-policy-as-versioned-configuration.md) | The Claude policy as versioned configuration: models, effort, prices and budgets, every call metered per run |
+| [0018](docs/adr/0018-the-investigation-graph-and-its-checkpoints.md) | The investigation graph: 13 nodes, checkpointed under the run's lease, no interrupts, pins checked on resume |
 
 ## Repository layout
 

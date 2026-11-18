@@ -10,6 +10,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     Index,
+    LargeBinary,
     MetaData,
     Numeric,
     Table,
@@ -22,12 +23,12 @@ from windops_outbox import add_event
 
 SERVICE_NAME = "agent-runtime"
 ACTOR = f"service:{SERVICE_NAME}"
-QUEUED, RUNNING = "queued", "running"
+QUEUED, RUNNING, PAUSED = "queued", "running", "paused"
 COMPLETED, FAILED, CANCELLED = "completed", "failed", "cancelled"
 BUDGET_EXHAUSTED, STALE = "budget_exhausted", "stale"
 # SRS 5.6. Once a run is in one, it never changes again.
 TERMINAL = (COMPLETED, FAILED, CANCELLED, BUDGET_EXHAUSTED, STALE)
-STATUSES = (QUEUED, RUNNING, *TERMINAL)
+STATUSES = (QUEUED, RUNNING, PAUSED, *TERMINAL)
 METADATA = MetaData()
 
 RUNS = Table(
@@ -69,6 +70,11 @@ RUNS = Table(
     Column("policy_hash", Text, nullable=False, server_default=""),
     Column("token_budget", BigInteger, nullable=False, server_default="0"),
     Column("cost_budget_usd", Numeric(12, 6), nullable=False, server_default="0"),
+    # The graph, prompt, tool and skill versions, as canonical JSON (AGT-004).
+    Column("pins", Text, nullable=False, server_default="{}"),
+    Column("pause_requested_at", DateTime(timezone=True)),
+    Column("pause_requested_by", Text, nullable=False, server_default=""),
+    Column("pause_reason", Text, nullable=False, server_default=""),
     Index("runs_by_case", "tenant_id", "case_id", "created_at"),
     Index("runs_one_key", "tenant_id", "idempotency_key", unique=True),
     Index("runs_by_status", "status", "not_before"),
@@ -110,6 +116,40 @@ RUN_CALLS = Table(
     Column("processed_tokens", BigInteger, nullable=False),
     Column("cost_usd", Numeric(12, 6), nullable=False),
     Column("at", DateTime(timezone=True), nullable=False),
+)
+
+# LangGraph's checkpoints, one thread per run (M8.4). Written only under the run's lease, and
+# never changed: a run carries on from its newest.
+RUN_CHECKPOINTS = Table(
+    "run_checkpoints",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("run_id", Text, primary_key=True),
+    Column("namespace", Text, primary_key=True),
+    Column("checkpoint_id", Text, primary_key=True),
+    Column("parent_id", Text, nullable=False),
+    Column("attempt", BigInteger, nullable=False),
+    Column("worker", Text, nullable=False),
+    Column("checkpoint_type", Text, nullable=False),
+    Column("checkpoint", LargeBinary, nullable=False),
+    Column("metadata_type", Text, nullable=False),
+    Column("metadata", LargeBinary, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+# What each task wrote towards the next checkpoint, so a task that finished is not run again.
+RUN_CHECKPOINT_WRITES = Table(
+    "run_checkpoint_writes",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("run_id", Text, primary_key=True),
+    Column("namespace", Text, primary_key=True),
+    Column("checkpoint_id", Text, primary_key=True),
+    Column("task_id", Text, primary_key=True),
+    Column("idx", BigInteger, primary_key=True),
+    Column("channel", Text, nullable=False),
+    Column("value_type", Text, nullable=False),
+    Column("value", LargeBinary, nullable=False),
+    Column("task_path", Text, nullable=False),
 )
 
 

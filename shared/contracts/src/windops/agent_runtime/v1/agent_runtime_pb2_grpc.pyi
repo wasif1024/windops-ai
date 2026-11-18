@@ -56,6 +56,12 @@ class AgentRuntimeServiceStub:
     """A case's runs, newest first."""
     CancelRun: _grpc.UnaryUnaryMultiCallable[_agent_runtime_pb2.CancelRunRequest, _agent_runtime_pb2.CancelRunResponse]
     """A queued run ends at once. A running one ends at its next step, as cancelled."""
+    PauseRun: _grpc.UnaryUnaryMultiCallable[_agent_runtime_pb2.PauseRunRequest, _agent_runtime_pb2.PauseRunResponse]
+    """A queued run waits as paused. A running one stops at its worker's next heartbeat, keeping
+    its last checkpoint, and hands its lease back. Pausing is not an attempt (FR-INV-007).
+    """
+    ResumeRun: _grpc.UnaryUnaryMultiCallable[_agent_runtime_pb2.ResumeRunRequest, _agent_runtime_pb2.ResumeRunResponse]
+    """Queues a paused run again. It carries on from its last checkpoint."""
 
 @_typing.type_check_only
 class AgentRuntimeServiceAsyncStub(AgentRuntimeServiceStub):
@@ -85,6 +91,12 @@ class AgentRuntimeServiceAsyncStub(AgentRuntimeServiceStub):
     """A case's runs, newest first."""
     CancelRun: _aio.UnaryUnaryMultiCallable[_agent_runtime_pb2.CancelRunRequest, _agent_runtime_pb2.CancelRunResponse]  # type: ignore[assignment]
     """A queued run ends at once. A running one ends at its next step, as cancelled."""
+    PauseRun: _aio.UnaryUnaryMultiCallable[_agent_runtime_pb2.PauseRunRequest, _agent_runtime_pb2.PauseRunResponse]  # type: ignore[assignment]
+    """A queued run waits as paused. A running one stops at its worker's next heartbeat, keeping
+    its last checkpoint, and hands its lease back. Pausing is not an attempt (FR-INV-007).
+    """
+    ResumeRun: _aio.UnaryUnaryMultiCallable[_agent_runtime_pb2.ResumeRunRequest, _agent_runtime_pb2.ResumeRunResponse]  # type: ignore[assignment]
+    """Queues a paused run again. It carries on from its last checkpoint."""
 
 class AgentRuntimeServiceServicer(metaclass=_abc_1.ABCMeta):
     """Agent runs, as queued jobs (ARC-007). A run is kept in PostgreSQL before StartRun answers, so it
@@ -135,5 +147,23 @@ class AgentRuntimeServiceServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_agent_runtime_pb2.CancelRunResponse, _abc.Awaitable[_agent_runtime_pb2.CancelRunResponse]]:
         """A queued run ends at once. A running one ends at its next step, as cancelled."""
+
+    @_abc_1.abstractmethod
+    def PauseRun(
+        self,
+        request: _agent_runtime_pb2.PauseRunRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_agent_runtime_pb2.PauseRunResponse, _abc.Awaitable[_agent_runtime_pb2.PauseRunResponse]]:
+        """A queued run waits as paused. A running one stops at its worker's next heartbeat, keeping
+        its last checkpoint, and hands its lease back. Pausing is not an attempt (FR-INV-007).
+        """
+
+    @_abc_1.abstractmethod
+    def ResumeRun(
+        self,
+        request: _agent_runtime_pb2.ResumeRunRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_agent_runtime_pb2.ResumeRunResponse, _abc.Awaitable[_agent_runtime_pb2.ResumeRunResponse]]:
+        """Queues a paused run again. It carries on from its last checkpoint."""
 
 def add_AgentRuntimeServiceServicer_to_server(servicer: AgentRuntimeServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

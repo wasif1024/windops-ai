@@ -70,6 +70,16 @@ class AgentRuntimeServiceStub:
                 request_serializer=windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.CancelRunRequest.SerializeToString,
                 response_deserializer=windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.CancelRunResponse.FromString,
                 _registered_method=True)
+        self.PauseRun = channel.unary_unary(
+                '/windops.agent_runtime.v1.AgentRuntimeService/PauseRun',
+                request_serializer=windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.PauseRunRequest.SerializeToString,
+                response_deserializer=windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.PauseRunResponse.FromString,
+                _registered_method=True)
+        self.ResumeRun = channel.unary_unary(
+                '/windops.agent_runtime.v1.AgentRuntimeService/ResumeRun',
+                request_serializer=windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.ResumeRunRequest.SerializeToString,
+                response_deserializer=windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.ResumeRunResponse.FromString,
+                _registered_method=True)
 
 
 class AgentRuntimeServiceServicer:
@@ -118,6 +128,21 @@ class AgentRuntimeServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def PauseRun(self, request, context):
+        """A queued run waits as paused. A running one stops at its worker's next heartbeat, keeping
+        its last checkpoint, and hands its lease back. Pausing is not an attempt (FR-INV-007).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ResumeRun(self, request, context):
+        """Queues a paused run again. It carries on from its last checkpoint.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_AgentRuntimeServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -140,6 +165,16 @@ def add_AgentRuntimeServiceServicer_to_server(servicer, server):
                     servicer.CancelRun,
                     request_deserializer=windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.CancelRunRequest.FromString,
                     response_serializer=windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.CancelRunResponse.SerializeToString,
+            ),
+            'PauseRun': grpc.unary_unary_rpc_method_handler(
+                    servicer.PauseRun,
+                    request_deserializer=windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.PauseRunRequest.FromString,
+                    response_serializer=windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.PauseRunResponse.SerializeToString,
+            ),
+            'ResumeRun': grpc.unary_unary_rpc_method_handler(
+                    servicer.ResumeRun,
+                    request_deserializer=windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.ResumeRunRequest.FromString,
+                    response_serializer=windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.ResumeRunResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -266,6 +301,60 @@ class AgentRuntimeService:
             '/windops.agent_runtime.v1.AgentRuntimeService/CancelRun',
             windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.CancelRunRequest.SerializeToString,
             windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.CancelRunResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PauseRun(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.agent_runtime.v1.AgentRuntimeService/PauseRun',
+            windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.PauseRunRequest.SerializeToString,
+            windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.PauseRunResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ResumeRun(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.agent_runtime.v1.AgentRuntimeService/ResumeRun',
+            windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.ResumeRunRequest.SerializeToString,
+            windops_dot_agent__runtime_dot_v1_dot_agent__runtime__pb2.ResumeRunResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -13,21 +13,33 @@ import asyncio
 import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Protocol
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Protocol
 
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 from windops_claude import Claude, stable_system
 from windops_grpc import InvalidRequestError
 
+if TYPE_CHECKING:
+    from langgraph.checkpoint.base import BaseCheckpointSaver
+
 
 class Context(Protocol):
     # Every call through it follows the Claude policy and is metered against the run's budget.
     # None when the runtime has no key, or the run has no budget.
     claude: Claude | None
+    # LangGraph's checkpoints for this run, written only under its lease (M8.4).
+    checkpointer: "BaseCheckpointSaver[str] | None"
+    run_id: str
+    case_id: str
+    snapshot_id: str
 
     async def step(self, name: str, work: Callable[[], Awaitable[None]]) -> None:
         """Run the step, and record it, unless an earlier attempt completed it."""
+
+    async def record(self, position: int, name: str, started_at: datetime) -> None:
+        """Record a step completed elsewhere, as a graph's node. Recording it twice is harmless."""
 
 
 class Workflow(Protocol):
@@ -41,6 +53,9 @@ class Workflow(Protocol):
         """Return the parameters, checked and typed, or raise InvalidRequestError."""
 
     def total_steps(self, parameters: Mapping[str, Any]) -> int: ...
+
+    def pins(self, parameters: Mapping[str, Any]) -> dict[str, Any]:
+        """What a run is pinned to besides the policy: graph, prompt, tool and skill versions."""
 
     async def run(self, context: Context, parameters: Mapping[str, Any]) -> None: ...
 
@@ -98,6 +113,9 @@ class Rehearsal:
     def total_steps(self, parameters: Mapping[str, Any]) -> int:
         return int(parameters["steps"])
 
+    def pins(self, parameters: Mapping[str, Any]) -> dict[str, Any]:
+        return {"graph": f"{self.name}@{self.version}"}
+
     async def run(self, context: Context, parameters: Mapping[str, Any]) -> None:
         seconds = float(parameters["step_seconds"])
         for position in range(1, int(parameters["steps"]) + 1):
@@ -149,6 +167,9 @@ class ModelCheck:
     def total_steps(self, parameters: Mapping[str, Any]) -> int:
         return len(parameters["roles"]) + 2
 
+    def pins(self, parameters: Mapping[str, Any]) -> dict[str, Any]:
+        return {"graph": f"{self.name}@{self.version}"}
+
     async def run(self, context: Context, parameters: Mapping[str, Any]) -> None:
         claude = context.claude
         if claude is None:
@@ -181,11 +202,6 @@ class ModelCheck:
             await claude.invoke("supervisor", [system, HumanMessage("Reply with one word: ready.")])
 
         await context.step("cached", cached)
-
-
-REGISTRY: dict[str, Workflow] = {
-    workflow.name: workflow for workflow in (Rehearsal(), ModelCheck())
-}
 
 
 def canonical(parameters: Mapping[str, Any]) -> str:
