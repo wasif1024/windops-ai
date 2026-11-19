@@ -1,6 +1,7 @@
 """The API through a real gRPC server and SQL database, against a fake Keycloak admin API."""
 
 import asyncio
+import json
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -9,6 +10,8 @@ from typing import Any
 
 import grpc
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from fake_keycloak import FakeKeycloak
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -17,12 +20,14 @@ from windops.identity.v1 import identity_pb2, identity_pb2_grpc
 from windops_auth import LEVEL_MFA, LEVEL_PASSWORD
 from windops_events import parse_event
 from windops_grpc import ServiceRuntime, Settings, UnavailableError, VerifiedIdentity, sign_identity
+from windops_identity.agents import SigningKey
 from windops_identity.keycloak import KeycloakAdmin, KeycloakSettings
 from windops_identity.service import IdentityService
 from windops_identity.store import METADATA, SERVICE_NAME
 from windops_outbox import OUTBOX_TABLE, create_outbox_table
 
 SECRET = "x" * 32
+AGENT_ISSUER = "windops-identity-agents"
 TENANT, OTHER = "north-sea", "atlas-wind"
 ADMIN = "u-admin"
 SETTINGS = Settings(
@@ -58,6 +63,9 @@ class World:
     authorizer: FakeAuthorizer
     operator: str
     stranger: str
+    # The certificate the next call presents, and the agent token key's public JWKS.
+    peer: list[str] = field(default_factory=lambda: ["windops-investigation"])
+    jwks: dict[str, Any] = field(default_factory=dict)
 
 
 def as_user(user: str = ADMIN, tenant: str = TENANT, *, level: str | None = LEVEL_MFA) -> Any:
@@ -103,18 +111,31 @@ def with_service(scenario: Callable[[World], Awaitable[None]]) -> None:
             await connection.run_sync(METADATA.create_all)
             await connection.run_sync(create_outbox_table)
         authorizer = FakeAuthorizer()
+        peer = ["windops-investigation"]
+        key = SigningKey.from_pem(
+            ec.generate_private_key(ec.SECP256R1()).private_bytes(
+                serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                serialization.NoEncryption(),
+            )
+        )  # fmt: skip
 
         def register(server: grpc.aio.Server) -> None:
             identity_pb2_grpc.add_IdentityServiceServicer_to_server(
-                IdentityService(engine, admin, authorizer), server
-            )
+                IdentityService(
+                    engine, admin, authorizer, signing_key=key, agent_issuer=AGENT_ISSUER,
+                    peer=lambda: peer[0],
+                ),
+                server,
+            )  # fmt: skip
 
         runtime = ServiceRuntime(SERVICE_NAME, SETTINGS, register, install_global_telemetry=False)
         await runtime.start()
         try:
             async with grpc.aio.insecure_channel(f"127.0.0.1:{runtime.grpc_port}") as channel:
                 stub: Any = identity_pb2_grpc.IdentityServiceStub(channel)
-                await scenario(World(stub, engine, keycloak, authorizer, operator, stranger))
+                await scenario(
+                    World(stub, engine, keycloak, authorizer, operator, stranger, peer, key.jwks())
+                )
         finally:
             await runtime.stop()
             await admin.close()
@@ -581,5 +602,208 @@ def test_keycloaks_refusal_is_passed_on() -> None:
         world.keycloak.refuse_exchange = True
         call = world.stub.ExchangeToken(exchange(own_token(world)), metadata=as_user(), timeout=5)
         assert await code_of(call) is grpc.StatusCode.PERMISSION_DENIED
+
+    with_service(scenario)
+
+
+# --- Agent identities (M8.5, ADR 0019)
+
+CASE = "case_" + "a" * 20
+DOCUMENTATION = "windops-mcp-documentation"
+SEARCH = "mcp.documentation.search_documents"
+
+
+def as_investigation(tenant: str = TENANT) -> Any:
+    own = VerifiedIdentity(subject="service:investigation", tenant_id=tenant)
+    return (("x-windops-identity", sign_identity(own, SECRET)),)
+
+
+def start(token: str = "", key: str = "start-key-1", ttl: int = 0) -> Any:
+    return identity_pb2.StartDelegationRequest(
+        case_id=CASE, subject_token=token, idempotency_key=key, ttl_seconds=ttl
+    )
+
+
+def issue(delegation: str, agent: str = "reliability-engineer", audience: str = DOCUMENTATION,
+          scopes: tuple[str, ...] = (SEARCH,)) -> Any:  # fmt: skip
+    return identity_pb2.IssueAgentTokenRequest(
+        delegation_id=delegation, agent=agent, audience=audience, scopes=list(scopes)
+    )
+
+
+def claims_of(world: World, token: str) -> dict[str, Any]:
+    import jwt
+
+    public = jwt.PyJWK(world.jwks["keys"][0]).key
+    decoded: dict[str, Any] = jwt.decode(
+        token, public, algorithms=["ES256"], audience=DOCUMENTATION, issuer=AGENT_ISSUER
+    )
+    return decoded
+
+
+def test_a_user_delegates_and_an_agent_gets_a_short_token_naming_both() -> None:
+    """SRS 9.2, SEC-008, SEC-010."""
+
+    async def scenario(world: World) -> None:
+        started = (
+            await world.stub.StartDelegation(start(own_token(world)), metadata=as_user(), timeout=5)
+        ).delegation
+        assert (
+            started.principal == f"user:{ADMIN}" and started.started_by == "windops-investigation"
+        )
+        assert started.expires_at.seconds - started.created_at.seconds == 3600
+        again = (
+            await world.stub.StartDelegation(start(own_token(world)), metadata=as_user(), timeout=5)
+        ).delegation
+        assert again.delegation_id == started.delegation_id
+        world.peer[0] = "windops-agent-runtime"
+        issued = await world.stub.IssueAgentToken(
+            issue(started.delegation_id), metadata=as_investigation(), timeout=5
+        )
+        claims = claims_of(world, issued.access_token)
+        assert claims["sub"] == ADMIN and claims["tenant_id"] == TENANT
+        assert claims["act"] == {"sub": "agent:reliability-engineer"}
+        assert claims["scope"] == SEARCH and claims["exp"] - claims["iat"] == 120
+        assert (issued.actor, issued.principal) == ("agent:reliability-engineer", f"user:{ADMIN}")
+        assert (TENANT, "identity.delegation.started") in await audit_actions(world.engine)
+
+    with_service(scenario)
+
+
+def test_the_fault_investigator_is_only_for_the_investigation_service_as_itself() -> None:
+    async def scenario(world: World) -> None:
+        started = (
+            await world.stub.StartDelegation(start(), metadata=as_investigation(), timeout=5)
+        ).delegation
+        assert started.principal == "service:fault-investigator"
+        world.peer[0] = "windops-agent-runtime"
+        issued = await world.stub.IssueAgentToken(
+            issue(started.delegation_id, agent="supervisor"), metadata=as_investigation(),
+            timeout=5,
+        )  # fmt: skip
+        assert claims_of(world, issued.access_token)["sub"] == "service:fault-investigator"
+        # Not for a user, nor through Web BFF.
+        world.peer[0] = "windops-investigation"
+        assert (
+            await code_of(
+                world.stub.StartDelegation(start(key="start-key-2"), metadata=as_user(), timeout=5)
+            )
+            is grpc.StatusCode.PERMISSION_DENIED
+        )
+        world.peer[0] = "windops-web-bff"
+        assert (
+            await code_of(
+                world.stub.StartDelegation(
+                    start(key="start-key-3"), metadata=as_investigation(), timeout=5
+                )
+            )
+            is grpc.StatusCode.PERMISSION_DENIED
+        )
+
+    with_service(scenario)
+
+
+def test_each_call_is_open_only_to_the_services_that_should_make_it() -> None:
+    async def scenario(world: World) -> None:
+        delegation = (
+            await world.stub.StartDelegation(start(), metadata=as_investigation(), timeout=5)
+        ).delegation.delegation_id
+        for peer in ("windops-agent-runtime", "windops-check-client", ""):
+            world.peer[0] = peer
+            assert await code_of(world.stub.StartDelegation(
+                start(key="start-key-9"), metadata=as_investigation(), timeout=5)
+            ) is grpc.StatusCode.PERMISSION_DENIED  # fmt: skip
+        for peer in ("windops-investigation", "windops-web-bff", "windops-check-client"):
+            world.peer[0] = peer
+            assert await code_of(world.stub.IssueAgentToken(
+                issue(delegation), metadata=as_investigation(), timeout=5)
+            ) is grpc.StatusCode.PERMISSION_DENIED  # fmt: skip
+
+    with_service(scenario)
+
+
+@pytest.mark.parametrize(
+    ("request_change", "code"),
+    [
+        ({"agent": "approver"}, grpc.StatusCode.INVALID_ARGUMENT),
+        ({"audience": "windops-agent-runtime"}, grpc.StatusCode.INVALID_ARGUMENT),
+        ({"scopes": ("mcp.weather.get_forecast",)}, grpc.StatusCode.INVALID_ARGUMENT),
+        ({"scopes": ()}, grpc.StatusCode.INVALID_ARGUMENT),
+    ],
+)
+def test_a_token_is_only_for_a_known_agent_and_one_servers_own_tools(
+    request_change: dict[str, Any], code: grpc.StatusCode
+) -> None:
+    async def scenario(world: World) -> None:
+        delegation = (
+            await world.stub.StartDelegation(start(), metadata=as_investigation(), timeout=5)
+        ).delegation.delegation_id
+        world.peer[0] = "windops-agent-runtime"
+        call = world.stub.IssueAgentToken(
+            issue(delegation, **request_change), metadata=as_investigation(), timeout=5
+        )
+        assert await code_of(call) is code
+
+    with_service(scenario)
+
+
+def test_no_token_once_ended_for_another_tenant_or_for_a_disabled_user() -> None:
+    async def scenario(world: World) -> None:
+        ended = (
+            await world.stub.StartDelegation(start(), metadata=as_investigation(), timeout=5)
+        ).delegation.delegation_id
+        users = (
+            await world.stub.StartDelegation(
+                start(own_token(world), key="start-key-2"), metadata=as_user(), timeout=5
+            )
+        ).delegation.delegation_id
+        world.peer[0] = "windops-agent-runtime"
+        stop = identity_pb2.EndDelegationRequest(delegation_id=ended, reason="Run completed")
+        first = await world.stub.EndDelegation(stop, metadata=as_investigation(), timeout=5)
+        twice = await world.stub.EndDelegation(stop, metadata=as_investigation(), timeout=5)
+        assert first.delegation.ended_at == twice.delegation.ended_at
+        assert await code_of(world.stub.IssueAgentToken(
+            issue(ended), metadata=as_investigation(), timeout=5)
+        ) is grpc.StatusCode.PERMISSION_DENIED  # fmt: skip
+        assert await code_of(world.stub.IssueAgentToken(
+            issue(users), metadata=as_investigation(OTHER), timeout=5)
+        ) is grpc.StatusCode.NOT_FOUND  # fmt: skip
+        world.keycloak.users[ADMIN]["enabled"] = False
+        assert await code_of(world.stub.IssueAgentToken(
+            issue(users), metadata=as_investigation(), timeout=5)
+        ) is grpc.StatusCode.PERMISSION_DENIED  # fmt: skip
+        actions = await audit_actions(world.engine)
+        assert actions.count((TENANT, "identity.delegation.ended")) == 1
+
+    with_service(scenario)
+
+
+@pytest.mark.parametrize("ttl", [30, 4 * 3600 + 1])
+def test_a_delegation_lasts_a_minute_to_four_hours(ttl: int) -> None:
+    async def scenario(world: World) -> None:
+        call = world.stub.StartDelegation(start(ttl=ttl), metadata=as_investigation(), timeout=5)
+        assert await code_of(call) is grpc.StatusCode.INVALID_ARGUMENT
+
+    with_service(scenario)
+
+
+def test_only_a_users_own_current_token_starts_a_delegation_for_them() -> None:
+    async def scenario(world: World) -> None:
+        world.keycloak.tokens["stolen"] = {"active": True, "sub": "someone", "tenant_id": TENANT}
+        call = world.stub.StartDelegation(start("stolen"), metadata=as_user(), timeout=5)
+        assert await code_of(call) is grpc.StatusCode.PERMISSION_DENIED
+
+    with_service(scenario)
+
+
+def test_the_published_keys_are_public_only() -> None:
+    async def scenario(world: World) -> None:
+        world.peer[0] = "windops-mcp-documentation"
+        answer = await world.stub.GetAgentTokenKeys(
+            identity_pb2.GetAgentTokenKeysRequest(), metadata=as_investigation(), timeout=5
+        )
+        keys = json.loads(answer.jwks_json)["keys"]
+        assert answer.issuer == AGENT_ISSUER and len(keys) == 1
+        assert keys[0]["alg"] == "ES256" and "d" not in keys[0]
 
     with_service(scenario)

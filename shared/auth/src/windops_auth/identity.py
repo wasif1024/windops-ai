@@ -34,6 +34,9 @@ class VerifiedIdentity:
     # How the user signed in, copied from their verified Keycloak token, for step-up (SEC-003).
     auth_level: str | None = None
     auth_time: int | None = None
+    # The agent acting for the subject, such as "agent:supervisor" (RFC 8693 "act"). An identity
+    # with an actor may only read and draft, whoever the subject is (SEC-009).
+    actor: str | None = None
 
 
 def sign_identity(
@@ -58,6 +61,8 @@ def sign_identity(
         claims["acr"] = identity.auth_level
     if identity.auth_time is not None:
         claims["auth_time"] = identity.auth_time
+    if identity.actor is not None:
+        claims["act"] = identity.actor
     return jwt.encode(claims, secret, algorithm=_ALGORITHM)
 
 
@@ -84,6 +89,7 @@ def verify_identity(
     if clock() >= claims["exp"] + _LEEWAY_SECONDS:
         raise IdentityError("Expired identity")
     auth_time = claims.get("auth_time")
+    actor = claims.get("act")
     return VerifiedIdentity(
         subject=claims["sub"],
         tenant_id=claims["tenant_id"],
@@ -91,6 +97,7 @@ def verify_identity(
         auth_level=claims.get("acr"),
         # Anything but a whole number of seconds is ignored, so it cannot pass as recent.
         auth_time=auth_time if type(auth_time) is int else None,
+        actor=actor if isinstance(actor, str) and actor else None,
     )
 
 

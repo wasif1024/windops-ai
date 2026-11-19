@@ -626,3 +626,259 @@ class ExchangeTokenResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___ExchangeTokenResponse: _TypeAlias = ExchangeTokenResponse  # noqa: Y015
+
+@_typing.final
+class Delegation(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DELEGATION_ID_FIELD_NUMBER: _builtins.int
+    PRINCIPAL_FIELD_NUMBER: _builtins.int
+    CASE_ID_FIELD_NUMBER: _builtins.int
+    CREATED_AT_FIELD_NUMBER: _builtins.int
+    EXPIRES_AT_FIELD_NUMBER: _builtins.int
+    ENDED_AT_FIELD_NUMBER: _builtins.int
+    END_REASON_FIELD_NUMBER: _builtins.int
+    STARTED_BY_FIELD_NUMBER: _builtins.int
+    delegation_id: _builtins.str
+    """"dlg_" and 20 lowercase letters and digits."""
+    principal: _builtins.str
+    """"user:<Keycloak ID>", or "service:fault-investigator"."""
+    case_id: _builtins.str
+    end_reason: _builtins.str
+    started_by: _builtins.str
+    """The service that started it."""
+    @_builtins.property
+    def created_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def expires_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def ended_at(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        delegation_id: _builtins.str = ...,
+        principal: _builtins.str = ...,
+        case_id: _builtins.str = ...,
+        created_at: _timestamp_pb2.Timestamp | None = ...,
+        expires_at: _timestamp_pb2.Timestamp | None = ...,
+        ended_at: _timestamp_pb2.Timestamp | None = ...,
+        end_reason: _builtins.str = ...,
+        started_by: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "ended_at", b"ended_at", "expires_at", b"expires_at"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "created_at", b"created_at", "delegation_id", b"delegation_id", "end_reason", b"end_reason", "ended_at", b"ended_at", "expires_at", b"expires_at", "principal", b"principal", "started_by", b"started_by"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___Delegation: _TypeAlias = Delegation  # noqa: Y015
+
+@_typing.final
+class StartDelegationRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CASE_ID_FIELD_NUMBER: _builtins.int
+    SUBJECT_TOKEN_FIELD_NUMBER: _builtins.int
+    TTL_SECONDS_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    case_id: _builtins.str
+    subject_token: _builtins.str
+    """For a user-started investigation: the user's own current Keycloak access token, which proves
+    they are signed in now. It is introspected, then dropped: never stored or logged. Empty for
+    the tenant's fault-investigator, which only the Investigation Service, acting as itself, may
+    ask for.
+    """
+    ttl_seconds: _builtins.int
+    """At most 4 hours, and 1 hour if not given."""
+    idempotency_key: _builtins.str
+    """The same key with the same request returns the same delegation (GRP-007)."""
+    def __init__(
+        self,
+        *,
+        case_id: _builtins.str = ...,
+        subject_token: _builtins.str = ...,
+        ttl_seconds: _builtins.int = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "idempotency_key", b"idempotency_key", "subject_token", b"subject_token", "ttl_seconds", b"ttl_seconds"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___StartDelegationRequest: _TypeAlias = StartDelegationRequest  # noqa: Y015
+
+@_typing.final
+class StartDelegationResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DELEGATION_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def delegation(self) -> Global___Delegation: ...
+    def __init__(
+        self,
+        *,
+        delegation: Global___Delegation | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["delegation", b"delegation"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["delegation", b"delegation"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___StartDelegationResponse: _TypeAlias = StartDelegationResponse  # noqa: Y015
+
+@_typing.final
+class IssueAgentTokenRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DELEGATION_ID_FIELD_NUMBER: _builtins.int
+    AGENT_FIELD_NUMBER: _builtins.int
+    AUDIENCE_FIELD_NUMBER: _builtins.int
+    SCOPES_FIELD_NUMBER: _builtins.int
+    delegation_id: _builtins.str
+    agent: _builtins.str
+    """The agent acting, such as "reliability-engineer"."""
+    audience: _builtins.str
+    """One MCP server, such as "windops-mcp-documentation"."""
+    @_builtins.property
+    def scopes(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Its tools, each as its scope. At least one."""
+
+    def __init__(
+        self,
+        *,
+        delegation_id: _builtins.str = ...,
+        agent: _builtins.str = ...,
+        audience: _builtins.str = ...,
+        scopes: _abc.Iterable[_builtins.str] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["agent", b"agent", "audience", b"audience", "delegation_id", b"delegation_id", "scopes", b"scopes"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___IssueAgentTokenRequest: _TypeAlias = IssueAgentTokenRequest  # noqa: Y015
+
+@_typing.final
+class IssueAgentTokenResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    ACCESS_TOKEN_FIELD_NUMBER: _builtins.int
+    EXPIRES_IN_SECONDS_FIELD_NUMBER: _builtins.int
+    AUDIENCE_FIELD_NUMBER: _builtins.int
+    SCOPES_FIELD_NUMBER: _builtins.int
+    ACTOR_FIELD_NUMBER: _builtins.int
+    PRINCIPAL_FIELD_NUMBER: _builtins.int
+    access_token: _builtins.str
+    """Never put in a prompt or a tool result (SEC-008)."""
+    expires_in_seconds: _builtins.int
+    audience: _builtins.str
+    actor: _builtins.str
+    """"agent:<name>", as the token's "act" names it."""
+    principal: _builtins.str
+    @_builtins.property
+    def scopes(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
+    def __init__(
+        self,
+        *,
+        access_token: _builtins.str = ...,
+        expires_in_seconds: _builtins.int = ...,
+        audience: _builtins.str = ...,
+        scopes: _abc.Iterable[_builtins.str] | None = ...,
+        actor: _builtins.str = ...,
+        principal: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["access_token", b"access_token", "actor", b"actor", "audience", b"audience", "expires_in_seconds", b"expires_in_seconds", "principal", b"principal", "scopes", b"scopes"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___IssueAgentTokenResponse: _TypeAlias = IssueAgentTokenResponse  # noqa: Y015
+
+@_typing.final
+class EndDelegationRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DELEGATION_ID_FIELD_NUMBER: _builtins.int
+    REASON_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    delegation_id: _builtins.str
+    reason: _builtins.str
+    idempotency_key: _builtins.str
+    """Ending twice changes nothing, so a retry is always safe (GRP-007)."""
+    def __init__(
+        self,
+        *,
+        delegation_id: _builtins.str = ...,
+        reason: _builtins.str = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["delegation_id", b"delegation_id", "idempotency_key", b"idempotency_key", "reason", b"reason"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___EndDelegationRequest: _TypeAlias = EndDelegationRequest  # noqa: Y015
+
+@_typing.final
+class EndDelegationResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DELEGATION_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def delegation(self) -> Global___Delegation: ...
+    def __init__(
+        self,
+        *,
+        delegation: Global___Delegation | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["delegation", b"delegation"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["delegation", b"delegation"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___EndDelegationResponse: _TypeAlias = EndDelegationResponse  # noqa: Y015
+
+@_typing.final
+class GetAgentTokenKeysRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetAgentTokenKeysRequest: _TypeAlias = GetAgentTokenKeysRequest  # noqa: Y015
+
+@_typing.final
+class GetAgentTokenKeysResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    ISSUER_FIELD_NUMBER: _builtins.int
+    JWKS_JSON_FIELD_NUMBER: _builtins.int
+    issuer: _builtins.str
+    """The issuer agent tokens name."""
+    jwks_json: _builtins.str
+    """{"keys": [...]}, public keys only."""
+    def __init__(
+        self,
+        *,
+        issuer: _builtins.str = ...,
+        jwks_json: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["issuer", b"issuer", "jwks_json", b"jwks_json"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetAgentTokenKeysResponse: _TypeAlias = GetAgentTokenKeysResponse  # noqa: Y015

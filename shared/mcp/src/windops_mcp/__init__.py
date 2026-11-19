@@ -19,6 +19,7 @@ from windops_mcp.limits import (
 from windops_mcp.server import MAXIMUM_REQUEST_BYTES, PATH, ToolServer
 from windops_mcp.tokens import (
     MAXIMUM_LIFETIME_SECONDS,
+    AgentIssuer,
     TokenRefusedError,
     TokenSettings,
     TokenVerifier,
@@ -41,6 +42,7 @@ __all__ = [
     "MAXIMUM_REQUEST_BYTES",
     "MAXIMUM_TEXT",
     "PATH",
+    "AgentIssuer",
     "AuditSink",
     "AuditUnavailableError",
     "EventsAudit",

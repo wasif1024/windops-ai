@@ -1,9 +1,12 @@
 """A tool call's token: for this server alone, short-lived and scoped (MCP-001, MCP-004)."""
 
+import json
 import time
 from typing import Any
 
+import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import ec
 from mcp_support import (
     AUDIENCE,
     ISSUER,
@@ -16,7 +19,7 @@ from mcp_support import (
     run_async,
     token,
 )
-from windops_mcp import TokenRefusedError, TokenSettings, TokenVerifier
+from windops_mcp import AgentIssuer, TokenRefusedError, TokenSettings, TokenVerifier
 from windops_mcp.tokens import bearer
 
 
@@ -48,13 +51,70 @@ async def test_an_exchanged_token_names_its_user_tenant_and_tools() -> None:
     assert caller.agent == ""
 
 
+AGENT_ISSUER = "windops-identity-agents"
+AGENT_KEY = ec.generate_private_key(ec.SECP256R1())
+AGENT_KEY_ID = "agent-key-1"
+
+
+def agent_token(key: Any = AGENT_KEY, **changes: Any) -> str:
+    issued = int(time.time())
+    claims: dict[str, Any] = {
+        "iss": AGENT_ISSUER, "sub": USER, "aud": AUDIENCE, "tenant_id": TENANT,
+        "scope": SEARCH, "act": {"sub": "agent:reliability-engineer"},
+        "iat": issued, "exp": issued + 120, "jti": "agent-token-1",
+    }  # fmt: skip
+    claims.update(changes)
+    claims = {k: v for k, v in claims.items() if v is not None}
+    return jwt.encode(claims, key, algorithm="ES256", headers={"kid": AGENT_KEY_ID})
+
+
+def agent_verifier() -> TokenVerifier:
+    public = json.loads(jwt.algorithms.ECAlgorithm.to_jwk(AGENT_KEY.public_key()))
+
+    async def keys() -> list[dict[str, Any]]:
+        return [{**public, "kid": AGENT_KEY_ID, "use": "sig", "alg": "ES256"}]
+
+    return verifier(Keycloak(), agents=AgentIssuer(AGENT_ISSUER, keys))
+
+
 @run_async
-async def test_an_agents_own_identity_is_kept_when_the_token_names_it() -> None:
-    """SEC-010: RFC 8693's actor claim, when M8.5 gives agents their own identity."""
-    checker = verifier(Keycloak())
-    caller = await checker.verify(token(act={"sub": "fault-investigator"}))
+async def test_an_agent_token_names_the_agent_and_the_principal_behind_it() -> None:
+    """SEC-010, ADR 0019: signed by the Identity Service, naming the agent in RFC 8693's act."""
+    checker = agent_verifier()
+    caller = await checker.verify(agent_token())
+    service = await checker.verify(agent_token(sub="service:fault-investigator"))
     await checker.close()
-    assert (caller.agent, caller.user_id) == ("fault-investigator", USER)
+    assert (caller.agent, caller.user_id, caller.is_service) == (
+        "agent:reliability-engineer", USER, False,
+    )  # fmt: skip
+    assert service.is_service and service.agent == "agent:reliability-engineer"
+
+
+@run_async
+async def test_only_the_identity_service_names_agents_and_its_tokens_must_name_one() -> None:
+    checker = agent_verifier()
+    refused = []
+    for raw in (
+        # Keycloak's own token naming an agent: only the Identity Service names agents.
+        token(act={"sub": "agent:supervisor"}),
+        # The agent issuer's token with no agent, or not an agent, in act.
+        agent_token(act=None),
+        agent_token(act={"sub": "fault-investigator"}),
+        # Signed by another key, or with Keycloak's algorithm, under the agent issuer's name.
+        agent_token(key=ec.generate_private_key(ec.SECP256R1())),
+        token(iss=AGENT_ISSUER),
+        # An issuer nobody trusts.
+        agent_token(iss="someone-else"),
+    ):
+        try:
+            await checker.verify(raw)
+            refused.append("accepted")
+        except TokenRefusedError as error:
+            refused.append(error.reason)
+    await checker.close()
+    assert refused == ["invalid"] * 6
+    # Without the agent issuer configured, an agent token is not accepted at all.
+    assert await reason_for(agent_token()) == "invalid"
 
 
 now = int(time.time())
@@ -140,3 +200,23 @@ def test_a_request_without_a_bearer_token_is_refused(header: str | None) -> None
 def test_a_refusal_says_only_its_own_safe_message() -> None:
     assert TokenRefusedError("something internal").reason == "invalid"
     assert "internal" not in TokenRefusedError("something internal").message
+
+
+def test_an_agent_is_forwarded_as_the_actor_and_fault_investigator_as_a_service() -> None:
+    """SEC-009: services see the agent, and hold it to reading and drafting."""
+    from windops_auth import current_identity, current_identity_token, verify_identity
+    from windops_mcp import ToolCaller, acting_for_caller, caller_scope
+
+    secret = "s" * 32
+    expires = int(time.time()) + 100
+    for subject, person in ((USER, True), ("service:fault-investigator", False)):
+        caller = ToolCaller(
+            user_id=subject, tenant_id=TENANT, scopes=frozenset({SEARCH}), expires_at=expires,
+            agent="agent:supervisor", auth_level="mfa" if person else None,
+        )  # fmt: skip
+        with caller_scope(caller), acting_for_caller(secret):
+            forwarded = verify_identity(current_identity_token(), secret)
+            assert forwarded == current_identity()
+        assert forwarded.actor == "agent:supervisor"
+        assert forwarded.subject == subject
+        assert (forwarded.user_id == subject) is person

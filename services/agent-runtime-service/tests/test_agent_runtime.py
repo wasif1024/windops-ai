@@ -9,7 +9,7 @@ import inspect
 import json
 import shutil
 import tempfile
-from collections.abc import Awaitable, Callable, Iterator, Mapping
+from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -794,3 +794,85 @@ async def test_a_worker_that_lost_its_lease_writes_no_checkpoint(
     with pytest.raises(LeaseLostError):
         await RunCheckpointer(queue, late).aput(config, empty_checkpoint(), {}, {})
     assert not await rows_of(engine, RUN_CHECKPOINTS, run.run_id)
+
+
+# --- Agent identities (M8.5)
+
+DELEGATION = "dlg_" + "c" * 20
+
+
+class FakeIdentity:
+    """Stands in for the Identity Service, which has its own tests and cluster check."""
+
+    def __init__(self) -> None:
+        self.issued: list[tuple[str, str, str, str, tuple[str, ...]]] = []
+        self.ended: list[tuple[str, str, str]] = []
+
+    async def agent_token(
+        self, tenant: str, delegation: str, agent: str, audience: str, scopes: Sequence[str]
+    ) -> str:
+        self.issued.append((tenant, delegation, agent, audience, tuple(scopes)))
+        return "agent-token"
+
+    async def end(self, tenant: str, delegation: str, reason: str) -> None:
+        self.ended.append((tenant, delegation, reason))
+
+
+@dataclasses.dataclass(frozen=True)
+class AsksForAToken(Rehearsal):
+    async def run(self, context: Any, parameters: Mapping[str, Any]) -> None:
+        assert context.tokens is not None
+        token = await context.tokens.for_tool(
+            "reliability-engineer", "windops-mcp-documentation",
+            ["mcp.documentation.search_documents"],
+        )  # fmt: skip
+        assert token == "agent-token"
+
+
+@scenario
+async def test_a_runs_agents_get_tokens_under_its_delegation_which_ends_with_it(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    request = start_request()
+    request.delegation_id = DELEGATION
+    with caller():
+        run = (await service(engine, clock).StartRun(request, None)).run
+    assert run.delegation_id == DELEGATION
+    claim = await queue.claim("replica-a/0")
+    assert claim is not None and claim.delegation_id == DELEGATION
+    identity = FakeIdentity()
+    worker = Worker(queue, {"rehearsal": AsksForAToken()}, identity=identity)
+    assert await worker.execute(claim, asyncio.Event()) == "completed"
+    assert identity.issued == [(
+        TENANT, DELEGATION, "reliability-engineer", "windops-mcp-documentation",
+        ("mcp.documentation.search_documents",),
+    )]  # fmt: skip
+    assert identity.ended == [(TENANT, DELEGATION, "The run completed")]
+
+
+@scenario
+async def test_a_run_without_a_delegation_gets_no_tokens(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    await start(engine, clock)
+    claim = await queue.claim("replica-a/0")
+    assert claim is not None
+    identity = FakeIdentity()
+    worker = Worker(queue, {"rehearsal": AsksForAToken()}, identity=identity)
+    # NoDelegationError fails the attempt; nothing was asked of the Identity Service.
+    assert await worker.execute(claim, asyncio.Event()) == "retried"
+    assert identity.issued == [] and identity.ended == []
+
+
+def test_a_bad_delegation_id_is_refused() -> None:
+    async def body() -> None:
+        engine = create_async_engine("sqlite+aiosqlite://")
+        request = start_request()
+        request.delegation_id = "delegation-1"
+        with caller(), pytest.raises(InvalidRequestError, match="delegation_id"):
+            await AgentRuntimeService(engine, REGISTRY, peer=lambda: INVESTIGATION).StartRun(
+                request, None
+            )
+        await engine.dispose()
+
+    asyncio.run(body())

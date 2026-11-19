@@ -31,6 +31,7 @@ from windops_claude import (
 )
 
 from windops_agent_runtime.checkpoints import RunCheckpointer
+from windops_agent_runtime.identity import AgentTokens, Identity
 from windops_agent_runtime.investigation import canonical_pins
 from windops_agent_runtime.queue import Claim, LeaseLostError, Queue
 from windops_agent_runtime.store import BUDGET_EXHAUSTED, CANCELLED, COMPLETED, FAILED, STALE
@@ -84,9 +85,13 @@ class _Steps:
     """The workflow's context: counts steps, skips those already done, and records each one.
     Its Claude client meters every call against the run's budget."""
 
-    def __init__(self, queue: Queue, claim: Claim, claude: Claude | None) -> None:
+    def __init__(
+        self, queue: Queue, claim: Claim, claude: Claude | None, tokens: AgentTokens | None = None
+    ) -> None:
         self._queue, self._claim, self._position = queue, claim, 0
         self.claude = claude
+        # Its agents' tool tokens, under the run's delegation (ADR 0019).
+        self.tokens = tokens
         self.checkpointer: BaseCheckpointSaver[str] | None = RunCheckpointer(queue, claim)
         self.run_id, self.case_id = claim.run_id, claim.case_id
         self.snapshot_id = claim.snapshot_id
@@ -124,11 +129,13 @@ class Worker:
         policy: Policy | None = None,
         api_key: Callable[[], str] | None = None,
         make_claude: Callable[[Claim, Meter], Claude] | None = None,
+        identity: Identity | None = None,
     ) -> None:
         self._queue, self._workflows = queue, workflows
         self._policy = policy
         self._api_key = api_key
         self._make_claude = make_claude
+        self._identity = identity
         self._settings = settings or WorkerSettings()
         self._name = name or socket.gethostname()
 
@@ -183,7 +190,12 @@ class Worker:
                 claim, STALE, "Its Claude policy version is no longer in force: start it again"
             )
         cancelled, lost, paused = asyncio.Event(), asyncio.Event(), asyncio.Event()
-        context = _Steps(self._queue, claim, self._claude_for(claim))
+        tokens = (
+            AgentTokens(self._identity, claim.tenant_id, claim.delegation_id)
+            if self._identity is not None
+            else None
+        )
+        context = _Steps(self._queue, claim, self._claude_for(claim), tokens)
         work = asyncio.create_task(workflow.run(context, claim.parameters))
         beat = asyncio.create_task(self._heartbeat(claim, work, cancelled, lost, paused))
         shutdown = asyncio.create_task(stop.wait())
@@ -260,9 +272,23 @@ class Worker:
         if await self._queue.finish(claim, status, reason):
             _ended.add(1, {"status": status})
             logger.info("Ended a run", extra={"run_id": claim.run_id, "status": status})
+            await self._end_delegation(claim, status)
             return status
         _note_lost(claim)
         return "lost"
+
+    async def _end_delegation(self, claim: Claim, status: str) -> None:
+        """No agent acts for anyone once the run is over. If the Identity Service cannot be
+        reached, the delegation still expires on its own."""
+        if self._identity is None or not claim.delegation_id:
+            return
+        try:
+            await self._identity.end(claim.tenant_id, claim.delegation_id, f"The run {status}")
+        except Exception as error:
+            logger.warning(
+                "Could not end a run's delegation",
+                extra={"run_id": claim.run_id, "error_type": type(error).__name__},
+            )
 
     async def _heartbeat(
         self,

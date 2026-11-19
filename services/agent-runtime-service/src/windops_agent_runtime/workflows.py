@@ -24,6 +24,8 @@ from windops_grpc import InvalidRequestError
 if TYPE_CHECKING:
     from langgraph.checkpoint.base import BaseCheckpointSaver
 
+    from windops_agent_runtime.identity import AgentTokens
+
 
 class Context(Protocol):
     # Every call through it follows the Claude policy and is metered against the run's budget.
@@ -34,6 +36,8 @@ class Context(Protocol):
     run_id: str
     case_id: str
     snapshot_id: str
+    # Its agents' tool tokens, under the run's delegation (ADR 0019). Never put in a prompt.
+    tokens: "AgentTokens | None"
 
     async def step(self, name: str, work: Callable[[], Awaitable[None]]) -> None:
         """Run the step, and record it, unless an earlier attempt completed it."""

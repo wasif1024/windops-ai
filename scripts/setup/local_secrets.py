@@ -84,6 +84,43 @@ LOCAL_SECRETS = (
 )
 
 
+# The key agent tokens are signed with (ADR 0019). Only the Identity Service's pod mounts it; the
+# MCP servers fetch its public half from the Identity Service, over mutual TLS.
+AGENT_TOKEN_KEY = LOCAL_DIRECTORY / "secrets.local.agent-token-key.pem"
+AGENT_TOKEN_SECRET = "windops-agent-token-key"  # noqa: S105  # A Secret's name, not a key.
+
+
+def ensure_agent_token_key(path: Path = AGENT_TOKEN_KEY) -> bool:
+    """Create an ECDSA P-256 private key, readable only by its owner. Return whether it was."""
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    if path.exists():
+        return False
+    pem = ec.generate_private_key(ec.SECP256R1()).private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    )
+    path.touch(mode=0o600)
+    path.write_bytes(pem)
+    return True
+
+
+def apply_agent_token_key() -> None:
+    created = ensure_agent_token_key()
+    print(f"{'Created' if created else 'Using'} {AGENT_TOKEN_KEY.name}")
+    apply_manifests(
+        [
+            secret_manifest(
+                AGENT_TOKEN_SECRET, "windops-system",
+                {"private-key.pem": AGENT_TOKEN_KEY.read_text()},
+            )
+        ]
+    )  # fmt: skip
+    print("Applied the agent token key to windops-system")
+
+
 def ensure_secrets_file(path: Path, key: str) -> bool:
     """Create the file if needed, readable only by its owner. Return whether it was created."""
     if path.exists():
@@ -285,6 +322,7 @@ def main() -> int:
         apply_redis_secrets()
         apply_nats_secrets()
         apply_provider_secrets()
+        apply_agent_token_key()
     except subprocess.CalledProcessError as error:
         # Never print the rendered manifest, because it contains the key.
         print(f"Could not apply a secret: {error.stderr}", file=sys.stderr)

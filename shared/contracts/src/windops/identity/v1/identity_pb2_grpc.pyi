@@ -60,6 +60,21 @@ class IdentityServiceStub:
     windops-agent-runtime, so an agent can act for the user without their login (SEC-008).
     Keycloak checks the token is the caller's own, before the exchange.
     """
+    StartDelegation: _grpc.UnaryUnaryMultiCallable[_identity_pb2.StartDelegationRequest, _identity_pb2.StartDelegationResponse]
+    """Agent identities (SRS 9.2, SEC-008 to SEC-010, ADR 0019). A delegation lets a run's agents act
+    for one principal, in one tenant, for a bounded time:
+    - for the user who started an investigation, proven by their own current Keycloak token;
+    - or for the tenant's fault-investigator principal, when a detection started it.
+    Only Web BFF and the Investigation Service may start one, and only the Agent Runtime may
+    mint its tokens. Each token is for one agent, one MCP server and named tools, and lasts 120
+    seconds. It names the principal as its subject and the agent in "act" (RFC 8693), so every
+    tool call is audited as the agent, on the principal's behalf.
+    """
+    IssueAgentToken: _grpc.UnaryUnaryMultiCallable[_identity_pb2.IssueAgentTokenRequest, _identity_pb2.IssueAgentTokenResponse]
+    EndDelegation: _grpc.UnaryUnaryMultiCallable[_identity_pb2.EndDelegationRequest, _identity_pb2.EndDelegationResponse]
+    """Ends it, so no further token is minted. Ending it twice changes nothing."""
+    GetAgentTokenKeys: _grpc.UnaryUnaryMultiCallable[_identity_pb2.GetAgentTokenKeysRequest, _identity_pb2.GetAgentTokenKeysResponse]
+    """The public keys agent tokens are signed with, as a JWKS, for the MCP servers."""
 
 @_typing.type_check_only
 class IdentityServiceAsyncStub(IdentityServiceStub):
@@ -93,6 +108,21 @@ class IdentityServiceAsyncStub(IdentityServiceStub):
     windops-agent-runtime, so an agent can act for the user without their login (SEC-008).
     Keycloak checks the token is the caller's own, before the exchange.
     """
+    StartDelegation: _aio.UnaryUnaryMultiCallable[_identity_pb2.StartDelegationRequest, _identity_pb2.StartDelegationResponse]  # type: ignore[assignment]
+    """Agent identities (SRS 9.2, SEC-008 to SEC-010, ADR 0019). A delegation lets a run's agents act
+    for one principal, in one tenant, for a bounded time:
+    - for the user who started an investigation, proven by their own current Keycloak token;
+    - or for the tenant's fault-investigator principal, when a detection started it.
+    Only Web BFF and the Investigation Service may start one, and only the Agent Runtime may
+    mint its tokens. Each token is for one agent, one MCP server and named tools, and lasts 120
+    seconds. It names the principal as its subject and the agent in "act" (RFC 8693), so every
+    tool call is audited as the agent, on the principal's behalf.
+    """
+    IssueAgentToken: _aio.UnaryUnaryMultiCallable[_identity_pb2.IssueAgentTokenRequest, _identity_pb2.IssueAgentTokenResponse]  # type: ignore[assignment]
+    EndDelegation: _aio.UnaryUnaryMultiCallable[_identity_pb2.EndDelegationRequest, _identity_pb2.EndDelegationResponse]  # type: ignore[assignment]
+    """Ends it, so no further token is minted. Ending it twice changes nothing."""
+    GetAgentTokenKeys: _aio.UnaryUnaryMultiCallable[_identity_pb2.GetAgentTokenKeysRequest, _identity_pb2.GetAgentTokenKeysResponse]  # type: ignore[assignment]
+    """The public keys agent tokens are signed with, as a JWKS, for the MCP servers."""
 
 class IdentityServiceServicer(metaclass=_abc_1.ABCMeta):
     """Manages a tenant's users in Keycloak, which holds their credentials and sessions (SEC-006).
@@ -189,5 +219,44 @@ class IdentityServiceServicer(metaclass=_abc_1.ABCMeta):
         windops-agent-runtime, so an agent can act for the user without their login (SEC-008).
         Keycloak checks the token is the caller's own, before the exchange.
         """
+
+    @_abc_1.abstractmethod
+    def StartDelegation(
+        self,
+        request: _identity_pb2.StartDelegationRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_identity_pb2.StartDelegationResponse, _abc.Awaitable[_identity_pb2.StartDelegationResponse]]:
+        """Agent identities (SRS 9.2, SEC-008 to SEC-010, ADR 0019). A delegation lets a run's agents act
+        for one principal, in one tenant, for a bounded time:
+        - for the user who started an investigation, proven by their own current Keycloak token;
+        - or for the tenant's fault-investigator principal, when a detection started it.
+        Only Web BFF and the Investigation Service may start one, and only the Agent Runtime may
+        mint its tokens. Each token is for one agent, one MCP server and named tools, and lasts 120
+        seconds. It names the principal as its subject and the agent in "act" (RFC 8693), so every
+        tool call is audited as the agent, on the principal's behalf.
+        """
+
+    @_abc_1.abstractmethod
+    def IssueAgentToken(
+        self,
+        request: _identity_pb2.IssueAgentTokenRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_identity_pb2.IssueAgentTokenResponse, _abc.Awaitable[_identity_pb2.IssueAgentTokenResponse]]: ...
+
+    @_abc_1.abstractmethod
+    def EndDelegation(
+        self,
+        request: _identity_pb2.EndDelegationRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_identity_pb2.EndDelegationResponse, _abc.Awaitable[_identity_pb2.EndDelegationResponse]]:
+        """Ends it, so no further token is minted. Ending it twice changes nothing."""
+
+    @_abc_1.abstractmethod
+    def GetAgentTokenKeys(
+        self,
+        request: _identity_pb2.GetAgentTokenKeysRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_identity_pb2.GetAgentTokenKeysResponse, _abc.Awaitable[_identity_pb2.GetAgentTokenKeysResponse]]:
+        """The public keys agent tokens are signed with, as a JWKS, for the MCP servers."""
 
 def add_IdentityServiceServicer_to_server(servicer: IdentityServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

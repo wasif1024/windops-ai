@@ -52,7 +52,8 @@ Each theme lists what each source calls it, and how WindOps AI answers, with the
 ISO/IEC 42001 clauses 4 and 5 and A.2, A.3; NIST GOVERN 1, 2 and 4; NCA governance; SDAIA accountability.
 - **In place:** deny-by-default roles and scoped grants (M3.5, `make authorization-check`), and an append-only,
   hash-chained audit trail (M2.7, `make audit-check`).
-- **Planned:** audit records that name both the agent and the person or service behind it (M8.5, SEC-010).
+- **In place:** audit records that name both the agent and the person or service behind it, and agents that may
+  only read and draft, whoever they act for (M8.5, SEC-009, SEC-010, `make agent-identity-check`).
 - **Planned:** an AI policy, the management system's scope, and named owners for each AI capability (M14.6).
 
 ### Risk and impact assessment

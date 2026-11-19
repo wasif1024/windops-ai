@@ -74,6 +74,7 @@ class Claim:
     pins: dict[str, Any] | None = None
     case_id: str = ""
     snapshot_id: str = ""
+    delegation_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -170,7 +171,7 @@ class Queue:
                     policy_hash=row.policy_hash, token_budget=row.token_budget,
                     cost_budget_usd=Decimal(str(row.cost_budget_usd)),
                     pins=json.loads(row.pins or "{}"), case_id=row.case_id,
-                    snapshot_id=row.snapshot_id,
+                    snapshot_id=row.snapshot_id, delegation_id=row.delegation_id,
                 )  # fmt: skip
         return None
 

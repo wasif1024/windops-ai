@@ -511,3 +511,62 @@ def test_a_user_with_no_role_lists_nothing_and_another_tenant_is_not_reachable()
         assert not elsewhere.roles
 
     with_service(scenario)
+
+
+def test_an_agent_acting_for_a_user_may_only_read_and_draft_and_is_audited_as_the_agent() -> None:
+    """SEC-009, SEC-010: whatever the user may do, their agent only reads and drafts."""
+
+    async def scenario(stub: Any, engine: AsyncEngine) -> None:
+        for role in (policy.MAINTENANCE_PLANNER, policy.MAINTENANCE_MANAGER):
+            await stub.GrantRole(
+                authorization_pb2.GrantRoleRequest(grantee_id=OPERATOR, role=role),
+                metadata=as_user(ADMIN), timeout=5,
+            )  # fmt: skip
+        person = as_user(OPERATOR)
+        assert await check(stub, person, "maintenance.approve")
+        assert await check(stub, person, "maintenance.submit")
+        acting = VerifiedIdentity(
+            OPERATOR,
+            TENANT,
+            OPERATOR,
+            LEVEL_MFA,
+            int(time.time()),
+            actor="agent:maintenance-planner",
+        )
+        agent = (("x-windops-identity", sign_identity(acting, SECRET)),)
+        assert await check(stub, agent, "maintenance.draft")
+        assert await check(stub, agent, "inventory.read")
+        for refused in ("maintenance.approve", "maintenance.submit", "inventory.reserve",
+                        "roles.manage"):  # fmt: skip
+            assert not await check(stub, agent, refused), refused
+        listed = await stub.ListMyPermissions(
+            authorization_pb2.ListMyPermissionsRequest(), metadata=agent, timeout=5
+        )
+        assert {p.permission for p in listed.permissions} <= policy.AGENT_PERMISSIONS
+        async with engine.connect() as connection:
+            rows = (
+                await connection.execute(select(OUTBOX_TABLE.c.subject, OUTBOX_TABLE.c.envelope))
+            ).all()
+        denials: list[Any] = [parse_event(r.subject, r.envelope).payload for r in rows]
+        agent_denials = [d for d in denials if d.actor_id == "agent:maintenance-planner"]
+        assert agent_denials and all(
+            d.actor_type == "agent" and d.on_behalf_of == OPERATOR for d in agent_denials
+        )
+
+    with_service(scenario)
+
+
+def test_the_fault_investigator_reads_evidence_and_drafts_and_nothing_more() -> None:
+    """SRS 9.2: a fault-triggered investigation's principal, with no person behind it."""
+
+    async def scenario(stub: Any, engine: AsyncEngine) -> None:
+        principal = VerifiedIdentity("service:fault-investigator", TENANT, actor="agent:supervisor")
+        own = (("x-windops-identity", sign_identity(principal, SECRET)),)
+        assert await check(stub, own, "telemetry.read")
+        assert await check(stub, own, "knowledge.read")
+        assert await check(stub, own, "maintenance.draft")
+        for refused in ("maintenance.submit", "maintenance.approve", "finding.review",
+                        "inventory.reserve", "asset.manage"):  # fmt: skip
+            assert not await check(stub, own, refused), refused
+
+    with_service(scenario)

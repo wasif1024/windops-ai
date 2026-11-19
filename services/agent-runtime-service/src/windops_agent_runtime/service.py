@@ -50,6 +50,7 @@ INVESTIGATION = "windops-investigation"
 _CASE = re.compile(r"case_[a-z0-9]{20}")
 _SNAPSHOT = re.compile(r"evs_[a-z0-9]{20}")
 _RUN = re.compile(r"run_[a-z0-9]{20}")
+_DELEGATION = re.compile(r"dlg_[a-z0-9]{20}")
 _ACTOR = re.compile(r"(user|service):[A-Za-z0-9._@-]{1,120}")
 _KEY = re.compile(r"[A-Za-z0-9._:-]{8,128}")
 MAXIMUM_REASON = 500
@@ -86,6 +87,7 @@ def run_message(row: Any, steps: list[Any], used: Any = None, checkpoints: int =
     return pb.Run(
         policy_version=row.policy_version, policy_hash=row.policy_hash,
         pause_requested=row.pause_requested_at is not None, pins_json=row.pins,
+        delegation_id=row.delegation_id,
         checkpoints=checkpoints,
         usage=usage_message(row, used) if used is not None else None,
         run_id=row.run_id, case_id=row.case_id, snapshot_id=row.snapshot_id,
@@ -172,6 +174,8 @@ class AgentRuntimeService(agent_runtime_pb2_grpc.AgentRuntimeServiceServicer):
         workflow = self._workflows.get(request.workflow)
         if workflow is None:
             raise InvalidRequestError(f"No workflow named {request.workflow!r}")
+        if request.delegation_id and not _DELEGATION.fullmatch(request.delegation_id):
+            raise InvalidRequestError("delegation_id must be a delegation's ID")
         parameters = workflow.check(dict(request.parameters))
         token_budget, cost_budget = self._budget(tenant, request)
         request_hash = hashlib.sha256(request.SerializeToString(deterministic=True)).hexdigest()
@@ -195,6 +199,7 @@ class AgentRuntimeService(agent_runtime_pb2_grpc.AgentRuntimeServiceServicer):
                         policy_hash=self._policy.content_hash, token_budget=token_budget,
                         cost_budget_usd=cost_budget,
                         pins=canonical_pins(workflow.pins(parameters)),
+                        delegation_id=request.delegation_id,
                     )
                 )  # fmt: skip
                 await audit(

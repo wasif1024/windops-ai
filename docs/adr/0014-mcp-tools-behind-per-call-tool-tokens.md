@@ -62,7 +62,7 @@ library applies every control to every call, so no server can leave one out.
 5. **Output:** the result is checked against the output schema, so a stray field fails the call rather than leaking.
 6. **Audit:** the call goes to the Audit Service as `mcp.<server>.<tool>`, with its outcome, never its arguments or
    result.
-   - **An agent's own identity:** when it is in the token (RFC 8693's `act` claim, from M8.5), the agent is the actor,
+   - **An agent's own identity:** when it is in the token (RFC 8693's `act` claim, from M8.5, [ADR 0019](0019-agent-identities-delegations-and-agent-tokens.md)), the agent is the actor,
      on the user's behalf (SEC-010).
    - **If the record cannot be sent:** a result is withheld.
 

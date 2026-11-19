@@ -20,12 +20,23 @@ from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, CircuitBreaker
 
+from windops_identity.agents import SigningKey
 from windops_identity.keycloak import KeycloakAdmin, KeycloakSettings
 from windops_identity.service import AuthorizationClient, IdentityService
 from windops_identity.store import SERVICE_NAME
 
 logger = logging.getLogger("windops.service")
 RECONNECT_SECONDS = 5
+# Only this service's pod mounts the key agent tokens are signed with (ADR 0019).
+AGENT_KEY_FILE = Path("/var/run/windops/secrets/agent-tokens/private-key.pem")
+
+
+def agent_signing_key() -> SigningKey | None:
+    """Without the key, the service runs, and agent tokens are unavailable."""
+    if not AGENT_KEY_FILE.exists():
+        logger.warning("No agent token key is mounted: agents cannot be given tokens")
+        return None
+    return SigningKey.from_file(AGENT_KEY_FILE)
 
 
 async def relay_audit_records(engine: AsyncEngine, stop: asyncio.Event) -> None:
@@ -64,6 +75,7 @@ def keycloak_settings() -> KeycloakSettings:
 def main() -> None:
     engine = create_service_engine(pool_size=5, max_overflow=5, pool_pre_ping=True)
     keycloak = KeycloakAdmin(keycloak_settings())
+    signing_key = agent_signing_key()
     tls = Path(os.environ["WINDOPS_TLS_DIR"])
     address = os.environ["WINDOPS_AUTHORIZATION_ADDRESS"]
     state: dict[str, AuthorizationClient] = {}
@@ -94,7 +106,14 @@ def main() -> None:
 
     def register(server: grpc.aio.Server) -> None:
         identity_pb2_grpc.add_IdentityServiceServicer_to_server(
-            IdentityService(engine, keycloak, LazyAuthorizer()), server
+            IdentityService(
+                engine,
+                keycloak,
+                LazyAuthorizer(),
+                signing_key=signing_key,
+                agent_issuer=os.environ["WINDOPS_AGENT_TOKEN_ISSUER"],
+            ),
+            server,
         )
 
     async def background(stop: asyncio.Event) -> None:

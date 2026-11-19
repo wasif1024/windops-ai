@@ -161,6 +161,10 @@ spec:
               readOnly: true
             - name: tmp
               mountPath: /tmp
+            # The key agent tokens are signed with, and only this pod mounts it (ADR 0019).
+            - name: agent-token-key
+              mountPath: /var/run/windops/secrets/agent-tokens
+              readOnly: true
       volumes:
         - name: tls
           secret:
@@ -169,3 +173,9 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: 16Mi
+        # Optional: without it the service runs, and agents get no tokens.
+        - name: agent-token-key
+          secret:
+            secretName: windops-agent-token-key
+            optional: true
+            defaultMode: 0440

@@ -2268,6 +2268,7 @@ dependencies = [
     { name = "windops-migrations" },
     { name = "windops-observability" },
     { name = "windops-outbox" },
+    { name = "windops-resilience" },
 ]
 
 [package.metadata]
@@ -2282,6 +2283,7 @@ requires-dist = [
     { name = "windops-migrations", editable = "shared/migrations" },
     { name = "windops-observability", editable = "shared/observability" },
     { name = "windops-outbox", editable = "shared/outbox" },
+    { name = "windops-resilience", editable = "shared/resilience" },
 ]
 
 [[package]]
