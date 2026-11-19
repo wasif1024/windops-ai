@@ -136,6 +136,13 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
         tenant_id: str,
         scope: Scope,
     ) -> Decision:
+        if identity.actor:
+            # An agent never does more than read and draft, whoever it acts for (SEC-009).
+            refused = policy.decide_for_agent(
+                identity.actor, permission, tenant_id, identity.tenant_id
+            )
+            if refused is not None:
+                return refused
         if not identity.user_id:
             return policy.decide_for_service(
                 policy.service_of(identity.subject), permission, tenant_id, identity.tenant_id
@@ -199,11 +206,14 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
             decision = await self._decide(connection, identity, request.permission, target, scope)
             actor = identity.user_id or identity.subject
             if not decision.allowed:
+                # An agent is the actor, on its principal's behalf (SEC-010).
                 await audit(
                     connection,
                     tenant_id=identity.tenant_id,
                     action="authorization.denied",
-                    actor_id=actor,
+                    actor_id=identity.actor or actor,
+                    actor_type="agent" if identity.actor else "user",
+                    on_behalf_of=actor if identity.actor else "",
                     resource_type="permission",
                     resource_id=request.permission[:_MAXIMUM_ID],
                     outcome="denied",
@@ -227,13 +237,16 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
         self, request: authorization_pb2.ListMyPermissionsRequest, context: Any
     ) -> authorization_pb2.ListMyPermissionsResponse:
         identity = current_identity()
+        # An agent sees only what it may use: reads and drafts (SEC-009).
+        usable = policy.AGENT_PERMISSIONS if identity.actor else policy.PERMISSIONS
         if not identity.user_id:
             # A service's fixed grants, tenant-wide in its own tenant (ADR 0008).
             service = policy.service_of(identity.subject)
+            granted = policy.SERVICE_GRANTS.get(service or "", frozenset())
             return authorization_pb2.ListMyPermissionsResponse(
                 permissions=[
                     authorization_pb2.ScopedPermission(permission=permission)
-                    for permission in sorted(policy.SERVICE_GRANTS.get(service or "", frozenset()))
+                    for permission in sorted(granted & usable)
                 ]
             )
         async with self._engine.connect() as connection:
@@ -242,7 +255,7 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
         seen: set[tuple[str, str, str]] = set()
         permissions = []
         for grant in grants:
-            for permission in sorted(policy.permissions_of(grant.role, custom)):
+            for permission in sorted(policy.permissions_of(grant.role, custom) & usable):
                 key = (permission, grant.scope.wind_farm_id, grant.scope.turbine_id)
                 if key not in seen:
                     seen.add(key)

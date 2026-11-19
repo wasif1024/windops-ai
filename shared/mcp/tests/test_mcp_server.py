@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -299,8 +300,9 @@ async def test_no_request_reaches_the_server_without_a_good_token() -> None:
             assert response.json()["error"] == reason
             assert response.headers["www-authenticate"].startswith("Bearer ")
         world.keycloak.down = True
-        world.verifier._keys.clear()
-        world.verifier._fetched = None
+        world.verifier._keycloak = type(world.verifier._keycloak)(
+            world.verifier._keycloak_keys, ["RS256"], time.monotonic
+        )
         async with world.http(token()) as http:
             response = await http.post("/mcp", json={})
         assert response.status_code == 503

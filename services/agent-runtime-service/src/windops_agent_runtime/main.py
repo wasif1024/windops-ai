@@ -6,17 +6,24 @@ import logging
 import os
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import grpc
+from opentelemetry import metrics
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 from windops.agent_runtime.v1 import agent_runtime_pb2_grpc
+from windops.identity.v1 import identity_pb2_grpc
+from windops_auth import current_identity_token
 from windops_claude import load
 from windops_events import EventsUnavailableError, open_events
-from windops_grpc import run_service
+from windops_grpc import ServiceClient, create_channel, run_service
 from windops_migrations import create_service_engine
+from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
+from windops_resilience import BreakerConfig, CircuitBreaker
 
+from windops_agent_runtime.identity import IdentityClient
 from windops_agent_runtime.queue import Queue
 from windops_agent_runtime.registry import REGISTRY
 from windops_agent_runtime.service import AgentRuntimeService
@@ -67,6 +74,29 @@ async def relay_events(engine: AsyncEngine, stop: asyncio.Event) -> None:
         await events.close()
 
 
+def identity_client() -> IdentityClient:
+    tls = Path(os.environ["WINDOPS_TLS_DIR"])
+    stubs: list[Any] = []
+
+    def stub() -> Any:
+        # A channel must be made on the running loop, so on the first call.
+        if not stubs:
+            channel = create_channel(os.environ["WINDOPS_IDENTITY_ADDRESS"], tls)
+            stubs.append(identity_pb2_grpc.IdentityServiceStub(channel))
+        return stubs[0]
+
+    breaker = CircuitBreaker(
+        "identity",
+        BreakerConfig(slow_call_seconds=1.0),
+        on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
+    )
+    return IdentityClient(
+        stub,
+        ServiceClient(breaker, identity_token=current_identity_token),
+        os.environ["WINDOPS_IDENTITY_SECRET"],
+    )
+
+
 def main() -> None:
     slots = int(_setting("WINDOPS_RUNTIME_WORKER_SLOTS", 2))
     max_attempts = int(_setting("WINDOPS_RUNTIME_MAX_ATTEMPTS", 3))
@@ -88,6 +118,7 @@ def main() -> None:
         WorkerSettings(slots=slots, poll_seconds=_setting("WINDOPS_RUNTIME_POLL_SECONDS", 1)),
         policy=policy,
         api_key=anthropic_key,
+        identity=identity_client(),
     )
 
     async def database_ready() -> bool:

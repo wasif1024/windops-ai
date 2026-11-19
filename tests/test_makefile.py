@@ -74,6 +74,7 @@ BUILT_TARGETS = {
     "bff-check",
     "gateway-policy-check",
     "token-exchange-check",
+    "agent-identity-check",
     "mcp-check",
     "mcp-servers-check",
     "vendor-check",

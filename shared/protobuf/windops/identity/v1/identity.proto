@@ -31,6 +31,21 @@ service IdentityService {
   // windops-agent-runtime, so an agent can act for the user without their login (SEC-008).
   // Keycloak checks the token is the caller's own, before the exchange.
   rpc ExchangeToken(ExchangeTokenRequest) returns (ExchangeTokenResponse);
+
+  // Agent identities (SRS 9.2, SEC-008 to SEC-010, ADR 0019). A delegation lets a run's agents act
+  // for one principal, in one tenant, for a bounded time:
+  // - for the user who started an investigation, proven by their own current Keycloak token;
+  // - or for the tenant's fault-investigator principal, when a detection started it.
+  // Only Web BFF and the Investigation Service may start one, and only the Agent Runtime may
+  // mint its tokens. Each token is for one agent, one MCP server and named tools, and lasts 120
+  // seconds. It names the principal as its subject and the agent in "act" (RFC 8693), so every
+  // tool call is audited as the agent, on the principal's behalf.
+  rpc StartDelegation(StartDelegationRequest) returns (StartDelegationResponse);
+  rpc IssueAgentToken(IssueAgentTokenRequest) returns (IssueAgentTokenResponse);
+  // Ends it, so no further token is minted. Ending it twice changes nothing.
+  rpc EndDelegation(EndDelegationRequest) returns (EndDelegationResponse);
+  // The public keys agent tokens are signed with, as a JWKS, for the MCP servers.
+  rpc GetAgentTokenKeys(GetAgentTokenKeysRequest) returns (GetAgentTokenKeysResponse);
 }
 
 message User {
@@ -182,4 +197,76 @@ message ExchangeTokenResponse {
   string audience = 3;
   // The tool scopes the token carries.
   repeated string scopes = 4;
+}
+
+message Delegation {
+  // "dlg_" and 20 lowercase letters and digits.
+  string delegation_id = 1;
+  // "user:<Keycloak ID>", or "service:fault-investigator".
+  string principal = 2;
+  string case_id = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  google.protobuf.Timestamp ended_at = 6;
+  string end_reason = 7;
+  // The service that started it.
+  string started_by = 8;
+}
+
+message StartDelegationRequest {
+  string case_id = 1;
+  // For a user-started investigation: the user's own current Keycloak access token, which proves
+  // they are signed in now. It is introspected, then dropped: never stored or logged. Empty for
+  // the tenant's fault-investigator, which only the Investigation Service, acting as itself, may
+  // ask for.
+  string subject_token = 2;
+  // At most 4 hours, and 1 hour if not given.
+  int32 ttl_seconds = 3;
+  // The same key with the same request returns the same delegation (GRP-007).
+  string idempotency_key = 4;
+}
+
+message StartDelegationResponse {
+  Delegation delegation = 1;
+}
+
+message IssueAgentTokenRequest {
+  string delegation_id = 1;
+  // The agent acting, such as "reliability-engineer".
+  string agent = 2;
+  // One MCP server, such as "windops-mcp-documentation".
+  string audience = 3;
+  // Its tools, each as its scope. At least one.
+  repeated string scopes = 4;
+}
+
+message IssueAgentTokenResponse {
+  // Never put in a prompt or a tool result (SEC-008).
+  string access_token = 1;
+  int32 expires_in_seconds = 2;
+  string audience = 3;
+  repeated string scopes = 4;
+  // "agent:<name>", as the token's "act" names it.
+  string actor = 5;
+  string principal = 6;
+}
+
+message EndDelegationRequest {
+  string delegation_id = 1;
+  string reason = 2;
+  // Ending twice changes nothing, so a retry is always safe (GRP-007).
+  string idempotency_key = 3;
+}
+
+message EndDelegationResponse {
+  Delegation delegation = 1;
+}
+
+message GetAgentTokenKeysRequest {}
+
+message GetAgentTokenKeysResponse {
+  // The issuer agent tokens name.
+  string issuer = 1;
+  // {"keys": [...]}, public keys only.
+  string jwks_json = 2;
 }

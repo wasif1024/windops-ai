@@ -49,12 +49,16 @@ def acting_for_caller(secret: str, *, clock: Callable[[], float] = time.time) ->
     remaining = int(caller.expires_at - clock())
     if remaining <= 0:
         raise NoCallerError("The caller's token has expired")
+    # A principal with no person behind it, such as fault-investigator, goes as a service, and
+    # an agent goes as the actor, so services hold it to reading and drafting (SEC-009).
+    person = not caller.is_service
     identity = VerifiedIdentity(
         subject=caller.user_id,
         tenant_id=caller.tenant_id,
-        user_id=caller.user_id,
-        auth_level=caller.auth_level,
-        auth_time=caller.auth_time,
+        user_id=caller.user_id if person else None,
+        auth_level=caller.auth_level if person else None,
+        auth_time=caller.auth_time if person else None,
+        actor=caller.agent or None,
     )
     token = sign_identity(identity, secret, ttl_seconds=min(FORWARDED_SECONDS, remaining))
     with identity_scope(identity, token), tenant_context(caller.tenant_id):

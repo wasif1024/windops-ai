@@ -38,6 +38,23 @@ flowchart LR
 The new token lasts 120 seconds, keeps the user and tenant, and names only the target. The token is never stored or
 logged.
 
+## Agent identities (ADR 0019)
+
+Agents get tokens of their own, minted here, not by Keycloak
+([ADR 0019](../../docs/adr/0019-agent-identities-delegations-and-agent-tokens.md)):
+- **`StartDelegation`:** lets a run's agents act for one principal, for an hour by default and four at most.
+  - **For a user:** Web BFF or Investigation, by certificate, with the user's own current Keycloak token, which is
+    introspected and dropped.
+  - **For the tenant's `fault-investigator`:** Investigation only, acting as itself.
+- **`IssueAgentToken`:** for the Agent Runtime only.
+  - **What it mints:** a 120-second ES256 token for one agent, one MCP server and named tools. Its subject is the
+    principal and its `act` is the agent.
+  - **Each time:** a user is checked again at Keycloak, enabled and still in the tenant.
+- **`EndDelegation`:** mints nothing more for that delegation.
+- **`GetAgentTokenKeys`:** the public key, which the MCP servers fetch over mutual TLS.
+
+The signing key is the Secret `windops-agent-token-key`, made by `make secrets`, and only this pod mounts it.
+
 ## Keycloak access
 
 Keycloak lets nothing less than `manage-realm` read or change an organization's members, and organizations are our
@@ -52,6 +69,7 @@ change. The client's secret is given only to the `windops-system` namespace.
 ```bash
 uv run pytest services/identity-service/tests
 make identity-service-check   # on the cluster
+make agent-identity-check     # agent identities, on the cluster
 ```
 
 ## Limits

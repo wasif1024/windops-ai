@@ -96,6 +96,26 @@ class IdentityServiceStub:
                 request_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.ExchangeTokenRequest.SerializeToString,
                 response_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.ExchangeTokenResponse.FromString,
                 _registered_method=True)
+        self.StartDelegation = channel.unary_unary(
+                '/windops.identity.v1.IdentityService/StartDelegation',
+                request_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.StartDelegationRequest.SerializeToString,
+                response_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.StartDelegationResponse.FromString,
+                _registered_method=True)
+        self.IssueAgentToken = channel.unary_unary(
+                '/windops.identity.v1.IdentityService/IssueAgentToken',
+                request_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.IssueAgentTokenRequest.SerializeToString,
+                response_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.IssueAgentTokenResponse.FromString,
+                _registered_method=True)
+        self.EndDelegation = channel.unary_unary(
+                '/windops.identity.v1.IdentityService/EndDelegation',
+                request_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.EndDelegationRequest.SerializeToString,
+                response_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.EndDelegationResponse.FromString,
+                _registered_method=True)
+        self.GetAgentTokenKeys = channel.unary_unary(
+                '/windops.identity.v1.IdentityService/GetAgentTokenKeys',
+                request_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.GetAgentTokenKeysRequest.SerializeToString,
+                response_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.GetAgentTokenKeysResponse.FromString,
+                _registered_method=True)
 
 
 class IdentityServiceServicer:
@@ -181,6 +201,40 @@ class IdentityServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def StartDelegation(self, request, context):
+        """Agent identities (SRS 9.2, SEC-008 to SEC-010, ADR 0019). A delegation lets a run's agents act
+        for one principal, in one tenant, for a bounded time:
+        - for the user who started an investigation, proven by their own current Keycloak token;
+        - or for the tenant's fault-investigator principal, when a detection started it.
+        Only Web BFF and the Investigation Service may start one, and only the Agent Runtime may
+        mint its tokens. Each token is for one agent, one MCP server and named tools, and lasts 120
+        seconds. It names the principal as its subject and the agent in "act" (RFC 8693), so every
+        tool call is audited as the agent, on the principal's behalf.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def IssueAgentToken(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def EndDelegation(self, request, context):
+        """Ends it, so no further token is minted. Ending it twice changes nothing.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetAgentTokenKeys(self, request, context):
+        """The public keys agent tokens are signed with, as a JWKS, for the MCP servers.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_IdentityServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -238,6 +292,26 @@ def add_IdentityServiceServicer_to_server(servicer, server):
                     servicer.ExchangeToken,
                     request_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.ExchangeTokenRequest.FromString,
                     response_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.ExchangeTokenResponse.SerializeToString,
+            ),
+            'StartDelegation': grpc.unary_unary_rpc_method_handler(
+                    servicer.StartDelegation,
+                    request_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.StartDelegationRequest.FromString,
+                    response_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.StartDelegationResponse.SerializeToString,
+            ),
+            'IssueAgentToken': grpc.unary_unary_rpc_method_handler(
+                    servicer.IssueAgentToken,
+                    request_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.IssueAgentTokenRequest.FromString,
+                    response_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.IssueAgentTokenResponse.SerializeToString,
+            ),
+            'EndDelegation': grpc.unary_unary_rpc_method_handler(
+                    servicer.EndDelegation,
+                    request_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.EndDelegationRequest.FromString,
+                    response_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.EndDelegationResponse.SerializeToString,
+            ),
+            'GetAgentTokenKeys': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAgentTokenKeys,
+                    request_deserializer=windops_dot_identity_dot_v1_dot_identity__pb2.GetAgentTokenKeysRequest.FromString,
+                    response_serializer=windops_dot_identity_dot_v1_dot_identity__pb2.GetAgentTokenKeysResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -544,6 +618,114 @@ class IdentityService:
             '/windops.identity.v1.IdentityService/ExchangeToken',
             windops_dot_identity_dot_v1_dot_identity__pb2.ExchangeTokenRequest.SerializeToString,
             windops_dot_identity_dot_v1_dot_identity__pb2.ExchangeTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StartDelegation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.identity.v1.IdentityService/StartDelegation',
+            windops_dot_identity_dot_v1_dot_identity__pb2.StartDelegationRequest.SerializeToString,
+            windops_dot_identity_dot_v1_dot_identity__pb2.StartDelegationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def IssueAgentToken(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.identity.v1.IdentityService/IssueAgentToken',
+            windops_dot_identity_dot_v1_dot_identity__pb2.IssueAgentTokenRequest.SerializeToString,
+            windops_dot_identity_dot_v1_dot_identity__pb2.IssueAgentTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def EndDelegation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.identity.v1.IdentityService/EndDelegation',
+            windops_dot_identity_dot_v1_dot_identity__pb2.EndDelegationRequest.SerializeToString,
+            windops_dot_identity_dot_v1_dot_identity__pb2.EndDelegationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetAgentTokenKeys(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.identity.v1.IdentityService/GetAgentTokenKeys',
+            windops_dot_identity_dot_v1_dot_identity__pb2.GetAgentTokenKeysRequest.SerializeToString,
+            windops_dot_identity_dot_v1_dot_identity__pb2.GetAgentTokenKeysResponse.FromString,
             options,
             channel_credentials,
             insecure,

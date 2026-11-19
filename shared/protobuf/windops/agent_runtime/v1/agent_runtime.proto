@@ -81,6 +81,7 @@ message Run {
   string pins_json = 21;
   // LangGraph checkpoints saved so far, over every attempt.
   int64 checkpoints = 22;
+  string delegation_id = 23;
 }
 
 // What a run has used, and its budget (LLM-010). Tokens count what the model processed: input
@@ -110,6 +111,9 @@ message StartRunRequest {
   // Lower the tenant's budget for this run. Neither may raise it. Zero or empty keeps it.
   int64 token_budget = 7;
   string cost_budget_usd = 8;
+  // The Identity Service's delegation the run's agents act under (ADR 0019): for the user who
+  // started it, or the tenant's fault-investigator. It ends when the run ends.
+  string delegation_id = 9;
 }
 
 message StartRunResponse {

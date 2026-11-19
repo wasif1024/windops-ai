@@ -183,8 +183,32 @@ def test_break_glass_lasts_an_hour_unless_asked() -> None:
 
 
 def test_a_service_can_never_be_granted_a_change_or_an_approval() -> None:
-    """SEC-009: whatever is added to the service grants, they stay read-only."""
+    """SEC-009: whatever is added to the service grants, they stay read-only. The one exception
+    is the fault-investigator principal, which may also draft (SRS 9.2), and nothing more."""
     for service, permissions in policy.SERVICE_GRANTS.items():
-        assert all(p.endswith(".read") for p in permissions), service
+        changes = {p for p in permissions if not p.endswith(".read")}
+        allowed = {"maintenance.draft"} if service == policy.FAULT_INVESTIGATOR else set()
+        assert changes <= allowed, service
         assert policy.service_of(f"service:{service}") == service
     assert policy.service_of("a-user-subject") is None
+
+
+def test_an_agent_may_only_read_and_draft_whoever_it_acts_for() -> None:
+    """SEC-009: structurally, not by configuration: no grant can widen it."""
+    assert {p for p in policy.PERMISSIONS if p.endswith(".read")} | {
+        "maintenance.draft"
+    } == policy.AGENT_PERMISSIONS
+    for permission in ("maintenance.submit", "maintenance.approve", "finding.review",
+                       "inventory.reserve", "users.manage", "policy.manage"):  # fmt: skip
+        decision = policy.decide_for_agent("agent:supervisor", permission, "north-sea", "north-sea")
+        assert decision is not None and not decision.allowed
+    assert (
+        policy.decide_for_agent("agent:supervisor", "turbine.read", "north-sea", "north-sea")
+        is None
+    )
+    assert (
+        policy.decide_for_agent("agent:supervisor", "maintenance.draft", "north-sea", "north-sea")
+        is None
+    )
+    across = policy.decide_for_agent("agent:supervisor", "turbine.read", "atlas-wind", "north-sea")
+    assert across is not None and not across.allowed

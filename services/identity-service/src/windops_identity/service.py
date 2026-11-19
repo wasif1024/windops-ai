@@ -3,6 +3,7 @@
 import logging
 import re
 import secrets
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -15,6 +16,7 @@ from windops_auth import (
     STEP_UP_MESSAGE,
     MfaRequiredError,
     authentication_claims,
+    current_peer_service,
     require_recent_mfa,
 )
 from windops_grpc import (
@@ -29,6 +31,8 @@ from windops_grpc import (
 )
 from windops_resilience import BreakerOpenError
 
+from windops_identity.agents import SigningKey
+from windops_identity.delegations import Delegations
 from windops_identity.keycloak import KeycloakAdmin, KeycloakError
 from windops_identity.store import KeyReusedError, audit, created_before, record_created
 from windops_identity.targets import EXCHANGE_TARGETS, audience_scope
@@ -109,13 +113,22 @@ def _session(body: dict[str, Any]) -> identity_pb2.Session:
     )
 
 
-class IdentityService(identity_pb2_grpc.IdentityServiceServicer):
+class IdentityService(Delegations, identity_pb2_grpc.IdentityServiceServicer):
     def __init__(
-        self, engine: AsyncEngine, keycloak: KeycloakAdmin, authorizer: Authorizer
+        self,
+        engine: AsyncEngine,
+        keycloak: KeycloakAdmin,
+        authorizer: Authorizer,
+        *,
+        signing_key: SigningKey | None = None,
+        agent_issuer: str = "windops-identity-agents",
+        peer: Callable[[], str | None] = current_peer_service,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._engine = engine
         self._keycloak = keycloak
         self._authorizer = authorizer
+        self._setup_delegations(signing_key, agent_issuer, peer=peer, clock=clock)
 
     async def _allow(
         self, target_tenant_id: str, *, step_up: bool, permission: str = PERMISSION

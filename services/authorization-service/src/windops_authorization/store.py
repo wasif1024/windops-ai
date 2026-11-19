@@ -324,6 +324,7 @@ async def audit(
     resource_id: str,
     outcome: str,
     actor_type: str = "user",
+    on_behalf_of: str = "",
 ) -> None:
     """Queue an audit record in the same transaction as the change it describes (EVT-002)."""
     await add_event(
@@ -334,6 +335,7 @@ async def audit(
             action=action,
             actor_type=actor_type,
             actor_id=actor_id,
+            on_behalf_of=on_behalf_of,
             resource_type=resource_type,
             resource_id=resource_id,
             outcome=outcome,

@@ -16,6 +16,7 @@ dependencies = [
     "windops-migrations",
     "windops-observability",
     "windops-outbox",
+    "windops-resilience",
 ]
 
 [tool.uv.sources]
@@ -27,6 +28,7 @@ windops-grpc = { workspace = true }
 windops-migrations = { workspace = true }
 windops-observability = { workspace = true }
 windops-outbox = { workspace = true }
+windops-resilience = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

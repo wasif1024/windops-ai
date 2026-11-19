@@ -142,6 +142,7 @@ def permissions_of(role: str, custom: Mapping[str, frozenset[str]] | None) -> fr
 # it acts for, never across tenants, and never a change or an approval (SEC-009). A tenant cannot
 # grant a service more.
 SERVICE_PREFIX = "service:"
+FAULT_INVESTIGATOR = "fault-investigator"
 SERVICE_GRANTS: dict[str, frozenset[str]] = {
     # It reads the tenant's wind farms and turbines, for the names it takes out of a research
     # query, a site's approximate region and a turbine's generic class (EXT-006, M7.4).
@@ -163,7 +164,39 @@ SERVICE_GRANTS: dict[str, frozenset[str]] = {
     ),
     # It reads each turbine's coordinates and hub height, for the forecast at its site.
     "weather": frozenset({"turbine.read"}),
+    # Not a service but the tenant's principal for fault-triggered investigations (SRS 9.2): it
+    # reads the evidence and may create drafts, the one change any identity without a person
+    # behind it may make, and never submits, reserves or approves (SEC-009, M8.5).
+    FAULT_INVESTIGATOR: frozenset(
+        {
+            "turbine.read",
+            "telemetry.read",
+            "alarm.read",
+            "investigation.read",
+            "knowledge.read",
+            "weather.read",
+            "policy.read",
+            "inventory.read",
+            "maintenance.draft",
+        }
+    ),
 }
+# What an agent may do, acting for anyone: read, and draft (SEC-009). Never submit, reserve,
+# approve, review, manage or configure, whatever the person or principal behind it may do.
+AGENT_PERMISSIONS = frozenset(
+    {p for p in PERMISSIONS if p.endswith(".read")} | {"maintenance.draft"}
+)
+
+
+def decide_for_agent(
+    actor: str, permission: str, tenant_id: str, own_tenant: str
+) -> Decision | None:
+    """Deny what no agent may do. None leaves the decision to the principal's own grants."""
+    if tenant_id != own_tenant:
+        return Decision(False, f"{actor} acts only in its own tenant")
+    if permission not in AGENT_PERMISSIONS:
+        return Decision(False, f"{actor} may only read and draft (SEC-009)")
+    return None
 
 
 def service_of(subject: str) -> str | None:

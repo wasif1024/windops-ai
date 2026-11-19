@@ -80,6 +80,7 @@ class Run(_message.Message):
     PAUSE_REQUESTED_FIELD_NUMBER: _builtins.int
     PINS_JSON_FIELD_NUMBER: _builtins.int
     CHECKPOINTS_FIELD_NUMBER: _builtins.int
+    DELEGATION_ID_FIELD_NUMBER: _builtins.int
     run_id: _builtins.str
     """"run_" and 20 lowercase letters and digits."""
     case_id: _builtins.str
@@ -111,6 +112,7 @@ class Run(_message.Message):
     """
     checkpoints: _builtins.int
     """LangGraph checkpoints saved so far, over every attempt."""
+    delegation_id: _builtins.str
     @_builtins.property
     def created_at(self) -> _timestamp_pb2.Timestamp: ...
     @_builtins.property
@@ -148,10 +150,11 @@ class Run(_message.Message):
         pause_requested: _builtins.bool = ...,
         pins_json: _builtins.str = ...,
         checkpoints: _builtins.int = ...,
+        delegation_id: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "finished_at", b"finished_at", "started_at", b"started_at", "usage", b"usage"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["attempt", b"attempt", "cancel_requested", b"cancel_requested", "case_id", b"case_id", "checkpoints", b"checkpoints", "created_at", b"created_at", "finished_at", b"finished_at", "max_attempts", b"max_attempts", "pause_requested", b"pause_requested", "pins_json", b"pins_json", "policy_hash", b"policy_hash", "policy_version", b"policy_version", "reason", b"reason", "requested_by", b"requested_by", "run_id", b"run_id", "snapshot_id", b"snapshot_id", "started_at", b"started_at", "status", b"status", "steps", b"steps", "total_steps", b"total_steps", "usage", b"usage", "workflow", b"workflow", "workflow_version", b"workflow_version"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["attempt", b"attempt", "cancel_requested", b"cancel_requested", "case_id", b"case_id", "checkpoints", b"checkpoints", "created_at", b"created_at", "delegation_id", b"delegation_id", "finished_at", b"finished_at", "max_attempts", b"max_attempts", "pause_requested", b"pause_requested", "pins_json", b"pins_json", "policy_hash", b"policy_hash", "policy_version", b"policy_version", "reason", b"reason", "requested_by", b"requested_by", "run_id", b"run_id", "snapshot_id", b"snapshot_id", "started_at", b"started_at", "status", b"status", "steps", b"steps", "total_steps", b"total_steps", "usage", b"usage", "workflow", b"workflow", "workflow_version", b"workflow_version"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -230,6 +233,7 @@ class StartRunRequest(_message.Message):
     IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
     TOKEN_BUDGET_FIELD_NUMBER: _builtins.int
     COST_BUDGET_USD_FIELD_NUMBER: _builtins.int
+    DELEGATION_ID_FIELD_NUMBER: _builtins.int
     case_id: _builtins.str
     snapshot_id: _builtins.str
     workflow: _builtins.str
@@ -243,6 +247,10 @@ class StartRunRequest(_message.Message):
     token_budget: _builtins.int
     """Lower the tenant's budget for this run. Neither may raise it. Zero or empty keeps it."""
     cost_budget_usd: _builtins.str
+    delegation_id: _builtins.str
+    """The Identity Service's delegation the run's agents act under (ADR 0019): for the user who
+    started it, or the tenant's fault-investigator. It ends when the run ends.
+    """
     @_builtins.property
     def parameters(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]:
         """Checked against the workflow's own limits."""
@@ -258,10 +266,11 @@ class StartRunRequest(_message.Message):
         idempotency_key: _builtins.str = ...,
         token_budget: _builtins.int = ...,
         cost_budget_usd: _builtins.str = ...,
+        delegation_id: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "cost_budget_usd", b"cost_budget_usd", "idempotency_key", b"idempotency_key", "parameters", b"parameters", "requested_by", b"requested_by", "snapshot_id", b"snapshot_id", "token_budget", b"token_budget", "workflow", b"workflow"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "cost_budget_usd", b"cost_budget_usd", "delegation_id", b"delegation_id", "idempotency_key", b"idempotency_key", "parameters", b"parameters", "requested_by", b"requested_by", "snapshot_id", b"snapshot_id", "token_budget", b"token_budget", "workflow", b"workflow"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

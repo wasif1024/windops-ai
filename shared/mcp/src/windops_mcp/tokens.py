@@ -1,8 +1,14 @@
-"""Who is calling a tool: a Keycloak token exchanged for this one server (MCP-001, MCP-004).
+"""Who is calling a tool: a token for this one server (MCP-001, MCP-004).
+
+Two issuers are trusted, each for its own kind of caller:
+- **Keycloak,** for a person's own token, exchanged for this server. It never names an agent.
+- **The Identity Service,** for an agent acting for a person or for the tenant's
+  fault-investigator (ADR 0019). It must name the agent in "act", as "agent:<name>". Its keys
+  are fetched from the Identity Service over mutual TLS.
 
 Every call carries its own bearer token, checked in full each time:
 
-- signed by Keycloak, with the platform's issuer;
+- signed by its issuer, with that issuer's own keys and algorithm;
 - for this server alone: a token that also names another audience, such as a user's own login,
   is too broad, and refused;
 - short-lived: one issued for longer than five minutes is refused, whatever its expiry;
@@ -15,7 +21,7 @@ The token itself is never logged, stored or handed to a tool.
 import asyncio
 import ssl
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -23,6 +29,8 @@ import httpx
 import jwt
 
 ALGORITHMS = ["RS256"]
+AGENT_ALGORITHMS = ["ES256"]
+AGENT_PREFIX = "agent:"
 LEEWAY_SECONDS = 10
 # Exchanged tokens last 120 seconds. Anything issued for longer is not one (MCP-004).
 MAXIMUM_LIFETIME_SECONDS = 300
@@ -67,6 +75,11 @@ class ToolCaller:
     auth_level: str | None = None
     auth_time: int | None = None
 
+    @property
+    def is_service(self) -> bool:
+        """The subject is a principal with no person behind it, such as fault-investigator."""
+        return self.user_id.startswith("service:")
+
 
 @dataclass(frozen=True)
 class TokenSettings:
@@ -75,6 +88,52 @@ class TokenSettings:
     audience: str
     jwks_url: str
     ca_file: str | None = None
+
+
+@dataclass(frozen=True)
+class AgentIssuer:
+    """The Identity Service, which signs agents' tokens (ADR 0019)."""
+
+    issuer: str
+    # Returns its published keys, a JWKS's "keys".
+    fetch_keys: Callable[[], Awaitable[list[dict[str, Any]]]]
+
+
+class _Keys:
+    """One issuer's signing keys, by key ID, fetched again for an unknown ID at most once a
+    minute."""
+
+    def __init__(
+        self,
+        fetch: Callable[[], Awaitable[list[dict[str, Any]]]],
+        algorithms: list[str],
+        clock: Callable[[], float],
+    ) -> None:
+        self._fetch, self.algorithms, self._clock = fetch, algorithms, clock
+        self._keys: dict[str, Any] = {}
+        self._fetched: float | None = None
+        self._lock = asyncio.Lock()
+
+    def _may_fetch(self) -> bool:
+        return self._fetched is None or self._clock() - self._fetched > REFRESH_SECONDS
+
+    async def key(self, key_id: str) -> Any:
+        if key_id not in self._keys and self._may_fetch():
+            async with self._lock:
+                if key_id not in self._keys and self._may_fetch():
+                    try:
+                        published = await self._fetch()
+                    except Exception as error:
+                        raise TokenRefusedError("keys_unavailable") from error
+                    self._fetched = self._clock()
+                    self._keys = {
+                        item["kid"]: jwt.PyJWK(item).key
+                        for item in published
+                        if item.get("use", "sig") == "sig" and item.get("alg") in self.algorithms
+                    }
+        if key_id not in self._keys:
+            raise TokenRefusedError("invalid")
+        return self._keys[key_id]
 
 
 class Verifier(Protocol):
@@ -134,66 +193,58 @@ def caller_from_claims(
 
 
 class TokenVerifier:
-    """Checks a token against Keycloak's published keys, fetched over verified TLS."""
+    """Checks a token against its issuer's published keys: Keycloak's, fetched over verified TLS,
+    or, for agents, the Identity Service's."""
 
     def __init__(
         self,
         settings: TokenSettings,
         *,
+        agents: AgentIssuer | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
         clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], float] = time.time,
     ) -> None:
         self._settings = settings
-        self._clock = clock
+        self._agents = agents
         self._wall_clock = wall_clock
         verify: ssl.SSLContext | bool = True
         if settings.ca_file:
             verify = ssl.create_default_context(cafile=settings.ca_file)
             verify.minimum_version = ssl.TLSVersion.TLSv1_2
         self._http = httpx.AsyncClient(timeout=5.0, transport=transport, verify=verify)
-        self._keys: dict[str, Any] = {}
-        self._fetched: float | None = None
-        self._lock = asyncio.Lock()
+        self._keycloak = _Keys(self._keycloak_keys, ALGORITHMS, clock)
+        self._agent_keys = _Keys(agents.fetch_keys, AGENT_ALGORITHMS, clock) if agents else None
+
+    async def _keycloak_keys(self) -> list[dict[str, Any]]:
+        response = await self._http.get(self._settings.jwks_url)
+        response.raise_for_status()
+        keys: list[dict[str, Any]] = response.json()["keys"]
+        return keys
 
     async def close(self) -> None:
         await self._http.aclose()
 
-    def _may_fetch(self) -> bool:
-        return self._fetched is None or self._clock() - self._fetched > REFRESH_SECONDS
-
-    async def _key(self, key_id: str) -> Any:
-        if key_id not in self._keys and self._may_fetch():
-            async with self._lock:
-                if key_id not in self._keys and self._may_fetch():
-                    try:
-                        response = await self._http.get(self._settings.jwks_url)
-                        response.raise_for_status()
-                        published = response.json()["keys"]
-                    except (httpx.HTTPError, ValueError, KeyError) as error:
-                        raise TokenRefusedError("keys_unavailable") from error
-                    self._fetched = self._clock()
-                    self._keys = {
-                        item["kid"]: jwt.PyJWK(item).key
-                        for item in published
-                        if item.get("use", "sig") == "sig" and item.get("alg") in ALGORITHMS
-                    }
-        if key_id not in self._keys:
-            raise TokenRefusedError("invalid")
-        return self._keys[key_id]
-
     async def verify(self, token: str) -> ToolCaller:
         try:
-            key_id = jwt.get_unverified_header(token).get("kid", "")
+            key_id = str(jwt.get_unverified_header(token).get("kid", ""))
+            # Only to choose whose keys to check it with: the signature is checked next.
+            issuer = jwt.decode(token, options={"verify_signature": False}).get("iss")
         except jwt.PyJWTError as error:
             raise TokenRefusedError("invalid") from error
-        key = await self._key(str(key_id))
+        if issuer == self._settings.issuer:
+            keys = self._keycloak
+        elif self._agents is not None and self._agent_keys and issuer == self._agents.issuer:
+            keys = self._agent_keys
+        else:
+            raise TokenRefusedError("invalid")
+        key = await keys.key(key_id)
         try:
             claims: dict[str, Any] = jwt.decode(
                 token,
                 key,
-                algorithms=ALGORITHMS,
-                issuer=self._settings.issuer,
+                algorithms=keys.algorithms,
+                issuer=issuer,
                 # The audience and times are checked below, against the injected clock.
                 options={
                     "require": ["exp", "iat", "sub", "iss", "aud"],
@@ -205,4 +256,13 @@ class TokenVerifier:
             )
         except jwt.PyJWTError as error:
             raise TokenRefusedError("invalid") from error
+        actor = claims.get("act")
+        agent = actor.get("sub") if isinstance(actor, dict) else None
+        if keys is self._keycloak and actor is not None:
+            # Only the Identity Service names agents: a person's own token never does.
+            raise TokenRefusedError("invalid")
+        if keys is self._agent_keys and not (
+            isinstance(agent, str) and agent.startswith(AGENT_PREFIX) and len(agent) > 6
+        ):
+            raise TokenRefusedError("invalid")
         return caller_from_claims(claims, self._settings.audience, now=self._wall_clock())
