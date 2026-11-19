@@ -22,6 +22,7 @@ patches:
 - path: patches/windops-mcp-documentation.yaml
 - path: patches/windops-mcp-tavily.yaml
 - path: patches/windops-mcp-weather.yaml
+- path: patches/windops-mcp-windops.yaml
 - path: patches/windops-policy.yaml
 - path: patches/windops-production-impact.yaml
 - path: patches/windops-sample-caller.yaml

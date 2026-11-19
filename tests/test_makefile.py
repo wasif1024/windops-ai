@@ -80,6 +80,7 @@ BUILT_TARGETS = {
     "vendor-check",
     "runtime-check",
     "workflow-check",
+    "agent-tools-check",
     "claude-check",
     "claude-policy-lock",
     "frontend-test",

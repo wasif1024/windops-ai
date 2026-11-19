@@ -123,8 +123,9 @@ ISO/IEC 42001 A.10; NIST GOVERN 6 and MANAGE 3; NCA third-party cybersecurity; S
   - dependency audits and image scans in CI (M1.2, M1.6);
   - vendor checks on the forecast provider, Claude's data handling and LangSmith Sandbox, with the Sandbox's egress
     gap accepted with compensating controls (M6.3, M8.1, [ADR 0015](adr/0015-agent-stack-vendor-checks.md));
-  - MCP tools behind per-call tool tokens, with untrusted content wrapped and labelled (M7.5).
-- **Planned:** a tool allowlist for each agent (M8.6).
+  - MCP tools behind per-call tool tokens, with untrusted content wrapped and labelled (M7.5);
+  - a tool allowlist for each agent, enforced where its tokens are minted, and no agent that reads external content
+    holding a write tool (M8.6, [ADR 0020](adr/0020-windops-mcp-and-agent-allowlists.md), `make agent-tools-check`).
 
 ### Monitoring and improvement
 

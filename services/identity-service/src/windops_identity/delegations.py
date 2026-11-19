@@ -16,6 +16,7 @@ in the tenant, gets no further token. The check is remembered for a minute.
 
 import hashlib
 import json
+import logging
 import re
 import time
 from collections.abc import Callable
@@ -56,8 +57,9 @@ from windops_identity.agents import (
 )
 from windops_identity.keycloak import KeycloakAdmin, KeycloakError
 from windops_identity.store import SERVICE_NAME
-from windops_identity.targets import EXCHANGE_TARGETS, MCP_PREFIX
+from windops_identity.targets import AGENT_TOOLS, EXCHANGE_TARGETS, MCP_PREFIX
 
+logger = logging.getLogger("windops.identity")
 INVESTIGATION = "service:investigation"
 _DELEGATION = re.compile(r"dlg_[a-z0-9]{20}")
 _CASE = re.compile(r"case_[a-z0-9]{20}")
@@ -250,6 +252,14 @@ class Delegations:
         scopes = sorted(set(request.scopes))
         if not scopes or any(s not in EXCHANGE_TARGETS[request.audience] for s in scopes):
             raise InvalidRequestError("Name that server's tools, and only its own")
+        outside = sorted(set(scopes) - AGENT_TOOLS[request.agent])
+        if outside:
+            # Fixed in code, so nothing an agent reads can widen it (MCP-002, MCP-007).
+            logger.warning(
+                "Refused an agent a tool outside its allowlist",
+                extra={"agent": request.agent, "scopes": outside},
+            )
+            raise PermissionDeniedError(f"Not on the {request.agent} agent's allowlist")
         async with self._engine.begin() as connection:
             await in_tenant(connection, tenant)
             row = await self._load(connection, tenant, request.delegation_id)

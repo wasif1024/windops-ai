@@ -678,7 +678,7 @@ def test_the_fault_investigator_is_only_for_the_investigation_service_as_itself(
         assert started.principal == "service:fault-investigator"
         world.peer[0] = "windops-agent-runtime"
         issued = await world.stub.IssueAgentToken(
-            issue(started.delegation_id, agent="supervisor"), metadata=as_investigation(),
+            issue(started.delegation_id, agent="safety-researcher"), metadata=as_investigation(),
             timeout=5,
         )  # fmt: skip
         assert claims_of(world, issued.access_token)["sub"] == "service:fault-investigator"
@@ -805,5 +805,33 @@ def test_the_published_keys_are_public_only() -> None:
         keys = json.loads(answer.jwks_json)["keys"]
         assert answer.issuer == AGENT_ISSUER and len(keys) == 1
         assert keys[0]["alg"] == "ES256" and "d" not in keys[0]
+
+    with_service(scenario)
+
+
+@pytest.mark.parametrize(
+    ("agent", "audience", "scope"),
+    [
+        ("maintenance-planner", "windops-mcp-tavily", "mcp.tavily.search_web"),
+        ("scada-analyst", DOCUMENTATION, SEARCH),
+        ("safety-researcher", "windops-mcp-windops", "mcp.windops.check_policy"),
+        ("supervisor", "windops-mcp-windops", "mcp.windops.estimate_impact"),
+    ],
+)
+def test_an_agent_gets_no_token_for_a_tool_outside_its_allowlist(
+    agent: str, audience: str, scope: str
+) -> None:
+    """MCP-002, MCP-007: fixed in code, so nothing an agent reads can widen it."""
+
+    async def scenario(world: World) -> None:
+        delegation = (
+            await world.stub.StartDelegation(start(), metadata=as_investigation(), timeout=5)
+        ).delegation.delegation_id
+        world.peer[0] = "windops-agent-runtime"
+        call = world.stub.IssueAgentToken(
+            issue(delegation, agent=agent, audience=audience, scopes=(scope,)),
+            metadata=as_investigation(), timeout=5,
+        )  # fmt: skip
+        assert await code_of(call) is grpc.StatusCode.PERMISSION_DENIED
 
     with_service(scenario)

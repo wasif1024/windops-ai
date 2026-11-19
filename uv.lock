@@ -27,6 +27,7 @@ members = [
     "windops-mcp-postgres",
     "windops-mcp-tavily",
     "windops-mcp-weather",
+    "windops-mcp-windops",
     "windops-migrations",
     "windops-observability",
     "windops-outbox",
@@ -2339,6 +2340,7 @@ dev = [
     { name = "windops-mcp-postgres" },
     { name = "windops-mcp-tavily" },
     { name = "windops-mcp-weather" },
+    { name = "windops-mcp-windops" },
     { name = "windops-migrations" },
     { name = "windops-observability" },
     { name = "windops-outbox" },
@@ -2405,6 +2407,7 @@ dev = [
     { name = "windops-mcp-postgres", editable = "mcp-servers/postgres-mcp" },
     { name = "windops-mcp-tavily", editable = "mcp-servers/tavily-mcp" },
     { name = "windops-mcp-weather", editable = "mcp-servers/weather-mcp" },
+    { name = "windops-mcp-windops", editable = "mcp-servers/windops-mcp" },
     { name = "windops-migrations", editable = "shared/migrations" },
     { name = "windops-observability", editable = "shared/observability" },
     { name = "windops-outbox", editable = "shared/outbox" },
@@ -2891,6 +2894,21 @@ requires-dist = [
 name = "windops-mcp-weather"
 version = "0.1.0"
 source = { editable = "mcp-servers/weather-mcp" }
+dependencies = [
+    { name = "windops-contracts" },
+    { name = "windops-mcp" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-mcp", editable = "shared/mcp" },
+]
+
+[[package]]
+name = "windops-mcp-windops"
+version = "0.1.0"
+source = { editable = "mcp-servers/windops-mcp" }
 dependencies = [
     { name = "windops-contracts" },
     { name = "windops-mcp" },

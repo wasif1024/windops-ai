@@ -12,6 +12,7 @@ every call ([ADR 0014](adr/0014-mcp-tools-behind-per-call-tool-tokens.md)).
 | Documentation MCP | `windops-mcp-documentation` | Knowledge Service | Document permissions, checked by the service before any text is returned | Everywhere |
 | Tavily MCP | `windops-mcp-tavily` | External Intelligence Service | Generic web research only. It holds no Tavily key | Everywhere |
 | Weather MCP | `windops-mcp-weather` | Weather Service | Weather only, needing `weather.read` | Everywhere |
+| WindOps MCP | `windops-mcp-windops` | Asset, Telemetry, Alarm, Investigation, Production Impact and Policy services | The platform's own records, tenant-scoped, read only; each service checks the caller ([ADR 0020](adr/0020-windops-mcp-and-agent-allowlists.md)) | Everywhere |
 | Filesystem MCP | `windops-mcp-filesystem` | Its own read-only sandboxes | Synthetic documents and evaluation fixtures, needing `knowledge.read` | Locally only |
 | PostgreSQL MCP | `windops-mcp-postgres` | PostgreSQL statistics views | Read-only diagnostics, needing `evaluation.manage` | Locally only |
 
@@ -32,6 +33,14 @@ Every tool has a timeout and two limits: a rate for each caller each minute, and
 | `tavily.extract_page` | Reads up to 5 sources of a past search in full | Every page | 30s | 10 | 200 |
 | `tavily.get_research` | Reads a past search as it was recorded | Every source and page | 5s | 30 | 2,000 |
 | `weather.get_forecast` | Gives a turbine's hourly forecast over a window of up to 7 days | None | 15s | 30 | 2,000 |
+| `windops.get_turbine` | Gives a turbine's wind farm, model, rating and status | None | 5s | 60 | 2,000 |
+| `windops.get_latest_telemetry` | Gives a turbine's latest reading of each metric, with its unit and quality label | None | 5s | 60 | 2,000 |
+| `windops.list_alarms` | Lists a turbine's alarms, newest first, with code, severity and state | None | 5s | 60 | 2,000 |
+| `windops.get_case` | Gives a case, with its current evidence snapshot | None | 5s | 60 | 2,000 |
+| `windops.list_cases` | Lists a turbine's cases: its fault history | None | 5s | 30 | 2,000 |
+| `windops.get_evidence` | Gives a frozen evidence snapshot's items, each item's content clipped at 4,000 characters | None | 10s | 30 | 2,000 |
+| `windops.estimate_impact` | Gets the Production Impact Service's deterministic estimate for an action on a case | None | 20s | 10 | 500 |
+| `windops.check_policy` | Gets the Policy Service's deterministic outcome on a proposed action: pass, escalate or block | None | 20s | 10 | 500 |
 | `filesystem.list_files` | Lists a folder in `documents` or `evaluations` | None | 5s | 60 | 4,000 |
 | `filesystem.read_file` | Reads one UTF-8 file of at most 256 KiB: `.md`, `.txt`, `.json`, `.yaml`, `.yml` or `.csv` | The file | 5s | 60 | 4,000 |
 | `postgres.database_overview` | Gives each service database's size, connections, commits, rollbacks, deadlocks and cache hit ratio | None | 10s | 10 | 500 |
@@ -46,6 +55,13 @@ Every tool has a timeout and two limits: a rate for each caller each minute, and
   state is `fresh`, `stale` or `unavailable`, and a value appears only when the provider gave it.
 - **Statistics:** the PostgreSQL MCP signs in with its own login, which holds only `pg_monitor`. It never selects a
   query's text, a client's address or a table's rows.
+
+## Each agent's tools
+
+Each agent's allowlist lives in the Identity Service, which mints its tokens. A token for a tool off the list is
+refused, so text an agent reads can never widen it (MCP-002, MCP-007). No agent that reads external content may hold
+a write tool (MCP-006). The full lists are in [ADR 0020](adr/0020-windops-mcp-and-agent-allowlists.md), and
+`make agent-tools-check` proves them.
 
 ## Calling a server
 

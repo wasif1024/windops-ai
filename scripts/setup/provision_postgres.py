@@ -53,7 +53,7 @@ SERVICE_NAMESPACES = {
 # development only, and never deployed on Azure.
 MCP_SERVERS = {
     f"mcp-{server}": "windops-mcp"
-    for server in ("documentation", "tavily", "weather", "filesystem", "postgres")
+    for server in ("documentation", "tavily", "weather", "windops", "filesystem", "postgres")
 }
 DEVELOPMENT_MCP_SERVERS = ("mcp-filesystem", "mcp-postgres")
 # The PostgreSQL MCP's login: server statistics through pg_monitor, never a service's tables.
