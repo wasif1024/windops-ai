@@ -41,6 +41,8 @@ class Context(Protocol):
     tokens: "AgentTokens | None"
     # The investigation team, ready to run on a case (M8.7). None without Claude or tokens.
     team: "TeamRunner | None"
+    # What the run's trace root says about it (OBS-005, OBS-008).
+    trace_metadata: dict[str, Any]
 
     async def step(self, name: str, work: Callable[[], Awaitable[None]]) -> None:
         """Run the step, and record it, unless an earlier attempt completed it."""

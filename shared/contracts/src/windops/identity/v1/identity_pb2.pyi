@@ -736,11 +736,16 @@ class IssueAgentTokenRequest(_message.Message):
     AGENT_FIELD_NUMBER: _builtins.int
     AUDIENCE_FIELD_NUMBER: _builtins.int
     SCOPES_FIELD_NUMBER: _builtins.int
+    CORRELATION_ID_FIELD_NUMBER: _builtins.int
     delegation_id: _builtins.str
     agent: _builtins.str
     """The agent acting, such as "reliability-engineer"."""
     audience: _builtins.str
     """One MCP server, such as "windops-mcp-documentation"."""
+    correlation_id: _builtins.str
+    """The run the token is for, carried in the token as "cid" so every tool call's audit record
+    shares it with the run's trace (OBS-008). Lowercase letters, digits and underscores.
+    """
     @_builtins.property
     def scopes(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
         """Its tools, each as its scope. At least one."""
@@ -752,10 +757,11 @@ class IssueAgentTokenRequest(_message.Message):
         agent: _builtins.str = ...,
         audience: _builtins.str = ...,
         scopes: _abc.Iterable[_builtins.str] | None = ...,
+        correlation_id: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["agent", b"agent", "audience", b"audience", "delegation_id", b"delegation_id", "scopes", b"scopes"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["agent", b"agent", "audience", b"audience", "correlation_id", b"correlation_id", "delegation_id", b"delegation_id", "scopes", b"scopes"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

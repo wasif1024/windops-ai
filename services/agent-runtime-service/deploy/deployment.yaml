@@ -141,6 +141,9 @@ spec:
             - name: anthropic-key
               mountPath: /var/run/windops/secrets/anthropic
               readOnly: true
+            - name: langsmith-key
+              mountPath: /var/run/windops/secrets/langsmith
+              readOnly: true
       volumes:
         - name: tls
           secret:
@@ -153,5 +156,11 @@ spec:
         - name: anthropic-key
           secret:
             secretName: windops-anthropic-api-key
+            optional: true
+            defaultMode: 0440
+        # Optional: without a key the runtime runs, and traces nothing.
+        - name: langsmith-key
+          secret:
+            secretName: windops-langsmith-api-key
             optional: true
             defaultMode: 0440

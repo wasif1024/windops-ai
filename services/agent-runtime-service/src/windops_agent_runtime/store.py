@@ -179,6 +179,8 @@ async def audit(
             resource_type="agent_run",
             resource_id=run_id,
             outcome=outcome,
+            # The run's ID, shared with its trace in LangSmith (OBS-008).
+            correlation_id=run_id,
         ),
         producer=SERVICE_NAME,
     )
