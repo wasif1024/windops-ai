@@ -5,7 +5,7 @@ the 15 phases in [SRS v1.1 section 12](../srs.md#12-delivery-phases) into module
 between Phases 4 and 5 by [ADR 0006](../adr/0006-azure-aligned-platform-services.md).
 The SRS defines the requirements, and this file tracks progress against them.
 
-**Current position:** Phase 9, maintenance and inventory, is next. Phase 8, the agent workflow, is done: a simulated fault produced a validated, cited report with a full trace, on Claude itself ([evidence](phase-08-exit-gate.md)). Phase 7, knowledge and external intelligence, is done: results carry citations and provenance, and permissions are enforced before return, through the MCP servers agents will use ([evidence](phase-07-exit-gate.md)). Phase 6, deterministic decisions, is done: boundary tests pass 100%, and a missing weather input fails closed ([evidence](phase-06-exit-gate.md)). Phase 5, alarms, detection and cases, is done: a seeded fault creates one deduplicated case bound to an immutable snapshot ([evidence](phase-05-exit-gate.md)). Phase 4, assets and telemetry, is done: a seeded fault profile streams into storage with the correct quality labels ([evidence](phase-04-exit-gate.md)). Phase 4A, Azure alignment, is done: the phase gates passed again on Cilium, and the platform was deployed and proven on Azure ([evidence](phase-04a-exit-gate.md)).
+**Current position:** Phase 9, maintenance and inventory: M9.1, the Maintenance Service, is next; M9.0, evidence readings, is done. Phase 8, the agent workflow, is done: a simulated fault produced a validated, cited report with a full trace, on Claude itself ([evidence](phase-08-exit-gate.md)). Phase 7, knowledge and external intelligence, is done: results carry citations and provenance, and permissions are enforced before return, through the MCP servers agents will use ([evidence](phase-07-exit-gate.md)). Phase 6, deterministic decisions, is done: boundary tests pass 100%, and a missing weather input fails closed ([evidence](phase-06-exit-gate.md)). Phase 5, alarms, detection and cases, is done: a seeded fault creates one deduplicated case bound to an immutable snapshot ([evidence](phase-05-exit-gate.md)). Phase 4, assets and telemetry, is done: a seeded fault profile streams into storage with the correct quality labels ([evidence](phase-04-exit-gate.md)). Phase 4A, Azure alignment, is done: the phase gates passed again on Cilium, and the platform was deployed and proven on Azure ([evidence](phase-04a-exit-gate.md)).
 
 ## How to use this tracker
 
@@ -44,7 +44,7 @@ The SRS defines the requirements, and this file tracks progress against them.
 | 6 | [Deterministic decisions](#phase-6-deterministic-decisions) | 5 | Done |
 | 7 | [Knowledge and external intelligence](#phase-7-knowledge-and-external-intelligence) | 7 | Done |
 | 8 | [Agent workflow](#phase-8-agent-workflow) | 13 | Done |
-| 9 | [Maintenance and inventory](#phase-9-maintenance-and-inventory) | 5 | Not started |
+| 9 | [Maintenance and inventory](#phase-9-maintenance-and-inventory) | 6 | In progress |
 | 10 | [Approval and closure](#phase-10-approval-and-closure) | 7 | Not started |
 | 11 | [Frontend completion](#phase-11-frontend-completion) | 8 | Not started |
 | 12 | [Full evaluation](#phase-12-full-evaluation) | 10 | Not started |
@@ -180,6 +180,7 @@ their plan and monthly price are approved.
 
 ## Phase 9: Maintenance and inventory
 
+- [x] **M9.0 Evidence readings:** agents read the frozen telemetry's readings, summarized per metric and citable, and a forecast becomes citable. Added after the Phase 8 gate, whose run on Claude could test no hypothesis without them. Done 2026-11-20, [ADR 0028](../adr/0028-agents-read-the-frozen-telemetry-summarized.md): the Telemetry Service summarizes a frozen snapshot per metric, the same way every time (counts by quality, range, mean, first and last, trend per hour, and up to 48 slices), and WindOps MCP's `get_telemetry_summary` gives the SCADA Analyst and Reliability Engineer each figure, citable as `<snapshot>#<metric>`. Proving it fixed the servers' misspelt keepalive option, which gRPC had ignored, and `estimate_impact`, which always timed out through WindOps MCP. `make agent-tools-check` reads a real case's 7,174 frozen readings; the regression set and the dry-run gate pass.
 - [ ] **M9.1 Maintenance Service:** plans, validation and draft work orders, with agents limited to drafts (FR-MNT-002, FR-MNT-003).
 - [ ] **M9.2 Inventory Service:** parts, compatibility and stock, with reservations reserved for authorized users or workflows (FR-INVT-001, FR-INVT-002, FR-INVT-003).
 - [ ] **M9.3 Planner integration:** the Maintenance Planner agent prepares a proposal and draft, covering SRS 5.4 step 12 (FR-MNT-001).

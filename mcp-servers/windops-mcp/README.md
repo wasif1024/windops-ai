@@ -8,6 +8,7 @@ applies to every call. Its tools are in [ADR 0020](../../docs/adr/0020-windops-m
 | --- | --- | --- |
 | `get_turbine` | Asset | A turbine's wind farm, model, rating and status |
 | `get_latest_telemetry` | Telemetry | Its latest reading of each metric, with its unit and quality label |
+| `get_telemetry_summary` | Telemetry | A frozen telemetry snapshot's readings, summarized per metric, each citable as `<snapshot>#<metric>` (ADR 0028) |
 | `list_alarms` | Alarm | Its alarms, newest first |
 | `get_case` | Investigation | A case, with its current evidence snapshot |
 | `list_cases` | Investigation | A turbine's cases: its fault history |

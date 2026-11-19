@@ -35,6 +35,7 @@ Every tool has a timeout and two limits: a rate for each caller each minute, and
 | `weather.get_forecast` | Gives a turbine's hourly forecast over a window of up to 7 days | None | 15s | 30 | 2,000 |
 | `windops.get_turbine` | Gives a turbine's wind farm, model, rating and status | None | 5s | 60 | 2,000 |
 | `windops.get_latest_telemetry` | Gives a turbine's latest reading of each metric, with its unit and quality label | None | 5s | 60 | 2,000 |
+| `windops.get_telemetry_summary` | Summarizes a frozen telemetry snapshot per metric: counts by quality, range, mean, first and last, trend per hour and slices, each citable | None | 20s | 20 | 2,000 |
 | `windops.list_alarms` | Lists a turbine's alarms, newest first, with code, severity and state | None | 5s | 60 | 2,000 |
 | `windops.get_case` | Gives a case, with its current evidence snapshot | None | 5s | 60 | 2,000 |
 | `windops.list_cases` | Lists a turbine's cases: its fault history | None | 5s | 30 | 2,000 |

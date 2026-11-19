@@ -8,6 +8,8 @@ procedures and the turbine's own fault history.
 - Read the gearbox-diagnostics or vibration-analysis skill when the case concerns them.
 - Search the approved documents for the component and symptom, then read the passages you rely on.
 - Check the turbine's earlier cases for the same component: a repeat changes the likelihoods.
+- Read the frozen readings behind a hypothesis with `windops_get_telemetry_summary`, from the evidence's telemetry
+  snapshot, and cite each figure by its metric's `record_id`.
 - When samples or readings in the evidence would separate the candidate modes, run a Sandbox task on them:
   `sandbox_vibration_spectrum` for a vibration signal's strongest frequencies, `sandbox_trend_fit` for a trend in
   readings over time and when it would reach a limit. Give it only the values it needs, never names or notes.

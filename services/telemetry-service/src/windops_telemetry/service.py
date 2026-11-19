@@ -35,7 +35,7 @@ from windops_grpc import (
 from windops_migrations import in_tenant
 from windops_resilience import BreakerOpenError
 
-from windops_telemetry import credentials, snapshots
+from windops_telemetry import credentials, snapshots, summary
 from windops_telemetry.quality import DUPLICATE
 from windops_telemetry.snapshots import Freezer, Sample
 from windops_telemetry.store import (
@@ -460,6 +460,24 @@ class TelemetryService(telemetry_pb2_grpc.TelemetryServiceServicer):
             async for sample in self._frozen(connection, row):
                 for point in snapshots.points([sample], wanted):
                     yield telemetry_pb2.StreamTelemetrySnapshotResponse(point=point)
+
+    async def SummarizeTelemetrySnapshot(  # noqa: N802  # The name comes from the contract.
+        self, request: telemetry_pb2.SummarizeTelemetrySnapshotRequest, context: Any
+    ) -> telemetry_pb2.SummarizeTelemetrySnapshotResponse:
+        """Each metric's frozen readings, summarized the same way every time (M9.0)."""
+        wanted = self._metrics(request.metrics)
+        buckets = request.buckets or summary.DEFAULT_BUCKETS
+        if not 1 <= buckets <= summary.MAXIMUM_BUCKETS:
+            raise InvalidRequestError(f"buckets is from 1 to {summary.MAXIMUM_BUCKETS}")
+        row = await self._find_snapshot(request.snapshot_id)
+        found = summary.Summary(row.from_time, row.to_time, wanted, buckets)
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, row.tenant_id)
+            async for sample in self._frozen(connection, row):
+                found.add(sample)
+        return telemetry_pb2.SummarizeTelemetrySnapshotResponse(
+            snapshot=_snapshot(row), metrics=found.metrics()
+        )
 
     async def ReleaseTelemetrySnapshot(  # noqa: N802  # The name comes from the contract.
         self, request: telemetry_pb2.ReleaseTelemetrySnapshotRequest, context: Any

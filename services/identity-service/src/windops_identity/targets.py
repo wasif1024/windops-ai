@@ -16,6 +16,7 @@ MCP_TOOLS: dict[str, tuple[str, ...]] = {
     "windops": (
         "get_turbine",
         "get_latest_telemetry",
+        "get_telemetry_summary",
         "list_alarms",
         "get_case",
         "list_cases",
@@ -88,11 +89,16 @@ AGENT_TOOLS: dict[str, frozenset[str]] = {
     "supervisor": _tools("windops", "get_case", "list_cases", "get_evidence", "check_policy"),
     # Telemetry, alarms and turbines. Cannot change telemetry or thresholds.
     "scada-analyst": _tools(
-        "windops", "get_turbine", "get_latest_telemetry", "list_alarms", "get_evidence"
+        "windops",
+        "get_turbine",
+        "get_latest_telemetry",
+        "get_telemetry_summary",
+        "list_alarms",
+        "get_evidence",
     ),
     # Knowledge, fault history and Sandbox analysis. Cites and states uncertainty.
     "reliability-engineer": _tools("documentation", "search_documents", "read_passage")
-    | _tools("windops", "get_turbine", "list_cases", "get_evidence")
+    | _tools("windops", "get_turbine", "list_cases", "get_evidence", "get_telemetry_summary")
     | frozenset(sandbox_scope(task) for task in SANDBOX_TASKS),
     # Production Impact's deterministic results, to explain, never to change (FR-IMP-004).
     "production-impact": _tools("windops", "get_case", "get_turbine", "estimate_impact"),

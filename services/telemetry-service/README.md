@@ -189,6 +189,7 @@ this route with those tokens; see [windops-simulator](../../simulator/README.md#
 | `CreateTelemetrySnapshot` | `telemetry.read`, an idempotency key, a finished window | Freezes the window: which samples it held and their labels then, a content hash and a manifest, and a retention hold on its data |
 | `GetTelemetrySnapshot` | `telemetry.read` | The snapshot and manifest, with its data read again and hashed again: `verified` when they match |
 | `StreamTelemetrySnapshot` | `telemetry.read` | Its frozen points |
+| `SummarizeTelemetrySnapshot` | `telemetry.read` | Its frozen points summarized per metric, the same way every time: counts by quality, range, mean, first and last, trend per hour, and up to 48 slices (ADR 0028) |
 | `ReleaseTelemetrySnapshot` | `telemetry.read`, an idempotency key | Lets its hold go, so normal retention applies. It stays readable until its data is removed |
 
 Each point has its metric, value, unit and sequence, and its quality: `GOOD` for an `ok` sample, `SUSPECT` for a

@@ -248,6 +248,22 @@ def prove(realm: Realm, key: str, server: Server, cases: "Cases") -> None:
             f"The Supervisor reads {len(cases_seen)} cases and case {case['case_id']}'s frozen "
             f"evidence: {evidence['item_count']} items, verified {evidence['verified']}",
         )
+        # M9.0: the frozen readings behind the evidence, summarized, each figure citable.
+        frozen = next(i["record_id"] for i in evidence["items"]
+                      if i["record_id"].startswith("tsnap_"))  # fmt: skip
+        reader = token("scada-analyst", "get_telemetry_summary")
+        readings = {"snapshot_id": frozen, "metrics": ["gearbox_temperature", "power"]}
+        summary = answer(server, reader, "get_telemetry_summary", readings)
+        by_metric = {m["metric"]: m for m in summary["metrics"]}
+        oil = by_metric["gearbox_temperature"]
+        check(
+            set(by_metric) == {"gearbox_temperature", "power"}
+            and oil["record_id"] == f"{frozen}#gearbox_temperature" and oil["readings"] > 0
+            and oil["mean"] is not None and len(oil["buckets"]) == 12,
+            f"The SCADA Analyst reads the frozen telemetry's readings: gearbox oil "
+            f"{oil['minimum']:.1f} to {oil['maximum']:.1f} {oil['unit']} over {oil['readings']} "
+            f"readings, cited as {oil['record_id']}",
+        )  # fmt: skip
         impact_token = token("production-impact", "estimate_impact")
         impact = answer(server, impact_token, "estimate_impact",
                         {"case_id": case["case_id"], "action": "inspection",

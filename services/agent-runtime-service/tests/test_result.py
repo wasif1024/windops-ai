@@ -146,3 +146,14 @@ def test_a_result_still_wrong_after_two_repairs_ends_the_run() -> None:
     uncited = draft(observed_facts=[{"statement": "Oil is fine", "citations": []}])
     with pytest.raises(InvalidResultError, match="after 2 repairs"):
         run([uncited, uncited, uncited])
+
+
+def test_a_forecast_and_a_summarized_reading_may_be_cited() -> None:
+    """M9.0: the forecast an agent read, and each frozen metric's summary, are references."""
+    found = Seen()
+    found.add("weather_get_forecast", json.dumps({"forecast_id": "fct_" + "a" * 20, "hours": []}))
+    metric = {"record_id": "tsnap_" + "b" * 20 + "#gearbox_temperature"}
+    summary = {"snapshot_id": "tsnap_" + "b" * 20, "metrics": [metric]}
+    found.add("windops_get_telemetry_summary", json.dumps(summary))
+    assert "fct_" + "a" * 20 in found.references
+    assert "tsnap_" + "b" * 20 + "#gearbox_temperature" in found.references
