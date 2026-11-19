@@ -5,8 +5,11 @@ on elsewhere. The decisions behind it are in [ADR 0016](../../docs/adr/0016-agen
 
 There are three workflows:
 - **`investigation`:** SRS 5.4's steps 1 to 13 as a LangGraph graph, checkpointed after every node
-  ([ADR 0018](../../docs/adr/0018-the-investigation-graph-and-its-checkpoints.md)). Steps 4 to 12 record data gaps
-  until the agents and their tools arrive (M8.6 to M8.8). Investigation starts these runs from M8.11.
+  ([ADR 0018](../../docs/adr/0018-the-investigation-graph-and-its-checkpoints.md)). Step 5 runs the team: the
+  Supervisor and its five specialists on restricted Deep Agents
+  ([ADR 0021](../../docs/adr/0021-the-agents-and-skills-on-deep-agents.md)), defined in the repository's `agents/`
+  and `skills/`. A run can rehearse the team on a scripted model, at no cost. Investigation starts these runs from
+  M8.11.
 - **`rehearsal`:** timed steps with no model and no tools, so the queue and its recovery can be proved without
   spending anything.
 - **`model-check`:** one short call per role, a structured answer and a cached prompt, a few cents of synthetic
@@ -68,6 +71,7 @@ Every call goes through the `windops-claude` library and its versioned policy
 ```bash
 make runtime-check
 make workflow-check
+make team-check
 make claude-check
 ```
 

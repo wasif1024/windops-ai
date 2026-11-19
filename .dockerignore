@@ -23,5 +23,8 @@ tests
 !services/*/README.md
 !simulator/README.md
 !mcp-servers/*/README.md
+# The agents' prompts and skills, which the Agent Runtime's image carries (ADR 0021).
+!agents/*/prompt.md
+!skills/*/SKILL.md
 # The synthetic document set is package data: the Knowledge Service's demo seed reads it (M7.2).
 !simulator/src/windops_simulator/documents/**/*.md

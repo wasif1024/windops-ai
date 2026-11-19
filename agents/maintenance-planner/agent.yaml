@@ -1,0 +1,12 @@
+# The Maintenance Planner (SRS 5.3). Model and effort come from claude-policy.yaml, by role.
+# It never reads raw web content (SRS 5.3). Inventory and drafts come with Phase 9.
+name: maintenance-planner
+version: 1
+role: maintenance-planner
+description: Prepares what a maintenance task would involve, from the case's findings and the turbine's maintenance history.
+tools:
+  - mcp.windops.get_case
+  - mcp.windops.list_cases
+  - mcp.windops.get_turbine
+skills:
+  - maintenance-planning

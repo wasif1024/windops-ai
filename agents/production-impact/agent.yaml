@@ -1,0 +1,12 @@
+# The Production Impact agent (SRS 5.3). Model and effort come from claude-policy.yaml, by role.
+# It explains the Production Impact Service's figures, and never changes them (FR-IMP-004).
+name: production-impact
+version: 1
+role: production-impact
+description: Gets the deterministic energy, availability and cost estimate for a proposed action, and explains it without changing any figure.
+tools:
+  - mcp.windops.get_case
+  - mcp.windops.get_turbine
+  - mcp.windops.estimate_impact
+skills:
+  - weather-impact

@@ -623,7 +623,8 @@ async def start_investigation(
     engine: AsyncEngine, clock: Clock | None = None, key: str = "graph-key-1", **parameters: str
 ) -> pb.Run:
     request = pb.StartRunRequest(
-        case_id=CASE, snapshot_id=SNAPSHOT, workflow="investigation", parameters=parameters,
+        case_id=CASE, snapshot_id=SNAPSHOT, workflow="investigation",
+        parameters={"team": "false", **parameters},
         requested_by="service:investigation", idempotency_key=key,
     )  # fmt: skip
     with caller():
@@ -661,7 +662,7 @@ async def test_an_investigation_runs_every_step_and_checkpoints_each(
     engine: AsyncEngine, clock: Clock, queue: Queue
 ) -> None:
     run = await start_investigation(engine, clock)
-    assert json.loads(run.pins_json)["graph"] == "investigation@1"
+    assert json.loads(run.pins_json)["graph"] == "investigation@2"
     claim = await queue.claim("replica-a/0")
     assert claim is not None
     assert await Worker(queue, REGISTRY).execute(claim, asyncio.Event()) == "completed"
@@ -876,3 +877,60 @@ def test_a_bad_delegation_id_is_refused() -> None:
         await engine.dispose()
 
     asyncio.run(body())
+
+
+@scenario
+async def test_an_investigation_with_its_team_keeps_the_report_and_names_what_it_did_not_do(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    from team_support import Scripted, Tokens, call
+    from windops_agent_runtime.team.definitions import team
+    from windops_agent_runtime.team.run import TeamRunner
+    from windops_agent_runtime.team.tools import ToolBox, stand_in
+
+    async def answer(arguments: dict[str, Any]) -> str:
+        return "{}"
+
+    every = {
+        f"{scope.split('.')[1]}_{scope.split('.')[2]}": answer
+        for agent in team().agents.values() for scope in agent.tools
+    }  # fmt: skip
+    scripts = {
+        "supervisor": [call("task", subagent_type="production-impact", description="Estimate"),
+                       AIMessage("Report: the impact is the service's estimate.")],
+        "production-impact": [call("windops_estimate_impact", case_id=CASE),
+                              AIMessage("Impact explained.")],
+    }  # fmt: skip
+
+    def make_team(claim: Any, claude: Any, tokens: Any) -> TeamRunner:
+        return TeamRunner(
+            team(), ToolBox(stand_in(every)), claude=claude, tokens=Tokens(), tool_calls=50,
+            model=lambda role: Scripted(
+                role=role, script=scripts.setdefault(role, [AIMessage("ok")])
+            ),
+        )  # fmt: skip
+
+    request = pb.StartRunRequest(
+        case_id=CASE, snapshot_id=SNAPSHOT, workflow="investigation", parameters={"team": "true"},
+        requested_by="service:investigation", idempotency_key="team-key-1",
+        delegation_id="dlg_" + "c" * 20,
+    )  # fmt: skip
+    with caller():
+        run = (await service(engine, clock).StartRun(request, None)).run
+    assert set(json.loads(run.pins_json)["prompts"]) == set(team().agents)
+    claim = await queue.claim("replica-a/0")
+    assert claim is not None
+    worker = Worker(
+        queue, REGISTRY, policy=POLICY, identity=FakeIdentity(), make_team=make_team,
+        make_claude=lambda claim, meter: Claude(POLICY, meter, lambda: "key"),
+    )  # fmt: skip
+    assert await worker.execute(claim, asyncio.Event()) == "completed"
+    saved = await RunCheckpointer(queue, claim).aget_tuple(
+        {"configurable": {"thread_id": run.run_id, "checkpoint_ns": ""}}
+    )
+    assert saved is not None
+    state = saved.checkpoint["channel_values"]
+    assert state["report"].startswith("Report:") and state["delegated"] == ["production-impact"]
+    assert state["tools_used"] == ["windops_estimate_impact"]
+    gaps = " ".join(state["data_gaps"])
+    assert "documents: no specialist searched" in gaps and "impact:" not in gaps

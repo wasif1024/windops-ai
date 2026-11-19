@@ -35,6 +35,9 @@ from windops_agent_runtime.identity import AgentTokens, Identity
 from windops_agent_runtime.investigation import canonical_pins
 from windops_agent_runtime.queue import Claim, LeaseLostError, Queue
 from windops_agent_runtime.store import BUDGET_EXHAUSTED, CANCELLED, COMPLETED, FAILED, STALE
+from windops_agent_runtime.team.definitions import team
+from windops_agent_runtime.team.run import TeamRunner
+from windops_agent_runtime.team.tools import ToolBox
 from windops_agent_runtime.workflows import ClaudeUnavailableError, StepFailedError, Workflow
 
 logger = logging.getLogger("windops.agent_runtime")
@@ -86,12 +89,19 @@ class _Steps:
     Its Claude client meters every call against the run's budget."""
 
     def __init__(
-        self, queue: Queue, claim: Claim, claude: Claude | None, tokens: AgentTokens | None = None
+        self,
+        queue: Queue,
+        claim: Claim,
+        claude: Claude | None,
+        tokens: AgentTokens | None = None,
+        team: TeamRunner | None = None,
     ) -> None:
         self._queue, self._claim, self._position = queue, claim, 0
         self.claude = claude
         # Its agents' tool tokens, under the run's delegation (ADR 0019).
         self.tokens = tokens
+        # The investigation team, on this run's budget and delegation (M8.7).
+        self.team = team
         self.checkpointer: BaseCheckpointSaver[str] | None = RunCheckpointer(queue, claim)
         self.run_id, self.case_id = claim.run_id, claim.case_id
         self.snapshot_id = claim.snapshot_id
@@ -130,12 +140,16 @@ class Worker:
         api_key: Callable[[], str] | None = None,
         make_claude: Callable[[Claim, Meter], Claude] | None = None,
         identity: Identity | None = None,
+        toolbox: ToolBox | None = None,
+        make_team: Callable[[Claim, Claude, AgentTokens], TeamRunner] | None = None,
     ) -> None:
         self._queue, self._workflows = queue, workflows
         self._policy = policy
         self._api_key = api_key
         self._make_claude = make_claude
         self._identity = identity
+        self._toolbox = toolbox
+        self._make_team = make_team
         self._settings = settings or WorkerSettings()
         self._name = name or socket.gethostname()
 
@@ -195,7 +209,8 @@ class Worker:
             if self._identity is not None
             else None
         )
-        context = _Steps(self._queue, claim, self._claude_for(claim), tokens)
+        claude = self._claude_for(claim)
+        context = _Steps(self._queue, claim, claude, tokens, self._team_for(claim, claude, tokens))
         work = asyncio.create_task(workflow.run(context, claim.parameters))
         beat = asyncio.create_task(self._heartbeat(claim, work, cancelled, lost, paused))
         shutdown = asyncio.create_task(stop.wait())
@@ -214,6 +229,21 @@ class Worker:
             logger.info("Handed a run back", extra={"run_id": claim.run_id})
             return "released"
         return await self._settle(claim, work, cancelled, lost, paused)
+
+    def _team_for(
+        self, claim: Claim, claude: Claude | None, tokens: AgentTokens | None
+    ) -> TeamRunner | None:
+        """The team runs only with Claude, under the run's budget, and with agent tokens."""
+        if claude is None or tokens is None:
+            return None
+        if self._make_team is not None:
+            return self._make_team(claim, claude, tokens)
+        if self._toolbox is None or self._policy is None:
+            return None
+        return TeamRunner(
+            team(), self._toolbox, claude=claude, tokens=tokens,
+            tool_calls=self._policy.budget_for(claim.tenant_id).tool_calls,
+        )  # fmt: skip
 
     def _claude_for(self, claim: Claim) -> Claude | None:
         if self._policy is None or not claim.token_budget:

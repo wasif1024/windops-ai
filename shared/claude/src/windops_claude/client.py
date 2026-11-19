@@ -7,7 +7,7 @@
 5. The budget again, then the stop reason. Only then is the content read.
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -55,6 +55,7 @@ class Claude:
         *,
         schema: type[BaseModel] | None = None,
         guard: HistoryGuard | None = None,
+        options: Mapping[str, Any] | None = None,
     ) -> Result:
         role = self.policy.role(role_name)
         allowance = await self._meter.allowance(role.max_tokens)
@@ -64,7 +65,8 @@ class Claude:
         parsed: BaseModel | None = None
         parsing_error: Any = None
         if schema is None:
-            message = await model.ainvoke(list(messages))
+            # Options such as bound tools, as a caller like Deep Agents binds them.
+            message = await model.ainvoke(list(messages), **dict(options or {}))
         else:
             answer = await models.structured(model, schema).ainvoke(list(messages))
             message, parsed, parsing_error = (

@@ -1,0 +1,16 @@
+# The Safety and Procedure Researcher (SRS 5.3). Model and effort come from claude-policy.yaml, by role.
+# It reads external content, so it holds no write tool and is read-only (MCP-006).
+name: safety-researcher
+version: 1
+role: safety-researcher
+description: Finds the procedures, warnings, weather and external evidence that bear on the work. Read-only, and never declares a site safe.
+tools:
+  - mcp.documentation.search_documents
+  - mcp.documentation.read_passage
+  - mcp.tavily.search_web
+  - mcp.tavily.extract_page
+  - mcp.tavily.get_research
+  - mcp.weather.get_forecast
+skills:
+  - safety-procedures
+  - weather-impact

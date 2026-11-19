@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from langgraph.checkpoint.base import BaseCheckpointSaver
 
     from windops_agent_runtime.identity import AgentTokens
+    from windops_agent_runtime.team.run import TeamRunner
 
 
 class Context(Protocol):
@@ -38,6 +39,8 @@ class Context(Protocol):
     snapshot_id: str
     # Its agents' tool tokens, under the run's delegation (ADR 0019). Never put in a prompt.
     tokens: "AgentTokens | None"
+    # The investigation team, ready to run on a case (M8.7). None without Claude or tokens.
+    team: "TeamRunner | None"
 
     async def step(self, name: str, work: Callable[[], Awaitable[None]]) -> None:
         """Run the step, and record it, unless an earlier attempt completed it."""

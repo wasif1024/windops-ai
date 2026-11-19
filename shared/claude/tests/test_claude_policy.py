@@ -82,10 +82,12 @@ def test_a_locked_version_cannot_be_given_other_content(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="new version"):
         policy_module.lock(source, lock_file)
     source.write_text(
-        text.replace("effort: medium", "effort: high").replace("version: 1", "version: 2")
+        text.replace("effort: medium", "effort: high").replace(
+            f"version: {POLICY.version}", f"version: {POLICY.version + 1}"
+        )
     )
     policy_module.lock(source, lock_file)
-    assert set(policy_module.locked_hashes(lock_file)) == {1, 2}
+    assert set(policy_module.locked_hashes(lock_file)) == {POLICY.version, POLICY.version + 1}
 
 
 def test_a_role_without_a_price_or_with_an_unknown_field_is_refused() -> None:

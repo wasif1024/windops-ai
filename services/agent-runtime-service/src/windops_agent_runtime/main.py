@@ -28,6 +28,7 @@ from windops_agent_runtime.queue import Queue
 from windops_agent_runtime.registry import REGISTRY
 from windops_agent_runtime.service import AgentRuntimeService
 from windops_agent_runtime.store import SERVICE_NAME
+from windops_agent_runtime.team.tools import McpClient, ToolBox
 from windops_agent_runtime.worker import Worker, WorkerSettings
 from windops_agent_runtime.workflows import ClaudeUnavailableError
 
@@ -119,6 +120,8 @@ def main() -> None:
         policy=policy,
         api_key=anthropic_key,
         identity=identity_client(),
+        # The agents call the MCP servers with the runtime's own certificate (ADR 0021).
+        toolbox=ToolBox(McpClient(Path(os.environ["WINDOPS_TLS_DIR"]))),
     )
 
     async def database_ready() -> bool:

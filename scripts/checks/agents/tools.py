@@ -53,6 +53,8 @@ from scripts.setup.identity_seed import demo_email, keycloak_public, read_demo_p
 WINDOPS = "windops-mcp-windops"
 INVESTIGATION_HOST = "windops-investigation.windops-application.svc.cluster.local"
 ENGINEER = "agent-tools-check-engineer"
+# Reads cases for the check, as the engineer it makes.
+ENGINEER_READER = ENGINEER
 TURBINE, OTHER_TURBINE = "dogger-east-t01", "atlas-ridge-t01"
 CASE = "case_" + "j" * 20
 RUN = str(int(time.time()))
@@ -97,6 +99,7 @@ class Cases:
         self.opened: list[str] = []
 
     def open(self, user: str) -> str:
+        bootstrap(TENANT, ENGINEER, "reliability-engineer")
         request = investigation_pb2.CreateCaseRequest(
             turbine_id=TURBINE, title=f"Agent tools check {RUN}", severity="medium",
             idempotency_key=f"tools-check-{RUN}",
@@ -105,10 +108,21 @@ class Cases:
         self.opened.append(case_id)
         return case_id
 
+    def evidence(self, case_id: str, timeout: float = 180) -> str:
+        """The case's evidence snapshot, once the builder has frozen it."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            case = self._api.call(
+                "GetCase", investigation_pb2.GetCaseRequest(case_id=case_id), ENGINEER_READER,
+                TENANT,
+            ).case  # fmt: skip
+            if case.evidence_snapshot_id:
+                return str(case.evidence_snapshot_id)
+            time.sleep(5)
+        raise RuntimeError(f"Case {case_id}'s evidence was never frozen")
+
     def close(self) -> None:
         try:
-            if self.opened:
-                bootstrap(TENANT, ENGINEER, "reliability-engineer")
             for case_id in self.opened:
                 self._api.call(
                     "CancelCase",
