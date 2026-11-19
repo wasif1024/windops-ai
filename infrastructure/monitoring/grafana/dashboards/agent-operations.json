@@ -1,0 +1,459 @@
+{
+  "uid": "windops-agent-operations",
+  "title": "Agent Operations",
+  "description": "SRS 10.3: investigation volume, completion and failure rates, tool success, duration and handoffs. Rehearsed runs count as runs; LLM Operations shows Claude itself.",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "tags": [
+    "windops"
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Investigations started",
+      "description": "In the last 24 hours: investigation runs queued.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum((increase(windops_agent_runs_queued_total{workflow=\"investigation\"}[24h]) and windops_agent_runs_queued_total{workflow=\"investigation\"} offset 24h or windops_agent_runs_queued_total{workflow=\"investigation\"})))",
+          "legendFormat": "started"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Investigations completed",
+      "description": "In the last 24 hours.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum((increase(windops_agent_runs_ended_total{workflow=\"investigation\",status=\"completed\"}[24h]) and windops_agent_runs_ended_total{workflow=\"investigation\",status=\"completed\"} offset 24h or windops_agent_runs_ended_total{workflow=\"investigation\",status=\"completed\"})))",
+          "legendFormat": "completed"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Completion rate",
+      "description": "Of the investigation runs that ended in the last 24 hours.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "0",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum((increase(windops_agent_runs_ended_total{workflow=\"investigation\",status=\"completed\"}[24h]) and windops_agent_runs_ended_total{workflow=\"investigation\",status=\"completed\"} offset 24h or windops_agent_runs_ended_total{workflow=\"investigation\",status=\"completed\"})) / sum((increase(windops_agent_runs_ended_total{workflow=\"investigation\"}[24h]) and windops_agent_runs_ended_total{workflow=\"investigation\"} offset 24h or windops_agent_runs_ended_total{workflow=\"investigation\"}))",
+          "legendFormat": "completed"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Failure rate",
+      "description": "Of the investigation runs that ended in the last 24 hours: failed, out of budget or stale.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "0",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.05
+              },
+              {
+                "color": "red",
+                "value": 0.2
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum((increase(windops_agent_runs_ended_total{workflow=\"investigation\",status=~\"failed|budget_exhausted|stale\"}[24h]) and windops_agent_runs_ended_total{workflow=\"investigation\",status=~\"failed|budget_exhausted|stale\"} offset 24h or windops_agent_runs_ended_total{workflow=\"investigation\",status=~\"failed|budget_exhausted|stale\"})) or vector(0)) / sum((increase(windops_agent_runs_ended_total{workflow=\"investigation\"}[24h]) and windops_agent_runs_ended_total{workflow=\"investigation\"} offset 24h or windops_agent_runs_ended_total{workflow=\"investigation\"}))",
+          "legendFormat": "failed"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Investigations started, by who asked",
+      "description": "Every 5 minutes: a person (user) or a detection (service).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (requested_by) (increase(windops_agent_runs_queued_total{workflow=\"investigation\"}[5m]))",
+          "legendFormat": "{{requested_by}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Runs ended, by workflow and state",
+      "description": "Every 5 minutes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (workflow, status) (increase(windops_agent_runs_ended_total[5m]))",
+          "legendFormat": "{{workflow}} {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Tool success, by agent",
+      "description": "Over 15 minutes: the share of each agent's tool calls that answered. An error is the server's refusal or limit; failed is no answer at all.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (agent) (rate(windops_agent_tool_calls_total{outcome=\"ok\"}[15m])) / sum by (agent) (rate(windops_agent_tool_calls_total[15m]))",
+          "legendFormat": "{{agent}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Tool calls that did not succeed",
+      "description": "Every 5 minutes, by agent, tool and outcome, from the agents' side; and the MCP servers' own count of calls they refused, denied or could not answer.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (agent, tool, outcome) (increase(windops_agent_tool_calls_total{outcome!=\"ok\"}[5m]))",
+          "legendFormat": "{{agent}} {{tool}} {{outcome}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (server, outcome) (increase(windops_mcp_tool_duration_seconds_count{outcome!=\"succeeded\"}[5m]))",
+          "legendFormat": "mcp {{server}} {{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Investigation duration",
+      "description": "Over an hour: each completed attempt's working time, 50th and 95th percentiles.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(windops_agent_run_attempt_duration_seconds_bucket{workflow=\"investigation\",outcome=\"completed\"}[1h])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(windops_agent_run_attempt_duration_seconds_bucket{workflow=\"investigation\",outcome=\"completed\"}[1h])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Handoffs, by specialist",
+      "description": "Every 5 minutes: each specialist the Supervisor handed work to.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (to) (increase(windops_agent_handoffs_total[5m]))",
+          "legendFormat": "{{to}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Retries and takeovers",
+      "description": "Every 5 minutes: attempts that will be tried again, and runs another replica took over after a worker stopped.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (workflow) (increase(windops_agent_run_attempt_duration_seconds_count{outcome=\"retried\"}[5m]))",
+          "legendFormat": "retried {{workflow}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(increase(windops_agent_run_claims_total{reclaimed=\"true\"}[5m]))",
+          "legendFormat": "taken over"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Tool calls, by agent",
+      "description": "Every 5 minutes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 29,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (agent) (increase(windops_agent_tool_calls_total[5m]))",
+          "legendFormat": "{{agent}}"
+        }
+      ]
+    }
+  ]
+}

@@ -32,6 +32,8 @@ Sign in as `admin`. The password is in `infrastructure/minikube/secrets.local.gr
 | [Events](events.md) | Consumer lag, outbox backlog, dead letters and stream storage |
 | [Security](security.md#seeing-it-the-security-dashboard) | Failed sign-ins, wrong passwords, MFA failures, access denials, rate limiting, refused tokens and administrator changes |
 | [Data Freshness](../services/telemetry-service/README.md#freshness-m49-srs-103) | Turbines live, delayed, stale and silent, telemetry delay percentiles, each turbine's newest sample age, and samples stored and refused. Weather, documents and provider status arrive with their services |
+| Agent Operations | Investigations started and completed, completion and failure rates, tool success by agent, failed tool calls, duration, handoffs by specialist, and retries and takeovers ([ADR 0026](adr/0026-the-first-regression-set-and-agent-dashboards.md)) |
+| LLM Operations | Tokens by kind, estimated cost, cache hit rate, calls by model and stop reason, model latency, provider errors, refusals and fallbacks, and retries. Rehearsals call no model, so it fills once Claude runs |
 
 The other SRS 10.3 dashboards arrive with the components they describe. Panels stay empty until something produces the
 data, such as a breaker opening.

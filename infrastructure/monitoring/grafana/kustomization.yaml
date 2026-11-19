@@ -18,3 +18,5 @@ configMapGenerator:
       - dashboards/events.json
       - dashboards/security.json
       - dashboards/data-freshness.json
+      - dashboards/agent-operations.json
+      - dashboards/llm-operations.json

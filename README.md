@@ -343,6 +343,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0023](docs/adr/0023-agent-traces-redacted-before-export.md) | Agent traces in LangSmith, redacted in the client before export, sharing the run's correlation ID with the audit trail |
 | [0024](docs/adr/0024-registered-tasks-in-langsmith-sandbox.md) | Registered analysis tasks in LangSmith Sandbox: input only, never code, held to their limits, with no credentials |
 | [0025](docs/adr/0025-investigations-started-and-followed-by-their-case-owner.md) | Investigations started and followed by their case's owner, streamed as numbered, resumable events |
+| [0026](docs/adr/0026-the-first-regression-set-and-agent-dashboards.md) | The first regression set, replayed and scored deterministically, and the Agent and LLM Operations dashboards |
 
 ## Repository layout
 

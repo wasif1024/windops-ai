@@ -316,9 +316,10 @@ def check_evidence(engineer: Caller, telemetry: Caller, got: Any) -> None:
               "own login")  # fmt: skip
 
 
-def clean_up() -> None:
-    """Every turbine the gate has made, and all it left: telemetry, detections, cases, evidence."""
-    mine = f"turbine_id LIKE '{PREFIX}%'"
+def clean_up(tenant: str = TENANT, prefix: str = PREFIX) -> None:
+    """Every turbine the gate has made, and all it left: telemetry, detections, cases, evidence.
+    The regression runner (M8.12) cleans its own replayed turbines the same way."""
+    mine = f"turbine_id LIKE '{prefix}%'"
     # Constants only, never input.
     frozen = f"(SELECT snapshot_id FROM telemetry_snapshots WHERE {mine})"  # noqa: S608
     held = f"(SELECT hold_id FROM telemetry_snapshots WHERE {mine})"  # noqa: S608
@@ -329,11 +330,13 @@ def clean_up() -> None:
     for table in ("telemetry_snapshots", "operational_samples", "scada_summaries", "data_gaps",
                   "ingest_rejections", "device_credentials"):  # fmt: skip
         statements.append(f"DELETE FROM {table} WHERE {mine}")  # noqa: S608
-    as_tenant(TENANT, "; ".join([*statements, "SELECT 1"]))
-    detections_sql(f"DELETE FROM detections WHERE {mine}; "  # noqa: S608
-                   f"DELETE FROM turbine_watch WHERE {mine}; SELECT 1")  # fmt: skip
+    as_tenant(tenant, "; ".join([*statements, "SELECT 1"]))
+    fault_rules.last_line(fault_rules.sql(
+        f"DELETE FROM detections WHERE {mine}; "  # noqa: S608
+        f"DELETE FROM turbine_watch WHERE {mine}; SELECT 1", tenant=tenant,
+    ))  # fmt: skip
     cases_of = f"(SELECT case_id FROM cases WHERE {mine})"  # noqa: S608
-    cases_sql(
+    cases.sql(
         "ALTER TABLE evidence_items DISABLE TRIGGER evidence_items_never_change; "  # noqa: S608
         "ALTER TABLE evidence_snapshots DISABLE TRIGGER evidence_snapshots_never_change; "
         "DELETE FROM evidence_items WHERE snapshot_id IN (SELECT snapshot_id FROM "
@@ -346,10 +349,11 @@ def clean_up() -> None:
         f"DELETE FROM case_investigations WHERE case_id IN {cases_of}; "
         f"DELETE FROM case_history WHERE case_id IN {cases_of}; "
         f"DELETE FROM case_detections WHERE case_id IN {cases_of}; "
-        f"DELETE FROM cases WHERE {mine}; SELECT 1"
+        f"DELETE FROM cases WHERE {mine}; SELECT 1",
+        tenant=tenant,
     )
     asset.sql(
-        f"SELECT set_config('windops.tenant_id', '{TENANT}', false); "  # noqa: S608
+        f"SELECT set_config('windops.tenant_id', '{tenant}', false); "  # noqa: S608
         f"DELETE FROM components WHERE {mine}; DELETE FROM turbines WHERE {mine}; SELECT 1"
     )
 

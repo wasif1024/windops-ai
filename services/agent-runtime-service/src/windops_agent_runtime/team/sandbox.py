@@ -29,6 +29,7 @@ from windops_grpc import acting_as_service
 from windops_resilience import BreakerOpenError
 
 from windops_agent_runtime.store import SERVICE_NAME
+from windops_agent_runtime.team import counted
 
 PREFIX = "sandbox."
 LABEL = "Supporting analysis from a registered Sandbox task. Never a deterministic rule's input."
@@ -105,16 +106,21 @@ class SandboxTasks:
         async def call(**arguments: Any) -> tuple[str, dict[str, Any]]:
             if before_call is not None:
                 before_call(name)
+            labels = {"agent": agent, "server": "sandbox", "tool": task.name}
             try:
                 response = await api.run_task(
                     run.tenant_id, task.name, json.dumps(arguments), run.run_id
                 )
             except SandboxUnavailableError:
+                counted.tool_calls.add(1, {**labels, "outcome": "error"})
                 await run.record(SandboxUse(agent, task.name, task.version, "unavailable"))
                 return json.dumps({"status": "unavailable", "note": UNAVAILABLE}), {
                     "task": task.name, "status": "unavailable",
                 }  # fmt: skip
             status = _status(response)
+            counted.tool_calls.add(
+                1, {**labels, "outcome": "ok" if status == "completed" else "error"}
+            )
             await run.record(SandboxUse(agent, task.name, response.version, status))
             content = json.dumps(
                 {"status": status, "task": task.name, "version": response.version, "label": LABEL,

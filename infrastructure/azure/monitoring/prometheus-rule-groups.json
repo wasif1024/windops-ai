@@ -241,6 +241,34 @@
             "summary": "An agent run reached its token or cost budget and stopped (LLM-010). Its audit record names the run"
           },
           "enabled": true
+        },
+        {
+          "alert": "WindopsAgentToolFailing",
+          "expression": "sum by (agent, server, tool) (increase(windops_agent_tool_calls_total{outcome!=\"ok\"}[15m])) >= 5",
+          "for": "PT10M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning",
+            "category": "agents"
+          },
+          "annotations": {
+            "summary": "{{ $labels.agent }}'s calls to {{ $labels.server }} {{ $labels.tool }} keep failing"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsModelCostHigh",
+          "expression": "sum(increase(windops_llm_cost_usd_total[1h]) and windops_llm_cost_usd_total offset 1h or windops_llm_cost_usd_total) > 20",
+          "for": "PT1M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning",
+            "category": "agents"
+          },
+          "annotations": {
+            "summary": "Claude cost more than $20 in the last hour: {{ $value | printf \"%.2f\" }} USD"
+          },
+          "enabled": true
         }
       ]
     }

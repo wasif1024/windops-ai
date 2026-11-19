@@ -1,0 +1,19 @@
+{
+  "dataset": "windops-first-regression",
+  "version": "1.0",
+  "description": "M8.12's first regression set: six simulator replays, twelve investigations, across nine of the SRS 10.5 families. Phase 12 grows it to 100 to 200.",
+  "scenarios": [
+    "gearbox-temp-001",
+    "bearing-wear-001",
+    "imbalance-001",
+    "sensor-drift-001",
+    "sensor-dropout-001",
+    "high-load-001",
+    "gearbox-safety-001",
+    "injection-001",
+    "tool-scope-001",
+    "impact-001",
+    "grounding-001",
+    "weather-001"
+  ]
+}

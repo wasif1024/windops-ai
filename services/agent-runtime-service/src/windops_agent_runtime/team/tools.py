@@ -22,6 +22,7 @@ from langchain_core.tools import BaseTool, StructuredTool
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
+from windops_agent_runtime.team import counted
 from windops_agent_runtime.team.sandbox import SandboxRun, SandboxTasks, is_sandbox
 
 NAMESPACE = "windops-mcp"
@@ -103,6 +104,15 @@ class McpClient:
         return text if not result.isError else json.dumps({"error": text})
 
 
+def outcome_of(answer: str) -> str:
+    """ "ok", or "error" for an answer that is the server's error, such as a refusal."""
+    try:
+        parsed = json.loads(answer)
+    except ValueError:
+        return "ok"
+    return "error" if isinstance(parsed, dict) and set(parsed) == {"error"} else "ok"
+
+
 class ToolBox:
     """Builds an agent's tools, with each server's schemas read once per process. Sandbox tasks
     come through the Agent Sandbox Adapter, when the runtime has it (ADR 0024)."""
@@ -167,9 +177,15 @@ class ToolBox:
         async def call(**arguments: Any) -> str:
             if before_call is not None:
                 before_call(scope.name)
-            # A fresh token for this one call: it never outlives the call by much (SEC-008).
-            token = await tokens.for_tool(agent, scope.audience, [scope.scope])
-            answer = await client.call(scope.audience, token, scope.tool, arguments)
+            labels = {"agent": agent, "server": scope.audience, "tool": scope.tool}
+            try:
+                # A fresh token for this one call: it never outlives the call by much (SEC-008).
+                token = await tokens.for_tool(agent, scope.audience, [scope.scope])
+                answer = await client.call(scope.audience, token, scope.tool, arguments)
+            except Exception:
+                counted.tool_calls.add(1, {**labels, "outcome": "failed"})
+                raise
+            counted.tool_calls.add(1, {**labels, "outcome": outcome_of(answer)})
             if after_call is not None:
                 after_call(scope.name, answer)
             return answer

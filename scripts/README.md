@@ -15,6 +15,7 @@ a module of the `scripts` package, so it runs from the repository root as, for e
 | `checks/edge/` | The gateway's policy, Web BFF, and the sweep of every route | `make bff-check`, `make route-sweep` |
 | `checks/consoles/` | The consoles' APIs, the browser journeys and the Security dashboard | `make frontend-check`, `make security-check` |
 | `checks/agents/` | Phase 8: the agent stack's vendor checks, agent runs as queued jobs, the investigation graph, agents' tools, the team, its traces, its Sandbox tasks, live progress, and the Claude policy | `make vendor-check`, `make runtime-check`, `make workflow-check`, `make agent-tools-check`, `make team-check`, `make trace-check`, `make sandbox-check`, `make progress-check`, `make claude-check` |
+| `evaluation/` | Phase 8: the regression set's scenario loader, its deterministic evaluators (EVL-003), and the runner that replays scenarios on the cluster and keeps the scores in LangSmith | `make regression` |
 | `checks/gates/` | Each phase's exit gate, which runs that phase's checks together | `make phase-3-gate`, `make phase-4-gate`, `make phase-5-gate`, `make phase-6-gate`, `make phase-7-gate`, `make boundary-check`, `make citation-check` |
 | `dev/` | Working on WindOps: running it locally, the service template, and dead letters | `make dev`, `make service NAME=...`, `make dead-letters` |
 | `generate/` | Files made from the code, which tests keep up to date | `make contracts-gen`, `make openapi` |

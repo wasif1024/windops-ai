@@ -13,7 +13,7 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage
 from windops_claude import Claude
 
-from windops_agent_runtime.team import rehearsal
+from windops_agent_runtime.team import counted, rehearsal
 from windops_agent_runtime.team.build import assemble
 from windops_agent_runtime.team.compose import Composed, InvalidResultError, compose
 from windops_agent_runtime.team.definitions import SUPERVISOR, Team
@@ -80,6 +80,9 @@ class TeamRunner:
             for call in message.tool_calls
             if call["name"] == "task"
         )
+        for specialist in delegated:
+            # The Supervisor's handoffs, for the Agent Operations dashboard (SRS 10.3).
+            counted.handoffs.add(1, {"to": specialist or "unknown"})
         return Findings(
             report=messages[-1].text.strip(), delegated=delegated,
             tools_used=tuple(assembled.usage.calls), seen=assembled.usage.seen.as_dict(),

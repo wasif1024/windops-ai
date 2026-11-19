@@ -13,6 +13,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from google.protobuf.timestamp_pb2 import Timestamp
+from opentelemetry import metrics
 from sqlalchemy import case, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
@@ -47,6 +48,9 @@ from windops_agent_runtime.store import (
 from windops_agent_runtime.workflows import Workflow, canonical
 
 INVESTIGATION = "windops-investigation"
+_queued = metrics.get_meter("windops.agent_runtime").create_counter(
+    "windops_agent_runs_queued", description="Runs queued, by workflow and who asked"
+)
 _CASE = re.compile(r"case_[a-z0-9]{20}")
 _SNAPSHOT = re.compile(r"evs_[a-z0-9]{20}")
 _RUN = re.compile(r"run_[a-z0-9]{20}")
@@ -206,7 +210,10 @@ class AgentRuntimeService(agent_runtime_pb2_grpc.AgentRuntimeServiceServicer):
                     connection, tenant_id=tenant, actor_type=actor_type, actor_id=requested_by,
                     action="agent_run.queued", run_id=run_id,
                 )  # fmt: skip
-                return pb.StartRunResponse(run=await self._load(connection, tenant, run_id))
+                answer = pb.StartRunResponse(run=await self._load(connection, tenant, run_id))
+            # Counted once committed: investigation volume, for the Agent Operations dashboard.
+            _queued.add(1, {"workflow": workflow.name, "requested_by": actor_type})
+            return answer
         except IntegrityError:
             # The same key, in a call that raced this one: answer as a retry.
             async with self._engine.begin() as connection:

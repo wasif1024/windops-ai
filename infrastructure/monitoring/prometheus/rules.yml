@@ -149,3 +149,26 @@ groups:
           severity: warning
         annotations:
           summary: "An agent run reached its token or cost budget and stopped (LLM-010). Its audit record names the run"
+      # SRS 10.3: repeated tool failures. An agent's calls to one tool keep getting no answer, or
+      # the server's error, for 10 minutes: a server is down, or the agent is misusing it.
+      - alert: WindopsAgentToolFailing
+        expr: >-
+          sum by (agent, server, tool) (increase(windops_agent_tool_calls_total{outcome!="ok"}[15m]))
+          >= 5
+        for: 10m
+        labels:
+          severity: warning
+          category: agents
+        annotations:
+          summary: "{{ $labels.agent }}'s calls to {{ $labels.server }} {{ $labels.tool }} keep failing"
+      # SRS 10.3: excessive model cost. Claude cost more than $20 over the last hour, across every
+      # run: far beyond a few investigations' budgets, so many runs, or a loop.
+      - alert: WindopsModelCostHigh
+        expr: >-
+          sum(increase(windops_llm_cost_usd_total[1h])
+          and windops_llm_cost_usd_total offset 1h or windops_llm_cost_usd_total) > 20
+        labels:
+          severity: warning
+          category: agents
+        annotations:
+          summary: "Claude cost more than $20 in the last hour: {{ $value | printf \"%.2f\" }} USD"
