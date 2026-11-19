@@ -13,6 +13,7 @@ import socket
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from opentelemetry import metrics
@@ -35,6 +36,7 @@ from windops_agent_runtime.identity import AgentTokens, Identity
 from windops_agent_runtime.investigation import canonical_pins
 from windops_agent_runtime.queue import Claim, LeaseLostError, Queue
 from windops_agent_runtime.store import BUDGET_EXHAUSTED, CANCELLED, COMPLETED, FAILED, STALE
+from windops_agent_runtime.team.compose import InvalidResultError
 from windops_agent_runtime.team.definitions import team
 from windops_agent_runtime.team.run import TeamRunner
 from windops_agent_runtime.team.tools import ToolBox
@@ -44,8 +46,11 @@ logger = logging.getLogger("windops.agent_runtime")
 
 
 # Errors another attempt would only repeat: a refusal after fallback, a cut-off or malformed
-# answer, an edited history, or no key at all.
-FINAL = (StopError, StructuredOutputError, HistoryEditedError, ClaudeUnavailableError)
+# answer, an edited history, no key at all, or a result still wrong after its repairs.
+FINAL = (
+    StopError, StructuredOutputError, HistoryEditedError, ClaudeUnavailableError,
+    InvalidResultError,
+)  # fmt: skip
 _meter = metrics.get_meter("windops.agent_runtime")
 _claims = _meter.create_counter(
     "windops_agent_run_claims", description="Runs claimed, and whether each was taken over"
@@ -105,6 +110,12 @@ class _Steps:
         self.checkpointer: BaseCheckpointSaver[str] | None = RunCheckpointer(queue, claim)
         self.run_id, self.case_id = claim.run_id, claim.case_id
         self.snapshot_id = claim.snapshot_id
+
+    async def models_used(self) -> dict[str, list[str]]:
+        return await self._queue.models_used(self._claim)
+
+    async def save_result(self, result: dict[str, Any]) -> None:
+        await self._queue.save_result(self._claim, result)
 
     async def record(self, position: int, name: str, started_at: datetime) -> None:
         if position in self._claim.completed:

@@ -24,7 +24,12 @@ from windops_claude.responses import Response
 
 
 class StructuredOutputError(ValueError):
-    """The answer did not match the schema. Repairs, at most two, come in M8.8 (FR-INV-004)."""
+    """The answer did not match the schema. It carries the answer, so a repair can append it to
+    the conversation as it was, and ask again (M8.8, LLM-008)."""
+
+    def __init__(self, text: str, message: AIMessage | None = None) -> None:
+        super().__init__(text)
+        self.message = message
 
 
 @dataclass(frozen=True)
@@ -89,5 +94,5 @@ class Claude:
         if guard is not None:
             guard.after(message)
         if schema is not None and (parsed is None or parsing_error is not None):
-            raise StructuredOutputError(f"The answer did not match {schema.__name__}")
+            raise StructuredOutputError(f"The answer did not match {schema.__name__}", message)
         return Result(message=message, response=response, call=call, parsed=parsed)

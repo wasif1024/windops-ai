@@ -31,6 +31,7 @@ from windops_claude import BudgetExhaustedError, Claude
 
 from windops_agent_runtime.team.definitions import SUPERVISOR, Team
 from windops_agent_runtime.team.metered import PROVIDER, MeteredChat
+from windops_agent_runtime.team.result import Seen
 from windops_agent_runtime.team.tools import Tokens, ToolBox
 
 EXCLUDED_TOOLS = frozenset(
@@ -64,6 +65,8 @@ class Usage:
 
     limit: int
     calls: list[str] = field(default_factory=list)
+    # What the tools returned that a claim may cite, and the estimates (M8.8).
+    seen: Seen = field(default_factory=Seen)
 
     def count(self, name: str) -> None:
         if len(self.calls) >= self.limit:
@@ -96,7 +99,9 @@ async def assemble(
 
     async def tools_of(name: str) -> list[BaseTool]:
         agent = team.agents[name]
-        return await toolbox.tools_for(name, agent.tools, tokens, before_call=usage.count)
+        return await toolbox.tools_for(
+            name, agent.tools, tokens, before_call=usage.count, after_call=usage.seen.add
+        )
 
     supervisor = team.agents[SUPERVISOR]
     files: dict[str, Any] = {}

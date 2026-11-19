@@ -48,6 +48,12 @@ class Context(Protocol):
     async def record(self, position: int, name: str, started_at: datetime) -> None:
         """Record a step completed elsewhere, as a graph's node. Recording it twice is harmless."""
 
+    async def models_used(self) -> dict[str, list[str]]:
+        """The models that answered each role in this run, as Claude reported them."""
+
+    async def save_result(self, result: dict[str, Any]) -> None:
+        """Keep the run's structured result, only while the run's lease is held."""
+
 
 class Workflow(Protocol):
     @property

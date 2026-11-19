@@ -54,6 +54,8 @@ class Agent:
     skills: tuple[str, ...]
     delegates: tuple[str, ...]
     prompt: str
+    # The Supervisor's second prompt: turning its report into the structured result (M8.8).
+    result_prompt: str = ""
 
     @property
     def prompt_hash(self) -> str:
@@ -72,7 +74,14 @@ class Team:
     def pins(self) -> dict[str, Any]:
         """What a run is pinned to: each prompt, tool list and skill, by version and hash."""
         return {
-            "prompts": {n: f"{a.version}:{a.prompt_hash}" for n, a in sorted(self.agents.items())},
+            "prompts": {
+                **{n: f"{a.version}:{a.prompt_hash}" for n, a in sorted(self.agents.items())},
+                **{
+                    f"{n}:result": f"{a.version}:{_hash(a.result_prompt)}"
+                    for n, a in sorted(self.agents.items())
+                    if a.result_prompt
+                },
+            },
             "tools": {n: a.tools_hash for n, a in sorted(self.agents.items())},
             "skills": {n: f"{s.version}:{s.content_hash}" for n, s in sorted(self.skills.items())},
         }
@@ -103,11 +112,14 @@ def load_agent(folder: Path) -> Agent:
         raise ValueError(f"The agent in {folder.name} names itself {spec.get('name')!r}")
     prompt = (folder / "prompt.md").read_text().strip()
     check_stable(prompt)
+    result_file = folder / "result.md"
+    result_prompt = result_file.read_text().strip() if result_file.exists() else ""
+    check_stable(result_prompt)
     return Agent(
         name=folder.name, version=int(spec["version"]), role=str(spec["role"]),
         description=str(spec["description"]), tools=tuple(spec.get("tools") or ()),
         skills=tuple(spec.get("skills") or ()), delegates=tuple(spec.get("delegates") or ()),
-        prompt=prompt,
+        prompt=prompt, result_prompt=result_prompt,
     )  # fmt: skip
 
 
@@ -117,6 +129,8 @@ def load_team(root: Path = ROOT, policy: Policy | None = None) -> Team:
     agents = {f.name: load_agent(f) for f in sorted((root / "agents").iterdir()) if f.is_dir()}
     if SUPERVISOR not in agents:
         raise ValueError("There is no supervisor")
+    if not agents[SUPERVISOR].result_prompt:
+        raise ValueError("The supervisor has no result.md")
     for agent in agents.values():
         if agent.role not in policy.roles:
             raise ValueError(f"{agent.name}'s role {agent.role!r} is not in the Claude policy")

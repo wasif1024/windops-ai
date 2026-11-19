@@ -11,6 +11,8 @@ script. No call reaches Claude, and no web search is made. The check proves:
 - each agent called a real MCP tool from its own allowlist, with a token for that agent and tool
   alone, over mutual TLS from the runtime: WindOps, Documentation and Weather MCP answered;
 - each call was audited as that agent, on the user's behalf (SEC-010);
+- the result is structured as SRS 5.7 sets out, cites only what the tools returned, and is kept
+  on the run, and its recommended action went through the real Policy Service (M8.8);
 - the run is pinned to every agent's prompt, tool list and skill (AGT-004);
 - no token was kept in the run's checkpoints (SEC-008), and nothing was asked of Claude.
 
@@ -139,6 +141,26 @@ def prove(realm: Realm, key: str, cases: Cases) -> None:
         f"Each agent called a real tool on its own allowlist, {len(used)} in all, and none "
         "searched the web",
     )
+    kept = json.loads(run_sql("SELECT result_json FROM runs WHERE run_id = :run", run.run_id))
+    fields = {"case_id", "asset_id", "snapshot_id", "observed_facts", "hypotheses",
+              "evidence_references", "conflicting_evidence", "data_gaps", "risk_flags",
+              "recommended_actions", "confidence", "explanation", "escalation_required",
+              "policy_result_id", "model_versions", "generated_at"}  # fmt: skip
+    check(
+        fields <= set(kept) and kept["case_id"] == case_id and kept["snapshot_id"] == snapshot
+        and all(c in state["seen"]["references"] for f in kept["observed_facts"]
+                for c in f["citations"]),
+        "The result has every SRS 5.7 field, and cites only references its tools returned "
+        "(FR-INV-003, FR-INV-004)",
+    )  # fmt: skip
+    policy = kept["policy"]
+    check(
+        len(policy) == len(kept["recommended_actions"]) and kept["policy_result_id"]
+        and kept["policy_result_id"] == policy[0]["result_id"]
+        and kept["escalation_required"] is True,
+        f"Each recommended action went through the Policy Service: {policy[0]['outcome']}, "
+        f"{kept['policy_result_id']}, so a person must look",
+    )  # fmt: skip
     calls = run_sql("SELECT count(*) FROM run_calls WHERE run_id = :run", run.run_id)
     check(calls == "0", "Nothing was asked of Claude: the rehearsal costs nothing")
     deadline, seen = time.monotonic() + 60, set()
