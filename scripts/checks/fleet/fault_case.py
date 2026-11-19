@@ -205,7 +205,9 @@ def check_one_case(engineer: Caller, rules: Caller, onset: datetime) -> Any:
     case = got.case
     check(
         case.origin == "detection" and case.created_by == DETECTOR
-        and case.component_group == "gearbox" and case.status == "open",
+        and case.component_group == "gearbox"
+        # Investigated from when its evidence is frozen (M8.11), so open or past it.
+        and case.status in ("open", "investigating", "pending_review"),
         f"The detector opened it, for the gearbox: {case.title}",
     )  # fmt: skip
     detections = []
@@ -338,6 +340,10 @@ def clean_up() -> None:
         f"evidence_snapshots WHERE {mine}); DELETE FROM evidence_snapshots WHERE {mine}; "
         "ALTER TABLE evidence_items ENABLE TRIGGER evidence_items_never_change; "
         "ALTER TABLE evidence_snapshots ENABLE TRIGGER evidence_snapshots_never_change; "
+        "ALTER TABLE case_progress DISABLE TRIGGER case_progress_never_changes; "
+        f"DELETE FROM case_progress WHERE case_id IN {cases_of}; "
+        "ALTER TABLE case_progress ENABLE TRIGGER case_progress_never_changes; "
+        f"DELETE FROM case_investigations WHERE case_id IN {cases_of}; "
         f"DELETE FROM case_history WHERE case_id IN {cases_of}; "
         f"DELETE FROM case_detections WHERE case_id IN {cases_of}; "
         f"DELETE FROM cases WHERE {mine}; SELECT 1"

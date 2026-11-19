@@ -26,6 +26,7 @@ from windops_web_bff.alarms import add_alarm_routes
 from windops_web_bff.branding import add_branding_routes
 from windops_web_bff.errors import from_grpc, problem
 from windops_web_bff.fleet import add_fleet_routes
+from windops_web_bff.investigations import Watch, add_investigation_routes
 from windops_web_bff.limits import LimitUnavailableError, RateLimiter, traffic_class
 from windops_web_bff.platform import add_platform_routes
 from windops_web_bff.security_metrics import SecurityCounters
@@ -102,6 +103,9 @@ class Dependencies:
     asset: Callable[..., Awaitable[Any]] | None = None
     telemetry: Callable[..., Awaitable[Any]] | None = None
     alarm: Callable[..., Awaitable[Any]] | None = None
+    # Investigations (M8.11): unary calls, and the live stream of one's progress.
+    investigation: Callable[..., Awaitable[Any]] | None = None
+    investigation_watch: Watch | None = None
     # For the Security dashboard. main.py starts them as the service starts.
     counters: SecurityCounters | None = None
     # Only for tests, when there are no counters: the global provider when unset.
@@ -201,6 +205,7 @@ def create_router(deps: Dependencies) -> APIRouter:
         **({"asset": deps.asset} if deps.asset else {}),
         **({"telemetry": deps.telemetry} if deps.telemetry else {}),
         **({"alarm": deps.alarm} if deps.alarm else {}),
+        **({"investigation": deps.investigation} if deps.investigation else {}),
     }
 
     async def call_as(
@@ -319,6 +324,11 @@ def create_router(deps: Dependencies) -> APIRouter:
     )
 
     add_alarm_routes(router, caller, call_as)
+    add_investigation_routes(
+        router, caller, call_as, deps.investigation_watch,
+        identity_for=lambda who: identity_for(who, deps.identity_secret),
+        failed=lambda error: ApiError(from_grpc(error)),
+    )  # fmt: skip
 
     @router.get("/openapi.json", include_in_schema=False)
     async def openapi() -> JSONResponse:

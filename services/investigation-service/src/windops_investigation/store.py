@@ -125,6 +125,47 @@ EVIDENCE_ITEMS = Table(
     Column("content", Text, nullable=False),
     Column("content_hash", Text, nullable=False),
 )
+# Each case's investigation, run in the Agent Runtime (M8.11, ADR 0025). One a case.
+INVESTIGATIONS = Table(
+    "case_investigations",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("case_id", Text, primary_key=True),
+    # "waiting" for the case's evidence, "running", "completed", "ended" or "not_started".
+    Column("status", Text, nullable=False),
+    # "user:<id>" or "service:investigation", as the run records it.
+    Column("requested_by", Text, nullable=False),
+    # Empty until started, for the tenant's fault-investigator.
+    Column("delegation_id", Text, nullable=False, server_default=""),
+    Column("delegation_expires_at", DateTime(timezone=True)),
+    Column("run_id", Text, nullable=False, server_default=""),
+    Column("snapshot_id", Text, nullable=False, server_default=""),
+    Column("note", Text, nullable=False, server_default=""),
+    Column("requested_at", DateTime(timezone=True), nullable=False),
+    Column("started_at", DateTime(timezone=True)),
+    Column("ended_at", DateTime(timezone=True)),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+# What happened in a case's investigation, in order, for live progress (API-003). Never changed.
+PROGRESS = Table(
+    "case_progress",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("case_id", Text, primary_key=True),
+    # From 1 in the case: the stream's resumable event ID.
+    Column("sequence", BigInteger, primary_key=True),
+    Column("at", DateTime(timezone=True), nullable=False),
+    Column("kind", Text, nullable=False),
+    Column("run_id", Text, nullable=False, server_default=""),
+    Column("position", BigInteger, nullable=False, server_default="0"),
+    Column("total_steps", BigInteger, nullable=False, server_default="0"),
+    Column("step", Text, nullable=False, server_default=""),
+    Column("status", Text, nullable=False, server_default=""),
+    Column("note", Text, nullable=False, server_default=""),
+    # What it records, so a replica that sees the same step again adds nothing.
+    Column("event_key", Text, nullable=False),
+    Index("case_progress_once", "tenant_id", "case_id", "event_key", unique=True),
+)
 # A retry with the same key returns the first answer, and changes nothing (GRP-007).
 IDEMPOTENCY_KEYS = Table(
     "idempotency_keys",
@@ -139,7 +180,7 @@ IDEMPOTENCY_KEYS = Table(
 )
 TENANT_TABLES = (
     "cases", "case_detections", "case_history", "idempotency_keys", "evidence_snapshots",
-    "evidence_items",
+    "evidence_items", "case_investigations", "case_progress",
 )  # fmt: skip
 
 

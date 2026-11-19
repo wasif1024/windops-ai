@@ -4,7 +4,9 @@ A turbine's wind farm comes from the Asset Service, asked as the caller, because
 for a wind farm (RBAC-002). A caller who may act across the whole tenant needs no lookup.
 """
 
-from collections.abc import Callable
+import asyncio
+import time
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -32,7 +34,7 @@ from windops_grpc import (
 from windops_migrations import in_tenant
 from windops_resilience import BreakerOpenError
 
-from windops_investigation import case_rules, cases, evidence
+from windops_investigation import case_rules, cases, evidence, investigations
 from windops_investigation.store import (
     ACTIVE,
     CASE_DETECTIONS,
@@ -40,6 +42,8 @@ from windops_investigation.store import (
     CASES,
     CLOSED,
     EVIDENCE_SNAPSHOTS,
+    INVESTIGATIONS,
+    PROGRESS,
     KeyReusedError,
     remember,
     remembered,
@@ -52,6 +56,12 @@ SNAPSHOT_DEADLINE_SECONDS = 60.0
 DEFAULT_PAGE, MAXIMUM_PAGE = 100, 500
 MAXIMUM_KEY, MAXIMUM_TEXT = 64, 500
 STATUSES = (*ACTIVE, CLOSED, "cancelled")
+# A Keycloak access token is a few kilobytes at most.
+MAXIMUM_TOKEN = 16384
+# How long one watch lasts before the caller calls again, how often it looks for new events,
+# and how long it stays quiet before a heartbeat.
+WATCH_SECONDS, POLL_SECONDS, HEARTBEAT_SECONDS = 300.0, 1.0, 10.0
+MAXIMUM_EVENTS = 200
 
 
 class Authorizer(Protocol):
@@ -174,8 +184,10 @@ def _timestamp(value: datetime | None) -> Timestamp | None:
     return stamp
 
 
-def to_message(row: Any, detection_count: int = 0) -> pb.Case:
+def to_message(row: Any, detection_count: int = 0, investigation: Any = None) -> pb.Case:
     return pb.Case(
+        investigation_status=investigation.status if investigation is not None else "",
+        run_id=investigation.run_id if investigation is not None else "",
         case_id=row.case_id, turbine_id=row.turbine_id, component_group=row.component_group,
         title=row.title, status=row.status, severity=row.severity, origin=row.origin,
         created_by=row.created_by, created_at=_timestamp(row.created_at),
@@ -217,10 +229,17 @@ class InvestigationService(investigation_pb2_grpc.InvestigationServiceServicer):
         assets: Assets,
         clock: Callable[[], datetime] | None = None,
         sources: Any = None,
+        delegations: investigations.Delegations | None = None,
+        agents: str = "off",
+        watch_seconds: float = WATCH_SECONDS,
+        poll_seconds: float = POLL_SECONDS,
     ) -> None:
         self._engine, self._authorizer, self._assets = engine, authorizer, assets
         self._now = clock or (lambda: datetime.now(UTC))
         self._sources = sources
+        # How investigations run: "rehearse", "claude" or "off" (investigations.MODES).
+        self._delegations, self._agents = delegations, agents
+        self._watch_seconds, self._poll_seconds = watch_seconds, poll_seconds
 
     async def _allowed(self, permission: str, turbine_id: str) -> bool:
         if await self._authorizer.allowed(permission):
@@ -260,32 +279,62 @@ class InvestigationService(investigation_pb2_grpc.InvestigationServiceServicer):
             raise InvalidRequestError(f"severity is one of: {', '.join(case_rules.SEVERITIES)}")
         if len(request.idempotency_key) > MAXIMUM_KEY:
             raise InvalidRequestError(f"idempotency_key is at most {MAXIMUM_KEY} characters")
+        if request.investigate and not 0 < len(request.subject_token) <= MAXIMUM_TOKEN:
+            raise InvalidRequestError("Investigating needs the person's subject_token")
+        if request.subject_token and not request.investigate:
+            raise InvalidRequestError("subject_token is only for investigating")
+        if request.investigate and (self._agents == "off" or self._delegations is None):
+            raise ConflictError("Investigations are turned off here")
         tenant, user = self._user()
         # Creating needs investigation.create; one who cannot see the turbine cannot use it.
         if not await self._allowed(CREATE, request.turbine_id):
             raise PermissionDeniedError("You do not have permission to do this")
         await self._assets.wind_farm_of(request.turbine_id)
+        # A retry may carry a newer token, and is still the same request. The token is never kept.
+        kept = pb.CreateCaseRequest()
+        kept.CopyFrom(request)
+        kept.ClearField("subject_token")
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            first = await self._first(connection, tenant, user, request.idempotency_key, kept)
+        if first is not None:
+            return first
+        case_id = cases.new_case_id()
+        delegation = None
+        if request.investigate and self._delegations is not None:
+            # As the person, with their own token, while they wait for the case's ID (ADR 0019).
+            delegation = await self._delegations.for_user(case_id, request.subject_token)
         now = self._now()
         async with self._engine.begin() as connection:
             await in_tenant(connection, tenant)
-            try:
-                first = await remembered(connection, tenant, user, request.idempotency_key,
-                                         "CreateCase", request)  # fmt: skip
-            except KeyReusedError as error:
-                raise InvalidRequestError(str(error)) from error
+            first = await self._first(connection, tenant, user, request.idempotency_key, kept)
             if first is not None:
-                return pb.CreateCaseResponse.FromString(first)
+                return first
             case = await cases.create(
                 connection, tenant=tenant, turbine_id=request.turbine_id,
                 group=case_rules.DEFAULT_GROUP, title=title, severity=request.severity,
-                origin=cases.USER, by=user, actor_type=cases.USER, now=now,
+                origin=cases.USER, by=user, actor_type=cases.USER, now=now, case_id=case_id,
             )  # fmt: skip
-            response = pb.CreateCaseResponse(case=to_message(case))
+            if delegation is not None:
+                await investigations.request(connection, case, requested_by=f"user:{user}",
+                                             now=now, delegation=delegation)  # fmt: skip
+            response = pb.CreateCaseResponse(
+                case=to_message(case, 0, await investigations.load(connection, tenant, case_id))
+            )
             await remember(
                 connection, tenant_id=tenant, user_id=user, key=request.idempotency_key,
-                method="CreateCase", request=request, response=response, now=now,
+                method="CreateCase", request=kept, response=response, now=now,
             )  # fmt: skip
         return response
+
+    @staticmethod
+    async def _first(connection: Any, tenant: str, user: str, key: str,
+                     request: pb.CreateCaseRequest) -> pb.CreateCaseResponse | None:  # fmt: skip
+        try:
+            first = await remembered(connection, tenant, user, key, "CreateCase", request)
+        except KeyReusedError as error:
+            raise InvalidRequestError(str(error)) from error
+        return None if first is None else pb.CreateCaseResponse.FromString(first)
 
     async def ListCases(  # noqa: N802  # The name comes from the contract.
         self, request: pb.ListCasesRequest, context: Any
@@ -312,11 +361,18 @@ class InvestigationService(investigation_pb2_grpc.InvestigationServiceServicer):
                 select(d.case_id).where(d.tenant_id == tenant)
             )).all():  # fmt: skip
                 counts[case_id] = counts.get(case_id, 0) + 1
+            investigated = {row.case_id: row for row in (await connection.execute(
+                select(INVESTIGATIONS).where(INVESTIGATIONS.c.tenant_id == tenant)
+            )).all()}  # fmt: skip
         rows = sorted(rows, key=lambda r: (-case_rules.rank(r.severity),
                                            -r.updated_at.timestamp(), r.case_id))  # fmt: skip
         page = rows[offset : offset + size]
+        listed = [
+            to_message(row, counts.get(row.case_id, 0), investigated.get(row.case_id))
+            for row in page
+        ]
         return pb.ListCasesResponse(
-            cases=[to_message(row, counts.get(row.case_id, 0)) for row in page],
+            cases=listed,
             next_page_token=str(offset + size) if len(rows) > offset + size else "",
         )
 
@@ -343,8 +399,9 @@ class InvestigationService(investigation_pb2_grpc.InvestigationServiceServicer):
                 .where(CASE_HISTORY.c.tenant_id == tenant, CASE_HISTORY.c.case_id == case.case_id)
                 .order_by(CASE_HISTORY.c.version)
             )).all()  # fmt: skip
+            investigation = await investigations.load(connection, tenant, case.case_id)
         return pb.GetCaseResponse(
-            case=to_message(case, len(detections)),
+            case=to_message(case, len(detections), investigation),
             detections=[
                 pb.CaseDetection(
                     detection_id=d.detection_id, rule_id=d.rule_id, rule_version=d.rule_version,
@@ -457,3 +514,62 @@ class InvestigationService(investigation_pb2_grpc.InvestigationServiceServicer):
                 .order_by(EVIDENCE_SNAPSHOTS.c.version.desc())
             )).all()  # fmt: skip
         return pb.ListEvidenceSnapshotsResponse(snapshots=[to_snapshot(row) for row in rows])
+
+    async def WatchInvestigation(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.WatchInvestigationRequest, context: Any
+    ) -> AsyncIterator[pb.WatchInvestigationResponse]:
+        """Each event after the one asked for, as it happens (API-003). Permission is checked
+        once, as the watch starts, and a watch lasts at most a few minutes."""
+        if not request.case_id or request.after_sequence < 0:
+            raise InvalidRequestError("case_id is required, and after_sequence is at least 0")
+        tenant = current_identity().tenant_id
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            case = await cases.load(connection, tenant, request.case_id)
+        if case is None:
+            raise NotFoundError("No such case")
+        await self._require(READ, case.turbine_id)
+        after = request.after_sequence
+        started = quiet_since = time.monotonic()
+        while True:
+            events, over = await self._progress(tenant, case.case_id, after)
+            for event in events:
+                after = event.sequence
+                yield pb.WatchInvestigationResponse(event=event)
+            if events:
+                quiet_since = time.monotonic()
+            elif over:
+                yield pb.WatchInvestigationResponse(finished=True)
+                return
+            if time.monotonic() - started >= self._watch_seconds:
+                return
+            if time.monotonic() - quiet_since >= HEARTBEAT_SECONDS:
+                quiet_since = time.monotonic()
+                yield pb.WatchInvestigationResponse(heartbeat=True)
+            if not events:
+                await asyncio.sleep(self._poll_seconds)
+
+    async def _progress(
+        self, tenant: str, case_id: str, after: int
+    ) -> tuple[list[pb.ProgressEvent], bool]:
+        """Events after the given one, and whether the investigation is over. Over is read first:
+        an investigation's last events commit with its end, so none can be missed."""
+        p = PROGRESS.c
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            # Read committed: the next statement sees everything committed before it starts.
+            investigation = await investigations.load(connection, tenant, case_id)
+            rows = (await connection.execute(
+                select(PROGRESS)
+                .where(p.tenant_id == tenant, p.case_id == case_id, p.sequence > after)
+                .order_by(p.sequence).limit(MAXIMUM_EVENTS)
+            )).all()  # fmt: skip
+        over = investigation is None or investigation.status in investigations.OVER
+        return [
+            pb.ProgressEvent(
+                sequence=r.sequence, at=_timestamp(r.at), kind=r.kind, run_id=r.run_id,
+                position=r.position, total_steps=r.total_steps, step=r.step, status=r.status,
+                note=r.note,
+            )
+            for r in rows
+        ], over  # fmt: skip

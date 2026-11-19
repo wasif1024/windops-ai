@@ -41,6 +41,8 @@ class Case(_message.Message):
     EVIDENCE_SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
     EVIDENCE_VERSION_FIELD_NUMBER: _builtins.int
     EVIDENCE_STATUS_FIELD_NUMBER: _builtins.int
+    INVESTIGATION_STATUS_FIELD_NUMBER: _builtins.int
+    RUN_ID_FIELD_NUMBER: _builtins.int
     case_id: _builtins.str
     turbine_id: _builtins.str
     component_group: _builtins.str
@@ -70,6 +72,12 @@ class Case(_message.Message):
     """"pending" while a snapshot is still to be frozen, as when one of its sources cannot be
     reached (SRS 7.7), or "ready".
     """
+    investigation_status: _builtins.str
+    """Its investigation: "", or "waiting" for its evidence, "running", "completed", "ended" (any
+    other end, with the run's status in the progress events) or "not_started".
+    """
+    run_id: _builtins.str
+    """The Agent Runtime's run, once started."""
     @_builtins.property
     def created_at(self) -> _timestamp_pb2.Timestamp: ...
     @_builtins.property
@@ -97,10 +105,12 @@ class Case(_message.Message):
         evidence_snapshot_id: _builtins.str = ...,
         evidence_version: _builtins.int = ...,
         evidence_status: _builtins.str = ...,
+        investigation_status: _builtins.str = ...,
+        run_id: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "last_detection_at", b"last_detection_at", "updated_at", b"updated_at"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["cancel_reason", b"cancel_reason", "case_id", b"case_id", "case_rules_version", b"case_rules_version", "component_group", b"component_group", "created_at", b"created_at", "created_by", b"created_by", "detection_count", b"detection_count", "evidence_snapshot_id", b"evidence_snapshot_id", "evidence_status", b"evidence_status", "evidence_version", b"evidence_version", "last_detection_at", b"last_detection_at", "origin", b"origin", "severity", b"severity", "status", b"status", "title", b"title", "turbine_id", b"turbine_id", "updated_at", b"updated_at", "version", b"version"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["cancel_reason", b"cancel_reason", "case_id", b"case_id", "case_rules_version", b"case_rules_version", "component_group", b"component_group", "created_at", b"created_at", "created_by", b"created_by", "detection_count", b"detection_count", "evidence_snapshot_id", b"evidence_snapshot_id", "evidence_status", b"evidence_status", "evidence_version", b"evidence_version", "investigation_status", b"investigation_status", "last_detection_at", b"last_detection_at", "origin", b"origin", "run_id", b"run_id", "severity", b"severity", "status", b"status", "title", b"title", "turbine_id", b"turbine_id", "updated_at", b"updated_at", "version", b"version"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -151,7 +161,10 @@ class CaseEvent(_message.Message):
     ACTOR_ID_FIELD_NUMBER: _builtins.int
     NOTE_FIELD_NUMBER: _builtins.int
     action: _builtins.str
-    """"created", "detection_attached", "severity_raised" or "cancelled"."""
+    """"created", "detection_attached", "severity_raised", "evidence_frozen", "cancelled",
+    "investigation_started", "investigation_completed", "investigation_ended" or
+    "investigation_not_started".
+    """
     actor_type: _builtins.str
     """"user" or "service"."""
     actor_id: _builtins.str
@@ -183,11 +196,22 @@ class CreateCaseRequest(_message.Message):
     TITLE_FIELD_NUMBER: _builtins.int
     SEVERITY_FIELD_NUMBER: _builtins.int
     IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    INVESTIGATE_FIELD_NUMBER: _builtins.int
+    SUBJECT_TOKEN_FIELD_NUMBER: _builtins.int
     turbine_id: _builtins.str
     title: _builtins.str
     severity: _builtins.str
     """"low", "medium", "high" or "critical": how urgent the person judges it, until detections say."""
     idempotency_key: _builtins.str
+    investigate: _builtins.bool
+    """Investigate it too (API-003): the answer still comes at once, with the case's ID, and the
+    investigation starts once its evidence is frozen. Needs subject_token.
+    """
+    subject_token: _builtins.str
+    """The person's own current Keycloak access token, which proves they are signed in now, for
+    the delegation their investigation's agents act under (ADR 0019). Passed to the Identity
+    Service, then dropped: never stored or logged.
+    """
     def __init__(
         self,
         *,
@@ -195,10 +219,12 @@ class CreateCaseRequest(_message.Message):
         title: _builtins.str = ...,
         severity: _builtins.str = ...,
         idempotency_key: _builtins.str = ...,
+        investigate: _builtins.bool = ...,
+        subject_token: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["idempotency_key", b"idempotency_key", "severity", b"severity", "title", b"title", "turbine_id", b"turbine_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["idempotency_key", b"idempotency_key", "investigate", b"investigate", "severity", b"severity", "subject_token", b"subject_token", "title", b"title", "turbine_id", b"turbine_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -613,3 +639,109 @@ class ListEvidenceSnapshotsResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___ListEvidenceSnapshotsResponse: _TypeAlias = ListEvidenceSnapshotsResponse  # noqa: Y015
+
+@_typing.final
+class WatchInvestigationRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CASE_ID_FIELD_NUMBER: _builtins.int
+    AFTER_SEQUENCE_FIELD_NUMBER: _builtins.int
+    case_id: _builtins.str
+    after_sequence: _builtins.int
+    """The last event's sequence already seen, or 0 for all of them."""
+    def __init__(
+        self,
+        *,
+        case_id: _builtins.str = ...,
+        after_sequence: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["after_sequence", b"after_sequence", "case_id", b"case_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___WatchInvestigationRequest: _TypeAlias = WatchInvestigationRequest  # noqa: Y015
+
+@_typing.final
+class ProgressEvent(_message.Message):
+    """One thing that happened in a case's investigation."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SEQUENCE_FIELD_NUMBER: _builtins.int
+    AT_FIELD_NUMBER: _builtins.int
+    KIND_FIELD_NUMBER: _builtins.int
+    RUN_ID_FIELD_NUMBER: _builtins.int
+    POSITION_FIELD_NUMBER: _builtins.int
+    TOTAL_STEPS_FIELD_NUMBER: _builtins.int
+    STEP_FIELD_NUMBER: _builtins.int
+    STATUS_FIELD_NUMBER: _builtins.int
+    NOTE_FIELD_NUMBER: _builtins.int
+    sequence: _builtins.int
+    """From 1 in the case, never reused."""
+    kind: _builtins.str
+    """"requested", "started", "step", "run_ended" or "case_status"."""
+    run_id: _builtins.str
+    position: _builtins.int
+    """For "step": its position from 1, of total_steps, and its name."""
+    total_steps: _builtins.int
+    step: _builtins.str
+    status: _builtins.str
+    """For "run_ended", the run's status, such as "completed" or "failed". For "case_status", the
+    case's new status.
+    """
+    note: _builtins.str
+    """Why, when there is a reason."""
+    @_builtins.property
+    def at(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        sequence: _builtins.int = ...,
+        at: _timestamp_pb2.Timestamp | None = ...,
+        kind: _builtins.str = ...,
+        run_id: _builtins.str = ...,
+        position: _builtins.int = ...,
+        total_steps: _builtins.int = ...,
+        step: _builtins.str = ...,
+        status: _builtins.str = ...,
+        note: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["at", b"at"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["at", b"at", "kind", b"kind", "note", b"note", "position", b"position", "run_id", b"run_id", "sequence", b"sequence", "status", b"status", "step", b"step", "total_steps", b"total_steps"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ProgressEvent: _TypeAlias = ProgressEvent  # noqa: Y015
+
+@_typing.final
+class WatchInvestigationResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    EVENT_FIELD_NUMBER: _builtins.int
+    HEARTBEAT_FIELD_NUMBER: _builtins.int
+    FINISHED_FIELD_NUMBER: _builtins.int
+    heartbeat: _builtins.bool
+    """Nothing new for a while; the stream is still open."""
+    finished: _builtins.bool
+    """The investigation is over, and every event has been sent."""
+    @_builtins.property
+    def event(self) -> Global___ProgressEvent: ...
+    def __init__(
+        self,
+        *,
+        event: Global___ProgressEvent | None = ...,
+        heartbeat: _builtins.bool = ...,
+        finished: _builtins.bool = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["event", b"event", "finished", b"finished", "heartbeat", b"heartbeat", "item", b"item"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["event", b"event", "finished", b"finished", "heartbeat", b"heartbeat", "item", b"item"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType_item: _TypeAlias = _typing.Literal["event", "heartbeat", "finished"]  # noqa: Y015
+    _WhichOneofArgType_item: _TypeAlias = _typing.Literal["item", b"item"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType_item) -> _WhichOneofReturnType_item | None: ...
+
+Global___WatchInvestigationResponse: _TypeAlias = WatchInvestigationResponse  # noqa: Y015

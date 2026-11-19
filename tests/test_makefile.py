@@ -84,6 +84,7 @@ BUILT_TARGETS = {
     "team-check",
     "trace-check",
     "sandbox-check",
+    "progress-check",
     "claude-check",
     "claude-policy-lock",
     "frontend-test",

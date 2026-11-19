@@ -128,6 +128,25 @@ not read is `404 not_found`, the same as one that does not exist; acting on an a
 | `POST /api/v1/alarms/{id}/shelve` | Set a standing alarm aside, with a reason, for 1 minute to a day |
 | `POST /api/v1/alarms/{id}/unshelve` | Put a shelved alarm back before its time is up |
 
+### Investigations (M8.11)
+
+The Investigation Service decides who may investigate a turbine and read a case
+([ADR 0025](../../docs/adr/0025-investigations-started-and-followed-by-their-case-owner.md)).
+
+| Route | What |
+| --- | --- |
+| `POST /api/v1/investigations` | Open a case and investigate it: `202` with the case's ID at once. The run starts once its evidence is frozen, under the person's own delegation, made with their token |
+| `GET /api/v1/investigations/{id}` | The case, and where its investigation is |
+| `GET /api/v1/investigations/{id}/events` | Its progress as server-sent events (API-003) |
+
+- **Events:** each has its sequence as its `id` and its kind as its name: `requested`, `started`, `step`,
+  `run_ended` and `case_status`.
+- **Resuming:** a client that reconnects with `Last-Event-ID` gets what came after.
+- **The end:** a stream ends with `event: finished` once the investigation is over. Otherwise it ends after at
+  most five minutes, or when the person's token does, to be opened again.
+- **The browser:** `EventSource` cannot send an `Authorization` header, so the frontend reads the stream with
+  `fetch`.
+
 ## Metrics
 
 For the Security dashboard (SRS 10.3), with fixed labels only:
@@ -146,6 +165,7 @@ uv run pytest services/web-bff-service/tests
 make bff-check         # on the cluster, with real logins through the gateway
 make admin-api-check   # the administrator console's routes, the same way
 make platform-api-check  # the Platform console's, as a Platform Administrator with a real code
+make progress-check      # an investigation's live progress, through the gateway
 ```
 
 ## Limits

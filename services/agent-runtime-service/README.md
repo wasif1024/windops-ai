@@ -12,7 +12,9 @@ There are three workflows:
   against what the tools returned, with at most two repairs; step 11 checks each recommended action through Policy;
   step 12 keeps the result on the run
   ([ADR 0022](../../docs/adr/0022-the-structured-result-checked-against-what-the-team-saw.md)). A run can rehearse the
-  team on a scripted model, at no cost. Investigation starts these runs from M8.11.
+  team on a scripted model, at no cost. Investigation starts these runs for its cases, follows them, and sets the
+  case to `pending_review` when one completes
+  ([ADR 0025](../../docs/adr/0025-investigations-started-and-followed-by-their-case-owner.md)).
 - **`rehearsal`:** timed steps with no model and no tools, so the queue and its recovery can be proved without
   spending anything.
 - **`model-check`:** one short call per role, a structured answer and a cached prompt, a few cents of synthetic
@@ -93,6 +95,7 @@ make workflow-check
 make team-check
 make trace-check
 make sandbox-check
+make progress-check
 make claude-check
 ```
 

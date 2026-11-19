@@ -81,6 +81,11 @@ class InvestigationServiceStub:
                 request_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ListEvidenceSnapshotsRequest.SerializeToString,
                 response_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ListEvidenceSnapshotsResponse.FromString,
                 _registered_method=True)
+        self.WatchInvestigation = channel.unary_stream(
+                '/windops.investigation.v1.InvestigationService/WatchInvestigation',
+                request_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.WatchInvestigationRequest.SerializeToString,
+                response_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.WatchInvestigationResponse.FromString,
+                _registered_method=True)
 
 
 class InvestigationServiceServicer:
@@ -151,6 +156,23 @@ class InvestigationServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def WatchInvestigation(self, request, context):
+        """A case's investigation as it happens (API-003): each event once, in order, numbered from 1
+        in the case. Send the last sequence seen to carry on after it. Needs investigation.read.
+
+        The case's investigation runs in the Agent Runtime. This service starts it once the case's
+        first evidence snapshot is frozen, as the tenant's fault-investigator for a case from
+        detections, or under the person's delegation for one they asked to investigate. It follows
+        the run, keeps each step as an event, and sets the case to "investigating", then
+        "pending_review" when the run completes, or back to "open" if it ends otherwise.
+
+        The stream sends a heartbeat when nothing has happened for a while, ends with "finished"
+        once the investigation is over, and ends without it after a few minutes, to be called again.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_InvestigationServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -188,6 +210,11 @@ def add_InvestigationServiceServicer_to_server(servicer, server):
                     servicer.ListEvidenceSnapshots,
                     request_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ListEvidenceSnapshotsRequest.FromString,
                     response_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ListEvidenceSnapshotsResponse.SerializeToString,
+            ),
+            'WatchInvestigation': grpc.unary_stream_rpc_method_handler(
+                    servicer.WatchInvestigation,
+                    request_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.WatchInvestigationRequest.FromString,
+                    response_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.WatchInvestigationResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -391,6 +418,33 @@ class InvestigationService:
             '/windops.investigation.v1.InvestigationService/ListEvidenceSnapshots',
             windops_dot_investigation_dot_v1_dot_investigation__pb2.ListEvidenceSnapshotsRequest.SerializeToString,
             windops_dot_investigation_dot_v1_dot_investigation__pb2.ListEvidenceSnapshotsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def WatchInvestigation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/windops.investigation.v1.InvestigationService/WatchInvestigation',
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.WatchInvestigationRequest.SerializeToString,
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.WatchInvestigationResponse.FromString,
             options,
             channel_credentials,
             insecure,

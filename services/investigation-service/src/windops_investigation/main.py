@@ -13,10 +13,12 @@ from nats.js.errors import APIError
 from opentelemetry import metrics
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
+from windops.agent_runtime.v1 import agent_runtime_pb2_grpc
 from windops.alarm.v1 import alarm_pb2_grpc
 from windops.asset.v1 import asset_pb2_grpc
 from windops.authorization.v1 import authorization_pb2_grpc
 from windops.fault_detection.v1 import fault_detection_pb2_grpc
+from windops.identity.v1 import identity_pb2_grpc
 from windops.investigation.v1 import investigation_pb2_grpc
 from windops.telemetry.v1 import telemetry_pb2_grpc
 from windops_auth import current_identity_token
@@ -29,6 +31,13 @@ from windops_resilience import BreakerConfig, CircuitBreaker
 
 from windops_investigation.consumer import SUBJECT, handle
 from windops_investigation.evidence import Builder, keep_building
+from windops_investigation.investigations import (
+    MODES,
+    DelegationClient,
+    Keeper,
+    RuntimeClient,
+    keep_investigating,
+)
 from windops_investigation.service import (
     AssetClient,
     AuthorizationClient,
@@ -41,7 +50,9 @@ logger = logging.getLogger("windops.service")
 RECONNECT_SECONDS = 5
 
 
-async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
+async def consume_and_relay(
+    engine: AsyncEngine, stop: asyncio.Event, investigate: bool = False
+) -> None:
     """Keep trying to connect, because an outage must not restart this service (RES-006)."""
     events: Events | None = None
     while events is None:
@@ -58,7 +69,7 @@ async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
                 await asyncio.wait_for(stop.wait(), timeout=RECONNECT_SECONDS)
 
     async def handler(event: Event) -> None:
-        await handle(engine, event)
+        await handle(engine, event, investigate)
 
     consumer = events.consumer(subject=SUBJECT, durable=SERVICE_NAME, handler=handler)
     relay = asyncio.create_task(OutboxRelay(engine, events.publisher).run_forever(stop))
@@ -145,7 +156,31 @@ def main() -> None:
             },
         )
     )  # fmt: skip
-    builder = Builder(engine, sources, os.environ["WINDOPS_IDENTITY_SECRET"])
+    secret = os.environ["WINDOPS_IDENTITY_SECRET"]
+    builder = Builder(engine, sources, secret)
+    # How a case's agents run (ADR 0025). Anything unknown is refused at start.
+    agents = os.environ.get("WINDOPS_INVESTIGATION_AGENTS", "rehearse")
+    if agents not in MODES:
+        raise SystemExit(f"WINDOPS_INVESTIGATION_AGENTS must be one of: {', '.join(MODES)}")
+    channels: dict[str, Any] = {}
+
+    def channel(setting: str) -> Any:
+        # Made on first use, on the running loop.
+        if setting not in channels:
+            channels[setting] = create_channel(os.environ[setting], tls)
+        return channels[setting]
+
+    runtime = RuntimeClient(
+        lambda: agent_runtime_pb2_grpc.AgentRuntimeServiceStub(
+            channel("WINDOPS_AGENT_RUNTIME_ADDRESS")
+        ),
+        _client("agent-runtime"),
+    )
+    delegations = DelegationClient(
+        lambda: identity_pb2_grpc.IdentityServiceStub(channel("WINDOPS_IDENTITY_ADDRESS")),
+        _client("identity"),
+    )
+    keeper = Keeper(engine, runtime, delegations, secret, agents)
 
     async def database_ready() -> bool:
         async with engine.connect() as connection:
@@ -154,21 +189,27 @@ def main() -> None:
 
     def register(server: grpc.aio.Server) -> None:
         investigation_pb2_grpc.add_InvestigationServiceServicer_to_server(
-            InvestigationService(engine, authorizer, assets, sources=sources), server
+            InvestigationService(
+                engine, authorizer, assets, sources=sources, delegations=delegations, agents=agents
+            ),
+            server,
         )
 
     async def consume(stop: asyncio.Event) -> None:
-        await consume_and_relay(engine, stop)
+        await consume_and_relay(engine, stop, investigate=agents != "off")
 
     async def build(stop: asyncio.Event) -> None:
         await keep_building(builder, stop)
+
+    async def investigate(stop: asyncio.Event) -> None:
+        await keep_investigating(keeper, stop)
 
     asyncio.run(
         run_service(
             SERVICE_NAME,
             register,
             readiness_checks=(database_ready,),
-            background=(consume, build),
+            background=(consume, build, investigate),
         )
     )
 

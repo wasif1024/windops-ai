@@ -734,6 +734,78 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "Investigation": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "events": {
+            "title": "Events",
+            "type": "string"
+          },
+          "investigation_status": {
+            "title": "Investigation Status",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "turbine_id": {
+            "title": "Turbine Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "case_id",
+          "turbine_id",
+          "title",
+          "status",
+          "severity",
+          "investigation_status",
+          "run_id",
+          "created_at",
+          "updated_at",
+          "events"
+        ],
+        "title": "Investigation",
+        "type": "object"
+      },
       "Latest": {
         "properties": {
           "available": {
@@ -1440,6 +1512,33 @@
           "minutes"
         ],
         "title": "Shelve",
+        "type": "object"
+      },
+      "StartInvestigation": {
+        "properties": {
+          "severity": {
+            "pattern": "^(low|medium|high|critical)$",
+            "title": "Severity",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "turbine_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Turbine Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turbine_id",
+          "title",
+          "severity"
+        ],
+        "title": "StartInvestigation",
         "type": "object"
       },
       "Suspension": {
@@ -3490,6 +3589,147 @@
           }
         },
         "summary": "One turbine's telemetry for the last minutes, for its charts"
+      }
+    },
+    "/api/v1/investigations": {
+      "post": {
+        "operationId": "start_api_v1_investigations_post",
+        "parameters": [
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartInvestigation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Investigation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open a case and investigate it: the case's ID at once, the run once its evidence is frozen"
+      }
+    },
+    "/api/v1/investigations/{case_id}": {
+      "get": {
+        "operationId": "get_api_v1_investigations__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Investigation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "A case and where its investigation is"
+      }
+    },
+    "/api/v1/investigations/{case_id}/events": {
+      "get": {
+        "operationId": "events_api_v1_investigations__case_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The last event's ID already seen",
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "default": "0",
+              "description": "The last event's ID already seen",
+              "pattern": "^\\d{1,18}$",
+              "title": "Last-Event-Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The investigation's progress as server-sent events, resumable with Last-Event-ID"
       }
     },
     "/api/v1/me": {
