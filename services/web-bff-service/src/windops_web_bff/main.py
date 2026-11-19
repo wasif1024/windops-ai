@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
@@ -14,10 +14,11 @@ from windops.asset.v1 import asset_pb2_grpc
 from windops.audit.v1 import audit_pb2_grpc
 from windops.authorization.v1 import authorization_pb2_grpc
 from windops.identity.v1 import identity_pb2_grpc
+from windops.investigation.v1 import investigation_pb2_grpc
 from windops.telemetry.v1 import telemetry_pb2_grpc
 from windops.tenant.v1 import tenant_pb2_grpc
 from windops_cache import connect as redis_connect
-from windops_grpc import ServiceClient, create_channel, run_service
+from windops_grpc import ServiceClient, create_channel, outgoing_metadata, run_service
 from windops_observability import breaker_state_metrics
 from windops_resilience import BreakerConfig, CircuitBreaker
 
@@ -75,6 +76,10 @@ def main() -> None:
         "asset": (asset_pb2_grpc.AssetServiceStub, "WINDOPS_ASSET_ADDRESS"),
         "telemetry": (telemetry_pb2_grpc.TelemetryServiceStub, "WINDOPS_TELEMETRY_ADDRESS"),
         "alarm": (alarm_pb2_grpc.AlarmServiceStub, "WINDOPS_ALARM_ADDRESS"),
+        "investigation": (
+            investigation_pb2_grpc.InvestigationServiceStub,
+            "WINDOPS_INVESTIGATION_ADDRESS",
+        ),
     }
 
     def client_for(service: str) -> tuple[Any, ServiceClient]:
@@ -113,6 +118,20 @@ def main() -> None:
 
         return call
 
+    async def watch(request: Any, identity: str, seconds: float) -> AsyncGenerator[Any]:
+        """A case's progress, streamed as it happens. It bypasses the breaker, which counts
+        calls, not streams that are meant to stay open; its deadline bounds it. Closing it
+        cancels the call, as when the browser goes away."""
+        stub, _ = client_for("investigation")
+        call = stub.WatchInvestigation(
+            request, timeout=seconds + 5, metadata=outgoing_metadata(identity_token=identity)
+        )
+        try:
+            async for item in call:
+                yield item
+        finally:
+            call.cancel()
+
     counters = SecurityCounters()
 
     async def start_counting(stop: asyncio.Event) -> None:
@@ -132,6 +151,8 @@ def main() -> None:
             asset=caller_for("asset"),
             telemetry=caller_for("telemetry"),
             alarm=caller_for("alarm"),
+            investigation=caller_for("investigation"),
+            investigation_watch=watch,
             counters=counters,
         )
     )

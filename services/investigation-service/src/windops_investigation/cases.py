@@ -1,7 +1,7 @@
 """How a case lives: opened by a person or by detections, grouped by the case rules, cancelled.
 
     detection (medium or above, nothing active) ──> open ──> investigating ──> pending_review
-    a person ───────────────────────────────────> open        (Agent Runtime, Phase 8)
+    a person ───────────────────────────────────> open    (its investigation: investigations.py)
     any active case ──cancel──> cancelled
 
 A detection whose turbine and component already have an active case joins it, and raises its
@@ -60,9 +60,9 @@ async def change(
 
 async def create(
     connection: AsyncConnection, *, tenant: str, turbine_id: str, group: str, title: str,
-    severity: str, origin: str, by: str, actor_type: str, now: datetime,
+    severity: str, origin: str, by: str, actor_type: str, now: datetime, case_id: str = "",
 ) -> Any:  # fmt: skip
-    case_id = new_case_id()
+    case_id = case_id or new_case_id()
     await connection.execute(
         CASES.insert().values(
             tenant_id=tenant, case_id=case_id, turbine_id=turbine_id, component_group=group,
@@ -84,7 +84,8 @@ async def attach_detection(
     now: datetime,
 ) -> Any | None:  # fmt: skip
     """Put the detection in its case, opening one if the case rules say so. Returns the case,
-    or None for a repeat or a low detection with no active case to join."""
+    or None for a repeat or a low detection with no active case to join. A case it opens is at
+    version 1."""
     await in_tenant(connection, tenant)
     d = CASE_DETECTIONS.c
     seen = await connection.execute(

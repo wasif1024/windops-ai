@@ -21,8 +21,9 @@ to 8 and 11 then record, from the tools the team called, whether each happened, 
 gap where it did not. Validating the report's structure (step 10) comes in M8.8, and the
 recommendation and draft (step 12) in M8.8 and Phase 9. A run started without the team records a
 gap for each, and, for checks, step 4 can ask the Supervisor for a one-line plan: a real call to
-Claude, to prove a resumed run never makes it twice. Investigation starts runs, and step 13 sets
-the case to pending_review, from M8.11.
+Claude, to prove a resumed run never makes it twice. Investigation starts runs for its cases, and
+follows them: when a run completes, step 13's end, it sets the case to pending_review (M8.11,
+ADR 0025).
 """
 
 import asyncio
@@ -62,7 +63,7 @@ STEPS: tuple[tuple[str, str], ...] = (
     ("validate_output", "M8.8"),
     ("policy_checks", "M8.6"),
     ("recommend", "M8.7, M9.3"),
-    ("conclude", "M8.11"),
+    ("conclude", "M8.4, M8.11"),
 )
 _PLANNER = (
     "You are the Supervisor of a wind turbine fault investigation. Given a case, reply with one "
@@ -238,9 +239,9 @@ def build(context: Context, parameters: Mapping[str, Any]) -> StateGraph[State]:
         return {"result": result, "data_gaps": ["recommend: draft work orders come in Phase 9"]}
 
     async def conclude(state: State) -> dict[str, Any]:
-        # Setting the case to pending_review comes with Investigation's side of the run (M8.11).
-        return {"concluded_at": datetime.now(UTC).isoformat(), "data_gaps": [
-            "conclude: the case is set to pending_review from M8.11"]}  # fmt: skip
+        # The run completes here. Investigation, which owns the case and follows the run, then
+        # sets the case to pending_review for a person's review (M8.11, ADR 0025).
+        return {"concluded_at": datetime.now(UTC).isoformat()}
 
     def deferred(name: str, module: str) -> Node:
         async def gap(state: State) -> dict[str, Any]:

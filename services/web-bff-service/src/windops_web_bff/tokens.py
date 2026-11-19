@@ -47,6 +47,8 @@ class Caller:
     client: str
     auth_level: str | None
     auth_time: int | None
+    # When the token expires, in seconds since the epoch: a stream never outlasts it.
+    expires_at: int = 0
 
 
 @dataclass(frozen=True)
@@ -140,4 +142,5 @@ class TokenVerifier:
             client=str(claims.get("azp", "")),
             auth_level=claims.get("acr") if isinstance(claims.get("acr"), str) else None,
             auth_time=auth_time if type(auth_time) is int else None,
+            expires_at=int(claims["exp"]),
         )

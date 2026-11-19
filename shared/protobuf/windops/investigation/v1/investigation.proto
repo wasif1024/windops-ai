@@ -36,6 +36,19 @@ service InvestigationService {
   rpc GetEvidenceSnapshot(GetEvidenceSnapshotRequest) returns (GetEvidenceSnapshotResponse);
   // A case's snapshots, newest version first, without their items.
   rpc ListEvidenceSnapshots(ListEvidenceSnapshotsRequest) returns (ListEvidenceSnapshotsResponse);
+
+  // A case's investigation as it happens (API-003): each event once, in order, numbered from 1
+  // in the case. Send the last sequence seen to carry on after it. Needs investigation.read.
+  //
+  // The case's investigation runs in the Agent Runtime. This service starts it once the case's
+  // first evidence snapshot is frozen, as the tenant's fault-investigator for a case from
+  // detections, or under the person's delegation for one they asked to investigate. It follows
+  // the run, keeps each step as an event, and sets the case to "investigating", then
+  // "pending_review" when the run completes, or back to "open" if it ends otherwise.
+  //
+  // The stream sends a heartbeat when nothing has happened for a while, ends with "finished"
+  // once the investigation is over, and ends without it after a few minutes, to be called again.
+  rpc WatchInvestigation(WatchInvestigationRequest) returns (stream WatchInvestigationResponse);
 }
 
 message Case {
@@ -68,6 +81,11 @@ message Case {
   // "pending" while a snapshot is still to be frozen, as when one of its sources cannot be
   // reached (SRS 7.7), or "ready".
   string evidence_status = 18;
+  // Its investigation: "", or "waiting" for its evidence, "running", "completed", "ended" (any
+  // other end, with the run's status in the progress events) or "not_started".
+  string investigation_status = 19;
+  // The Agent Runtime's run, once started.
+  string run_id = 20;
 }
 
 message CaseDetection {
@@ -81,7 +99,9 @@ message CaseDetection {
 
 message CaseEvent {
   google.protobuf.Timestamp at = 1;
-  // "created", "detection_attached", "severity_raised" or "cancelled".
+  // "created", "detection_attached", "severity_raised", "evidence_frozen", "cancelled",
+  // "investigation_started", "investigation_completed", "investigation_ended" or
+  // "investigation_not_started".
   string action = 2;
   // "user" or "service".
   string actor_type = 3;
@@ -95,6 +115,13 @@ message CreateCaseRequest {
   // "low", "medium", "high" or "critical": how urgent the person judges it, until detections say.
   string severity = 3;
   string idempotency_key = 4;
+  // Investigate it too (API-003): the answer still comes at once, with the case's ID, and the
+  // investigation starts once its evidence is frozen. Needs subject_token.
+  bool investigate = 5;
+  // The person's own current Keycloak access token, which proves they are signed in now, for
+  // the delegation their investigation's agents act under (ADR 0019). Passed to the Identity
+  // Service, then dropped: never stored or logged.
+  string subject_token = 6;
 }
 
 message CreateCaseResponse {
@@ -199,4 +226,39 @@ message ListEvidenceSnapshotsRequest {
 
 message ListEvidenceSnapshotsResponse {
   repeated EvidenceSnapshot snapshots = 1;
+}
+
+message WatchInvestigationRequest {
+  string case_id = 1;
+  // The last event's sequence already seen, or 0 for all of them.
+  int64 after_sequence = 2;
+}
+
+// One thing that happened in a case's investigation.
+message ProgressEvent {
+  // From 1 in the case, never reused.
+  int64 sequence = 1;
+  google.protobuf.Timestamp at = 2;
+  // "requested", "started", "step", "run_ended" or "case_status".
+  string kind = 3;
+  string run_id = 4;
+  // For "step": its position from 1, of total_steps, and its name.
+  int64 position = 5;
+  int64 total_steps = 6;
+  string step = 7;
+  // For "run_ended", the run's status, such as "completed" or "failed". For "case_status", the
+  // case's new status.
+  string status = 8;
+  // Why, when there is a reason.
+  string note = 9;
+}
+
+message WatchInvestigationResponse {
+  oneof item {
+    ProgressEvent event = 1;
+    // Nothing new for a while; the stream is still open.
+    bool heartbeat = 2;
+    // The investigation is over, and every event has been sent.
+    bool finished = 3;
+  }
 }

@@ -8,7 +8,7 @@ case's status, its detections and its history (SRS 5.5).
 | From | How |
 | --- | --- |
 | The detector | Each `fault.detected`, from the Fault Detection Service only, goes into a case by the case rules |
-| A person | `CreateCase`, with `investigation.create`, for a turbine they may see. Always a case of its own |
+| A person | `CreateCase`, with `investigation.create`, for a turbine they may see. Always a case of its own. With `investigate`, it is investigated too |
 
 ## One fault, one case (FR-FLT-004)
 
@@ -30,7 +30,8 @@ ID, so `fault.detected` sent twice changes nothing. Each case records the case r
 | Status | Set by |
 | --- | --- |
 | `open` | Created, waiting for its investigation |
-| `investigating`, `pending_review` | Agent Runtime, in Phase 8 |
+| `investigating` | This service, when the case's investigation starts |
+| `pending_review` | This service, when its run completes (SRS 5.4 step 13). A run that ends otherwise puts the case back to `open` |
 | `closed` | Approval and closure, in Phase 10 |
 | `cancelled` | A person with `investigation.cancel`, with a reason |
 
@@ -61,10 +62,31 @@ Every change is kept in the case's history with who made it, announced as `case.
 `investigation.read` for the turbine, its wind farm or the tenant, with the wind farm from the Asset Service, asked as
 the caller. A case the caller may not read is not found.
 
+## Investigations (API-003)
+
+Each case's investigation runs in the [Agent Runtime](../agent-runtime-service/README.md), started and followed by
+this service ([ADR 0025](../../docs/adr/0025-investigations-started-and-followed-by-their-case-owner.md)).
+
+| Case | Investigated | Its agents act for |
+| --- | --- | --- |
+| From detections | Always, when it opens | The tenant's `fault-investigator` |
+| A person's | When `CreateCase` asks with `investigate` and the person's own Keycloak token | That person, under a four-hour delegation |
+
+- **Starting:** the person gets the case's ID at once. A keeper starts the run once the case's first evidence
+  snapshot is frozen, and the case becomes `investigating`.
+- **The token:** it is passed to the Identity Service for the delegation, then dropped: never stored or logged.
+- **Following:** the keeper reads each run every two seconds and keeps each completed step as a numbered event. When
+  the run ends, it moves the case. A cancelled case cancels its run.
+- **Watching:** `WatchInvestigation` streams a case's events from any sequence, with `investigation.read`. Web BFF
+  passes them on as server-sent events.
+- **Cost:** `WINDOPS_INVESTIGATION_AGENTS` sets how runs go: `rehearse` (a scripted model, no cost, the default),
+  `claude`, or `off`.
+
 ## Run the tests
 
 ```bash
 uv run pytest services/investigation-service/tests
 make case-check   # on the cluster: one case from two rules, its evidence frozen and verified, and who may do what
 make fault-case-check  # the Phase 5 gate: a seeded gearbox fault, found by the default rules, makes one case
+make progress-check    # an investigation through the gateway, its progress streamed, dropped and resumed
 ```

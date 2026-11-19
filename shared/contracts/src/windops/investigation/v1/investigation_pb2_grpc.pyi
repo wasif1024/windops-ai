@@ -64,6 +64,19 @@ class InvestigationServiceStub:
     """With every item, and whether its hashes still match what it holds."""
     ListEvidenceSnapshots: _grpc.UnaryUnaryMultiCallable[_investigation_pb2.ListEvidenceSnapshotsRequest, _investigation_pb2.ListEvidenceSnapshotsResponse]
     """A case's snapshots, newest version first, without their items."""
+    WatchInvestigation: _grpc.UnaryStreamMultiCallable[_investigation_pb2.WatchInvestigationRequest, _investigation_pb2.WatchInvestigationResponse]
+    """A case's investigation as it happens (API-003): each event once, in order, numbered from 1
+    in the case. Send the last sequence seen to carry on after it. Needs investigation.read.
+
+    The case's investigation runs in the Agent Runtime. This service starts it once the case's
+    first evidence snapshot is frozen, as the tenant's fault-investigator for a case from
+    detections, or under the person's delegation for one they asked to investigate. It follows
+    the run, keeps each step as an event, and sets the case to "investigating", then
+    "pending_review" when the run completes, or back to "open" if it ends otherwise.
+
+    The stream sends a heartbeat when nothing has happened for a while, ends with "finished"
+    once the investigation is over, and ends without it after a few minutes, to be called again.
+    """
 
 @_typing.type_check_only
 class InvestigationServiceAsyncStub(InvestigationServiceStub):
@@ -101,6 +114,19 @@ class InvestigationServiceAsyncStub(InvestigationServiceStub):
     """With every item, and whether its hashes still match what it holds."""
     ListEvidenceSnapshots: _aio.UnaryUnaryMultiCallable[_investigation_pb2.ListEvidenceSnapshotsRequest, _investigation_pb2.ListEvidenceSnapshotsResponse]  # type: ignore[assignment]
     """A case's snapshots, newest version first, without their items."""
+    WatchInvestigation: _aio.UnaryStreamMultiCallable[_investigation_pb2.WatchInvestigationRequest, _investigation_pb2.WatchInvestigationResponse]  # type: ignore[assignment]
+    """A case's investigation as it happens (API-003): each event once, in order, numbered from 1
+    in the case. Send the last sequence seen to carry on after it. Needs investigation.read.
+
+    The case's investigation runs in the Agent Runtime. This service starts it once the case's
+    first evidence snapshot is frozen, as the tenant's fault-investigator for a case from
+    detections, or under the person's delegation for one they asked to investigate. It follows
+    the run, keeps each step as an event, and sets the case to "investigating", then
+    "pending_review" when the run completes, or back to "open" if it ends otherwise.
+
+    The stream sends a heartbeat when nothing has happened for a while, ends with "finished"
+    once the investigation is over, and ends without it after a few minutes, to be called again.
+    """
 
 class InvestigationServiceServicer(metaclass=_abc_1.ABCMeta):
     """Investigation cases: what is being looked into on a turbine, and why (FR-INV-001, FR-FLT-004).
@@ -177,5 +203,24 @@ class InvestigationServiceServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_investigation_pb2.ListEvidenceSnapshotsResponse, _abc.Awaitable[_investigation_pb2.ListEvidenceSnapshotsResponse]]:
         """A case's snapshots, newest version first, without their items."""
+
+    @_abc_1.abstractmethod
+    def WatchInvestigation(
+        self,
+        request: _investigation_pb2.WatchInvestigationRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_abc.Iterator[_investigation_pb2.WatchInvestigationResponse], _abc.AsyncIterator[_investigation_pb2.WatchInvestigationResponse]]:
+        """A case's investigation as it happens (API-003): each event once, in order, numbered from 1
+        in the case. Send the last sequence seen to carry on after it. Needs investigation.read.
+
+        The case's investigation runs in the Agent Runtime. This service starts it once the case's
+        first evidence snapshot is frozen, as the tenant's fault-investigator for a case from
+        detections, or under the person's delegation for one they asked to investigate. It follows
+        the run, keeps each step as an event, and sets the case to "investigating", then
+        "pending_review" when the run completes, or back to "open" if it ends otherwise.
+
+        The stream sends a heartbeat when nothing has happened for a while, ends with "finished"
+        once the investigation is over, and ends without it after a few minutes, to be called again.
+        """
 
 def add_InvestigationServiceServicer_to_server(servicer: InvestigationServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

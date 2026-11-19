@@ -246,7 +246,12 @@ def clean_up() -> None:
         f"evidence_snapshots WHERE case_id IN {mine}); "
         f"DELETE FROM evidence_snapshots WHERE case_id IN {mine}; "
         "ALTER TABLE evidence_items ENABLE TRIGGER evidence_items_never_change; "
-        "ALTER TABLE evidence_snapshots ENABLE TRIGGER evidence_snapshots_never_change; SELECT 1"
+        "ALTER TABLE evidence_snapshots ENABLE TRIGGER evidence_snapshots_never_change; "
+        # Each detection case is investigated too (M8.11): its progress never changes either.
+        "ALTER TABLE case_progress DISABLE TRIGGER case_progress_never_changes; "
+        f"DELETE FROM case_progress WHERE case_id IN {mine}; "
+        "ALTER TABLE case_progress ENABLE TRIGGER case_progress_never_changes; "
+        f"DELETE FROM case_investigations WHERE case_id IN {mine}; SELECT 1"
     )
     sql(
         "DELETE FROM case_history WHERE case_id IN (SELECT case_id FROM case_detections "  # noqa: S608
