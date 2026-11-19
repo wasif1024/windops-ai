@@ -22,6 +22,8 @@ from langchain_core.tools import BaseTool, StructuredTool
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
+from windops_agent_runtime.team.sandbox import SandboxRun, SandboxTasks, is_sandbox
+
 NAMESPACE = "windops-mcp"
 TIMEOUT_SECONDS = 60.0
 
@@ -102,10 +104,12 @@ class McpClient:
 
 
 class ToolBox:
-    """Builds an agent's tools, with each server's schemas read once per process."""
+    """Builds an agent's tools, with each server's schemas read once per process. Sandbox tasks
+    come through the Agent Sandbox Adapter, when the runtime has it (ADR 0024)."""
 
-    def __init__(self, client: McpClient) -> None:
+    def __init__(self, client: McpClient, sandbox: SandboxTasks | None = None) -> None:
         self._client = client
+        self._sandbox = sandbox
         self._described: dict[str, dict[str, Any]] = {}
 
     async def _description(self, scope: Scope, agent: str, tokens: Tokens) -> dict[str, Any]:
@@ -130,11 +134,20 @@ class ToolBox:
         tokens: Tokens,
         before_call: Callable[[str], None] | None = None,
         after_call: Callable[[str, str], None] | None = None,
+        sandbox_run: SandboxRun | None = None,
     ) -> list[BaseTool]:
         """The agent's tools. before_call runs first on each call, as to count it; after_call
-        gets each answer, as to note what it may be cited by."""
+        gets each answer, as to note what it may be cited by. Sandbox tasks need the run they
+        are part of, where their use is recorded."""
         built: list[BaseTool] = []
         for raw in scopes:
+            if is_sandbox(raw):
+                if self._sandbox is None or sandbox_run is None:
+                    raise ValueError(f"{agent} needs {raw}, but the runtime has no Sandbox")
+                built.append(
+                    await self._sandbox.tool(agent, raw, sandbox_run, before_call, after_call)
+                )
+                continue
             scope = Scope.parse(raw)
             described = await self._description(scope, agent, tokens)
             built.append(self._tool(agent, scope, described, tokens, before_call, after_call))

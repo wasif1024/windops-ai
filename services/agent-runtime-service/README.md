@@ -69,6 +69,14 @@ Every call goes through the `windops-claude` library and its versioned policy
 - **The key:** `ANTHROPIC_API_KEY` in `.env` becomes the Secret `windops-anthropic-api-key`, which only this pod
   mounts.
 
+## Sandbox tasks
+
+An agent whose allowlist names `sandbox.<task>` gets a tool for that registered task, run in LangSmith Sandbox by the
+[Agent Sandbox Adapter](../agent-sandbox-adapter/README.md) ([ADR 0024](../../docs/adr/0024-registered-tasks-in-langsmith-sandbox.md)).
+Today that is only the Reliability Engineer. The agent gives input, never code, and sees the output labelled
+supporting analysis. What ran goes in the trace as the tool message's artifact, and each use is audited as the
+agent, on the user's behalf. A rehearsal runs a real task only when started with `sandbox=true`.
+
 ## Traces
 
 Each run is traced to LangSmith through one client whose hooks redact every value before export
@@ -84,6 +92,7 @@ make runtime-check
 make workflow-check
 make team-check
 make trace-check
+make sandbox-check
 make claude-check
 ```
 

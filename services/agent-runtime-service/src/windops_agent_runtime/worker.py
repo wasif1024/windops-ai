@@ -39,6 +39,7 @@ from windops_agent_runtime.store import BUDGET_EXHAUSTED, CANCELLED, COMPLETED, 
 from windops_agent_runtime.team.compose import InvalidResultError
 from windops_agent_runtime.team.definitions import team
 from windops_agent_runtime.team.run import TeamRunner
+from windops_agent_runtime.team.sandbox import SandboxRun, SandboxUse
 from windops_agent_runtime.team.tools import ToolBox
 from windops_agent_runtime.tracing import Tracer, run_metadata
 from windops_agent_runtime.workflows import ClaudeUnavailableError, StepFailedError, Workflow
@@ -273,9 +274,15 @@ class Worker:
             return self._make_team(claim, claude, tokens)
         if self._toolbox is None or self._policy is None:
             return None
+        queue = self._queue
+
+        async def record(use: SandboxUse) -> None:
+            await queue.record_sandbox(claim, use)
+
         return TeamRunner(
             team(), self._toolbox, claude=claude, tokens=tokens,
             tool_calls=self._policy.budget_for(claim.tenant_id).tool_calls,
+            sandbox_run=SandboxRun(claim.run_id, claim.tenant_id, record),
         )  # fmt: skip
 
     def _claude_for(self, claim: Claim) -> Claude | None:

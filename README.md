@@ -341,6 +341,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0021](docs/adr/0021-the-agents-and-skills-on-deep-agents.md) | The six agents and six skills on restricted Deep Agents, every call through the Claude policy, rehearsed at no cost |
 | [0022](docs/adr/0022-the-structured-result-checked-against-what-the-team-saw.md) | The structured result, checked against what the team's tools returned, with two repairs and a policy check |
 | [0023](docs/adr/0023-agent-traces-redacted-before-export.md) | Agent traces in LangSmith, redacted in the client before export, sharing the run's correlation ID with the audit trail |
+| [0024](docs/adr/0024-registered-tasks-in-langsmith-sandbox.md) | Registered analysis tasks in LangSmith Sandbox: input only, never code, held to their limits, with no credentials |
 
 ## Repository layout
 

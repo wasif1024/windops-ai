@@ -28,6 +28,7 @@ from windops_agent_runtime.queue import Queue
 from windops_agent_runtime.registry import REGISTRY
 from windops_agent_runtime.service import AgentRuntimeService
 from windops_agent_runtime.store import SERVICE_NAME
+from windops_agent_runtime.team.sandbox import sandbox_from_environment
 from windops_agent_runtime.team.tools import McpClient, ToolBox
 from windops_agent_runtime.tracing import tracer_from_environment
 from windops_agent_runtime.worker import Worker, WorkerSettings
@@ -122,7 +123,11 @@ def main() -> None:
         api_key=anthropic_key,
         identity=identity_client(),
         # The agents call the MCP servers with the runtime's own certificate (ADR 0021).
-        toolbox=ToolBox(McpClient(Path(os.environ["WINDOPS_TLS_DIR"]))),
+        # Sandbox tasks through the Agent Sandbox Adapter, for agents whose allowlists name them.
+        toolbox=ToolBox(
+            McpClient(Path(os.environ["WINDOPS_TLS_DIR"])),
+            sandbox=sandbox_from_environment(Path(os.environ["WINDOPS_TLS_DIR"])),
+        ),
         # Traces go to LangSmith only redacted, and only when turned on (ADR 0023).
         tracer=tracer_from_environment(),
     )

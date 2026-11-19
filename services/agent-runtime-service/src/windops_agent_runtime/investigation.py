@@ -166,8 +166,9 @@ def build(context: Context, parameters: Mapping[str, Any]) -> StateGraph[State]:
         scripted = None
         if parameters.get("rehearse"):
             scripted = rehearsal.models(
-                state["case_id"], state["snapshot_id"], str(parameters["turbine_id"])
-            )
+                state["case_id"], state["snapshot_id"], str(parameters["turbine_id"]),
+                sandbox=bool(parameters.get("sandbox")),
+            )  # fmt: skip
         found = await runner.investigate(state["case_id"], state["snapshot_id"], model=scripted)
         return {"report": found.report, "delegated": list(found.delegated),
                 "tools_used": list(found.tools_used), "seen": found.seen}  # fmt: skip
@@ -280,7 +281,7 @@ class Investigation:
 
     def check(self, parameters: Mapping[str, str]) -> dict[str, Any]:
         unknown = set(parameters) - {
-            "step_seconds", "plan_with_claude", "team", "rehearse", "turbine_id",
+            "step_seconds", "plan_with_claude", "team", "rehearse", "turbine_id", "sandbox",
         }  # fmt: skip
         if unknown:
             raise InvalidRequestError(f"Unknown parameters: {', '.join(sorted(unknown))}")
@@ -303,9 +304,13 @@ class Investigation:
         turbine = parameters.get("turbine_id", "")
         if rehearse == "true" and not (agents == "true" and _TURBINE.fullmatch(turbine)):
             raise InvalidRequestError("A rehearsal needs the team and a turbine_id")
+        # A rehearsal may also run a real Sandbox task, which costs a little LangSmith compute.
+        sandbox = parameters.get("sandbox", "false")
+        if sandbox not in ("true", "false") or (sandbox == "true" and rehearse != "true"):
+            raise InvalidRequestError("sandbox must be true or false, and only for a rehearsal")
         return {"step_seconds": seconds, "plan_with_claude": plan == "true",
                 "team": agents == "true", "rehearse": rehearse == "true",
-                "turbine_id": turbine}  # fmt: skip
+                "turbine_id": turbine, "sandbox": sandbox == "true"}  # fmt: skip
 
     def total_steps(self, parameters: Mapping[str, Any]) -> int:
         return len(STEPS)

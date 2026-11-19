@@ -134,7 +134,7 @@ def prove(realm: Realm, key: str, cases: Cases) -> None:
     )
     used = state["tools_used"]
     allowed = {
-        f"{s.split('.')[1]}_{s.split('.')[2]}" for tools in AGENT_TOOLS.values() for s in tools
+        s.removeprefix("mcp.").replace(".", "_") for tools in AGENT_TOOLS.values() for s in tools
     }
     check(
         set(used) == EXPECTED and set(used) <= allowed and not any("tavily" in t for t in used),

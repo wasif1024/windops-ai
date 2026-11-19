@@ -32,6 +32,7 @@ from windops_claude import BudgetExhaustedError, Claude
 from windops_agent_runtime.team.definitions import SUPERVISOR, Team
 from windops_agent_runtime.team.metered import PROVIDER, MeteredChat
 from windops_agent_runtime.team.result import Seen
+from windops_agent_runtime.team.sandbox import SandboxRun
 from windops_agent_runtime.team.tools import Tokens, ToolBox
 
 EXCLUDED_TOOLS = frozenset(
@@ -89,6 +90,7 @@ async def assemble(
     toolbox: ToolBox,
     tool_calls: int,
     model: Callable[[str], Any] | None = None,
+    sandbox_run: SandboxRun | None = None,
 ) -> Assembled:
     """The Supervisor, with its specialists, for one run."""
     register_profile()
@@ -111,8 +113,9 @@ async def assemble(
     async def tools_of(name: str) -> list[BaseTool]:
         agent = team.agents[name]
         return await toolbox.tools_for(
-            name, agent.tools, tokens, before_call=usage.count, after_call=usage.seen.add
-        )
+            name, agent.tools, tokens, before_call=usage.count, after_call=usage.seen.add,
+            sandbox_run=sandbox_run,
+        )  # fmt: skip
 
     supervisor = team.agents[SUPERVISOR]
     files: dict[str, Any] = {}

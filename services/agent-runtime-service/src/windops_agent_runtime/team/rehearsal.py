@@ -4,11 +4,13 @@ A run asked to rehearse assembles the real team, with real tools, tokens and MCP
 swaps only the model: each agent follows a fixed script instead of asking Claude. The Supervisor
 reads the evidence, delegates to each specialist once, and reports; each specialist makes one
 real tool call, from its own allowlist, and answers. No call reaches Claude, and no tool that
-costs anything is used: web research is left out.
+costs anything is used: web research is left out. Only when asked, the Reliability Engineer also
+runs a real Sandbox task on a synthetic vibration, which costs a little LangSmith compute.
 
 The run with Claude itself is the M8.13 exit gate's.
 """
 
+import math
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -27,7 +29,20 @@ def _call(name: str, **args: Any) -> AIMessage:
     return AIMessage(content="", tool_calls=[{"name": name, "args": args, "id": f"call-{name}"}])
 
 
-def scripts(case_id: str, snapshot_id: str, turbine_id: str) -> dict[str, list[AIMessage]]:
+# A synthetic vibration: 37 Hz, and a weaker 91 Hz, sampled at 512 Hz.
+RATE, TONES = 512, ((37.0, 1.0), (91.0, 0.4))
+
+
+def vibration() -> list[float]:
+    return [
+        round(sum(amp * math.sin(2 * math.pi * hz * t / RATE) for hz, amp in TONES), 6)
+        for t in range(RATE)
+    ]
+
+
+def scripts(
+    case_id: str, snapshot_id: str, turbine_id: str, *, sandbox: bool = False
+) -> dict[str, list[AIMessage]]:
     """Each agent's turns: one real, free tool call from its own allowlist, then an answer."""
     start = datetime.now(UTC) + timedelta(hours=1)
     specialists: dict[str, AIMessage] = {
@@ -51,6 +66,9 @@ def scripts(case_id: str, snapshot_id: str, turbine_id: str) -> dict[str, list[A
     ]
     supervisor.append(AIMessage(REPORT))
     plans = {name: [first, AIMessage(f"{name}: rehearsed")] for name, first in specialists.items()}
+    if sandbox:
+        spectrum = _call("sandbox_vibration_spectrum", sample_rate_hz=RATE, samples=vibration())
+        plans["reliability-engineer"].insert(1, spectrum)
     return {"supervisor": supervisor, **plans}
 
 
@@ -85,8 +103,10 @@ class RehearsalModel(BaseChatModel):
         return ChatResult(generations=[ChatGeneration(message=turn)])
 
 
-def models(case_id: str, snapshot_id: str, turbine_id: str) -> Callable[[str], BaseChatModel]:
-    planned = scripts(case_id, snapshot_id, turbine_id)
+def models(
+    case_id: str, snapshot_id: str, turbine_id: str, *, sandbox: bool = False
+) -> Callable[[str], BaseChatModel]:
+    planned = scripts(case_id, snapshot_id, turbine_id, sandbox=sandbox)
 
     def make(role: str) -> BaseChatModel:
         return RehearsalModel(role=role, script=planned.get(role, []))

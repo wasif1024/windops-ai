@@ -18,6 +18,7 @@ members = [
     "mcp-servers/weather-mcp",
     "mcp-servers/windops-mcp",
     "services/agent-runtime-service",
+    "services/agent-sandbox-adapter",
     "services/alarm-service",
     "services/asset-service",
     "services/audit-service",
@@ -87,6 +88,7 @@ windops-production-impact = { workspace = true }
 windops-weather = { workspace = true }
 windops-knowledge = { workspace = true }
 windops-agent-runtime = { workspace = true }
+windops-agent-sandbox = { workspace = true }
 windops-external-intelligence = { workspace = true }
 
 [tool.ruff]
@@ -120,6 +122,8 @@ files = [
     "services/authorization-service/tests",
     "services/agent-runtime-service/src",
     "services/agent-runtime-service/tests",
+    "services/agent-sandbox-adapter/src",
+    "services/agent-sandbox-adapter/tests",
     "services/external-intelligence-service/src",
     "services/external-intelligence-service/tests",
     "services/fault-detection-service/src",
@@ -196,6 +200,8 @@ mypy_path = [
     "services/authorization-service/tests",
     "services/agent-runtime-service/src",
     "services/agent-runtime-service/tests",
+    "services/agent-sandbox-adapter/src",
+    "services/agent-sandbox-adapter/tests",
     "services/external-intelligence-service/src",
     "services/external-intelligence-service/tests",
     "services/fault-detection-service/src",
@@ -317,8 +323,10 @@ dev = [
     "pyyaml>=6.0.3",
     "ruff>=0.17.3",
     "types-grpcio>=1.85.0.20261028",
+    "types-jsonschema>=4.26.0.20261006",
     "types-pyyaml>=6.0.12.20261103",
     "windops-agent-runtime",
+    "windops-agent-sandbox",
     "windops-alarm",
     "windops-asset",
     "windops-audit",

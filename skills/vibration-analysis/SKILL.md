@@ -1,7 +1,7 @@
 ---
 name: vibration-analysis
 description: How to interpret wind turbine drivetrain vibration, and when a spectrum analysis would help.
-version: 1
+version: 2
 ---
 
 # Vibration analysis
@@ -18,7 +18,11 @@ version: 1
 - RMS cannot tell a bearing defect from gear mesh damage. A frequency spectrum of the raw vibration can.
 - Spectrum analysis runs only in the Agent Sandbox, on the bounded, sanitized snapshot data (SRS 5.9). Its result is
   supporting analysis, and never replaces a deterministic rule.
-- Until then, say that a spectrum would separate the candidate modes, and which frequencies to look at.
+- With evenly spaced samples and their rate, `sandbox_vibration_spectrum` gives the strongest frequencies. Compare
+  them with the shaft, gear mesh and bearing defect frequencies the manual gives, cited.
+- Without raw samples, say that a spectrum would separate the candidate modes, and which frequencies to look at.
+- A rising bearing temperature can be projected with `sandbox_trend_fit`, against a cited alarm level. A projection is
+  an estimate with its fit's R², never a prediction.
 
 ## Citing
 

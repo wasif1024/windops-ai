@@ -18,6 +18,7 @@ from windops_agent_runtime.team.build import assemble
 from windops_agent_runtime.team.compose import Composed, InvalidResultError, compose
 from windops_agent_runtime.team.definitions import SUPERVISOR, Team
 from windops_agent_runtime.team.result import Recommendation, Seen, problems
+from windops_agent_runtime.team.sandbox import SandboxRun
 from windops_agent_runtime.team.tools import Tokens, ToolBox
 
 # Model and tool steps the Supervisor may take. Its budget usually ends a run long before.
@@ -49,9 +50,11 @@ class TeamRunner:
         tokens: Tokens,
         tool_calls: int,
         model: Callable[[str], Any] | None = None,
+        sandbox_run: SandboxRun | None = None,
     ) -> None:
         self._team, self._toolbox, self._claude = team, toolbox, claude
         self._tokens, self._tool_calls, self._model = tokens, tool_calls, model
+        self._sandbox_run = sandbox_run
 
     async def investigate(
         self, case_id: str, snapshot_id: str, *, model: Callable[[str], Any] | None = None
@@ -59,7 +62,7 @@ class TeamRunner:
         """model replaces every agent's model, as a rehearsal does. Otherwise each is Claude."""
         assembled = await assemble(
             self._team, claude=self._claude, tokens=self._tokens, toolbox=self._toolbox,
-            tool_calls=self._tool_calls, model=model or self._model,
+            tool_calls=self._tool_calls, model=model or self._model, sandbox_run=self._sandbox_run,
         )  # fmt: skip
         question = (
             f"Investigate case {case_id}. Its frozen evidence is snapshot {snapshot_id}. Read "

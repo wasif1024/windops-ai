@@ -21,12 +21,15 @@ from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import and_, case, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from windops_claude import Call, Spent
 from windops_migrations import across_tenants, in_tenant
+
+if TYPE_CHECKING:
+    from windops_agent_runtime.team.sandbox import SandboxUse
 
 from windops_agent_runtime.store import (
     ACTOR,
@@ -365,6 +368,20 @@ class Queue:
                 )
             )  # fmt: skip
             return result.rowcount == 1
+
+    async def record_sandbox(self, claim: Claim, use: "SandboxUse") -> None:
+        """Audit an agent's Sandbox task, as the agent, on the user's behalf, under the run's
+        lease (SBX-003, ADR 0024). Its code, hashes and runtime are in the run's trace."""
+        by = claim.requested_by
+        user = by.removeprefix("user:") if by.startswith("user:") else ""
+        async with self.holding(claim) as connection:
+            await audit(
+                connection, tenant_id=claim.tenant_id, actor_type="agent",
+                actor_id=f"agent:{use.agent}", on_behalf_of=user,
+                action=f"agent_run.sandbox.{use.task}", run_id=claim.run_id,
+                outcome="succeeded" if use.status == "completed" else "failed",
+                resource=("sandbox_task", f"{use.task}@{use.version}"),
+            )  # fmt: skip
 
     async def release(self, claim: Claim) -> bool:
         """Hand the run back for another replica now, as when shutting down. Not an attempt."""

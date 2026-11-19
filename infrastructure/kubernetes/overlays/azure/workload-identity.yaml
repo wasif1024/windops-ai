@@ -48,6 +48,37 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: windops-agent-sandbox-adapter
+  namespace: windops-application
+  labels:
+    app.kubernetes.io/name: windops-agent-sandbox-adapter
+    app.kubernetes.io/part-of: windops
+  annotations:
+    azure.workload.identity/client-id: ${AZURE_CLIENT_ID_WINDOPS_AGENT_SANDBOX_ADAPTER}
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: windops-agent-sandbox-adapter
+  namespace: windops-application
+spec:
+  provider: azure
+  parameters:
+    clientID: ${AZURE_CLIENT_ID_WINDOPS_AGENT_SANDBOX_ADAPTER}
+    keyvaultName: ${AZURE_KEYVAULT_NAME}
+    tenantId: ${AZURE_TENANT_ID}
+    objects: "array:\n- 'objectName: windops-internal-identity--signing-key\n\n  objectType:\
+      \ secret\n\n  '\n"
+  secretObjects:
+  - secretName: windops-internal-identity
+    type: Opaque
+    data:
+    - key: signing-key
+      objectName: windops-internal-identity--signing-key
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: windops-alarm
   namespace: windops-application
   labels:

@@ -26,6 +26,7 @@ from windops_agent_runtime.queue import LeaseLostError, Queue
 from windops_agent_runtime.registry import REGISTRY
 from windops_agent_runtime.service import INVESTIGATION, AgentRuntimeService
 from windops_agent_runtime.store import METADATA, RUN_CALLS, RUN_CHECKPOINTS, RUN_STEPS, RUNS
+from windops_agent_runtime.team.sandbox import SandboxRun
 from windops_agent_runtime.worker import Worker, WorkerSettings
 from windops_agent_runtime.workflows import Rehearsal
 from windops_auth import identity_scope
@@ -898,10 +899,9 @@ async def test_an_investigation_with_its_team_keeps_a_checked_result_and_its_pol
 ) -> None:
     """A rehearsal: the real graph and team on a scripted model, the result checked, and every
     recommended action through policy (M8.7, M8.8)."""
-    from team_support import Tokens
+    from team_support import Tokens, mcp_names, sandbox_run, toolbox
     from windops_agent_runtime.team.definitions import team
     from windops_agent_runtime.team.run import TeamRunner
-    from windops_agent_runtime.team.tools import ToolBox, stand_in
 
     async def answer(arguments: dict[str, Any]) -> str:
         return "{}"
@@ -912,15 +912,12 @@ async def test_an_investigation_with_its_team_keeps_a_checked_result_and_its_pol
     async def policy(arguments: dict[str, Any]) -> str:
         return json.dumps({"result_id": "pol_1", "outcome": "escalate", "rules": []})
 
-    every: dict[str, Any] = {
-        f"{scope.split('.')[1]}_{scope.split('.')[2]}": answer
-        for agent in team().agents.values() for scope in agent.tools
-    }  # fmt: skip
+    every: dict[str, Any] = dict.fromkeys(mcp_names(team().agents.values()), answer)
     every |= {"windops_get_evidence": evidence, "windops_check_policy": policy}
 
     def make_team(claim: Any, claude: Any, tokens: Any) -> TeamRunner:
-        return TeamRunner(team(), ToolBox(stand_in(every)), claude=claude, tokens=Tokens(),
-                          tool_calls=50)  # fmt: skip
+        return TeamRunner(team(), toolbox(every), claude=claude, tokens=Tokens(),
+                          tool_calls=50, sandbox_run=sandbox_run())  # fmt: skip
 
     request = pb.StartRunRequest(
         case_id=CASE, snapshot_id=SNAPSHOT, workflow="investigation",
@@ -975,10 +972,9 @@ async def test_a_traced_run_reaches_langsmith_only_redacted_with_its_ids(
     engine: AsyncEngine, clock: Clock, queue: Queue
 ) -> None:
     """EGR-003, OBS-005, OBS-008: a rehearsal traced, with a token and an e-mail planted."""
-    from team_support import Tokens
+    from team_support import Tokens, mcp_names, toolbox
     from windops_agent_runtime.team.definitions import team
     from windops_agent_runtime.team.run import TeamRunner
-    from windops_agent_runtime.team.tools import ToolBox, stand_in
     from windops_agent_runtime.tracing import Tracer
 
     jwt_ = "eyJhbGciOiJFUzI1NiJ9" + "." + "eyJzdWIiOiJ1LTEifQ" + "." + "c2lnbmF0dXJl"
@@ -995,15 +991,14 @@ async def test_a_traced_run_reaches_langsmith_only_redacted_with_its_ids(
     async def policy(arguments: dict[str, Any]) -> str:
         return json.dumps({"result_id": "pol_1", "outcome": "escalate", "rules": []})
 
-    every: dict[str, Any] = {
-        f"{scope.split('.')[1]}_{scope.split('.')[2]}": answer
-        for agent in team().agents.values() for scope in agent.tools
-    }  # fmt: skip
+    every: dict[str, Any] = dict.fromkeys(mcp_names(team().agents.values()), answer)
     every |= {"windops_get_evidence": evidence, "windops_check_policy": policy}
     captured = Captured()
     request = pb.StartRunRequest(
         case_id=CASE, snapshot_id=SNAPSHOT, workflow="investigation",
-        parameters={"team": "true", "rehearse": "true", "turbine_id": "dogger-east-t01"},
+        # The rehearsal also runs a Sandbox task, recorded in the trace and audited (SBX-003).
+        parameters={"team": "true", "rehearse": "true", "turbine_id": "dogger-east-t01",
+                    "sandbox": "true"},
         requested_by="user:engineer-1", idempotency_key="trace-key-1",
         delegation_id="dlg_" + "c" * 20,
     )  # fmt: skip
@@ -1014,7 +1009,9 @@ async def test_a_traced_run_reaches_langsmith_only_redacted_with_its_ids(
     worker = Worker(
         queue, REGISTRY, policy=POLICY, identity=FakeIdentity(),
         make_team=lambda claim, claude, tokens: TeamRunner(
-            team(), ToolBox(stand_in(every)), claude=claude, tokens=Tokens(), tool_calls=50
+            team(), toolbox(every), claude=claude, tokens=Tokens(), tool_calls=50,
+            sandbox_run=SandboxRun(claim.run_id, claim.tenant_id,
+                                   lambda use: queue.record_sandbox(claim, use)),
         ),
         make_claude=lambda claim, meter: Claude(POLICY, meter, lambda: "key"),
         tracer=Tracer(captured.client, "windops-test"),
@@ -1032,5 +1029,46 @@ async def test_a_traced_run_reaches_langsmith_only_redacted_with_its_ids(
     )
     names = {r.get("name") for r in captured.sent}
     # The tree holds the graph's steps, the team, and every agent's tool calls.
-    assert {"specialists", "validate_output", "policy_checks", "windops_get_evidence",
-            "windops_get_turbine", "weather_get_forecast"} <= names  # fmt: skip
+    assert {
+        "specialists",
+        "validate_output",
+        "policy_checks",
+        "windops_get_evidence",
+        "windops_get_turbine",
+        "weather_get_forecast",
+        "sandbox_vibration_spectrum",
+    } <= names
+    # SBX-003: the Sandbox task's code, input hash, output, runtime and version are in the trace.
+    (spectrum,) = [r for r in captured.sent if r.get("name") == "sandbox_vibration_spectrum"
+                   and (r.get("outputs") or {}).get("output")]  # fmt: skip
+    artifact = spectrum["outputs"]["output"]["artifact"]
+    assert artifact["code"] == "print('task')" and len(artifact["input_sha256"]) == 64
+    assert artifact["version"] == 1 and artifact["runtime_ms"] == 40
+    # And the runtime audited it, as the agent, on the user's behalf.
+    async with engine.connect() as connection:
+        rows = (await connection.execute(select(OUTBOX_TABLE))).all()
+    used = [parse_event(r.subject, r.envelope).payload for r in rows]
+    (audited,) = [a for a in used if a.action == "agent_run.sandbox.vibration_spectrum"]  # type: ignore[attr-defined]
+    assert (audited.actor_id, audited.on_behalf_of, audited.correlation_id) == (  # type: ignore[attr-defined]
+        "agent:reliability-engineer",
+        "engineer-1",
+        run.run_id,
+    )
+    assert audited.resource_id == "vibration_spectrum@1"  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        {"sandbox": "true"},
+        {"sandbox": "yes", "rehearse": "true", "turbine_id": "dogger-east-t01"},
+    ],
+)
+def test_the_sandbox_parameter_is_only_for_a_rehearsal(parameters: dict[str, str]) -> None:
+    """A rehearsal may run one real Sandbox task (ADR 0024); nothing else asks for it."""
+    with pytest.raises(InvalidRequestError):
+        Investigation().check(parameters)
+    checked = Investigation().check(
+        {"rehearse": "true", "turbine_id": "dogger-east-t01", "sandbox": "true"}
+    )
+    assert checked["sandbox"] is True
