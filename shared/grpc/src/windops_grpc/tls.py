@@ -24,10 +24,12 @@ CHANNEL_OPTIONS = (
     ("grpc.keepalive_permit_without_calls", 1),
     ("grpc.http2.max_pings_without_data", 0),
 )
-# What a server accepts, so those pings are never taken for abuse.
+# What a server accepts, so those pings are never taken for abuse: otherwise it answers them with
+# GOAWAY "too_many_pings" and drops the connection. gRPC ignores a name it does not know, so these
+# are its exact names, which a test checks against the library itself.
 SERVER_OPTIONS = (
     ("grpc.keepalive_permit_without_calls", 1),
-    ("grpc.http2.min_recv_ping_interval_without_data_ms", 10_000),
+    ("grpc.http2.min_ping_interval_without_data_ms", 10_000),
 )
 _COMMON_NAME = "x509_common_name"
 

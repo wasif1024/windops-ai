@@ -26,7 +26,7 @@ Action = Literal["inspection", "repair", "replacement", "adjustment", "monitorin
 # The keys whose values a tool returns as something a claim may cite.
 _CITABLE_KEYS = frozenset(
     {"record_id", "citation", "source_id", "url", "result_id", "case_id", "snapshot_id",
-     "alarm_id", "turbine_id"}
+     "alarm_id", "turbine_id", "forecast_id"}
 )  # fmt: skip
 _KN = re.compile(r"kn:[A-Za-z0-9_.:@#-]+")
 

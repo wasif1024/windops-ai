@@ -19,6 +19,19 @@ def test_servers_accept_those_pings_so_none_is_dropped_as_abuse() -> None:
     server = dict(tls.SERVER_OPTIONS)
     assert server["grpc.keepalive_permit_without_calls"] == 1
     assert (
-        server["grpc.http2.min_recv_ping_interval_without_data_ms"]
+        server["grpc.http2.min_ping_interval_without_data_ms"]
         <= dict(tls.CHANNEL_OPTIONS)["grpc.keepalive_time_ms"]
     )
+
+
+def test_every_option_is_a_name_grpc_knows() -> None:
+    """gRPC ignores a name it does not know, silently: M9.0 found the server's misspelt, and
+    clients told "too_many_pings" (ADR 0027)."""
+    import importlib.util
+    from pathlib import Path
+
+    found = importlib.util.find_spec("grpc._cython.cygrpc")
+    assert found is not None and found.origin is not None
+    library = Path(found.origin).read_bytes()
+    for name, _ in (*tls.CHANNEL_OPTIONS, *tls.SERVER_OPTIONS):
+        assert name.encode() + b"\x00" in library, name

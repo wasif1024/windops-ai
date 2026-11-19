@@ -49,6 +49,12 @@ class TelemetryServiceStub:
     """A snapshot and its manifest, with its data read again and hashed again: verified when it matches."""
     StreamTelemetrySnapshot: _grpc.UnaryStreamMultiCallable[_telemetry_pb2.StreamTelemetrySnapshotRequest, _telemetry_pb2.StreamTelemetrySnapshotResponse]
     """A snapshot's frozen points, the same however much data arrives late for its window."""
+    SummarizeTelemetrySnapshot: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.SummarizeTelemetrySnapshotRequest, _telemetry_pb2.SummarizeTelemetrySnapshotResponse]
+    """A snapshot's frozen points, summarized per metric, worked out the same way every time: the
+    readings' count and quality, minimum, maximum, mean, first and last, the least-squares trend
+    per hour, and the mean of each equal slice of the window. A reading whose quality is missing
+    is counted, never averaged. For agents, which cannot read every point (M9.0).
+    """
     ReleaseTelemetrySnapshot: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.ReleaseTelemetrySnapshotRequest, _telemetry_pb2.ReleaseTelemetrySnapshotResponse]
     """Lets its data go at the end of normal retention. The snapshot stays readable until then."""
     GetLatestTelemetry: _grpc.UnaryUnaryMultiCallable[_telemetry_pb2.GetLatestTelemetryRequest, _telemetry_pb2.GetLatestTelemetryResponse]
@@ -85,6 +91,12 @@ class TelemetryServiceAsyncStub(TelemetryServiceStub):
     """A snapshot and its manifest, with its data read again and hashed again: verified when it matches."""
     StreamTelemetrySnapshot: _aio.UnaryStreamMultiCallable[_telemetry_pb2.StreamTelemetrySnapshotRequest, _telemetry_pb2.StreamTelemetrySnapshotResponse]  # type: ignore[assignment]
     """A snapshot's frozen points, the same however much data arrives late for its window."""
+    SummarizeTelemetrySnapshot: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.SummarizeTelemetrySnapshotRequest, _telemetry_pb2.SummarizeTelemetrySnapshotResponse]  # type: ignore[assignment]
+    """A snapshot's frozen points, summarized per metric, worked out the same way every time: the
+    readings' count and quality, minimum, maximum, mean, first and last, the least-squares trend
+    per hour, and the mean of each equal slice of the window. A reading whose quality is missing
+    is counted, never averaged. For agents, which cannot read every point (M9.0).
+    """
     ReleaseTelemetrySnapshot: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.ReleaseTelemetrySnapshotRequest, _telemetry_pb2.ReleaseTelemetrySnapshotResponse]  # type: ignore[assignment]
     """Lets its data go at the end of normal retention. The snapshot stays readable until then."""
     GetLatestTelemetry: _aio.UnaryUnaryMultiCallable[_telemetry_pb2.GetLatestTelemetryRequest, _telemetry_pb2.GetLatestTelemetryResponse]  # type: ignore[assignment]
@@ -142,6 +154,18 @@ class TelemetryServiceServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_abc.Iterator[_telemetry_pb2.StreamTelemetrySnapshotResponse], _abc.AsyncIterator[_telemetry_pb2.StreamTelemetrySnapshotResponse]]:
         """A snapshot's frozen points, the same however much data arrives late for its window."""
+
+    @_abc_1.abstractmethod
+    def SummarizeTelemetrySnapshot(
+        self,
+        request: _telemetry_pb2.SummarizeTelemetrySnapshotRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_telemetry_pb2.SummarizeTelemetrySnapshotResponse, _abc.Awaitable[_telemetry_pb2.SummarizeTelemetrySnapshotResponse]]:
+        """A snapshot's frozen points, summarized per metric, worked out the same way every time: the
+        readings' count and quality, minimum, maximum, mean, first and last, the least-squares trend
+        per hour, and the mean of each equal slice of the window. A reading whose quality is missing
+        is counted, never averaged. For agents, which cannot read every point (M9.0).
+        """
 
     @_abc_1.abstractmethod
     def ReleaseTelemetrySnapshot(

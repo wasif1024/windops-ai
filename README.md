@@ -345,6 +345,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0025](docs/adr/0025-investigations-started-and-followed-by-their-case-owner.md) | Investigations started and followed by their case's owner, streamed as numbered, resumable events |
 | [0026](docs/adr/0026-the-first-regression-set-and-agent-dashboards.md) | The first regression set, replayed and scored deterministically, and the Agent and LLM Operations dashboards |
 | [0027](docs/adr/0027-dry-runs-against-a-stand-in-claude-api.md) | Dry runs against a stand-in Claude API before any is paid for, and keepalive on every gRPC connection |
+| [0028](docs/adr/0028-agents-read-the-frozen-telemetry-summarized.md) | Agents read the frozen telemetry, summarized per metric by the service that owns it, each figure citable |
 
 ## Repository layout
 

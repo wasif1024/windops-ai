@@ -57,6 +57,11 @@ class TelemetryServiceStub:
                 request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.StreamTelemetrySnapshotRequest.SerializeToString,
                 response_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.StreamTelemetrySnapshotResponse.FromString,
                 _registered_method=True)
+        self.SummarizeTelemetrySnapshot = channel.unary_unary(
+                '/windops.telemetry.v1.TelemetryService/SummarizeTelemetrySnapshot',
+                request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.SummarizeTelemetrySnapshotRequest.SerializeToString,
+                response_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.SummarizeTelemetrySnapshotResponse.FromString,
+                _registered_method=True)
         self.ReleaseTelemetrySnapshot = channel.unary_unary(
                 '/windops.telemetry.v1.TelemetryService/ReleaseTelemetrySnapshot',
                 request_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.ReleaseTelemetrySnapshotRequest.SerializeToString,
@@ -121,6 +126,16 @@ class TelemetryServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SummarizeTelemetrySnapshot(self, request, context):
+        """A snapshot's frozen points, summarized per metric, worked out the same way every time: the
+        readings' count and quality, minimum, maximum, mean, first and last, the least-squares trend
+        per hour, and the mean of each equal slice of the window. A reading whose quality is missing
+        is counted, never averaged. For agents, which cannot read every point (M9.0).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ReleaseTelemetrySnapshot(self, request, context):
         """Lets its data go at the end of normal retention. The snapshot stays readable until then.
         """
@@ -180,6 +195,11 @@ def add_TelemetryServiceServicer_to_server(servicer, server):
                     servicer.StreamTelemetrySnapshot,
                     request_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.StreamTelemetrySnapshotRequest.FromString,
                     response_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.StreamTelemetrySnapshotResponse.SerializeToString,
+            ),
+            'SummarizeTelemetrySnapshot': grpc.unary_unary_rpc_method_handler(
+                    servicer.SummarizeTelemetrySnapshot,
+                    request_deserializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.SummarizeTelemetrySnapshotRequest.FromString,
+                    response_serializer=windops_dot_telemetry_dot_v1_dot_telemetry__pb2.SummarizeTelemetrySnapshotResponse.SerializeToString,
             ),
             'ReleaseTelemetrySnapshot': grpc.unary_unary_rpc_method_handler(
                     servicer.ReleaseTelemetrySnapshot,
@@ -318,6 +338,33 @@ class TelemetryService:
             '/windops.telemetry.v1.TelemetryService/StreamTelemetrySnapshot',
             windops_dot_telemetry_dot_v1_dot_telemetry__pb2.StreamTelemetrySnapshotRequest.SerializeToString,
             windops_dot_telemetry_dot_v1_dot_telemetry__pb2.StreamTelemetrySnapshotResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SummarizeTelemetrySnapshot(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.telemetry.v1.TelemetryService/SummarizeTelemetrySnapshot',
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.SummarizeTelemetrySnapshotRequest.SerializeToString,
+            windops_dot_telemetry_dot_v1_dot_telemetry__pb2.SummarizeTelemetrySnapshotResponse.FromString,
             options,
             channel_credentials,
             insecure,

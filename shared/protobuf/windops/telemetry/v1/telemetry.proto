@@ -18,6 +18,11 @@ service TelemetryService {
   rpc GetTelemetrySnapshot(GetTelemetrySnapshotRequest) returns (GetTelemetrySnapshotResponse);
   // A snapshot's frozen points, the same however much data arrives late for its window.
   rpc StreamTelemetrySnapshot(StreamTelemetrySnapshotRequest) returns (stream StreamTelemetrySnapshotResponse);
+  // A snapshot's frozen points, summarized per metric, worked out the same way every time: the
+  // readings' count and quality, minimum, maximum, mean, first and last, the least-squares trend
+  // per hour, and the mean of each equal slice of the window. A reading whose quality is missing
+  // is counted, never averaged. For agents, which cannot read every point (M9.0).
+  rpc SummarizeTelemetrySnapshot(SummarizeTelemetrySnapshotRequest) returns (SummarizeTelemetrySnapshotResponse);
   // Lets its data go at the end of normal retention. The snapshot stays readable until then.
   rpc ReleaseTelemetrySnapshot(ReleaseTelemetrySnapshotRequest) returns (ReleaseTelemetrySnapshotResponse);
   // Each turbine's newest sample in the last day, for the fleet screens and data freshness. A
@@ -232,4 +237,47 @@ message LatestTelemetry {
   bool available = 5;
   // One point a metric, in the fixed order.
   repeated TelemetryPoint points = 6;
+}
+
+message SummarizeTelemetrySnapshotRequest {
+  string snapshot_id = 1;
+  // Empty for every metric.
+  repeated Metric metrics = 2;
+  // Equal slices of the window, from 1 to 48. 12 when 0.
+  int32 buckets = 3;
+}
+
+message SummarizeTelemetrySnapshotResponse {
+  // Without its manifest.
+  TelemetrySnapshot snapshot = 1;
+  repeated MetricSummary metrics = 2;
+}
+
+message MetricSummary {
+  Metric metric = 1;
+  string unit = 2;
+  // Every point, then by quality. Only good and suspect readings have values.
+  int64 readings = 3;
+  int64 good = 4;
+  int64 suspect = 5;
+  int64 missing = 6;
+  // Over the readings with values. Unset when there are none.
+  optional double minimum = 7;
+  optional double maximum = 8;
+  optional double mean = 9;
+  optional double first = 10;
+  optional double last = 11;
+  google.protobuf.Timestamp first_at = 12;
+  google.protobuf.Timestamp last_at = 13;
+  // The least-squares slope over time, in the metric's unit per hour. Unset with fewer than two.
+  optional double trend_per_hour = 14;
+  repeated SummaryBucket buckets = 15;
+}
+
+message SummaryBucket {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+  // Readings with values in the slice, and their mean, unset when there are none.
+  int64 readings = 3;
+  optional double mean = 4;
 }

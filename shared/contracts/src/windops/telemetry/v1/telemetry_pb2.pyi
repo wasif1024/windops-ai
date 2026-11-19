@@ -762,3 +762,181 @@ class LatestTelemetry(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___LatestTelemetry: _TypeAlias = LatestTelemetry  # noqa: Y015
+
+@_typing.final
+class SummarizeTelemetrySnapshotRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    METRICS_FIELD_NUMBER: _builtins.int
+    BUCKETS_FIELD_NUMBER: _builtins.int
+    snapshot_id: _builtins.str
+    buckets: _builtins.int
+    """Equal slices of the window, from 1 to 48. 12 when 0."""
+    @_builtins.property
+    def metrics(self) -> _containers.RepeatedScalarFieldContainer[Global___Metric.ValueType]:
+        """Empty for every metric."""
+
+    def __init__(
+        self,
+        *,
+        snapshot_id: _builtins.str = ...,
+        metrics: _abc.Iterable[Global___Metric.ValueType] | None = ...,
+        buckets: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["buckets", b"buckets", "metrics", b"metrics", "snapshot_id", b"snapshot_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SummarizeTelemetrySnapshotRequest: _TypeAlias = SummarizeTelemetrySnapshotRequest  # noqa: Y015
+
+@_typing.final
+class SummarizeTelemetrySnapshotResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SNAPSHOT_FIELD_NUMBER: _builtins.int
+    METRICS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def snapshot(self) -> Global___TelemetrySnapshot:
+        """Without its manifest."""
+
+    @_builtins.property
+    def metrics(self) -> _containers.RepeatedCompositeFieldContainer[Global___MetricSummary]: ...
+    def __init__(
+        self,
+        *,
+        snapshot: Global___TelemetrySnapshot | None = ...,
+        metrics: _abc.Iterable[Global___MetricSummary] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["snapshot", b"snapshot"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["metrics", b"metrics", "snapshot", b"snapshot"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SummarizeTelemetrySnapshotResponse: _TypeAlias = SummarizeTelemetrySnapshotResponse  # noqa: Y015
+
+@_typing.final
+class MetricSummary(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    METRIC_FIELD_NUMBER: _builtins.int
+    UNIT_FIELD_NUMBER: _builtins.int
+    READINGS_FIELD_NUMBER: _builtins.int
+    GOOD_FIELD_NUMBER: _builtins.int
+    SUSPECT_FIELD_NUMBER: _builtins.int
+    MISSING_FIELD_NUMBER: _builtins.int
+    MINIMUM_FIELD_NUMBER: _builtins.int
+    MAXIMUM_FIELD_NUMBER: _builtins.int
+    MEAN_FIELD_NUMBER: _builtins.int
+    FIRST_FIELD_NUMBER: _builtins.int
+    LAST_FIELD_NUMBER: _builtins.int
+    FIRST_AT_FIELD_NUMBER: _builtins.int
+    LAST_AT_FIELD_NUMBER: _builtins.int
+    TREND_PER_HOUR_FIELD_NUMBER: _builtins.int
+    BUCKETS_FIELD_NUMBER: _builtins.int
+    metric: Global___Metric.ValueType
+    unit: _builtins.str
+    readings: _builtins.int
+    """Every point, then by quality. Only good and suspect readings have values."""
+    good: _builtins.int
+    suspect: _builtins.int
+    missing: _builtins.int
+    minimum: _builtins.float
+    """Over the readings with values. Unset when there are none."""
+    maximum: _builtins.float
+    mean: _builtins.float
+    first: _builtins.float
+    last: _builtins.float
+    trend_per_hour: _builtins.float
+    """The least-squares slope over time, in the metric's unit per hour. Unset with fewer than two."""
+    @_builtins.property
+    def first_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def last_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def buckets(self) -> _containers.RepeatedCompositeFieldContainer[Global___SummaryBucket]: ...
+    def __init__(
+        self,
+        *,
+        metric: Global___Metric.ValueType = ...,
+        unit: _builtins.str = ...,
+        readings: _builtins.int = ...,
+        good: _builtins.int = ...,
+        suspect: _builtins.int = ...,
+        missing: _builtins.int = ...,
+        minimum: _builtins.float | None = ...,
+        maximum: _builtins.float | None = ...,
+        mean: _builtins.float | None = ...,
+        first: _builtins.float | None = ...,
+        last: _builtins.float | None = ...,
+        first_at: _timestamp_pb2.Timestamp | None = ...,
+        last_at: _timestamp_pb2.Timestamp | None = ...,
+        trend_per_hour: _builtins.float | None = ...,
+        buckets: _abc.Iterable[Global___SummaryBucket] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_first", b"_first", "_last", b"_last", "_maximum", b"_maximum", "_mean", b"_mean", "_minimum", b"_minimum", "_trend_per_hour", b"_trend_per_hour", "first", b"first", "first_at", b"first_at", "last", b"last", "last_at", b"last_at", "maximum", b"maximum", "mean", b"mean", "minimum", b"minimum", "trend_per_hour", b"trend_per_hour"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_first", b"_first", "_last", b"_last", "_maximum", b"_maximum", "_mean", b"_mean", "_minimum", b"_minimum", "_trend_per_hour", b"_trend_per_hour", "buckets", b"buckets", "first", b"first", "first_at", b"first_at", "good", b"good", "last", b"last", "last_at", b"last_at", "maximum", b"maximum", "mean", b"mean", "metric", b"metric", "minimum", b"minimum", "missing", b"missing", "readings", b"readings", "suspect", b"suspect", "trend_per_hour", b"trend_per_hour", "unit", b"unit"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__first: _TypeAlias = _typing.Literal["first"]  # noqa: Y015
+    _WhichOneofArgType__first: _TypeAlias = _typing.Literal["_first", b"_first"]  # noqa: Y015
+    _WhichOneofReturnType__last: _TypeAlias = _typing.Literal["last"]  # noqa: Y015
+    _WhichOneofArgType__last: _TypeAlias = _typing.Literal["_last", b"_last"]  # noqa: Y015
+    _WhichOneofReturnType__maximum: _TypeAlias = _typing.Literal["maximum"]  # noqa: Y015
+    _WhichOneofArgType__maximum: _TypeAlias = _typing.Literal["_maximum", b"_maximum"]  # noqa: Y015
+    _WhichOneofReturnType__mean: _TypeAlias = _typing.Literal["mean"]  # noqa: Y015
+    _WhichOneofArgType__mean: _TypeAlias = _typing.Literal["_mean", b"_mean"]  # noqa: Y015
+    _WhichOneofReturnType__minimum: _TypeAlias = _typing.Literal["minimum"]  # noqa: Y015
+    _WhichOneofArgType__minimum: _TypeAlias = _typing.Literal["_minimum", b"_minimum"]  # noqa: Y015
+    _WhichOneofReturnType__trend_per_hour: _TypeAlias = _typing.Literal["trend_per_hour"]  # noqa: Y015
+    _WhichOneofArgType__trend_per_hour: _TypeAlias = _typing.Literal["_trend_per_hour", b"_trend_per_hour"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__first) -> _WhichOneofReturnType__first | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__last) -> _WhichOneofReturnType__last | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__maximum) -> _WhichOneofReturnType__maximum | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__mean) -> _WhichOneofReturnType__mean | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__minimum) -> _WhichOneofReturnType__minimum | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__trend_per_hour) -> _WhichOneofReturnType__trend_per_hour | None: ...
+
+Global___MetricSummary: _TypeAlias = MetricSummary  # noqa: Y015
+
+@_typing.final
+class SummaryBucket(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    START_FIELD_NUMBER: _builtins.int
+    END_FIELD_NUMBER: _builtins.int
+    READINGS_FIELD_NUMBER: _builtins.int
+    MEAN_FIELD_NUMBER: _builtins.int
+    readings: _builtins.int
+    """Readings with values in the slice, and their mean, unset when there are none."""
+    mean: _builtins.float
+    @_builtins.property
+    def start(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def end(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        start: _timestamp_pb2.Timestamp | None = ...,
+        end: _timestamp_pb2.Timestamp | None = ...,
+        readings: _builtins.int = ...,
+        mean: _builtins.float | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_mean", b"_mean", "end", b"end", "mean", b"mean", "start", b"start"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_mean", b"_mean", "end", b"end", "mean", b"mean", "readings", b"readings", "start", b"start"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__mean: _TypeAlias = _typing.Literal["mean"]  # noqa: Y015
+    _WhichOneofArgType__mean: _TypeAlias = _typing.Literal["_mean", b"_mean"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__mean) -> _WhichOneofReturnType__mean | None: ...
+
+Global___SummaryBucket: _TypeAlias = SummaryBucket  # noqa: Y015

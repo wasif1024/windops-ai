@@ -9,6 +9,7 @@ later reaches an agent unless it is named here.
 | --- | --- | --- |
 | get_turbine | Asset | A turbine's model, rating and status |
 | get_latest_telemetry | Telemetry | Its latest reading of each metric, with its quality |
+| get_telemetry_summary | Telemetry | A frozen snapshot's readings, summarized per metric |
 | list_alarms | Alarm | Its alarms, newest first |
 | get_case | Investigation | A case |
 | list_cases | Investigation | A turbine's cases: its fault history |
@@ -34,9 +35,10 @@ from windops.policy.v1 import policy_pb2, policy_pb2_grpc
 from windops.production_impact.v1 import production_impact_pb2, production_impact_pb2_grpc
 from windops.telemetry.v1 import telemetry_pb2, telemetry_pb2_grpc
 from windops_mcp import Tool, ToolInput, ToolOutput, current_caller
-from windops_mcp.serve import Services
+from windops_mcp.serve import DEADLINE_SECONDS, Services
 
 SERVER = "windops"
+IMPACT_DEADLINE_SECONDS = 15.0
 INSTRUCTIONS = (
     "Read the tenant's turbines, telemetry, alarms, cases and frozen evidence, and get "
     "deterministic impact estimates and policy checks. Cite records by their IDs. Every figure "
@@ -92,6 +94,24 @@ class CasesInput(ToolInput):
 class EvidenceInput(ToolInput):
     snapshot_id: str = Field(max_length=24, pattern=r"^evs_[a-z0-9]{20}$")
     limit: int = Field(default=50, ge=1, le=200, description="Items to return, in order")
+
+
+# The metrics an operational sample carries, by the names agents see.
+MetricName = Literal[
+    "gearbox_temperature", "bearing_temperature", "vibration_rms", "wind_speed", "wind_direction",
+    "rotor_speed", "generator_speed", "power", "pitch_angle", "ambient_temperature",
+    "main_bearing_temperature", "generator_bearing_temperature",
+]  # fmt: skip
+
+
+class SummaryInput(ToolInput):
+    snapshot_id: str = Field(
+        max_length=26, pattern=r"^tsnap_[a-z0-9]{20}$",
+        description="A telemetry snapshot's ID, as an evidence item's record_id gives it",
+    )  # fmt: skip
+    metrics: list[MetricName] = Field(default_factory=list, max_length=12,
+                                      description="Empty for every metric")  # fmt: skip
+    buckets: int = Field(default=12, ge=1, le=48, description="Equal slices of the window")
 
 
 class ImpactInput(ToolInput):
@@ -185,6 +205,42 @@ class Cases(ToolOutput):
     cases: list[Case]
 
 
+class SummaryBucket(ToolOutput):
+    start: str
+    end: str
+    readings: int
+    mean: float | None
+
+
+class MetricSummary(ToolOutput):
+    # Cite a figure by this: the snapshot and the metric.
+    record_id: str
+    metric: str
+    unit: str
+    readings: int
+    good: int
+    suspect: int
+    missing: int
+    minimum: float | None
+    maximum: float | None
+    mean: float | None
+    first: float | None
+    last: float | None
+    first_at: str
+    last_at: str
+    trend_per_hour: float | None
+    buckets: list[SummaryBucket]
+
+
+class TelemetrySummary(ToolOutput):
+    snapshot_id: str
+    turbine_id: str
+    window_start: str
+    window_end: str
+    content_hash: str
+    metrics: list[MetricSummary]
+
+
 class EvidenceItem(ToolOutput):
     position: int
     source_service: str
@@ -265,8 +321,10 @@ def _enum(name: str, prefix: str) -> str:
 
 
 def tools(services: Services) -> list[Tool]:
-    async def call(dependency: str, stub: Any, setting: str, method: str, request: Any) -> Any:
-        return await services.call(dependency, stub, setting, method, request)
+    async def call(dependency: str, stub: Any, setting: str, method: str, request: Any,
+                   deadline_seconds: float = DEADLINE_SECONDS) -> Any:  # fmt: skip
+        return await services.call(dependency, stub, setting, method, request,
+                                   deadline_seconds=deadline_seconds)  # fmt: skip
 
     async def get_turbine(arguments: TurbineInput) -> Turbine:
         found = (
@@ -385,6 +443,38 @@ def tools(services: Services) -> list[Tool]:
             ],
         )  # fmt: skip
 
+    async def get_telemetry_summary(arguments: SummaryInput) -> TelemetrySummary:
+        def value(message: Any, name: str) -> float | None:
+            return float(getattr(message, name)) if message.HasField(name) else None
+
+        answer = await call(
+            "telemetry", telemetry_pb2_grpc.TelemetryServiceStub, "WINDOPS_TELEMETRY_ADDRESS",
+            "SummarizeTelemetrySnapshot",
+            telemetry_pb2.SummarizeTelemetrySnapshotRequest(
+                snapshot_id=arguments.snapshot_id, buckets=arguments.buckets,
+                metrics=[telemetry_pb2.Metric.Value(f"METRIC_{m.upper()}")
+                         for m in arguments.metrics],
+            ),
+        )  # fmt: skip
+        snapshot = answer.snapshot
+        metrics = []
+        for m in answer.metrics:
+            name = _enum(telemetry_pb2.Metric.Name(m.metric), "METRIC_")
+            metrics.append(MetricSummary(
+                record_id=f"{snapshot.snapshot_id}#{name}", metric=name, unit=m.unit,
+                readings=m.readings, good=m.good, suspect=m.suspect, missing=m.missing,
+                minimum=value(m, "minimum"), maximum=value(m, "maximum"), mean=value(m, "mean"),
+                first=value(m, "first"), last=value(m, "last"), first_at=_iso(m.first_at),
+                last_at=_iso(m.last_at), trend_per_hour=value(m, "trend_per_hour"),
+                buckets=[SummaryBucket(start=_iso(b.start), end=_iso(b.end), readings=b.readings,
+                                       mean=value(b, "mean")) for b in m.buckets],
+            ))  # fmt: skip
+        return TelemetrySummary(
+            snapshot_id=snapshot.snapshot_id, turbine_id=snapshot.turbine_id,
+            window_start=_iso(snapshot.from_time), window_end=_iso(snapshot.to_time),
+            content_hash=snapshot.content_hash, metrics=metrics,
+        )  # fmt: skip
+
     async def estimate_impact(arguments: ImpactInput) -> Impact:
         result = (
             await call(
@@ -396,6 +486,9 @@ def tools(services: Services) -> list[Tool]:
                     idempotency_key=_key("impact", arguments.case_id, arguments.action,
                                          arguments.downtime_hours),
                 ),
+                # An estimate reads the case, the turbine and a forecast: about 7 seconds,
+                # inside the tool's own 20.
+                deadline_seconds=IMPACT_DEADLINE_SECONDS,
             )
         ).result  # fmt: skip
         return Impact(
@@ -450,6 +543,14 @@ def tools(services: Services) -> list[Tool]:
              "A turbine's latest reading of each metric, each with its unit and quality label. "
              "A reading marked suspect or missing is not evidence on its own.",
              TurbineInput, Telemetry, get_latest_telemetry, timeout_seconds=5, per_minute=60),
+        tool("get_telemetry_summary", "Summarize frozen telemetry",
+             "A frozen telemetry snapshot's readings, summarized per metric: their count and "
+             "quality, minimum, maximum, mean, first and last, the trend per hour, and the mean "
+             "of each slice of the window. Take the snapshot_id from the telemetry item of the "
+             "case's evidence. Cite a figure by its metric's record_id. A missing reading is "
+             "counted, never averaged; suspect readings are not evidence on their own.",
+             SummaryInput, TelemetrySummary, get_telemetry_summary, timeout_seconds=20,
+             per_minute=20),
         tool("list_alarms", "List a turbine's alarms",
              "A turbine's alarms, newest first, each with its code, severity and state.",
              AlarmsInput, Alarms, list_alarms, timeout_seconds=5, per_minute=60),

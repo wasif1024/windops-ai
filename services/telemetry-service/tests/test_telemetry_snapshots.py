@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import grpc
+import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -424,5 +425,58 @@ def test_the_latest_sample_of_each_readable_turbine() -> None:
         too_many = pb.GetLatestTelemetryRequest(turbine_ids=[f"t{n}" for n in range(101)])
         call = world.stub.GetLatestTelemetry(too_many, metadata=as_user("u-reader"), timeout=10)
         assert await code_of(call) == grpc.StatusCode.INVALID_ARGUMENT
+
+    with_service(scenario)
+
+
+def test_a_snapshot_is_summarized_per_metric_the_same_way_every_time() -> None:
+    """M9.0: what an agent reads instead of every point. A missing reading is counted, never
+    averaged; a duplicate is not there at all."""
+
+    async def scenario(world: World) -> None:
+        reader = as_user("u-reader")
+        made = await world.stub.CreateTelemetrySnapshot(create_request(), metadata=reader,
+                                                         timeout=10)  # fmt: skip
+        request = pb.SummarizeTelemetrySnapshotRequest(
+            snapshot_id=made.snapshot_id, metrics=[pb.METRIC_GEARBOX_TEMPERATURE], buckets=2
+        )
+        first = await world.stub.SummarizeTelemetrySnapshot(request, metadata=reader, timeout=10)
+        again = await world.stub.SummarizeTelemetrySnapshot(request, metadata=reader, timeout=10)
+        assert first == again
+        (oil,) = first.metrics
+        assert (oil.readings, oil.good, oil.suspect, oil.missing) == (10, 8, 1, 1)
+        assert (oil.minimum, oil.maximum, oil.first, oil.last) == (60.0, 69.0, 60.0, 69.0)
+        assert oil.mean == pytest.approx(581 / 9)
+        # One degree a second: 3,600 an hour.
+        assert oil.trend_per_hour == pytest.approx(3600.0)
+        assert oil.unit
+        # The window is a minute, and the samples its first 10 seconds: all in the first half.
+        assert [b.readings for b in oil.buckets] == [9, 0] and not oil.buckets[1].HasField("mean")
+        assert first.snapshot.snapshot_id == made.snapshot_id
+        every = await world.stub.SummarizeTelemetrySnapshot(
+            pb.SummarizeTelemetrySnapshotRequest(snapshot_id=made.snapshot_id),
+            metadata=reader, timeout=10,
+        )  # fmt: skip
+        assert len(every.metrics) == len(snapshots.READING_ORDER)
+        assert all(len(m.buckets) == 12 for m in every.metrics)
+
+    with_service(scenario)
+
+
+def test_a_summary_needs_read_permission_and_sensible_buckets() -> None:
+    async def scenario(world: World) -> None:
+        reader = as_user("u-reader")
+        made = await world.stub.CreateTelemetrySnapshot(create_request(), metadata=reader,
+                                                         timeout=10)  # fmt: skip
+        stranger = await code_of(world.stub.SummarizeTelemetrySnapshot(
+            pb.SummarizeTelemetrySnapshotRequest(snapshot_id=made.snapshot_id),
+            metadata=as_user("u-other"), timeout=10,
+        ))  # fmt: skip
+        assert stranger in (grpc.StatusCode.NOT_FOUND, grpc.StatusCode.PERMISSION_DENIED)
+        too_many = await code_of(world.stub.SummarizeTelemetrySnapshot(
+            pb.SummarizeTelemetrySnapshotRequest(snapshot_id=made.snapshot_id, buckets=49),
+            metadata=as_user("u-reader"), timeout=10,
+        ))  # fmt: skip
+        assert too_many == grpc.StatusCode.INVALID_ARGUMENT
 
     with_service(scenario)

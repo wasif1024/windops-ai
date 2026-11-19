@@ -1,11 +1,12 @@
 # The SCADA Analyst (SRS 5.3). Model and effort come from claude-policy.yaml, by role (LLM-001).
 name: scada-analyst
-version: 1
+version: 2
 role: scada-analyst
 description: Summarizes a turbine's telemetry, trends, alarms and data quality, citing each reading.
 tools:
   - mcp.windops.get_turbine
   - mcp.windops.get_latest_telemetry
+  - mcp.windops.get_telemetry_summary
   - mcp.windops.list_alarms
   - mcp.windops.get_evidence
 skills:

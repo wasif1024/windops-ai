@@ -23,6 +23,7 @@ from windops_mcp_windops.tools import (
     EvidenceInput,
     ImpactInput,
     PolicyInput,
+    SummaryInput,
     TurbineInput,
 )
 
@@ -43,10 +44,12 @@ def a_case(case_id: str = CASE) -> Any:
 class Fake:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, Any]] = []
+        self.deadlines: dict[str, Any] = {}
 
     async def call(self, dependency: str, make: Any, setting: str, method: str, request: Any,
-                   **_: Any) -> Any:  # fmt: skip
+                   **options: Any) -> Any:  # fmt: skip
         self.calls.append((dependency, method, request))
+        self.deadlines[method] = options.get("deadline_seconds")
         answers: dict[str, Any] = {
             "GetTurbine": asset_pb2.GetTurbineResponse(turbine=asset_pb2.Turbine(
                 turbine_id="dogger-east-t01", wind_farm_id="dogger-east", name="Dogger East T01",
@@ -55,6 +58,23 @@ class Fake:
                                              hub_height_m=110),
                 serial_number="SYN-123", status="operating", status_changed_at=STAMP,
             )),
+            "SummarizeTelemetrySnapshot": telemetry_pb2.SummarizeTelemetrySnapshotResponse(
+                snapshot=telemetry_pb2.TelemetrySnapshot(
+                    snapshot_id="tsnap_" + "c" * 20, turbine_id="dogger-east-t01",
+                    from_time=STAMP, to_time=STAMP, content_hash="h" * 64,
+                ),
+                metrics=[telemetry_pb2.MetricSummary(
+                    metric=telemetry_pb2.METRIC_GEARBOX_TEMPERATURE, unit="degC", readings=7200,
+                    good=7100, suspect=90, missing=10, minimum=58.0, maximum=71.5, mean=64.2,
+                    first=59.0, last=71.0, trend_per_hour=6.0,
+                    buckets=[telemetry_pb2.SummaryBucket(start=STAMP, end=STAMP, readings=600,
+                                                         mean=60.1),
+                             telemetry_pb2.SummaryBucket(start=STAMP, end=STAMP, readings=0)],
+                ), telemetry_pb2.MetricSummary(
+                    metric=telemetry_pb2.METRIC_VIBRATION_RMS, unit="mm/s", readings=10,
+                    missing=10,
+                )],
+            ),
             "GetLatestTelemetry": telemetry_pb2.GetLatestTelemetryResponse(turbines=[
                 telemetry_pb2.LatestTelemetry(
                     turbine_id="dogger-east-t01", event_time=STAMP, operating_state="running",
@@ -203,3 +223,31 @@ def test_impact_and_policy_are_the_services_own_and_a_retry_is_one_request() -> 
 def test_inputs_are_checked_and_never_take_a_tenant(model: Any, arguments: dict[str, Any]) -> None:
     with pytest.raises(ValidationError):
         model.model_validate(arguments)
+
+
+def test_a_frozen_snapshot_is_summarized_with_a_citable_record_per_metric() -> None:
+    """M9.0: the readings an agent could not see before, each figure citable."""
+    fake = Fake()
+    tsnap = "tsnap_" + "c" * 20
+    asked = SummaryInput(snapshot_id=tsnap, metrics=["gearbox_temperature"], buckets=6)
+    found = run(fake, "get_telemetry_summary", asked)
+    oil, vibration = found.metrics
+    assert oil.record_id == f"{tsnap}#gearbox_temperature"
+    assert (oil.minimum, oil.maximum, oil.trend_per_hour) == (58.0, 71.5, 6.0)
+    assert [b.mean for b in oil.buckets] == [60.1, None]
+    # Nothing to average: no value is invented.
+    assert (vibration.missing, vibration.mean, vibration.trend_per_hour) == (10, None, None)
+    request = fake.calls[0][2]
+    assert list(request.metrics) == [telemetry_pb2.METRIC_GEARBOX_TEMPERATURE]
+    assert request.buckets == 6 and request.snapshot_id == tsnap
+    for bad in ({"snapshot_id": "evs_" + "b" * 20}, {"snapshot_id": tsnap, "buckets": 49},
+                {"snapshot_id": tsnap, "metrics": ["oil_pressure"]}):  # fmt: skip
+        with pytest.raises(ValidationError):
+            SummaryInput(**bad)
+
+
+def test_an_estimate_has_the_time_it_takes() -> None:
+    """M9.0: an estimate takes about 7 seconds, so the default 5 made the tool always fail."""
+    fake = Fake()
+    run(fake, "estimate_impact", ImpactInput(case_id=CASE, action="inspection", downtime_hours=6))
+    assert fake.deadlines["EstimateImpact"] == module.IMPACT_DEADLINE_SECONDS >= 10

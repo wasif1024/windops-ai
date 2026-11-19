@@ -61,6 +61,7 @@ together.
     call recorded with its role's model and effort.
   - On the cluster, `make phase-8-gate MODE=stand_in` proves the whole gate.
 - **Rollout:** every image was rebuilt for the keepalive, as old servers would refuse pings this frequent.
+- **Correction (M9.0):** the server option here was misspelt, and gRPC ignored it. [ADR 0028](0028-agents-read-the-frozen-telemetry-summarized.md) uses gRPC's own name, and a test checks every option name against the library.
 - **What a dry run cannot show:** whether Claude follows its prompts, cites well, needs repairs, or fits its budget.
 - **The paid run:** before it, Anthropic's free token count accepted every real request the client builds. An
   environment may cap each run below the policy's budget with `WINDOPS_INVESTIGATION_COST_BUDGET_USD`, as the account's
