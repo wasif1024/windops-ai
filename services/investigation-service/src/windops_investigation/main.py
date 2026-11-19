@@ -180,7 +180,9 @@ def main() -> None:
         lambda: identity_pb2_grpc.IdentityServiceStub(channel("WINDOPS_IDENTITY_ADDRESS")),
         _client("identity"),
     )
-    keeper = Keeper(engine, runtime, delegations, secret, agents)
+    # A run's cost cap below the policy's, when the environment sets one (ADR 0027).
+    cost_cap = os.environ.get("WINDOPS_INVESTIGATION_COST_BUDGET_USD", "")
+    keeper = Keeper(engine, runtime, delegations, secret, agents, cost_budget_usd=cost_cap)
 
     async def database_ready() -> bool:
         async with engine.connect() as connection:

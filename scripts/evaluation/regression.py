@@ -138,12 +138,17 @@ def replay(assets: Caller, simulator_id: str) -> str:
 
 def investigate(operator: Operator, scenario: Scenario, turbine: str, attempt: int) -> str:
     key = f"regression-{scenario.case_id}-{attempt}-{secrets.token_hex(4)}"
-    answer = httpx.post(
-        f"{API}/investigations",
-        json={"turbine_id": turbine, "title": scenario.case.title,
-              "severity": scenario.case.severity},
-        headers=operator.headers(**{"Idempotency-Key": key}), timeout=30,
-    )  # fmt: skip
+    body = {"turbine_id": turbine, "title": scenario.case.title,
+            "severity": scenario.case.severity}  # fmt: skip
+    # Investigation may have just restarted, as the gate does to set its mode: an unavailable
+    # answer is retried with the same key, which can only ever make one case.
+    deadline = time.monotonic() + 90
+    while True:
+        answer = httpx.post(f"{API}/investigations", json=body, timeout=30,
+                            headers=operator.headers(**{"Idempotency-Key": key}))  # fmt: skip
+        if answer.status_code != 503 or time.monotonic() > deadline:
+            break
+        time.sleep(5)
     if answer.status_code != 202:
         raise RuntimeError(f"Investigating answered {answer.status_code}: {answer.text[:300]}")
     return str(answer.json()["case_id"])
@@ -212,7 +217,9 @@ def observe(scenario: Scenario, operator: Operator, case_id: str, run_id: str) -
     time.sleep(5)
     return Observed(
         scenario_id=scenario.case_id, run_id=run_id, run_status=found["status"],
-        case_status=case["status"], rehearsed=bool(parameters.get("rehearse")),
+        case_status=case["status"],
+        # A rehearsal and a dry run are both scripted: nothing a model chose is judged.
+        rehearsed=bool(parameters.get("rehearse") or parameters.get("stand_in")),
         result=json.loads(found["result_json"]) if found["result_json"] else None,
         tool_calls=tool_calls(run_id), seconds=float(found["seconds"] or 0),
         tokens=int(used["tokens"]), cost_usd=float(used["cost"]), reason=found["reason"],

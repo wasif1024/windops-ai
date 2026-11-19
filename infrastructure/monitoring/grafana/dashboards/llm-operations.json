@@ -40,7 +40,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "round(sum((increase(windops_llm_tokens_total[24h]) and windops_llm_tokens_total offset 24h or windops_llm_tokens_total)))",
+          "expr": "round(sum((increase(windops_llm_tokens_total{provider=\"anthropic\"}[24h]) and windops_llm_tokens_total{provider=\"anthropic\"} offset 24h or windops_llm_tokens_total{provider=\"anthropic\"})))",
           "legendFormat": "tokens"
         }
       ],
@@ -97,7 +97,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum((increase(windops_llm_cost_usd_total[24h]) and windops_llm_cost_usd_total offset 24h or windops_llm_cost_usd_total))",
+          "expr": "sum((increase(windops_llm_cost_usd_total{provider=\"anthropic\"}[24h]) and windops_llm_cost_usd_total{provider=\"anthropic\"} offset 24h or windops_llm_cost_usd_total{provider=\"anthropic\"}))",
           "legendFormat": "USD"
         }
       ],
@@ -137,7 +137,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum((increase(windops_llm_tokens_total{kind=\"cache_read\"}[24h]) and windops_llm_tokens_total{kind=\"cache_read\"} offset 24h or windops_llm_tokens_total{kind=\"cache_read\"})) / sum((increase(windops_llm_tokens_total{kind=~\"input|cache_read|cache_write\"}[24h]) and windops_llm_tokens_total{kind=~\"input|cache_read|cache_write\"} offset 24h or windops_llm_tokens_total{kind=~\"input|cache_read|cache_write\"}))",
+          "expr": "sum((increase(windops_llm_tokens_total{provider=\"anthropic\",kind=\"cache_read\"}[24h]) and windops_llm_tokens_total{provider=\"anthropic\",kind=\"cache_read\"} offset 24h or windops_llm_tokens_total{provider=\"anthropic\",kind=\"cache_read\"})) / sum((increase(windops_llm_tokens_total{provider=\"anthropic\",kind=~\"input|cache_read|cache_write\"}[24h]) and windops_llm_tokens_total{provider=\"anthropic\",kind=~\"input|cache_read|cache_write\"} offset 24h or windops_llm_tokens_total{provider=\"anthropic\",kind=~\"input|cache_read|cache_write\"}))",
           "legendFormat": "hit rate"
         }
       ],
@@ -177,7 +177,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "round(sum((increase(windops_llm_calls_total[24h]) and windops_llm_calls_total offset 24h or windops_llm_calls_total)))",
+          "expr": "round(sum((increase(windops_llm_calls_total{provider=\"anthropic\"}[24h]) and windops_llm_calls_total{provider=\"anthropic\"} offset 24h or windops_llm_calls_total{provider=\"anthropic\"})))",
           "legendFormat": "calls"
         }
       ],
@@ -230,7 +230,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "round(sum((increase(windops_llm_calls_total{stop_reason=\"refusal\"}[24h]) and windops_llm_calls_total{stop_reason=\"refusal\"} offset 24h or windops_llm_calls_total{stop_reason=\"refusal\"})))",
+          "expr": "round(sum((increase(windops_llm_calls_total{provider=\"anthropic\",stop_reason=\"refusal\"}[24h]) and windops_llm_calls_total{provider=\"anthropic\",stop_reason=\"refusal\"} offset 24h or windops_llm_calls_total{provider=\"anthropic\",stop_reason=\"refusal\"})))",
           "legendFormat": "refusals"
         }
       ],
@@ -287,7 +287,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "round(sum((increase(windops_llm_errors_total{error!=\"budget_exhausted\"}[24h]) and windops_llm_errors_total{error!=\"budget_exhausted\"} offset 24h or windops_llm_errors_total{error!=\"budget_exhausted\"})))",
+          "expr": "round(sum((increase(windops_llm_errors_total{provider=\"anthropic\",error!=\"budget_exhausted\"}[24h]) and windops_llm_errors_total{provider=\"anthropic\",error!=\"budget_exhausted\"} offset 24h or windops_llm_errors_total{provider=\"anthropic\",error!=\"budget_exhausted\"})))",
           "legendFormat": "errors"
         }
       ],
@@ -325,7 +325,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (kind) (increase(windops_llm_tokens_total[5m]))",
+          "expr": "sum by (kind) (increase(windops_llm_tokens_total{provider=\"anthropic\"}[5m]))",
           "legendFormat": "{{kind}}"
         }
       ]
@@ -354,7 +354,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (role) (increase(windops_llm_cost_usd_total[1h]))",
+          "expr": "sum by (role) (increase(windops_llm_cost_usd_total{provider=\"anthropic\"}[1h]) and windops_llm_cost_usd_total{provider=\"anthropic\"} offset 1h or windops_llm_cost_usd_total{provider=\"anthropic\"})",
           "legendFormat": "{{role}}"
         }
       ]
@@ -383,7 +383,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (role) (rate(windops_llm_tokens_total{kind=\"cache_read\"}[15m])) / sum by (role) (rate(windops_llm_tokens_total{kind=~\"input|cache_read|cache_write\"}[15m]))",
+          "expr": "sum by (role) (rate(windops_llm_tokens_total{provider=\"anthropic\",kind=\"cache_read\"}[15m])) / sum by (role) (rate(windops_llm_tokens_total{provider=\"anthropic\",kind=~\"input|cache_read|cache_write\"}[15m]))",
           "legendFormat": "{{role}}"
         }
       ]
@@ -412,12 +412,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.50, sum by (role, le) (rate(windops_llm_call_duration_seconds_bucket{outcome=\"answered\"}[15m])))",
+          "expr": "histogram_quantile(0.50, sum by (role, le) (rate(windops_llm_call_duration_seconds_bucket{provider=\"anthropic\",outcome=\"answered\"}[15m])))",
           "legendFormat": "p50 {{role}}"
         },
         {
           "refId": "B",
-          "expr": "histogram_quantile(0.95, sum by (role, le) (rate(windops_llm_call_duration_seconds_bucket{outcome=\"answered\"}[15m])))",
+          "expr": "histogram_quantile(0.95, sum by (role, le) (rate(windops_llm_call_duration_seconds_bucket{provider=\"anthropic\",outcome=\"answered\"}[15m])))",
           "legendFormat": "p95 {{role}}"
         }
       ]
@@ -446,7 +446,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (model, stop_reason) (increase(windops_llm_calls_total[5m]))",
+          "expr": "sum by (model, stop_reason) (increase(windops_llm_calls_total{provider=\"anthropic\"}[5m]))",
           "legendFormat": "{{model}} {{stop_reason}}"
         }
       ]
@@ -475,7 +475,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (error) (increase(windops_llm_errors_total[5m]))",
+          "expr": "sum by (error) (increase(windops_llm_errors_total{provider=\"anthropic\"}[5m]))",
           "legendFormat": "{{error}}"
         }
       ]
@@ -504,12 +504,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (role) (increase(windops_llm_calls_total{stop_reason=\"refusal\"}[5m]))",
+          "expr": "sum by (role) (increase(windops_llm_calls_total{provider=\"anthropic\",stop_reason=\"refusal\"}[5m]))",
           "legendFormat": "refused {{role}}"
         },
         {
           "refId": "B",
-          "expr": "sum by (role) (increase(windops_llm_calls_total{fallback=\"true\"}[5m]))",
+          "expr": "sum by (role) (increase(windops_llm_calls_total{provider=\"anthropic\",fallback=\"true\"}[5m]))",
           "legendFormat": "fallback {{role}}"
         }
       ]

@@ -29,6 +29,7 @@ from windops_agent_runtime.registry import REGISTRY
 from windops_agent_runtime.service import AgentRuntimeService
 from windops_agent_runtime.store import SERVICE_NAME
 from windops_agent_runtime.team.sandbox import sandbox_from_environment
+from windops_agent_runtime.team.standin import StandIn
 from windops_agent_runtime.team.tools import McpClient, ToolBox
 from windops_agent_runtime.tracing import tracer_from_environment
 from windops_agent_runtime.worker import Worker, WorkerSettings
@@ -115,12 +116,15 @@ def main() -> None:
         "Loaded the Claude policy",
         extra={"policy_version": policy.version, "policy_hash": policy.content_hash},
     )
+    # A stand-in Anthropic API, on 127.0.0.1 only, for dry runs at no cost (ADR 0027).
+    stand_in = StandIn() if os.environ.get("WINDOPS_AGENT_STAND_IN") == "on" else None
     worker = Worker(
         queue,
         REGISTRY,
         WorkerSettings(slots=slots, poll_seconds=_setting("WINDOPS_RUNTIME_POLL_SECONDS", 1)),
         policy=policy,
         api_key=anthropic_key,
+        stand_in=(lambda: stand_in.url) if stand_in is not None else None,
         identity=identity_client(),
         # The agents call the MCP servers with the runtime's own certificate (ADR 0021).
         # Sandbox tasks through the Agent Sandbox Adapter, for agents whose allowlists name them.
@@ -149,12 +153,16 @@ def main() -> None:
     async def work(stop: asyncio.Event) -> None:
         await worker.run_forever(stop)
 
+    async def stand_in_api(stop: asyncio.Event) -> None:
+        if stand_in is not None:
+            await stand_in.serve(stop)
+
     asyncio.run(
         run_service(
             SERVICE_NAME,
             register,
             readiness_checks=(database_ready,),
-            background=(relay, work),
+            background=(relay, work, stand_in_api),
         )
     )
 

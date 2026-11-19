@@ -79,8 +79,13 @@ this service ([ADR 0025](../../docs/adr/0025-investigations-started-and-followed
   the run ends, it moves the case. A cancelled case cancels its run.
 - **Watching:** `WatchInvestigation` streams a case's events from any sequence, with `investigation.read`. Web BFF
   passes them on as server-sent events.
-- **Cost:** `WINDOPS_INVESTIGATION_AGENTS` sets how runs go: `rehearse` (a scripted model, no cost, the default),
-  `claude`, or `off`.
+- **Cost:** `WINDOPS_INVESTIGATION_AGENTS` sets how runs go:
+  - `rehearse`: a scripted model, at no cost. The default.
+  - `stand_in`: a dry run of the real Claude client against a stand-in API, at no cost.
+  - `claude`: the agents on Claude.
+  - `off`: no runs.
+
+  `WINDOPS_INVESTIGATION_COST_BUDGET_USD` may cap each run's cost below the Claude policy's.
 
 ## Run the tests
 

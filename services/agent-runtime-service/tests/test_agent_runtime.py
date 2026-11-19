@@ -1072,3 +1072,21 @@ def test_the_sandbox_parameter_is_only_for_a_rehearsal(parameters: dict[str, str
         {"rehearse": "true", "turbine_id": "dogger-east-t01", "sandbox": "true"}
     )
     assert checked["sandbox"] is True
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        {"stand_in": "yes"},
+        {"stand_in": "true", "team": "false"},
+        {"stand_in": "true", "rehearse": "true", "turbine_id": "dogger-east-t01"},
+    ],
+)
+def test_a_dry_run_is_the_team_on_the_stand_in_never_a_rehearsal(
+    parameters: dict[str, str],
+) -> None:
+    """ADR 0027: a dry run uses the real Claude client, so it cannot also be scripted."""
+    with pytest.raises(InvalidRequestError):
+        Investigation().check(parameters)
+    assert Investigation().check({"stand_in": "true"})["stand_in"] is True
+    assert "stand_in" not in Investigation().check({}), "other runs' parameters are unchanged"

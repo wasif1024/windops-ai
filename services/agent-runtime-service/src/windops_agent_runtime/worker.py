@@ -7,6 +7,7 @@ another replica need not wait for the lease to run out.
 
 import asyncio
 import contextlib
+import functools
 import logging
 import random
 import socket
@@ -30,6 +31,7 @@ from windops_claude import (
     Spent,
     StopError,
     StructuredOutputError,
+    models,
 )
 
 from windops_agent_runtime.checkpoints import RunCheckpointer
@@ -41,6 +43,7 @@ from windops_agent_runtime.team.compose import InvalidResultError
 from windops_agent_runtime.team.definitions import team
 from windops_agent_runtime.team.run import TeamRunner
 from windops_agent_runtime.team.sandbox import SandboxRun, SandboxUse
+from windops_agent_runtime.team.standin import PLACEHOLDER_KEY
 from windops_agent_runtime.team.tools import ToolBox
 from windops_agent_runtime.tracing import Tracer, run_metadata
 from windops_agent_runtime.workflows import ClaudeUnavailableError, StepFailedError, Workflow
@@ -161,6 +164,7 @@ class Worker:
         name: str | None = None,
         policy: Policy | None = None,
         api_key: Callable[[], str] | None = None,
+        stand_in: Callable[[], str | None] | None = None,
         make_claude: Callable[[Claim, Meter], Claude] | None = None,
         identity: Identity | None = None,
         toolbox: ToolBox | None = None,
@@ -170,6 +174,8 @@ class Worker:
         self._queue, self._workflows = queue, workflows
         self._policy = policy
         self._api_key = api_key
+        # The stand-in API's address, for dry runs, when the runtime serves one (ADR 0027).
+        self._stand_in = stand_in
         self._make_claude = make_claude
         self._identity = identity
         self._toolbox = toolbox
@@ -303,6 +309,16 @@ class Worker:
         meter = Meter(budget, RunLedger(self._queue, claim))
         if self._make_claude is not None:
             return self._make_claude(claim, meter)
+        if claim.parameters.get("stand_in"):
+            # A dry run: the real client, against the stand-in API, with a placeholder key.
+            url = self._stand_in() if self._stand_in is not None else None
+            if url is None:
+                return None
+            return Claude(
+                self._policy, meter, lambda: PLACEHOLDER_KEY,
+                make_model=functools.partial(models.chat_model, base_url=url),
+                provider="stand-in",
+            )  # fmt: skip
         if self._api_key is None:
             return None
         return Claude(self._policy, meter, self._api_key)

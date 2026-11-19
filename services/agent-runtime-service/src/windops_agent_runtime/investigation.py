@@ -283,6 +283,7 @@ class Investigation:
     def check(self, parameters: Mapping[str, str]) -> dict[str, Any]:
         unknown = set(parameters) - {
             "step_seconds", "plan_with_claude", "team", "rehearse", "turbine_id", "sandbox",
+            "stand_in",
         }  # fmt: skip
         if unknown:
             raise InvalidRequestError(f"Unknown parameters: {', '.join(sorted(unknown))}")
@@ -309,9 +310,20 @@ class Investigation:
         sandbox = parameters.get("sandbox", "false")
         if sandbox not in ("true", "false") or (sandbox == "true" and rehearse != "true"):
             raise InvalidRequestError("sandbox must be true or false, and only for a rehearsal")
-        return {"step_seconds": seconds, "plan_with_claude": plan == "true",
-                "team": agents == "true", "rehearse": rehearse == "true",
-                "turbine_id": turbine, "sandbox": sandbox == "true"}  # fmt: skip
+        # A dry run: the team on the real Claude client, against the stand-in API (ADR 0027).
+        stand_in = parameters.get("stand_in", "false")
+        if stand_in not in ("true", "false") or (
+            stand_in == "true" and (agents != "true" or rehearse == "true")
+        ):
+            raise InvalidRequestError("stand_in must be true or false, only with the team, and "
+                                      "never with a rehearsal")  # fmt: skip
+        checked = {"step_seconds": seconds, "plan_with_claude": plan == "true",
+                   "team": agents == "true", "rehearse": rehearse == "true",
+                   "turbine_id": turbine, "sandbox": sandbox == "true"}  # fmt: skip
+        if stand_in == "true":
+            # Only when asked, so every other run's pinned parameters stay as they were.
+            checked["stand_in"] = True
+        return checked
 
     def total_steps(self, parameters: Mapping[str, Any]) -> int:
         return len(STEPS)

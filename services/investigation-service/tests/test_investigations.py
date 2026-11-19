@@ -164,7 +164,7 @@ def test_a_person_gets_the_case_at_once_and_its_investigation_follows_its_run() 
             "case_id": case.case_id, "snapshot_id": f"snap_{case.case_id[-12:]}",
             "parameters": {"team": "true", "rehearse": "true", "turbine_id": TURBINE},
             "requested_by": "user:u-operator", "delegation_id": "dlg_user0000000000000001",
-            "key": f"investigate-{case.case_id}",
+            "key": f"investigate-{case.case_id}", "cost_budget_usd": "",
         }  # fmt: skip
         assert set(setup.runtime.callers) == {investigations.KEEPER}, "as the service itself"
         got = await case_of(world, case.case_id)
@@ -421,3 +421,20 @@ def test_an_investigation_whose_case_is_gone_is_no_longer_followed() -> None:
         assert (row.status, row.note) == ("ended", "The case is gone")
 
     setup.run(scenario)
+
+
+def test_an_environment_may_cap_each_run_below_the_policy() -> None:
+    """For an account with less credit than the policy lets a run spend (ADR 0027)."""
+    setup = Setup()
+
+    async def scenario(world: World) -> None:
+        keeper = setup.keeper(world, mode="claude")
+        keeper.cost_budget_usd = "6.00"
+        case = await investigate(world)
+        await freeze(world, case.case_id)
+        await keeper.run_once()
+        (started,) = setup.runtime.started
+        assert started["cost_budget_usd"] == "6.00"
+        assert started["parameters"] == {"team": "true"}
+
+    setup.run(scenario, agents="claude")
