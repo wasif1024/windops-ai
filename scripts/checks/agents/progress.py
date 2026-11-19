@@ -112,6 +112,8 @@ def start(operator: Operator) -> str:
     began = time.monotonic()
     first = post()
     took = time.monotonic() - began
+    if first.status_code != 202:
+        raise RuntimeError(f"Investigating answered {first.status_code}: {first.text[:300]}")
     answer = first.json()
     check(
         first.status_code == 202 and answer["case_id"].startswith("case_")
