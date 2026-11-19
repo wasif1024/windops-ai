@@ -85,4 +85,13 @@ class MeteredChat(BaseChatModel):
         if stop:
             options["stop"] = stop
         result = await self.claude.invoke(self.role, messages, options=options)
+        call = result.call
+        # For the trace (OBS-006, OBS-007). Response metadata is never sent back to Claude.
+        result.message.response_metadata["windops_call"] = {
+            "role": call.role, "requested_model": call.requested_model,
+            "served_model": call.served_model, "effort": call.effort,
+            "stop_reason": call.stop_reason, "fallback": call.fallback,
+            "cost_usd": str(call.cost_usd), "processed_tokens": call.usage.processed_tokens,
+            "cache_read_tokens": call.usage.cache_read_tokens,
+        }  # fmt: skip
         return ChatResult(generations=[ChatGeneration(message=result.message)])

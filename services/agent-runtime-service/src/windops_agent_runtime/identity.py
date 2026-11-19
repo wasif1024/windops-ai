@@ -24,7 +24,13 @@ class NoDelegationError(Exception):
 
 class Identity(Protocol):
     async def agent_token(
-        self, tenant: str, delegation: str, agent: str, audience: str, scopes: Sequence[str]
+        self,
+        tenant: str,
+        delegation: str,
+        agent: str,
+        audience: str,
+        scopes: Sequence[str],
+        correlation_id: str = "",
     ) -> str: ...
 
     async def end(self, tenant: str, delegation: str, reason: str) -> None: ...
@@ -35,10 +41,20 @@ class IdentityClient:
         self._stub, self._client, self._secret = stub, client, secret
 
     async def agent_token(
-        self, tenant: str, delegation: str, agent: str, audience: str, scopes: Sequence[str]
+        self,
+        tenant: str,
+        delegation: str,
+        agent: str,
+        audience: str,
+        scopes: Sequence[str],
+        correlation_id: str = "",
     ) -> str:
         request = identity_pb2.IssueAgentTokenRequest(
-            delegation_id=delegation, agent=agent, audience=audience, scopes=list(scopes)
+            delegation_id=delegation,
+            agent=agent,
+            audience=audience,
+            scopes=list(scopes),
+            correlation_id=correlation_id,
         )
         with acting_as_service(SERVICE_NAME, tenant, self._secret):
             try:
@@ -64,12 +80,16 @@ class IdentityClient:
 class AgentTokens:
     """A run's view: tokens for its agents, under its own delegation and tenant only."""
 
-    def __init__(self, identity: Identity, tenant: str, delegation: str) -> None:
+    def __init__(
+        self, identity: Identity, tenant: str, delegation: str, correlation_id: str = ""
+    ) -> None:
         self._identity, self._tenant, self._delegation = identity, tenant, delegation
+        # The run's ID, so each tool call's audit record shares it with the trace (OBS-008).
+        self._correlation = correlation_id
 
     async def for_tool(self, agent: str, audience: str, scopes: Sequence[str]) -> str:
         if not self._delegation:
             raise NoDelegationError("The run has no delegation for its agents to act under")
         return await self._identity.agent_token(
-            self._tenant, self._delegation, agent, audience, scopes
+            self._tenant, self._delegation, agent, audience, scopes, self._correlation
         )

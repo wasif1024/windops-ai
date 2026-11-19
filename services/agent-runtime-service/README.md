@@ -67,7 +67,15 @@ Every call goes through the `windops-claude` library and its versioned policy
 - **Budget:** a run that reaches its budget ends as `budget_exhausted`. A refusal, a cut-off answer or an edited
   history ends it as `failed` at once, as another attempt would only pay for the same answer.
 - **The key:** `ANTHROPIC_API_KEY` in `.env` becomes the Secret `windops-anthropic-api-key`, which only this pod
-  mounts. LangSmith tracing stays off until traces are redacted (M8.9).
+  mounts.
+
+## Traces
+
+Each run is traced to LangSmith through one client whose hooks redact every value before export
+([ADR 0023](../../docs/adr/0023-agent-traces-redacted-before-export.md)). The root names the run, case, snapshot,
+tenant, user and correlation IDs; beneath it are every step, agent, model call and tool call. The correlation ID is
+the run's own, shared by its audit records and every MCP tool call's. `LANGSMITH_API_KEY` in `.env` becomes the
+Secret `windops-langsmith-api-key`, which only this pod mounts; without it, nothing is traced.
 
 ## Checks
 
@@ -75,6 +83,7 @@ Every call goes through the `windops-claude` library and its versioned policy
 make runtime-check
 make workflow-check
 make team-check
+make trace-check
 make claude-check
 ```
 

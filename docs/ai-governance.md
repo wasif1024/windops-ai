@@ -91,7 +91,8 @@ ISO/IEC 42001 A.7; NIST MAP 2 and MEASURE 2.10; NCA data protection; SDAIA priva
 - **In place:**
   - quality labels on every stored sample, with all simulated data marked synthetic (M4.6, `make data-quality-check`);
   - row-level tenant isolation, attacked on every data path (M3.12, `make cross-tenant-check`).
-- **Planned:** no secrets or needless personal data in traces, with leakage tests (M8.9, OBS-003).
+- **In place:** no secrets or needless personal data in traces, redacted in the LangSmith client before export, with
+  leakage tests (M8.9, OBS-003, EGR-003, `make trace-check`).
 - **Planned:** a PDPL personal-data map and a cross-border transfer review (M15.10). The data is mostly turbine telemetry, not
   personal data, but users, approvers and audit records are personal data. Today the Azure staging deployment is in
   Sweden Central, and the Claude API is outside the Kingdom. A Saudi tenant needs a recorded decision on where its data

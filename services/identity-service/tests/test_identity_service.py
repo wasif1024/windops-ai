@@ -835,3 +835,22 @@ def test_an_agent_gets_no_token_for_a_tool_outside_its_allowlist(
         assert await code_of(call) is grpc.StatusCode.PERMISSION_DENIED
 
     with_service(scenario)
+
+
+def test_an_agent_token_carries_the_runs_correlation_id() -> None:
+    """OBS-008: every tool call's audit record shares the run's trace's ID."""
+
+    async def scenario(world: World) -> None:
+        delegation = (
+            await world.stub.StartDelegation(start(), metadata=as_investigation(), timeout=5)
+        ).delegation.delegation_id
+        world.peer[0] = "windops-agent-runtime"
+        request = issue(delegation, agent="safety-researcher")
+        request.correlation_id = "run_abc123"
+        issued = await world.stub.IssueAgentToken(request, metadata=as_investigation(), timeout=5)
+        assert claims_of(world, issued.access_token)["cid"] == "run_abc123"
+        request.correlation_id = "Run ABC!"
+        call = world.stub.IssueAgentToken(request, metadata=as_investigation(), timeout=5)
+        assert await code_of(call) is grpc.StatusCode.INVALID_ARGUMENT
+
+    with_service(scenario)

@@ -97,6 +97,7 @@ def mint(
     agent: str,
     audience: str,
     scopes: list[str],
+    correlation_id: str = "",
     now: float | None = None,
 ) -> tuple[str, int]:
     """A token for one agent, acting for the principal, at one MCP server's named tools."""
@@ -114,5 +115,8 @@ def mint(
         "exp": issued + AGENT_TOKEN_SECONDS,
         "jti": str(uuid.uuid4()),
     }
+    if correlation_id:
+        # Shared with the run's trace and its audit records (OBS-008).
+        claims["cid"] = correlation_id
     token = jwt.encode(claims, key.private_key, algorithm="ES256", headers={"kid": key.key_id})
     return token, AGENT_TOKEN_SECONDS

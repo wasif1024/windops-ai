@@ -95,7 +95,18 @@ async def assemble(
     usage = Usage(limit=tool_calls)
 
     def chat(role: str) -> Any:
-        return model(role) if model is not None else MeteredChat(role=role, claude=claude)
+        agent = team.agents[role]
+        configured = claude.policy.role(agent.role)
+        built = model(role) if model is not None else MeteredChat(role=agent.role, claude=claude)
+        # On each model run in the trace: who, on what, and from which prompt (OBS-006). A
+        # rehearsal's scripted model says so.
+        built.metadata = {
+            "agent": agent.name,
+            "model": configured.model if model is None else "scripted",
+            "effort": configured.effort,
+            "prompt_version": f"{agent.version}:{agent.prompt_hash[:12]}",
+        }
+        return built
 
     async def tools_of(name: str) -> list[BaseTool]:
         agent = team.agents[name]

@@ -235,6 +235,8 @@ PROVIDER_KEYS = (
     ("TAVILY_API_KEY", "windops-tavily-api-key", ("windops-application",)),
     # Claude, for the Agent Runtime only, whose pod alone mounts it (M8.3).
     ("ANTHROPIC_API_KEY", "windops-anthropic-api-key", ("windops-application",)),
+    # LangSmith, for the Agent Runtime's redacted traces only, whose pod alone mounts it (M8.9).
+    ("LANGSMITH_API_KEY", "windops-langsmith-api-key", ("windops-application",)),
 )
 
 

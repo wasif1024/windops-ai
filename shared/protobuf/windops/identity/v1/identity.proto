@@ -238,6 +238,9 @@ message IssueAgentTokenRequest {
   string audience = 3;
   // Its tools, each as its scope. At least one.
   repeated string scopes = 4;
+  // The run the token is for, carried in the token as "cid" so every tool call's audit record
+  // shares it with the run's trace (OBS-008). Lowercase letters, digits and underscores.
+  string correlation_id = 5;
 }
 
 message IssueAgentTokenResponse {

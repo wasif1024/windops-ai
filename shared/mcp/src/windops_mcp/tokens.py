@@ -19,6 +19,7 @@ The token itself is never logged, stored or handed to a tool.
 """
 
 import asyncio
+import re
 import ssl
 import time
 from collections.abc import Awaitable, Callable
@@ -74,6 +75,8 @@ class ToolCaller:
     agent: str = ""
     auth_level: str | None = None
     auth_time: int | None = None
+    # The run an agent's call is for, shared with its trace (OBS-008). Empty for a person.
+    correlation_id: str = ""
 
     @property
     def is_service(self) -> bool:
@@ -180,6 +183,7 @@ def caller_from_claims(
     agent = actor.get("sub") if isinstance(actor, dict) else None
     auth_time = claims.get("auth_time")
     acr = claims.get("acr")
+    correlation = claims.get("cid")
     return ToolCaller(
         user_id=subject,
         tenant_id=tenant,
@@ -189,6 +193,9 @@ def caller_from_claims(
         agent=agent if isinstance(agent, str) else "",
         auth_level=acr if isinstance(acr, str) else None,
         auth_time=auth_time if type(auth_time) is int else None,
+        correlation_id=correlation
+        if isinstance(correlation, str) and re.fullmatch(r"[a-z0-9_]{1,64}", correlation)
+        else "",
     )
 
 

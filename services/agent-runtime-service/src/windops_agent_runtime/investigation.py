@@ -321,6 +321,9 @@ class Investigation:
         config: RunnableConfig = {
             "configurable": {"thread_id": context.run_id},
             "recursion_limit": 50,
+            # The trace's root: the run's IDs, and its correlation ID (OBS-005, OBS-008).
+            "run_name": "investigation",
+            "metadata": {**context.trace_metadata, "graph": f"investigation@{GRAPH_VERSION}"},
         }
         started = await checkpointer.aget_tuple(config)
         # A new run starts from its inputs. A run claimed again carries on from its checkpoint.

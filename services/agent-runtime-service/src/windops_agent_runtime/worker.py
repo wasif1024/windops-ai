@@ -40,6 +40,7 @@ from windops_agent_runtime.team.compose import InvalidResultError
 from windops_agent_runtime.team.definitions import team
 from windops_agent_runtime.team.run import TeamRunner
 from windops_agent_runtime.team.tools import ToolBox
+from windops_agent_runtime.tracing import Tracer, run_metadata
 from windops_agent_runtime.workflows import ClaudeUnavailableError, StepFailedError, Workflow
 
 logger = logging.getLogger("windops.agent_runtime")
@@ -107,6 +108,8 @@ class _Steps:
         self.tokens = tokens
         # The investigation team, on this run's budget and delegation (M8.7).
         self.team = team
+        # What the run's trace root says about it (OBS-005, OBS-008).
+        self.trace_metadata: dict[str, Any] = {}
         self.checkpointer: BaseCheckpointSaver[str] | None = RunCheckpointer(queue, claim)
         self.run_id, self.case_id = claim.run_id, claim.case_id
         self.snapshot_id = claim.snapshot_id
@@ -153,6 +156,7 @@ class Worker:
         identity: Identity | None = None,
         toolbox: ToolBox | None = None,
         make_team: Callable[[Claim, Claude, AgentTokens], TeamRunner] | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         self._queue, self._workflows = queue, workflows
         self._policy = policy
@@ -161,6 +165,7 @@ class Worker:
         self._identity = identity
         self._toolbox = toolbox
         self._make_team = make_team
+        self._tracer = tracer
         self._settings = settings or WorkerSettings()
         self._name = name or socket.gethostname()
 
@@ -216,13 +221,18 @@ class Worker:
             )
         cancelled, lost, paused = asyncio.Event(), asyncio.Event(), asyncio.Event()
         tokens = (
-            AgentTokens(self._identity, claim.tenant_id, claim.delegation_id)
+            AgentTokens(self._identity, claim.tenant_id, claim.delegation_id, claim.run_id)
             if self._identity is not None
             else None
         )
         claude = self._claude_for(claim)
         context = _Steps(self._queue, claim, claude, tokens, self._team_for(claim, claude, tokens))
-        work = asyncio.create_task(workflow.run(context, claim.parameters))
+        context.trace_metadata = run_metadata(
+            run_id=claim.run_id, case_id=claim.case_id, snapshot_id=claim.snapshot_id,
+            tenant_id=claim.tenant_id, requested_by=claim.requested_by,
+            workflow=f"{claim.workflow}@{claim.workflow_version}", attempt=claim.attempt,
+        )  # fmt: skip
+        work = asyncio.create_task(self._traced(claim, workflow.run(context, claim.parameters)))
         beat = asyncio.create_task(self._heartbeat(claim, work, cancelled, lost, paused))
         shutdown = asyncio.create_task(stop.wait())
         try:
@@ -240,6 +250,18 @@ class Worker:
             logger.info("Handed a run back", extra={"run_id": claim.run_id})
             return "released"
         return await self._settle(claim, work, cancelled, lost, paused)
+
+    async def _traced(self, claim: Claim, run: Awaitable[None]) -> None:
+        """The run, traced to LangSmith through the redacting client, when tracing is on."""
+        if self._tracer is None:
+            await run
+            return
+        try:
+            with self._tracer.tracing(claim.run_id, tags=[claim.workflow, claim.tenant_id]):
+                await run
+        finally:
+            # In a thread: a slow LangSmith must never hold a worker or its lease up.
+            await asyncio.to_thread(self._tracer.flush)
 
     def _team_for(
         self, claim: Claim, claude: Claude | None, tokens: AgentTokens | None

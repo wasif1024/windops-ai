@@ -20,5 +20,7 @@ data:
   # A run not started within this is ended as stale: its evidence is too old to start on.
   WINDOPS_RUNTIME_QUEUE_HOURS: "24"
   WINDOPS_RUNTIME_POLL_SECONDS: "1"
-  # Off until traces are redacted and their leakage tests pass (M8.9, EGR-003).
+  # Off, so no library traces anything by itself. The runtime traces each run explicitly, through
+  # a client that redacts every value before export (M8.9, EGR-003, ADR 0023).
   LANGSMITH_TRACING: "false"
+  WINDOPS_AGENT_TRACING: "true"

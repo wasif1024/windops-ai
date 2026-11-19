@@ -713,7 +713,10 @@ async def test_a_paused_run_keeps_its_checkpoints_and_resumes_where_it_stopped(
     engine: AsyncEngine,
 ) -> None:
     live = Queue(engine, lease_seconds=0.3, queue_limit=timedelta(hours=24))
-    run = await start_investigation(engine, step_seconds="0.1")
+    # Queued now, as the live queue's clock is real: a fixed date would age past its limit.
+    now = Clock()
+    now.now = datetime.now(UTC)
+    run = await start_investigation(engine, now, step_seconds="0.1")
     claim = await live.claim("replica-a/0")
     assert claim is not None
     working = asyncio.create_task(Worker(live, REGISTRY).execute(claim, asyncio.Event()))
@@ -807,12 +810,20 @@ class FakeIdentity:
 
     def __init__(self) -> None:
         self.issued: list[tuple[str, str, str, str, tuple[str, ...]]] = []
+        self.correlations: list[str] = []
         self.ended: list[tuple[str, str, str]] = []
 
     async def agent_token(
-        self, tenant: str, delegation: str, agent: str, audience: str, scopes: Sequence[str]
+        self,
+        tenant: str,
+        delegation: str,
+        agent: str,
+        audience: str,
+        scopes: Sequence[str],
+        correlation_id: str = "",
     ) -> str:
         self.issued.append((tenant, delegation, agent, audience, tuple(scopes)))
+        self.correlations.append(correlation_id)
         return "agent-token"
 
     async def end(self, tenant: str, delegation: str, reason: str) -> None:
@@ -849,6 +860,8 @@ async def test_a_runs_agents_get_tokens_under_its_delegation_which_ends_with_it(
         ("mcp.documentation.search_documents",),
     )]  # fmt: skip
     assert identity.ended == [(TENANT, DELEGATION, "The run completed")]
+    # Each token carries the run's ID, so its tool call's audit record shares the trace's (OBS-008).
+    assert identity.correlations == [run.run_id]
 
 
 @scenario
@@ -932,3 +945,92 @@ async def test_an_investigation_with_its_team_keeps_a_checked_result_and_its_pol
     assert kept["policy"] == [{"action": "inspection", "result_id": "pol_1", "outcome": "escalate"}]
     assert kept["policy_result_id"] == "pol_1" and kept["escalation_required"] is True
     assert kept["model_versions"] == {} and kept["repairs"] == 0
+
+
+class Captured:
+    """What a LangSmith client would send, after its redaction hooks: nothing leaves the test."""
+
+    def __init__(self) -> None:
+        from langsmith import Client
+        from windops_observability import redact_trace
+
+        sent: list[dict[str, Any]] = []
+        self.sent = sent
+
+        class Capturing(Client):
+            def _create_run(self, run_create: dict[str, Any], **kwargs: Any) -> None:
+                sent.append(run_create)
+
+            def _update_run(self, run_update: dict[str, Any], **kwargs: Any) -> None:
+                sent.append(run_update)
+
+        self.client = Capturing(
+            api_key="unused", api_url="http://127.0.0.1:9", auto_batch_tracing=False,
+            hide_inputs=redact_trace, hide_outputs=redact_trace, hide_metadata=redact_trace,
+        )  # fmt: skip
+
+
+@scenario
+async def test_a_traced_run_reaches_langsmith_only_redacted_with_its_ids(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    """EGR-003, OBS-005, OBS-008: a rehearsal traced, with a token and an e-mail planted."""
+    from team_support import Tokens
+    from windops_agent_runtime.team.definitions import team
+    from windops_agent_runtime.team.run import TeamRunner
+    from windops_agent_runtime.team.tools import ToolBox, stand_in
+    from windops_agent_runtime.tracing import Tracer
+
+    jwt_ = "eyJhbGciOiJFUzI1NiJ9" + "." + "eyJzdWIiOiJ1LTEifQ" + "." + "c2lnbmF0dXJl"
+    email = "operator" + "@" + "north-sea.example"
+
+    async def answer(arguments: dict[str, Any]) -> str:
+        return "{}"
+
+    async def evidence(arguments: dict[str, Any]) -> str:
+        planted = f"Contact {email}, Authorization: Bearer {jwt_}"
+        item = {"record_id": "tel_1", "content_json": planted}
+        return json.dumps({"snapshot_id": SNAPSHOT, "items": [item]})
+
+    async def policy(arguments: dict[str, Any]) -> str:
+        return json.dumps({"result_id": "pol_1", "outcome": "escalate", "rules": []})
+
+    every: dict[str, Any] = {
+        f"{scope.split('.')[1]}_{scope.split('.')[2]}": answer
+        for agent in team().agents.values() for scope in agent.tools
+    }  # fmt: skip
+    every |= {"windops_get_evidence": evidence, "windops_check_policy": policy}
+    captured = Captured()
+    request = pb.StartRunRequest(
+        case_id=CASE, snapshot_id=SNAPSHOT, workflow="investigation",
+        parameters={"team": "true", "rehearse": "true", "turbine_id": "dogger-east-t01"},
+        requested_by="user:engineer-1", idempotency_key="trace-key-1",
+        delegation_id="dlg_" + "c" * 20,
+    )  # fmt: skip
+    with caller():
+        run = (await service(engine, clock).StartRun(request, None)).run
+    claim = await queue.claim("replica-a/0")
+    assert claim is not None
+    worker = Worker(
+        queue, REGISTRY, policy=POLICY, identity=FakeIdentity(),
+        make_team=lambda claim, claude, tokens: TeamRunner(
+            team(), ToolBox(stand_in(every)), claude=claude, tokens=Tokens(), tool_calls=50
+        ),
+        make_claude=lambda claim, meter: Claude(POLICY, meter, lambda: "key"),
+        tracer=Tracer(captured.client, "windops-test"),
+    )  # fmt: skip
+    assert await worker.execute(claim, asyncio.Event()) == "completed"
+    text = json.dumps(captured.sent, default=str)
+    assert jwt_ not in text and email not in text and "[REDACTED]" in text
+    roots = [r for r in captured.sent if r.get("name") == "investigation"]
+    metadata = roots[0]["extra"]["metadata"]
+    assert (metadata["run_id"], metadata["case_id"], metadata["tenant_id"]) == (
+        run.run_id, CASE, TENANT,
+    )  # fmt: skip
+    assert (
+        metadata["correlation_id"] == run.run_id and metadata["requested_by"] == "user:engineer-1"
+    )
+    names = {r.get("name") for r in captured.sent}
+    # The tree holds the graph's steps, the team, and every agent's tool calls.
+    assert {"specialists", "validate_output", "policy_checks", "windops_get_evidence",
+            "windops_get_turbine", "weather_get_forecast"} <= names  # fmt: skip

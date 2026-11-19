@@ -64,6 +64,7 @@ INVESTIGATION = "service:investigation"
 _DELEGATION = re.compile(r"dlg_[a-z0-9]{20}")
 _CASE = re.compile(r"case_[a-z0-9]{20}")
 _KEY = re.compile(r"[A-Za-z0-9._:-]{8,128}")
+_CORRELATION = re.compile(r"[a-z0-9_]{1,64}")
 _MAXIMUM_TOKEN = 16_384
 _MAXIMUM_REASON = 500
 STILL_VALID_SECONDS = 60.0
@@ -247,6 +248,8 @@ class Delegations:
         tenant = current_identity().tenant_id
         if request.agent not in AGENTS:
             raise InvalidRequestError("No such agent")
+        if request.correlation_id and not _CORRELATION.fullmatch(request.correlation_id):
+            raise InvalidRequestError("correlation_id must be lowercase letters, digits and _")
         if not request.audience.startswith(MCP_PREFIX) or request.audience not in EXCHANGE_TARGETS:
             raise InvalidRequestError("Agent tokens are only for MCP servers")
         scopes = sorted(set(request.scopes))
@@ -272,6 +275,7 @@ class Delegations:
         token, seconds = mint(
             self._signing_key, issuer=self._issuer, principal=row.principal, tenant_id=tenant,
             agent=request.agent, audience=request.audience, scopes=scopes,
+            correlation_id=request.correlation_id,
         )  # fmt: skip
         return identity_pb2.IssueAgentTokenResponse(
             access_token=token, expires_in_seconds=seconds, audience=request.audience,

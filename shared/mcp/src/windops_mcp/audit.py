@@ -52,7 +52,8 @@ def audit_event(call: ToolCall) -> events_pb2.AuditRequested:
         resource_type="mcp_tool",
         resource_id=f"{call.server}/{call.tool}",
         outcome=call.outcome,
-        correlation_id=call.request_id,
+        # The run's ID for an agent's call, shared with its trace (OBS-008); else this call's.
+        correlation_id=caller.correlation_id or call.request_id,
     )
 
 

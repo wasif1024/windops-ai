@@ -220,3 +220,18 @@ def test_an_agent_is_forwarded_as_the_actor_and_fault_investigator_as_a_service(
         assert forwarded.actor == "agent:supervisor"
         assert forwarded.subject == subject
         assert (forwarded.user_id == subject) is person
+
+
+@run_async
+async def test_an_agent_calls_audit_record_shares_its_runs_correlation_id() -> None:
+    """OBS-008."""
+    from windops_mcp.audit import ToolCall, audit_event
+
+    checker = agent_verifier()
+    caller = await checker.verify(agent_token(cid="run_abc123"))
+    plain = await checker.verify(agent_token())
+    await checker.close()
+    assert caller.correlation_id == "run_abc123" and plain.correlation_id == ""
+    event = audit_event(ToolCall(server="windops", tool="get_case", caller=caller,
+                                 outcome="succeeded", request_id="req-1"))  # fmt: skip
+    assert event.correlation_id == "run_abc123"

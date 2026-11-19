@@ -75,6 +75,7 @@ class Claim:
     case_id: str = ""
     snapshot_id: str = ""
     delegation_id: str = ""
+    requested_by: str = ""
 
 
 @dataclass(frozen=True)
@@ -172,6 +173,7 @@ class Queue:
                     cost_budget_usd=Decimal(str(row.cost_budget_usd)),
                     pins=json.loads(row.pins or "{}"), case_id=row.case_id,
                     snapshot_id=row.snapshot_id, delegation_id=row.delegation_id,
+                    requested_by=row.requested_by,
                 )  # fmt: skip
         return None
 

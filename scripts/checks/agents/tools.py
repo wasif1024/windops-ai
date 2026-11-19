@@ -98,11 +98,11 @@ class Cases:
         self._api = Caller(investigation_pb2_grpc.InvestigationServiceStub(channel), key)
         self.opened: list[str] = []
 
-    def open(self, user: str) -> str:
+    def open(self, user: str, title: str = "") -> str:
         bootstrap(TENANT, ENGINEER, "reliability-engineer")
         request = investigation_pb2.CreateCaseRequest(
-            turbine_id=TURBINE, title=f"Agent tools check {RUN}", severity="medium",
-            idempotency_key=f"tools-check-{RUN}",
+            turbine_id=TURBINE, title=title or f"Agent tools check {RUN}", severity="medium",
+            idempotency_key=f"tools-check-{RUN}-{len(self.opened)}",
         )  # fmt: skip
         case_id = str(self._api.call("CreateCase", request, user, TENANT).case.case_id)
         self.opened.append(case_id)
