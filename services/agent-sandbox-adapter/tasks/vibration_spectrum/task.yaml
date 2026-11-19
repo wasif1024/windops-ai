@@ -1,0 +1,51 @@
+# A registered Sandbox task (SBX-001). The code is main.py beside this file, run with the input on
+# stdin; it must print one JSON object. Changing either file needs a new version.
+name: vibration_spectrum
+version: 1
+description: >-
+  The strongest frequencies in a vibration signal, from evenly spaced samples. Supporting analysis
+  for a reliability assessment, never a rule's input.
+limits:
+  input_bytes: 131072
+  seconds: 30
+  memory_mb: 512
+  output_bytes: 4096
+input_schema:
+  type: object
+  additionalProperties: false
+  required: [sample_rate_hz, samples]
+  properties:
+    sample_rate_hz:
+      type: number
+      exclusiveMinimum: 0
+      maximum: 100000
+      description: Samples per second.
+    samples:
+      type: array
+      minItems: 64
+      maxItems: 4096
+      items: {type: number}
+      description: The signal, evenly spaced, oldest first.
+    peaks:
+      type: integer
+      minimum: 1
+      maximum: 5
+      default: 3
+      description: How many of the strongest frequencies to report.
+output_schema:
+  type: object
+  additionalProperties: false
+  required: [peaks, resolution_hz, samples]
+  properties:
+    peaks:
+      type: array
+      maxItems: 5
+      items:
+        type: object
+        additionalProperties: false
+        required: [frequency_hz, amplitude]
+        properties:
+          frequency_hz: {type: number, minimum: 0}
+          amplitude: {type: number, minimum: 0}
+    resolution_hz: {type: number, exclusiveMinimum: 0}
+    samples: {type: integer, minimum: 64}

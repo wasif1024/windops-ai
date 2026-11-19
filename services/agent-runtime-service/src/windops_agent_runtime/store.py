@@ -166,8 +166,12 @@ async def audit(
     action: str,
     run_id: str,
     outcome: str = "succeeded",
+    on_behalf_of: str = "",
+    resource: tuple[str, str] | None = None,
 ) -> None:
-    """Queue the audit record in the change's own transaction (EVT-002)."""
+    """Queue the audit record in the change's own transaction (EVT-002). The resource is the run,
+    unless another is named, such as a Sandbox task the run's agent used."""
+    resource_type, resource_id = resource or ("agent_run", run_id)
     await add_event(
         connection,
         audit_request_subject(SERVICE_NAME),
@@ -176,8 +180,9 @@ async def audit(
             action=action,
             actor_type=actor_type,
             actor_id=actor_id,
-            resource_type="agent_run",
-            resource_id=run_id,
+            on_behalf_of=on_behalf_of,
+            resource_type=resource_type,
+            resource_id=resource_id,
             outcome=outcome,
             # The run's ID, shared with its trace in LangSmith (OBS-008).
             correlation_id=run_id,

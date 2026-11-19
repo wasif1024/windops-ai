@@ -1,0 +1,29 @@
+# This service's identity for mutual TLS (GRP-005).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-agent-sandbox-adapter-tls
+  labels:
+    app.kubernetes.io/name: windops-agent-sandbox-adapter
+    app.kubernetes.io/part-of: windops
+spec:
+  secretName: windops-agent-sandbox-adapter-tls
+  commonName: windops-agent-sandbox-adapter
+  dnsNames:
+    - windops-agent-sandbox-adapter
+    - windops-agent-sandbox-adapter.windops-application
+    - windops-agent-sandbox-adapter.windops-application.svc
+    - windops-agent-sandbox-adapter.windops-application.svc.cluster.local
+  duration: 720h
+  renewBefore: 168h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - client auth
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io

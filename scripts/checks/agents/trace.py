@@ -79,24 +79,31 @@ def langsmith() -> tuple[Client, str]:
     return Client(api_key=values["LANGSMITH_API_KEY"]), project
 
 
-def start(realm: Realm, key: str, cases: Cases) -> tuple[str, str, str]:
+def start(
+    realm: Realm, key: str, cases: Cases, *, title: str = "", sandbox: bool = False
+) -> tuple[str, str, str]:
+    """A traced rehearsal on a new case. With sandbox, the Reliability Engineer also runs a real
+    Sandbox task (M8.10)."""
     login = realm.login(demo_email(TENANT), read_demo_passwords()[TENANT])
     if login is None:
         raise RuntimeError("The demo operator could not sign in")
     user = str(jwt.decode(login.access, options={"verify_signature": False})["sub"])
-    case_id = cases.open(user, title=f"Trace check: contact {PLANTED_EMAIL}, key {PLANTED_KEY}")
+    case_id = cases.open(
+        user, title=title or f"Trace check: contact {PLANTED_EMAIL}, key {PLANTED_KEY}"
+    )
     snapshot = cases.evidence(case_id)
     with identity_as(investigation_bundle()) as identity:
         delegation = identity.StartDelegation(
             pb.StartDelegationRequest(case_id=case_id, subject_token=login.access,
-                                      idempotency_key=f"trace-check-{RUN}"),
+                                      idempotency_key=f"trace-check-{RUN}-{case_id[-6:]}"),
             **as_user(user, key),
         ).delegation.delegation_id  # fmt: skip
     with runtime(investigation_bundle(), key) as api:
         run = api.call("StartRun", rt.StartRunRequest(
             case_id=case_id, snapshot_id=snapshot, workflow="investigation",
-            parameters={"team": "true", "rehearse": "true", "turbine_id": TURBINE},
-            requested_by=f"user:{user}", idempotency_key=f"trace-check-{RUN}",
+            parameters={"team": "true", "rehearse": "true", "turbine_id": TURBINE,
+                        **({"sandbox": "true"} if sandbox else {})},
+            requested_by=f"user:{user}", idempotency_key=f"trace-check-{RUN}-{case_id[-6:]}",
             delegation_id=delegation,
         ), INVESTIGATION, TENANT, level=None).run  # fmt: skip
     wait_for(

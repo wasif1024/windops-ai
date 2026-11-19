@@ -11,6 +11,7 @@ resources:
   - ../../../../mcp-servers/weather-mcp/deploy
   - ../../../../mcp-servers/windops-mcp/deploy
   - ../../../../services/agent-runtime-service/deploy
+  - ../../../../services/agent-sandbox-adapter/deploy
   - ../../../../services/alarm-service/deploy
   - ../../../../services/api-gateway/deploy
   - ../../../../services/asset-service/deploy

@@ -4,18 +4,28 @@ No call reaches Claude or an MCP server here. make team-check runs the team for 
 """
 
 import asyncio
+import json
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import pytest
 from langchain_core.messages import AIMessage, ToolMessage
-from team_support import BOUND, Scripted, Tokens, call
+from team_support import (
+    BOUND,
+    FakeSandbox,
+    Recorded,
+    Scripted,
+    Tokens,
+    call,
+    mcp_names,
+    sandbox_run,
+    toolbox,
+)
 from windops_agent_runtime.team.build import EXCLUDED_TOOLS
 from windops_agent_runtime.team.definitions import SUPERVISOR, load_agent, load_team, team
 from windops_agent_runtime.team.metered import MeteredChat
 from windops_agent_runtime.team.run import TeamRunner
-from windops_agent_runtime.team.tools import ToolBox, stand_in
 from windops_claude import Budget, BudgetExhaustedError, Claude, MemoryLedger, Meter, load
 from windops_claude.conversation import VolatilePromptError
 
@@ -28,16 +38,16 @@ async def turbine(arguments: dict[str, Any]) -> str:
     return '{"turbine_id": "dogger-east-t01", "model": "WS-8.0-167"}'
 
 
-def runner(scripts: dict[str, list[AIMessage]], tokens: Tokens, tool_calls: int = 50) -> TeamRunner:
-    every = {
-        f"{scope.split('.')[1]}_{scope.split('.')[2]}": turbine
-        for agent in TEAM.agents.values()
-        for scope in agent.tools
-    }
-    box = ToolBox(stand_in(every))
+def runner(
+    scripts: dict[str, list[AIMessage]], tokens: Tokens, tool_calls: int = 50,
+    sandbox: FakeSandbox | None = None, record: Recorded | None = None,
+) -> TeamRunner:  # fmt: skip
+    every = dict.fromkeys(mcp_names(TEAM.agents.values()), turbine)
+    box = toolbox(every, sandbox)
     claude = Claude(POLICY, Meter(POLICY.budgets.default, MemoryLedger()), lambda: "key")
     return TeamRunner(
         TEAM, box, claude=claude, tokens=tokens, tool_calls=tool_calls,
+        sandbox_run=sandbox_run(record),
         model=lambda role: Scripted(role=role, script=scripts.setdefault(role, [AIMessage("ok")])),
     )  # fmt: skip
 
@@ -121,7 +131,7 @@ def test_a_run_delegates_and_its_specialist_calls_its_own_tool_with_its_own_toke
     for role, names in BOUND.items():
         assert not set(names) & EXCLUDED_TOOLS, role
         assert set(names) - {"ls", "read_file", "task"} <= {
-            f"{scope.split('.')[1]}_{scope.split('.')[2]}" for scope in TEAM.agents[role].tools
+            tool_name(scope) for scope in TEAM.agents[role].tools
         }, role
     assert "general-purpose" not in str(BOUND)
 
@@ -133,6 +143,112 @@ def test_the_tool_call_budget_ends_the_run() -> None:
     }
     with pytest.raises(BudgetExhaustedError, match="tool calls"):
         asyncio.run(runner(scripts, Tokens(), tool_calls=0).investigate(CASE, SNAPSHOT))
+
+
+def tool_name(scope: str) -> str:
+    """mcp.windops.get_turbine is windops_get_turbine; sandbox.trend_fit is sandbox_trend_fit."""
+    return scope.removeprefix("mcp.").replace(".", "_")
+
+
+# --- Sandbox tasks (M8.10, ADR 0024)
+
+
+def specialist_runs_spectrum(sandbox: FakeSandbox, record: Recorded) -> Any:
+    scripts = {
+        "supervisor": [call("task", subagent_type="reliability-engineer", description="Assess"),
+                       AIMessage("Report")],
+        "reliability-engineer": [
+            call("sandbox_vibration_spectrum", sample_rate_hz=512, samples=[0.0, 1.0, 0.0, -1.0]),
+            AIMessage("Spectrum: 37 Hz, supporting analysis."),
+        ],
+    }  # fmt: skip
+    team_runner = runner(scripts, Tokens(), sandbox=sandbox, record=record)
+    return asyncio.run(team_runner.investigate(CASE, SNAPSHOT))
+
+
+def test_the_reliability_engineer_alone_gets_the_sandbox_tasks() -> None:
+    sandboxed = {
+        name for name, a in TEAM.agents.items() if any(t.startswith("sandbox.") for t in a.tools)
+    }
+    assert sandboxed == {"reliability-engineer"}
+    specialist_runs_spectrum(FakeSandbox(), Recorded())
+    assert {"sandbox_vibration_spectrum", "sandbox_trend_fit"} <= set(BOUND["reliability-engineer"])
+    assert not any(n.startswith("sandbox_") for n in BOUND["supervisor"])
+
+
+def test_a_sandbox_task_answers_with_its_labelled_output_and_records_what_ran() -> None:
+    sandbox, record = FakeSandbox(), Recorded()
+    found = specialist_runs_spectrum(sandbox, record)
+    assert found.tools_used == ("sandbox_vibration_spectrum",)
+    ((tenant, task, given, run_id),) = sandbox.ran
+    # Only the agent's input reaches the adapter: never code.
+    assert (tenant, task) == ("tenant-a", "vibration_spectrum") and run_id.startswith("run_")
+    assert given == {"sample_rate_hz": 512, "samples": [0.0, 1.0, 0.0, -1.0]}
+    (use,) = record.uses
+    assert (use.agent, use.task, use.version, use.status) == (
+        "reliability-engineer",
+        "vibration_spectrum",
+        1,
+        "completed",
+    )
+
+
+def test_the_sandbox_tool_keeps_what_ran_in_its_artifact_not_in_the_models_answer() -> None:
+    from windops_agent_runtime.team.sandbox import LABEL, SandboxTasks
+
+    async def build_and_call() -> Any:
+        tool = await SandboxTasks(FakeSandbox()).tool(
+            "reliability-engineer", "sandbox.vibration_spectrum", sandbox_run()
+        )
+        return await tool.ainvoke({"type": "tool_call", "id": "c1", "name": tool.name,
+                                   "args": {"sample_rate_hz": 512, "samples": [1.0]}})  # fmt: skip
+
+    message = asyncio.run(build_and_call())
+    answer = json.loads(message.content)
+    assert answer["status"] == "completed" and answer["label"] == LABEL
+    assert answer["output"]["peaks"][0]["frequency_hz"] == 37.0
+    assert "code" not in answer and "code_sha256" not in answer
+    # SBX-003: code, input hash, output, runtime and task version, for the trace.
+    artifact = message.artifact
+    assert {"code", "code_sha256", "input_sha256", "output_sha256", "runtime_ms", "version",
+            "limits"} <= set(artifact)  # fmt: skip
+
+
+def test_an_unavailable_sandbox_tells_the_agent_to_carry_on() -> None:
+    sandbox, record = FakeSandbox(unavailable=True), Recorded()
+    found = specialist_runs_spectrum(sandbox, record)
+    assert found.report == "Report"
+    assert [u.status for u in record.uses] == ["unavailable"]
+
+
+def test_an_agent_named_a_sandbox_task_needs_the_sandbox() -> None:
+    from windops_agent_runtime.team.tools import ToolBox, stand_in
+
+    async def build() -> Any:
+        return await ToolBox(stand_in({})).tools_for(
+            "reliability-engineer", ("sandbox.trend_fit",), Tokens(), sandbox_run=sandbox_run()
+        )
+
+    with pytest.raises(ValueError, match="no Sandbox"):
+        asyncio.run(build())
+
+
+def test_a_rehearsal_may_run_one_real_sandbox_task() -> None:
+    from windops_agent_runtime.team import rehearsal
+
+    sandbox, record = FakeSandbox(), Recorded()
+    found = asyncio.run(runner({}, Tokens(), sandbox=sandbox, record=record).investigate(
+        CASE, SNAPSHOT, model=rehearsal.models(CASE, SNAPSHOT, "dogger-east-t01", sandbox=True)
+    ))  # fmt: skip
+    assert "sandbox_vibration_spectrum" in found.tools_used
+    ((_, task, given, _),) = sandbox.ran
+    assert task == "vibration_spectrum" and len(given["samples"]) == rehearsal.RATE
+    # Without asking, a rehearsal never touches the Sandbox.
+    quiet = FakeSandbox()
+    asyncio.run(runner({}, Tokens(), sandbox=quiet).investigate(
+        CASE, SNAPSHOT, model=rehearsal.models(CASE, SNAPSHOT, "dogger-east-t01")
+    ))  # fmt: skip
+    assert quiet.ran == []
 
 
 # --- The metered model

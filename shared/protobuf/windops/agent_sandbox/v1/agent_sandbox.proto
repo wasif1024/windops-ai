@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package windops.agent_sandbox.v1;
+
+// Registered analysis tasks, run in LangSmith Sandbox (SRS 5.9, SBX-001 to SBX-003).
+//
+// An agent never sends code. It names a registered task and gives it input; the task's code is
+// fixed, versioned and hashed in this service. Each task has its own input, time, memory and
+// output limits, and its input and output are checked against the task's schemas. Each run gets
+// a new sandbox that holds no credentials, with every outbound destination it can name denied
+// (SBX-002, ADR 0015), and is deleted afterwards.
+//
+// Only the Agent Runtime's certificate may call this service. The runtime decides which agent may
+// run which task, from the agent's allowlist, and records each run in the run's trace and audit
+// trail (SBX-003). A result is supporting analysis, never the input to a deterministic rule.
+service AgentSandboxService {
+  // Every registered task, with its version, code hash, schemas and limits.
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  // Runs one task on one input, and answers with its output and what ran.
+  rpc RunTask(RunTaskRequest) returns (RunTaskResponse);
+}
+
+message Limits {
+  // The largest input accepted, as UTF-8 JSON.
+  int64 input_bytes = 1;
+  // How long the task may run.
+  int64 seconds = 2;
+  // The sandbox's memory.
+  int64 memory_mb = 3;
+  // The largest output accepted, as UTF-8 JSON.
+  int64 output_bytes = 4;
+}
+
+message Task {
+  // Lowercase, with underscores, such as "vibration_spectrum".
+  string name = 1;
+  int64 version = 2;
+  string description = 3;
+  // JSON Schema documents.
+  string input_schema_json = 4;
+  string output_schema_json = 5;
+  // SHA-256 of the task's code, in hex.
+  string code_sha256 = 6;
+  Limits limits = 7;
+}
+
+message ListTasksRequest {}
+
+message ListTasksResponse {
+  repeated Task tasks = 1;
+}
+
+message RunTaskRequest {
+  string task = 1;
+  // The input, as a JSON object.
+  string input_json = 2;
+  // The agent run this is part of, for logs. The runtime records the use itself.
+  string run_id = 3;
+}
+
+enum RunStatus {
+  RUN_STATUS_UNSPECIFIED = 0;
+  // The task ran, and its output passed the task's schema.
+  RUN_STATUS_COMPLETED = 1;
+  // The task ran past its time, memory or output limit, and was stopped.
+  RUN_STATUS_LIMIT_EXCEEDED = 2;
+  // The task failed, or its output broke the task's schema.
+  RUN_STATUS_FAILED = 3;
+}
+
+message RunTaskResponse {
+  RunStatus status = 1;
+  // The task's output, as a JSON object, when completed.
+  string output_json = 2;
+  string task = 3;
+  int64 version = 4;
+  // The code that ran, and its hash (SBX-003).
+  string code = 5;
+  string code_sha256 = 6;
+  // Hashes of the input as received and the output as returned (SBX-003).
+  string input_sha256 = 7;
+  string output_sha256 = 8;
+  // How long the task's command ran, and the sandbox's whole life.
+  int64 runtime_ms = 9;
+  int64 total_ms = 10;
+  // Why it did not complete, in a sentence, when it did not. Never the task's own error output.
+  string reason = 11;
+  Limits limits = 12;
+}

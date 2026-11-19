@@ -171,9 +171,18 @@ def prove(realm: Realm, key: str, server: Server, cases: "Cases") -> None:
                 **as_service("service:agent-runtime", key),
             )  # fmt: skip
 
-        allowed, denied = 0, 0
+        allowed, denied, sandboxed = 0, 0, 0
         for agent, tools in AGENT_TOOLS.items():
             for tool in sorted(tools):
+                if tool.startswith("sandbox."):
+                    # Sandbox tasks are run by the runtime itself: no agent token is ever minted
+                    # for one, as the adapter is not an MCP server (ADR 0024).
+                    minted = code_of(lambda a=agent, t=tool: mint(
+                        a, "windops-agent-sandbox-adapter", [t]))  # fmt: skip
+                    if minted != grpc.StatusCode.INVALID_ARGUMENT:
+                        raise RuntimeError(f"A token was minted for {agent}'s {tool}")
+                    sandboxed += 1
+                    continue
                 server_name = tool.split(".")[1]
                 mint(agent, f"windops-mcp-{server_name}", [tool])
                 allowed += 1
@@ -202,6 +211,10 @@ def prove(realm: Realm, key: str, server: Server, cases: "Cases") -> None:
             True,
             f"Each agent gets every tool on its allowlist ({allowed} in all), and is refused "
             f"{denied} WindOps tools and web search off it (MCP-002, MCP-007)",
+        )
+        check(
+            sandboxed > 0,
+            f"No agent token is minted for a Sandbox task: {sandboxed} refused (ADR 0024)",
         )
 
         def token(agent: str, *tools: str) -> str:

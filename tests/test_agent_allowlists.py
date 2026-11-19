@@ -10,8 +10,10 @@ from windops_identity.targets import (
     AGENT_TOOLS,
     EXTERNAL_TOOLS,
     MCP_TOOLS,
+    SANDBOX_TASKS,
     WRITE_TOOLS,
     check_allowlists,
+    sandbox_scope,
     tool_scope,
 )
 
@@ -97,3 +99,16 @@ def test_each_agents_definition_names_exactly_its_allowlist() -> None:
     assert set(agents) == set(AGENT_TOOLS)
     for name, agent in agents.items():
         assert set(agent.tools) == AGENT_TOOLS[name], name
+
+
+def test_the_sandbox_tasks_on_allowlists_are_the_adapters_registered_tasks() -> None:
+    """ADR 0024: only the Reliability Engineer runs Sandbox tasks, and only registered ones."""
+    from windops_agent_sandbox.tasks import registry, tasks_root
+
+    assert set(SANDBOX_TASKS) == set(registry(tasks_root()))
+    assert {
+        a for a, tools in AGENT_TOOLS.items() if any(t.startswith("sandbox.") for t in tools)
+    } == {"reliability-engineer"}
+    assert {t for t in AGENT_TOOLS["reliability-engineer"] if t.startswith("sandbox.")} == {
+        sandbox_scope(task) for task in SANDBOX_TASKS
+    }

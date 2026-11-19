@@ -5,6 +5,7 @@ requires-python = "==3.13.*"
 [manifest]
 members = [
     "windops-agent-runtime",
+    "windops-agent-sandbox",
     "windops-ai",
     "windops-alarm",
     "windops-asset",
@@ -2120,6 +2121,18 @@ wheels = [
 ]
 
 [[package]]
+name = "types-jsonschema"
+version = "4.26.0.20261006"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "referencing" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/29/d2/1f742605f5a6d39f993134885b8de41c98af606871d3ebddaf3e776bd1eb/types_jsonschema-4.26.0.20261006.tar.gz", hash = "sha256:3eb7db61b6819d40addfdaac7173e749071a7d4a9a4394f0c844598ec84b2500", size = 16843, upload-time = "2026-10-06T08:16:07.318Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8b/a0/4f2e3c0dc3d5cad958006f2e0307065cc8fe4fbf0393ff0b69d55ee9bbe5/types_jsonschema-4.26.0.20261006-py3-none-any.whl", hash = "sha256:29301f4e65e3928540cdf5e23ad716e38bb0c0b416a48dada213edd3d70206ec", size = 16113, upload-time = "2026-10-06T08:16:06.355Z" },
+]
+
+[[package]]
 name = "types-protobuf"
 version = "7.35.1.20260906"
 source = { registry = "https://pypi.org/simple" }
@@ -2292,6 +2305,35 @@ requires-dist = [
 ]
 
 [[package]]
+name = "windops-agent-sandbox"
+version = "0.1.0"
+source = { editable = "services/agent-sandbox-adapter" }
+dependencies = [
+    { name = "certifi" },
+    { name = "jsonschema" },
+    { name = "langsmith" },
+    { name = "pyyaml" },
+    { name = "windops-auth" },
+    { name = "windops-contracts" },
+    { name = "windops-grpc" },
+    { name = "windops-observability" },
+    { name = "windops-resilience" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "certifi", specifier = ">=2025.1.31" },
+    { name = "jsonschema", specifier = ">=4.26.0" },
+    { name = "langsmith", extras = ["sandbox"], specifier = "==0.14.17" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-observability", editable = "shared/observability" },
+    { name = "windops-resilience", editable = "shared/resilience" },
+]
+
+[[package]]
 name = "windops-ai"
 version = "0.1.0"
 source = { virtual = "." }
@@ -2321,8 +2363,10 @@ dev = [
     { name = "pyyaml" },
     { name = "ruff" },
     { name = "types-grpcio" },
+    { name = "types-jsonschema" },
     { name = "types-pyyaml" },
     { name = "windops-agent-runtime" },
+    { name = "windops-agent-sandbox" },
     { name = "windops-alarm" },
     { name = "windops-asset" },
     { name = "windops-audit" },
@@ -2388,8 +2432,10 @@ dev = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "ruff", specifier = ">=0.17.3" },
     { name = "types-grpcio", specifier = ">=1.85.0.20261028" },
+    { name = "types-jsonschema", specifier = ">=4.26.0.20261006" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20261103" },
     { name = "windops-agent-runtime", editable = "services/agent-runtime-service" },
+    { name = "windops-agent-sandbox", editable = "services/agent-sandbox-adapter" },
     { name = "windops-alarm", editable = "services/alarm-service" },
     { name = "windops-asset", editable = "services/asset-service" },
     { name = "windops-audit", editable = "services/audit-service" },

@@ -1,0 +1,44 @@
+# A registered Sandbox task (SBX-001). The code is main.py beside this file, run with the input on
+# stdin; it must print one JSON object. Changing either file needs a new version.
+name: trend_fit
+version: 1
+description: >-
+  A straight-line trend through readings over time, such as a bearing temperature, with how well
+  it fits and, given a threshold, when the trend would reach it. Supporting analysis for a
+  reliability assessment, never a rule's input.
+limits:
+  input_bytes: 65536
+  seconds: 20
+  memory_mb: 256
+  output_bytes: 2048
+input_schema:
+  type: object
+  additionalProperties: false
+  required: [points]
+  properties:
+    points:
+      type: array
+      minItems: 3
+      maxItems: 2000
+      items:
+        type: object
+        additionalProperties: false
+        required: [hours, value]
+        properties:
+          hours: {type: number, description: Hours since the first reading.}
+          value: {type: number}
+    threshold:
+      type: number
+      description: A level to project the trend to, such as an alarm limit.
+output_schema:
+  type: object
+  additionalProperties: false
+  required: [slope_per_hour, intercept, r_squared, points]
+  properties:
+    slope_per_hour: {type: number}
+    intercept: {type: number}
+    r_squared: {type: number, minimum: 0, maximum: 1}
+    points: {type: integer, minimum: 3}
+    hours_to_threshold:
+      type: [number, "null"]
+      description: From the last reading; null if the trend never reaches the threshold.

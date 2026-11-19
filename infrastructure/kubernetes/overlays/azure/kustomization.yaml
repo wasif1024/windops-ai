@@ -9,6 +9,7 @@ resources:
 - workload-identity.yaml
 patches:
 - path: patches/windops-agent-runtime.yaml
+- path: patches/windops-agent-sandbox-adapter.yaml
 - path: patches/windops-alarm.yaml
 - path: patches/windops-asset.yaml
 - path: patches/windops-audit.yaml

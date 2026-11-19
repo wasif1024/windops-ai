@@ -8,6 +8,14 @@
     "receives": []
   },
   {
+    "name": "windops-agent-sandbox-adapter",
+    "namespace": "windops-application",
+    "events": false,
+    "database": false,
+    "keyVault": true,
+    "receives": []
+  },
+  {
     "name": "windops-alarm",
     "namespace": "windops-application",
     "events": true,

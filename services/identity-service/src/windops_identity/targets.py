@@ -29,6 +29,16 @@ MCP_TOOLS: dict[str, tuple[str, ...]] = {
 }
 
 
+# The Agent Sandbox Adapter's registered tasks (ADR 0024). Not MCP: the runtime calls the adapter
+# by its own certificate, and gives a task only to an agent whose allowlist names it. So no agent
+# token is ever minted for one. A test keeps this matched to the adapter's tasks folder.
+SANDBOX_TASKS: tuple[str, ...] = ("vibration_spectrum", "trend_fit")
+
+
+def sandbox_scope(task: str) -> str:
+    return f"sandbox.{task}"
+
+
 def mcp_audience(server: str) -> str:
     return f"{MCP_PREFIX}{server}"
 
@@ -80,9 +90,10 @@ AGENT_TOOLS: dict[str, frozenset[str]] = {
     "scada-analyst": _tools(
         "windops", "get_turbine", "get_latest_telemetry", "list_alarms", "get_evidence"
     ),
-    # Knowledge and fault history (sandbox analysis comes in M8.10). Cites and states uncertainty.
+    # Knowledge, fault history and Sandbox analysis. Cites and states uncertainty.
     "reliability-engineer": _tools("documentation", "search_documents", "read_passage")
-    | _tools("windops", "get_turbine", "list_cases", "get_evidence"),
+    | _tools("windops", "get_turbine", "list_cases", "get_evidence")
+    | frozenset(sandbox_scope(task) for task in SANDBOX_TASKS),
     # Production Impact's deterministic results, to explain, never to change (FR-IMP-004).
     "production-impact": _tools("windops", "get_case", "get_turbine", "estimate_impact"),
     # Maintenance history (inventory and drafts come in Phase 9). Never reads raw web content.
@@ -97,6 +108,7 @@ AGENT_TOOLS: dict[str, frozenset[str]] = {
 def check_allowlists() -> None:
     """Every allowed tool exists, and no agent that reads external content may write (MCP-006)."""
     known = {tool_scope(server, tool) for server, tools in MCP_TOOLS.items() for tool in tools}
+    known |= {sandbox_scope(task) for task in SANDBOX_TASKS}
     for agent, tools in AGENT_TOOLS.items():
         unknown = tools - known
         if unknown:
