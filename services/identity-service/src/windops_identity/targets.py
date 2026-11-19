@@ -12,6 +12,17 @@ MCP_TOOLS: dict[str, tuple[str, ...]] = {
     "documentation": ("search_documents", "read_passage"),
     "tavily": ("search_web", "extract_page", "get_research"),
     "weather": ("get_forecast",),
+    # The platform's own records, tenant-scoped (M8.6). Parts and drafts come in Phase 9.
+    "windops": (
+        "get_turbine",
+        "get_latest_telemetry",
+        "list_alarms",
+        "get_case",
+        "list_cases",
+        "get_evidence",
+        "estimate_impact",
+        "check_policy",
+    ),
     # Development only, never deployed on Azure.
     "filesystem": ("list_files", "read_file"),
     "postgres": ("database_overview", "connection_activity"),
@@ -39,3 +50,63 @@ EXCHANGE_TARGETS: dict[str, frozenset[str]] = {
 def audience_scope(audience: str) -> str:
     """The client scope that names one target in a token's audience."""
     return f"{audience}-audience"
+
+
+# Tools that return content from outside the platform, which is untrusted (MCP-005), and tools
+# that change a record. Each MCP server's own definitions say the same: a test keeps them matched.
+EXTERNAL_TOOLS = frozenset(
+    {
+        tool_scope("documentation", "search_documents"),
+        tool_scope("documentation", "read_passage"),
+        tool_scope("tavily", "search_web"), tool_scope("tavily", "extract_page"),
+        tool_scope("tavily", "get_research"),
+        tool_scope("filesystem", "read_file"),
+    }
+)  # fmt: skip
+# None yet: create_draft arrives with the Maintenance Service (Phase 9), for the planner alone.
+WRITE_TOOLS: frozenset[str] = frozenset()
+
+
+def _tools(server: str, *names: str) -> frozenset[str]:
+    return frozenset(tool_scope(server, name) for name in names)
+
+
+# Each agent's explicit allowlist (SRS 5.3, MCP-002). The Identity Service mints an agent's token
+# only for tools on its list, so text an agent reads can never widen it (MCP-007).
+AGENT_TOOLS: dict[str, frozenset[str]] = {
+    # Plans, delegates, reads the investigation, and checks policy. Never approves.
+    "supervisor": _tools("windops", "get_case", "list_cases", "get_evidence", "check_policy"),
+    # Telemetry, alarms and turbines. Cannot change telemetry or thresholds.
+    "scada-analyst": _tools(
+        "windops", "get_turbine", "get_latest_telemetry", "list_alarms", "get_evidence"
+    ),
+    # Knowledge and fault history (sandbox analysis comes in M8.10). Cites and states uncertainty.
+    "reliability-engineer": _tools("documentation", "search_documents", "read_passage")
+    | _tools("windops", "get_turbine", "list_cases", "get_evidence"),
+    # Production Impact's deterministic results, to explain, never to change (FR-IMP-004).
+    "production-impact": _tools("windops", "get_case", "get_turbine", "estimate_impact"),
+    # Maintenance history (inventory and drafts come in Phase 9). Never reads raw web content.
+    "maintenance-planner": _tools("windops", "get_case", "list_cases", "get_turbine"),
+    # Procedures, external research and weather. Read-only; cannot declare a site safe.
+    "safety-researcher": _tools("documentation", "search_documents", "read_passage")
+    | _tools("tavily", "search_web", "extract_page", "get_research")
+    | _tools("weather", "get_forecast"),
+}
+
+
+def check_allowlists() -> None:
+    """Every allowed tool exists, and no agent that reads external content may write (MCP-006)."""
+    known = {tool_scope(server, tool) for server, tools in MCP_TOOLS.items() for tool in tools}
+    for agent, tools in AGENT_TOOLS.items():
+        unknown = tools - known
+        if unknown:
+            raise ValueError(f"{agent} is allowed tools that do not exist: {sorted(unknown)}")
+        if tools & EXTERNAL_TOOLS and tools & WRITE_TOOLS:
+            raise ValueError(f"{agent} reads external content, so it may not write (MCP-006)")
+        if any(scope.startswith(tool_scope("filesystem", "")) for scope in tools) or any(
+            scope.startswith(tool_scope("postgres", "")) for scope in tools
+        ):
+            raise ValueError(f"{agent}: development servers are never an agent's tools")
+
+
+check_allowlists()

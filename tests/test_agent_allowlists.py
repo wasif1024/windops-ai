@@ -1,0 +1,89 @@
+"""Each agent's tool allowlist, as the Identity Service enforces it, against the MCP servers' own
+tool definitions (SRS 5.3, MCP-002, MCP-006, ADR 0020)."""
+
+import importlib
+from typing import Any
+
+import pytest
+from windops_identity import targets
+from windops_identity.targets import (
+    AGENT_TOOLS,
+    EXTERNAL_TOOLS,
+    MCP_TOOLS,
+    WRITE_TOOLS,
+    check_allowlists,
+    tool_scope,
+)
+
+
+def defined() -> dict[str, Any]:
+    """Every tool every MCP server defines, by its scope."""
+    found = {}
+    for server in MCP_TOOLS:
+        module = importlib.import_module(f"windops_mcp_{server}.tools")
+        for tool in module.tools(object()):
+            found[tool_scope(tool.server, tool.name)] = tool
+    return found
+
+
+def test_the_identity_service_knows_every_tool_each_server_defines() -> None:
+    tools = defined()
+    assert set(tools) == {tool_scope(s, t) for s, names in MCP_TOOLS.items() for t in names}
+
+
+def test_external_and_writing_tools_are_classed_as_the_servers_define_them() -> None:
+    tools = defined()
+    assert {scope for scope, tool in tools.items() if tool.external} == EXTERNAL_TOOLS
+    assert {scope for scope, tool in tools.items() if not tool.read_only} == WRITE_TOOLS
+
+
+def test_no_agent_that_reads_external_content_may_write() -> None:
+    """MCP-006."""
+    for agent, tools in AGENT_TOOLS.items():
+        assert not (tools & EXTERNAL_TOOLS and tools & WRITE_TOOLS), agent
+
+
+def test_the_allowlists_follow_srs_5_3() -> None:
+    def servers(agent: str) -> set[str]:
+        return {scope.split(".")[1] for scope in AGENT_TOOLS[agent]}
+
+    assert set(AGENT_TOOLS) == {
+        "supervisor", "scada-analyst", "reliability-engineer", "production-impact",
+        "maintenance-planner", "safety-researcher",
+    }  # fmt: skip
+    # The planner never reads raw web content, and only the safety researcher searches the web.
+    assert "tavily" not in servers("maintenance-planner")
+    assert {a for a in AGENT_TOOLS if "tavily" in servers(a)} == {"safety-researcher"}
+    # Only the production-impact agent asks for estimates, and only the supervisor checks policy.
+    estimate, check = (
+        tool_scope("windops", "estimate_impact"),
+        tool_scope("windops", "check_policy"),
+    )
+    assert {a for a, t in AGENT_TOOLS.items() if estimate in t} == {"production-impact"}
+    assert {a for a, t in AGENT_TOOLS.items() if check in t} == {"supervisor"}
+    # Development servers are never an agent's.
+    assert not any(servers(a) & {"filesystem", "postgres"} for a in AGENT_TOOLS)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {
+            "safety-researcher": frozenset(
+                {tool_scope("tavily", "search_web"), "mcp.windops.create_draft"}
+            )
+        },
+        {"supervisor": frozenset({"mcp.windops.approve"})},
+        {"scada-analyst": frozenset({tool_scope("filesystem", "read_file")})},
+    ],
+)
+def test_a_bad_allowlist_stops_the_service_from_starting(
+    monkeypatch: pytest.MonkeyPatch, change: dict[str, frozenset[str]]
+) -> None:
+    monkeypatch.setattr(targets, "AGENT_TOOLS", {**AGENT_TOOLS, **change})
+    monkeypatch.setattr(
+        targets, "MCP_TOOLS", {**MCP_TOOLS, "windops": (*MCP_TOOLS["windops"], "create_draft")}
+    )
+    monkeypatch.setattr(targets, "WRITE_TOOLS", frozenset({"mcp.windops.create_draft"}))
+    with pytest.raises(ValueError):
+        check_allowlists()

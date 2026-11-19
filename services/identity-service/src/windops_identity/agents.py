@@ -23,6 +23,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from sqlalchemy import Column, DateTime, Index, MetaData, Table, Text
 
 from windops_identity.store import METADATA as STORE_METADATA
+from windops_identity.targets import AGENT_TOOLS
 
 AGENT_TOKEN_SECONDS = 120
 DEFAULT_DELEGATION_SECONDS = 3600
@@ -30,13 +31,8 @@ MAXIMUM_DELEGATION_SECONDS = 4 * 3600
 FAULT_INVESTIGATOR = "service:fault-investigator"
 USER_PREFIX = "user:"
 AGENT_PREFIX = "agent:"
-# The agents of SRS 5.3. A token names one of them, and only one.
-AGENTS = frozenset(
-    {
-        "supervisor", "scada-analyst", "reliability-engineer", "production-impact",
-        "maintenance-planner", "safety-researcher",
-    }
-)  # fmt: skip
+# The agents of SRS 5.3, each with its own allowlist. A token names one of them, and only one.
+AGENTS = frozenset(AGENT_TOOLS)
 # Who may start a delegation, and who may mint its tokens, by the certificate they present.
 STARTERS = frozenset({"windops-web-bff", "windops-investigation"})
 MINTERS = frozenset({"windops-agent-runtime"})

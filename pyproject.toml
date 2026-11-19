@@ -16,6 +16,7 @@ members = [
     "mcp-servers/postgres-mcp",
     "mcp-servers/tavily-mcp",
     "mcp-servers/weather-mcp",
+    "mcp-servers/windops-mcp",
     "services/agent-runtime-service",
     "services/alarm-service",
     "services/asset-service",
@@ -62,6 +63,7 @@ windops-screening = { workspace = true }
 windops-grpc = { workspace = true }
 windops-mcp = { workspace = true }
 windops-mcp-documentation = { workspace = true }
+windops-mcp-windops = { workspace = true }
 windops-mcp-filesystem = { workspace = true }
 windops-mcp-postgres = { workspace = true }
 windops-mcp-tavily = { workspace = true }
@@ -168,6 +170,8 @@ files = [
     "shared/mcp/tests",
     "mcp-servers/documentation-mcp/src",
     "mcp-servers/documentation-mcp/tests",
+    "mcp-servers/windops-mcp/src",
+    "mcp-servers/windops-mcp/tests",
     "mcp-servers/filesystem-mcp/src",
     "mcp-servers/filesystem-mcp/tests",
     "mcp-servers/postgres-mcp/src",
@@ -243,6 +247,8 @@ mypy_path = [
     "shared/mcp/tests",
     "mcp-servers/documentation-mcp/src",
     "mcp-servers/documentation-mcp/tests",
+    "mcp-servers/windops-mcp/src",
+    "mcp-servers/windops-mcp/tests",
     "mcp-servers/filesystem-mcp/src",
     "mcp-servers/filesystem-mcp/tests",
     "mcp-servers/postgres-mcp/src",
@@ -330,6 +336,7 @@ dev = [
     "windops-knowledge",
     "windops-mcp",
     "windops-mcp-documentation",
+    "windops-mcp-windops",
     "windops-mcp-filesystem",
     "windops-mcp-postgres",
     "windops-mcp-tavily",

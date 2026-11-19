@@ -132,6 +132,14 @@
     "receives": []
   },
   {
+    "name": "windops-mcp-windops",
+    "namespace": "windops-mcp",
+    "events": true,
+    "database": false,
+    "keyVault": true,
+    "receives": []
+  },
+  {
     "name": "windops-policy",
     "namespace": "windops-application",
     "events": true,

@@ -1,0 +1,29 @@
+# This server's identity for TLS. Its MCP endpoint needs its callers' certificates too (MCP-001).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-mcp-windops-tls
+  labels:
+    app.kubernetes.io/name: windops-mcp-windops
+    app.kubernetes.io/part-of: windops
+spec:
+  secretName: windops-mcp-windops-tls
+  commonName: windops-mcp-windops
+  dnsNames:
+    - windops-mcp-windops
+    - windops-mcp-windops.windops-mcp
+    - windops-mcp-windops.windops-mcp.svc
+    - windops-mcp-windops.windops-mcp.svc.cluster.local
+  duration: 720h
+  renewBefore: 168h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - client auth
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io

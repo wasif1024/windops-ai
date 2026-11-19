@@ -139,10 +139,14 @@ def check_key_mount() -> None:
 
 async def search(server: Server, token: str) -> int:
     async with server.session(token) as session:
-        found = body(await session.call_tool(
+        result = await session.call_tool(
             "search_documents",
             {"query": "gearbox oil debris particle limits", "wind_farm_id": "dogger-east"},
-        ))  # fmt: skip
+        )
+    found = body(result)
+    if result.isError:
+        # Say what the tool said, such as "unavailable", rather than counting nothing.
+        raise RuntimeError(f"The search failed: {found}")
     return len(found.get("passages", []))
 
 
@@ -217,7 +221,7 @@ def prove(realm: Realm, key: str, server: Server, weather: Server) -> None:
             "A user cannot delegate as the fault-investigator",
         )
         minted_here = code_of(lambda: identity.IssueAgentToken(
-            pb.IssueAgentTokenRequest(delegation_id=mine.delegation_id, agent="supervisor",
+            pb.IssueAgentTokenRequest(delegation_id=mine.delegation_id, agent="safety-researcher",
                                       audience=DOCUMENTATION, scopes=[SEARCH]),
             **as_service("service:investigation", key),
         ))  # fmt: skip
@@ -232,7 +236,7 @@ def prove(realm: Realm, key: str, server: Server, weather: Server) -> None:
             )  # fmt: skip
 
         for_user = mint(mine.delegation_id, "reliability-engineer")
-        for_faults = mint(faults.delegation_id, "supervisor")
+        for_faults = mint(faults.delegation_id, "safety-researcher")
         claims = jwt.decode(for_user.access_token, options={"verify_signature": False})
         check(
             claims["sub"] == user and claims["act"] == {"sub": "agent:reliability-engineer"}
@@ -250,7 +254,7 @@ def prove(realm: Realm, key: str, server: Server, weather: Server) -> None:
         )
         elsewhere = asyncio.run(refused_at(weather, for_user.access_token))
         check(elsewhere == 401, "The same token is refused at any other MCP server")
-        other_tenant = code_of(lambda: mint(mine.delegation_id, "supervisor", OTHER))
+        other_tenant = code_of(lambda: mint(mine.delegation_id, "safety-researcher", OTHER))
         check(other_tenant == grpc.StatusCode.NOT_FOUND, "Another tenant cannot use the delegation")
         started_here = code_of(lambda: identity.StartDelegation(
             pb.StartDelegationRequest(case_id=CASE, idempotency_key=f"agent-check-{RUN}-y"),
@@ -269,7 +273,7 @@ def prove(realm: Realm, key: str, server: Server, weather: Server) -> None:
 
     with identity_as(stranger) as identity:
         stranger_mint = code_of(lambda: identity.IssueAgentToken(
-            pb.IssueAgentTokenRequest(delegation_id=faults.delegation_id, agent="supervisor",
+            pb.IssueAgentTokenRequest(delegation_id=faults.delegation_id, agent="safety-researcher",
                                       audience=DOCUMENTATION, scopes=[SEARCH]),
             **as_service("service:agent-runtime", key),
         ))  # fmt: skip
@@ -280,7 +284,7 @@ def prove(realm: Realm, key: str, server: Server, weather: Server) -> None:
 
     deadline, wanted = time.monotonic() + 60, {
         ("mcp.documentation.search_documents", "agent", "agent:reliability-engineer", user),
-        ("mcp.documentation.search_documents", "agent", "agent:supervisor",
+        ("mcp.documentation.search_documents", "agent", "agent:safety-researcher",
          "service:fault-investigator"),
     }  # fmt: skip
     rows: list[tuple[str, str, str, str]] = []
