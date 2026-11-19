@@ -662,7 +662,7 @@ async def test_an_investigation_runs_every_step_and_checkpoints_each(
     engine: AsyncEngine, clock: Clock, queue: Queue
 ) -> None:
     run = await start_investigation(engine, clock)
-    assert json.loads(run.pins_json)["graph"] == "investigation@2"
+    assert json.loads(run.pins_json)["graph"] == "investigation@3"
     claim = await queue.claim("replica-a/0")
     assert claim is not None
     assert await Worker(queue, REGISTRY).execute(claim, asyncio.Event()) == "completed"
@@ -880,10 +880,12 @@ def test_a_bad_delegation_id_is_refused() -> None:
 
 
 @scenario
-async def test_an_investigation_with_its_team_keeps_the_report_and_names_what_it_did_not_do(
+async def test_an_investigation_with_its_team_keeps_a_checked_result_and_its_policy_outcome(
     engine: AsyncEngine, clock: Clock, queue: Queue
 ) -> None:
-    from team_support import Scripted, Tokens, call
+    """A rehearsal: the real graph and team on a scripted model, the result checked, and every
+    recommended action through policy (M8.7, M8.8)."""
+    from team_support import Tokens
     from windops_agent_runtime.team.definitions import team
     from windops_agent_runtime.team.run import TeamRunner
     from windops_agent_runtime.team.tools import ToolBox, stand_in
@@ -891,33 +893,31 @@ async def test_an_investigation_with_its_team_keeps_the_report_and_names_what_it
     async def answer(arguments: dict[str, Any]) -> str:
         return "{}"
 
-    every = {
+    async def evidence(arguments: dict[str, Any]) -> str:
+        return json.dumps({"snapshot_id": SNAPSHOT, "items": [{"record_id": "tel_1"}]})
+
+    async def policy(arguments: dict[str, Any]) -> str:
+        return json.dumps({"result_id": "pol_1", "outcome": "escalate", "rules": []})
+
+    every: dict[str, Any] = {
         f"{scope.split('.')[1]}_{scope.split('.')[2]}": answer
         for agent in team().agents.values() for scope in agent.tools
     }  # fmt: skip
-    scripts = {
-        "supervisor": [call("task", subagent_type="production-impact", description="Estimate"),
-                       AIMessage("Report: the impact is the service's estimate.")],
-        "production-impact": [call("windops_estimate_impact", case_id=CASE),
-                              AIMessage("Impact explained.")],
-    }  # fmt: skip
+    every |= {"windops_get_evidence": evidence, "windops_check_policy": policy}
 
     def make_team(claim: Any, claude: Any, tokens: Any) -> TeamRunner:
-        return TeamRunner(
-            team(), ToolBox(stand_in(every)), claude=claude, tokens=Tokens(), tool_calls=50,
-            model=lambda role: Scripted(
-                role=role, script=scripts.setdefault(role, [AIMessage("ok")])
-            ),
-        )  # fmt: skip
+        return TeamRunner(team(), ToolBox(stand_in(every)), claude=claude, tokens=Tokens(),
+                          tool_calls=50)  # fmt: skip
 
     request = pb.StartRunRequest(
-        case_id=CASE, snapshot_id=SNAPSHOT, workflow="investigation", parameters={"team": "true"},
+        case_id=CASE, snapshot_id=SNAPSHOT, workflow="investigation",
+        parameters={"team": "true", "rehearse": "true", "turbine_id": "dogger-east-t01"},
         requested_by="service:investigation", idempotency_key="team-key-1",
         delegation_id="dlg_" + "c" * 20,
     )  # fmt: skip
     with caller():
         run = (await service(engine, clock).StartRun(request, None)).run
-    assert set(json.loads(run.pins_json)["prompts"]) == set(team().agents)
+    assert set(json.loads(run.pins_json)["prompts"]) == {*team().agents, "supervisor:result"}
     claim = await queue.claim("replica-a/0")
     assert claim is not None
     worker = Worker(
@@ -925,12 +925,10 @@ async def test_an_investigation_with_its_team_keeps_the_report_and_names_what_it
         make_claude=lambda claim, meter: Claude(POLICY, meter, lambda: "key"),
     )  # fmt: skip
     assert await worker.execute(claim, asyncio.Event()) == "completed"
-    saved = await RunCheckpointer(queue, claim).aget_tuple(
-        {"configurable": {"thread_id": run.run_id, "checkpoint_ns": ""}}
-    )
-    assert saved is not None
-    state = saved.checkpoint["channel_values"]
-    assert state["report"].startswith("Report:") and state["delegated"] == ["production-impact"]
-    assert state["tools_used"] == ["windops_estimate_impact"]
-    gaps = " ".join(state["data_gaps"])
-    assert "documents: no specialist searched" in gaps and "impact:" not in gaps
+    kept = json.loads((await get(engine, clock, run.run_id)).result_json)
+    assert (kept["case_id"], kept["snapshot_id"]) == (CASE, SNAPSHOT)
+    assert kept["observed_facts"][0]["citations"] == ["tel_1"]
+    # Policy escalated the recommended inspection, so a person must look.
+    assert kept["policy"] == [{"action": "inspection", "result_id": "pol_1", "outcome": "escalate"}]
+    assert kept["policy_result_id"] == "pol_1" and kept["escalation_required"] is True
+    assert kept["model_versions"] == {} and kept["repairs"] == 0

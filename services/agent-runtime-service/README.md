@@ -8,8 +8,11 @@ There are three workflows:
   ([ADR 0018](../../docs/adr/0018-the-investigation-graph-and-its-checkpoints.md)). Step 5 runs the team: the
   Supervisor and its five specialists on restricted Deep Agents
   ([ADR 0021](../../docs/adr/0021-the-agents-and-skills-on-deep-agents.md)), defined in the repository's `agents/`
-  and `skills/`. A run can rehearse the team on a scripted model, at no cost. Investigation starts these runs from
-  M8.11.
+  and `skills/`. Step 10 turns the Supervisor's report into SRS 5.7's structured result and checks every citation
+  against what the tools returned, with at most two repairs; step 11 checks each recommended action through Policy;
+  step 12 keeps the result on the run
+  ([ADR 0022](../../docs/adr/0022-the-structured-result-checked-against-what-the-team-saw.md)). A run can rehearse the
+  team on a scripted model, at no cost. Investigation starts these runs from M8.11.
 - **`rehearsal`:** timed steps with no model and no tools, so the queue and its recovery can be proved without
   spending anything.
 - **`model-check`:** one short call per role, a structured answer and a cached prompt, a few cents of synthetic

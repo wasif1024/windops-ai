@@ -77,6 +77,8 @@ RUNS = Table(
     Column("pause_reason", Text, nullable=False, server_default=""),
     # The Identity Service's delegation its agents act under, ended with the run (ADR 0019).
     Column("delegation_id", Text, nullable=False, server_default=""),
+    # The investigation's checked, structured result, once step 12 keeps it (SRS 5.7, M8.8).
+    Column("result_json", Text, nullable=False, server_default=""),
     Index("runs_by_case", "tenant_id", "case_id", "created_at"),
     Index("runs_one_key", "tenant_id", "idempotency_key", unique=True),
     Index("runs_by_status", "status", "not_before"),

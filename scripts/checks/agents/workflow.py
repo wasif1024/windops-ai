@@ -86,7 +86,7 @@ def ended(run_id: str, timeout: float = 240) -> dict[str, object]:
 def check_kill() -> None:
     run = start("kill", step_seconds="2", plan_with_claude="true")
     check(
-        run.status == "queued" and '"graph":"investigation@2"' in run.pins_json,
+        run.status == "queued" and '"graph":"investigation@3"' in run.pins_json,
         "An investigation run is queued, pinned to its graph and its prompts (AGT-004)",
     )
     before = wait_for(

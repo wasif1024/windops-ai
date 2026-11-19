@@ -292,6 +292,30 @@ class Queue:
             )  # fmt: skip
             return await _spent(connection, claim)
 
+    async def models_used(self, claim: Claim) -> dict[str, list[str]]:
+        c = RUN_CALLS.c
+        async with self.reading(claim) as connection:
+            rows = (
+                await connection.execute(
+                    select(c.role, c.served_model)
+                    .where(c.tenant_id == claim.tenant_id, c.run_id == claim.run_id)
+                    .distinct()
+                )
+            ).all()
+        used: dict[str, list[str]] = {}
+        for role, model in rows:
+            used.setdefault(role, []).append(model)
+        return {role: sorted(models) for role, models in sorted(used.items())}
+
+    async def save_result(self, claim: Claim, result: dict[str, Any]) -> None:
+        r = RUNS.c
+        async with self.holding(claim) as connection:
+            await connection.execute(
+                update(RUNS)
+                .where(r.tenant_id == claim.tenant_id, r.run_id == claim.run_id)
+                .values(result_json=json.dumps(result, sort_keys=True))
+            )
+
     async def finish(self, claim: Claim, status: str, reason: str = "") -> bool:
         """End the run, if the claim is still its own. False if another replica has it."""
         if status not in TERMINAL:

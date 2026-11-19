@@ -117,19 +117,27 @@ class ToolBox:
             self._described[scope.scope] = listed[scope.tool]
         return self._described[scope.scope]
 
+    async def call(self, agent: str, scope: str, tokens: Tokens, arguments: dict[str, Any]) -> str:
+        """One call the runtime makes itself, as an agent, with that agent's own token."""
+        parsed = Scope.parse(scope)
+        token = await tokens.for_tool(agent, parsed.audience, [parsed.scope])
+        return await self._client.call(parsed.audience, token, parsed.tool, arguments)
+
     async def tools_for(
         self,
         agent: str,
         scopes: tuple[str, ...],
         tokens: Tokens,
         before_call: Callable[[str], None] | None = None,
+        after_call: Callable[[str, str], None] | None = None,
     ) -> list[BaseTool]:
-        """The agent's tools. before_call runs first on each call, as to count it."""
+        """The agent's tools. before_call runs first on each call, as to count it; after_call
+        gets each answer, as to note what it may be cited by."""
         built: list[BaseTool] = []
         for raw in scopes:
             scope = Scope.parse(raw)
             described = await self._description(scope, agent, tokens)
-            built.append(self._tool(agent, scope, described, tokens, before_call))
+            built.append(self._tool(agent, scope, described, tokens, before_call, after_call))
         return built
 
     def _tool(
@@ -139,6 +147,7 @@ class ToolBox:
         described: dict[str, Any],
         tokens: Tokens,
         before_call: Callable[[str], None] | None,
+        after_call: Callable[[str, str], None] | None = None,
     ) -> BaseTool:
         client = self._client
 
@@ -147,7 +156,10 @@ class ToolBox:
                 before_call(scope.name)
             # A fresh token for this one call: it never outlives the call by much (SEC-008).
             token = await tokens.for_tool(agent, scope.audience, [scope.scope])
-            return await client.call(scope.audience, token, scope.tool, arguments)
+            answer = await client.call(scope.audience, token, scope.tool, arguments)
+            if after_call is not None:
+                after_call(scope.name, answer)
+            return answer
 
         return StructuredTool(
             name=scope.name,

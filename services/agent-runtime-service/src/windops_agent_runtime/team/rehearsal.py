@@ -18,6 +18,7 @@ from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
 from windops_agent_runtime.team.metered import PROVIDER
+from windops_agent_runtime.team.result import Claim, Draft, Recommendation, Seen
 
 REPORT = "Rehearsal report: every specialist answered, and nothing was concluded."
 
@@ -91,3 +92,23 @@ def models(case_id: str, snapshot_id: str, turbine_id: str) -> Callable[[str], B
         return RehearsalModel(role=role, script=planned.get(role, []))
 
     return make
+
+
+def draft(case_id: str, snapshot_id: str, turbine_id: str, seen: Seen) -> Draft:
+    """The result a rehearsal reports: built from what its tools returned, without Claude, so the
+    checks, and the policy check that follows, still run for real."""
+    cited = sorted(r for r in seen.references if r not in (case_id, snapshot_id, turbine_id))
+    first = cited[:1] or [snapshot_id]
+    return Draft(
+        case_id=case_id, asset_id=turbine_id, snapshot_id=snapshot_id,
+        observed_facts=[Claim(statement="The rehearsal read the case's evidence", citations=first)],
+        hypotheses=[], evidence_references=first, conflicting_evidence=[],
+        data_gaps=["A rehearsal draws no conclusions: no model reasoned over the evidence."],
+        risk_flags=[],
+        recommended_actions=[Recommendation(
+            action="inspection", summary="Rehearsal: inspect the component the case concerns",
+            requires_climb=True,
+        )],
+        confidence=0.0, explanation="A rehearsal of the team, with no model.",
+        escalation_required=True,
+    )  # fmt: skip

@@ -43,9 +43,10 @@ from windops_grpc import InvalidRequestError
 
 from windops_agent_runtime.team import rehearsal
 from windops_agent_runtime.team.definitions import team
+from windops_agent_runtime.team.result import Recommendation, Seen
 from windops_agent_runtime.workflows import ClaudeUnavailableError, Context, StepFailedError
 
-GRAPH_VERSION = "2"
+GRAPH_VERSION = "3"
 _TURBINE = re.compile(r"[A-Za-z0-9_.:-]{1,64}")
 # SRS 5.4 steps 1 to 13, in order, and the module that gives each its content.
 STEPS: tuple[tuple[str, str], ...] = (
@@ -81,6 +82,11 @@ class State(TypedDict):
     report: str
     delegated: Annotated[list[str], operator.add]
     tools_used: Annotated[list[str], operator.add]
+    # What the team's tools returned that a claim may cite, the checked result, and the Policy
+    # Service's outcome for each recommended action (M8.8).
+    seen: dict[str, Any]
+    result: dict[str, Any]
+    policy: list[dict[str, str]]
 
 
 def pins_of(parameters: Mapping[str, Any]) -> dict[str, Any]:
@@ -164,7 +170,7 @@ def build(context: Context, parameters: Mapping[str, Any]) -> StateGraph[State]:
             )
         found = await runner.investigate(state["case_id"], state["snapshot_id"], model=scripted)
         return {"report": found.report, "delegated": list(found.delegated),
-                "tools_used": list(found.tools_used)}  # fmt: skip
+                "tools_used": list(found.tools_used), "seen": found.seen}  # fmt: skip
 
     def used(state: State, *names: str) -> bool:
         return any(tool.startswith(names) for tool in state["tools_used"])
@@ -183,6 +189,52 @@ def build(context: Context, parameters: Mapping[str, Any]) -> StateGraph[State]:
         if parameters.get("team") and state["report"]:
             return {}
         return {"data_gaps": ["aggregate: there is no report from the Supervisor"]}
+
+    async def validate_output(state: State) -> dict[str, Any]:
+        """Step 10: the report, structured and checked, with at most two repairs (M8.8)."""
+        if not parameters.get("team") or context.team is None:
+            return {"data_gaps": ["validate_output: there is no report to structure"]}
+        composed = await context.team.compose(
+            state["case_id"], state["snapshot_id"], state["report"],
+            Seen.from_dict(state["seen"]), rehearse=bool(parameters.get("rehearse")),
+            turbine_id=str(parameters.get("turbine_id", "")),
+        )  # fmt: skip
+        return {"result": {**composed.draft.model_dump(mode="json"), "repairs": composed.repairs}}
+
+    async def policy_checks(state: State) -> dict[str, Any]:
+        """Step 11: every recommended action, through the Policy Service's deterministic rules."""
+        if not state["result"] or context.team is None:
+            return {"data_gaps": ["policy_checks: there is no result to check"]}
+        actions = state["result"]["recommended_actions"]
+        if not actions:
+            return {"policy": [], "data_gaps": ["policy_checks: no action was recommended"]}
+        checked = []
+        for action in actions:
+            outcome = await context.team.check_policy(
+                state["case_id"], Recommendation.model_validate(action)
+            )
+            checked.append({"action": action["action"], "result_id": outcome.result_id,
+                            "outcome": outcome.outcome})  # fmt: skip
+        return {"policy": checked}
+
+    async def recommend(state: State) -> dict[str, Any]:
+        """Step 12: the result, completed and kept. Drafting a work order comes in Phase 9."""
+        if not state["result"]:
+            return {"data_gaps": ["recommend: there is no result to recommend from"]}
+        policy = state["policy"]
+        result = {
+            **state["result"],
+            "policy": policy,
+            "policy_result_id": policy[0]["result_id"] if policy else "",
+            # Blocked or escalated by policy means a person must look (FR-POL-005).
+            "escalation_required": state["result"]["escalation_required"]
+            or any(p["outcome"] != "pass" for p in policy),
+            "model_versions": await context.models_used(),
+            "generated_at": datetime.now(UTC).isoformat(),
+            "run_data_gaps": state["data_gaps"],
+        }
+        await context.save_result(result)
+        return {"result": result, "data_gaps": ["recommend: draft work orders come in Phase 9"]}
 
     async def conclude(state: State) -> dict[str, Any]:
         # Setting the case to pending_review comes with Investigation's side of the run (M8.11).
@@ -207,8 +259,9 @@ def build(context: Context, parameters: Mapping[str, Any]) -> StateGraph[State]:
                             "weather_", "tavily_"),
         "impact": covered("impact", "no estimate was asked for", "windops_estimate_impact"),
         "aggregate": aggregate,
-        "policy_checks": covered("policy_checks", "no proposal was checked against policy",
-                                 "windops_check_policy"),
+        "validate_output": validate_output,
+        "policy_checks": policy_checks,
+        "recommend": recommend,
         "conclude": conclude,
     }  # fmt: skip
     previous = START
@@ -273,7 +326,8 @@ class Investigation:
         # A new run starts from its inputs. A run claimed again carries on from its checkpoint.
         inputs: State | None = None if started is not None else State(
             case_id=context.case_id, snapshot_id=context.snapshot_id, completed=[], data_gaps=[],
-            plan="", concluded_at="", report="", delegated=[], tools_used=[],
+            plan="", concluded_at="", report="", delegated=[], tools_used=[], seen={}, result={},
+            policy=[],
         )  # fmt: skip
         # "sync": each checkpoint is written before the next node starts, so a worker that stops
         # loses at most the node it was in.

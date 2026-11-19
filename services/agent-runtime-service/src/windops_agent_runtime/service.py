@@ -87,7 +87,7 @@ def run_message(row: Any, steps: list[Any], used: Any = None, checkpoints: int =
     return pb.Run(
         policy_version=row.policy_version, policy_hash=row.policy_hash,
         pause_requested=row.pause_requested_at is not None, pins_json=row.pins,
-        delegation_id=row.delegation_id,
+        delegation_id=row.delegation_id, result_json=row.result_json,
         checkpoints=checkpoints,
         usage=usage_message(row, used) if used is not None else None,
         run_id=row.run_id, case_id=row.case_id, snapshot_id=row.snapshot_id,

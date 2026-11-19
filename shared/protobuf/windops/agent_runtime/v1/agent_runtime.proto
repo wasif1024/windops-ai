@@ -82,6 +82,8 @@ message Run {
   // LangGraph checkpoints saved so far, over every attempt.
   int64 checkpoints = 22;
   string delegation_id = 23;
+  // The investigation's checked, structured result (SRS 5.7), as JSON, once kept. Empty before.
+  string result_json = 24;
 }
 
 // What a run has used, and its budget (LLM-010). Tokens count what the model processed: input

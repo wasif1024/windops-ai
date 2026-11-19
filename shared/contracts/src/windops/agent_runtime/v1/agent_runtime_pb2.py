@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,windops/agent_runtime/v1/agent_runtime.proto\x12\x18windops.agent_runtime.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x01\n\x04Step\x12\x10\n\x08position\x18\x01 \x01(\x03\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0f\n\x07\x61ttempt\x18\x03 \x01(\x03\x12.\n\nstarted_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x0b\x66inished_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\xe8\x04\n\x03Run\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63\x61se_id\x18\x02 \x01(\t\x12\x13\n\x0bsnapshot_id\x18\x03 \x01(\t\x12\x10\n\x08workflow\x18\x04 \x01(\t\x12\x18\n\x10workflow_version\x18\x05 \x01(\t\x12\x0e\n\x06status\x18\x06 \x01(\t\x12\x0e\n\x06reason\x18\x07 \x01(\t\x12\x0f\n\x07\x61ttempt\x18\x08 \x01(\x03\x12\x14\n\x0cmax_attempts\x18\t \x01(\x03\x12\x14\n\x0crequested_by\x18\n \x01(\t\x12.\n\ncreated_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nstarted_at\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x0b\x66inished_at\x18\r \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x18\n\x10\x63\x61ncel_requested\x18\x0e \x01(\x08\x12-\n\x05steps\x18\x0f \x03(\x0b\x32\x1e.windops.agent_runtime.v1.Step\x12\x13\n\x0btotal_steps\x18\x10 \x01(\x03\x12\x16\n\x0epolicy_version\x18\x11 \x01(\x03\x12\x13\n\x0bpolicy_hash\x18\x12 \x01(\t\x12.\n\x05usage\x18\x13 \x01(\x0b\x32\x1f.windops.agent_runtime.v1.Usage\x12\x17\n\x0fpause_requested\x18\x14 \x01(\x08\x12\x11\n\tpins_json\x18\x15 \x01(\t\x12\x13\n\x0b\x63heckpoints\x18\x16 \x01(\x03\x12\x15\n\rdelegation_id\x18\x17 \x01(\t\"\x95\x01\n\x05Usage\x12\r\n\x05\x63\x61lls\x18\x01 \x01(\x03\x12\x0e\n\x06tokens\x18\x02 \x01(\x03\x12\x19\n\x11\x63\x61\x63he_read_tokens\x18\x03 \x01(\x03\x12\x10\n\x08\x63ost_usd\x18\x04 \x01(\t\x12\x11\n\tfallbacks\x18\x05 \x01(\x03\x12\x14\n\x0ctoken_budget\x18\x06 \x01(\x03\x12\x17\n\x0f\x63ost_budget_usd\x18\x07 \x01(\t\"\xc0\x02\n\x0fStartRunRequest\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\x12\x13\n\x0bsnapshot_id\x18\x02 \x01(\t\x12\x10\n\x08workflow\x18\x03 \x01(\t\x12M\n\nparameters\x18\x04 \x03(\x0b\x32\x39.windops.agent_runtime.v1.StartRunRequest.ParametersEntry\x12\x14\n\x0crequested_by\x18\x05 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x06 \x01(\t\x12\x14\n\x0ctoken_budget\x18\x07 \x01(\x03\x12\x17\n\x0f\x63ost_budget_usd\x18\x08 \x01(\t\x12\x15\n\rdelegation_id\x18\t \x01(\t\x1a\x31\n\x0fParametersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\">\n\x10StartRunResponse\x12*\n\x03run\x18\x01 \x01(\x0b\x32\x1d.windops.agent_runtime.v1.Run\"\x1f\n\rGetRunRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\"<\n\x0eGetRunResponse\x12*\n\x03run\x18\x01 \x01(\x0b\x32\x1d.windops.agent_runtime.v1.Run\"1\n\x0fListRunsRequest\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\x12\r\n\x05limit\x18\x02 \x01(\x05\"?\n\x10ListRunsResponse\x12+\n\x04runs\x18\x01 \x03(\x0b\x32\x1d.windops.agent_runtime.v1.Run\"a\n\x10\x43\x61ncelRunRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x14\n\x0crequested_by\x18\x02 \x01(\t\x12\x0e\n\x06reason\x18\x03 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x04 \x01(\t\"?\n\x11\x43\x61ncelRunResponse\x12*\n\x03run\x18\x01 \x01(\x0b\x32\x1d.windops.agent_runtime.v1.Run\"`\n\x0fPauseRunRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x14\n\x0crequested_by\x18\x02 \x01(\t\x12\x0e\n\x06reason\x18\x03 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x04 \x01(\t\">\n\x10PauseRunResponse\x12*\n\x03run\x18\x01 \x01(\x0b\x32\x1d.windops.agent_runtime.v1.Run\"Q\n\x10ResumeRunRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x14\n\x0crequested_by\x18\x02 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x03 \x01(\t\"?\n\x11ResumeRunResponse\x12*\n\x03run\x18\x01 \x01(\x0b\x32\x1d.windops.agent_runtime.v1.Run2\xe7\x04\n\x13\x41gentRuntimeService\x12\x61\n\x08StartRun\x12).windops.agent_runtime.v1.StartRunRequest\x1a*.windops.agent_runtime.v1.StartRunResponse\x12[\n\x06GetRun\x12\'.windops.agent_runtime.v1.GetRunRequest\x1a(.windops.agent_runtime.v1.GetRunResponse\x12\x61\n\x08ListRuns\x12).windops.agent_runtime.v1.ListRunsRequest\x1a*.windops.agent_runtime.v1.ListRunsResponse\x12\x64\n\tCancelRun\x12*.windops.agent_runtime.v1.CancelRunRequest\x1a+.windops.agent_runtime.v1.CancelRunResponse\x12\x61\n\x08PauseRun\x12).windops.agent_runtime.v1.PauseRunRequest\x1a*.windops.agent_runtime.v1.PauseRunResponse\x12\x64\n\tResumeRun\x12*.windops.agent_runtime.v1.ResumeRunRequest\x1a+.windops.agent_runtime.v1.ResumeRunResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,windops/agent_runtime/v1/agent_runtime.proto\x12\x18windops.agent_runtime.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x01\n\x04Step\x12\x10\n\x08position\x18\x01 \x01(\x03\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0f\n\x07\x61ttempt\x18\x03 \x01(\x03\x12.\n\nstarted_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x0b\x66inished_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\xfd\x04\n\x03Run\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63\x61se_id\x18\x02 \x01(\t\x12\x13\n\x0bsnapshot_id\x18\x03 \x01(\t\x12\x10\n\x08workflow\x18\x04 \x01(\t\x12\x18\n\x10workflow_version\x18\x05 \x01(\t\x12\x0e\n\x06status\x18\x06 \x01(\t\x12\x0e\n\x06reason\x18\x07 \x01(\t\x12\x0f\n\x07\x61ttempt\x18\x08 \x01(\x03\x12\x14\n\x0cmax_attempts\x18\t \x01(\x03\x12\x14\n\x0crequested_by\x18\n \x01(\t\x12.\n\ncreated_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nstarted_at\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x0b\x66inished_at\x18\r \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x18\n\x10\x63\x61ncel_requested\x18\x0e \x01(\x08\x12-\n\x05steps\x18\x0f \x03(\x0b\x32\x1e.windops.agent_runtime.v1.Step\x12\x13\n\x0btotal_steps\x18\x10 \x01(\x03\x12\x16\n\x0epolicy_version\x18\x11 \x01(\x03\x12\x13\n\x0bpolicy_hash\x18\x12 \x01(\t\x12.\n\x05usage\x18\x13 \x01(\x0b\x32\x1f.windops.agent_runtime.v1.Usage\x12\x17\n\x0fpause_requested\x18\x14 \x01(\x08\x12\x11\n\tpins_json\x18\x15 \x01(\t\x12\x13\n\x0b\x63heckpoints\x18\x16 \x01(\x03\x12\x15\n\rdelegation_id\x18\x17 \x01(\t\x12\x13\n\x0bresult_json\x18\x18 \x01(\t\"\x95\x01\n\x05Usage\x12\r\n\x05\x63\x61lls\x18\x01 \x01(\x03\x12\x0e\n\x06tokens\x18\x02 \x01(\x03\x12\x19\n\x11\x63\x61\x63he_read_tokens\x18\x03 \x01(\x03\x12\x10\n\x08\x63ost_usd\x18\x04 \x01(\t\x12\x11\n\tfallbacks\x18\x05 \x01(\x03\x12\x14\n\x0ctoken_budget\x18\x06 \x01(\x03\x12\x17\n\x0f\x63ost_budget_usd\x18\x07 \x01(\t\"\xc0\x02\n\x0fStartRunRequest\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\x12\x13\n\x0bsnapshot_id\x18\x02 \x01(\t\x12\x10\n\x08workflow\x18\x03 \x01(\t\x12M\n\nparameters\x18\x04 \x03(\x0b\x32\x39.windops.agent_runtime.v1.StartRunRequest.ParametersEntry\x12\x14\n\x0crequested_by\x18\x05 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x06 \x01(\t\x12\x14\n\x0ctoken_budget\x18\x07 \x01(\x03\x12\x17\n\x0f\x63ost_budget_usd\x18\x08 \x01(\t\x12\x15\n\rdelegation_id\x18\t \x01(\t\x1a\x31\n\x0fParametersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\">\n\x10StartRunResponse\x12*\n\x03run\x18\x01 \x01(\x0b\x32\x1d.windops.agent_runtime.v1.Run\"\x1f\n\rGetRunRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\"<\n\x0eGetRunResponse\x12*\n\x03run\x18\x01 \x01(\x0b\x32\x1d.windops.agent_runtime.v1.Run\"1\n\x0fListRunsRequest\x12\x0f\n\x07\x63\x61se_id\x18\x01 \x01(\t\x12\r\n\x05limit\x18\x02 \x01(\x05\"?\n\x10ListRunsResponse\x12+\n\x04runs\x18\x01 \x03(\x0b\x32\x1d.windops.agent_runtime.v1.Run\"a\n\x10\x43\x61ncelRunRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x14\n\x0crequested_by\x18\x02 \x01(\t\x12\x0e\n\x06reason\x18\x03 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x04 \x01(\t\"?\n\x11\x43\x61ncelRunResponse\x12*\n\x03run\x18\x01 \x01(\x0b\x32\x1d.windops.agent_runtime.v1.Run\"`\n\x0fPauseRunRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x14\n\x0crequested_by\x18\x02 \x01(\t\x12\x0e\n\x06reason\x18\x03 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x04 \x01(\t\">\n\x10PauseRunResponse\x12*\n\x03run\x18\x01 \x01(\x0b\x32\x1d.windops.agent_runtime.v1.Run\"Q\n\x10ResumeRunRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x14\n\x0crequested_by\x18\x02 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x03 \x01(\t\"?\n\x11ResumeRunResponse\x12*\n\x03run\x18\x01 \x01(\x0b\x32\x1d.windops.agent_runtime.v1.Run2\xe7\x04\n\x13\x41gentRuntimeService\x12\x61\n\x08StartRun\x12).windops.agent_runtime.v1.StartRunRequest\x1a*.windops.agent_runtime.v1.StartRunResponse\x12[\n\x06GetRun\x12\'.windops.agent_runtime.v1.GetRunRequest\x1a(.windops.agent_runtime.v1.GetRunResponse\x12\x61\n\x08ListRuns\x12).windops.agent_runtime.v1.ListRunsRequest\x1a*.windops.agent_runtime.v1.ListRunsResponse\x12\x64\n\tCancelRun\x12*.windops.agent_runtime.v1.CancelRunRequest\x1a+.windops.agent_runtime.v1.CancelRunResponse\x12\x61\n\x08PauseRun\x12).windops.agent_runtime.v1.PauseRunRequest\x1a*.windops.agent_runtime.v1.PauseRunResponse\x12\x64\n\tResumeRun\x12*.windops.agent_runtime.v1.ResumeRunRequest\x1a+.windops.agent_runtime.v1.ResumeRunResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,35 +37,35 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_STEP']._serialized_start=108
   _globals['_STEP']._serialized_end=260
   _globals['_RUN']._serialized_start=263
-  _globals['_RUN']._serialized_end=879
-  _globals['_USAGE']._serialized_start=882
-  _globals['_USAGE']._serialized_end=1031
-  _globals['_STARTRUNREQUEST']._serialized_start=1034
-  _globals['_STARTRUNREQUEST']._serialized_end=1354
-  _globals['_STARTRUNREQUEST_PARAMETERSENTRY']._serialized_start=1305
-  _globals['_STARTRUNREQUEST_PARAMETERSENTRY']._serialized_end=1354
-  _globals['_STARTRUNRESPONSE']._serialized_start=1356
-  _globals['_STARTRUNRESPONSE']._serialized_end=1418
-  _globals['_GETRUNREQUEST']._serialized_start=1420
-  _globals['_GETRUNREQUEST']._serialized_end=1451
-  _globals['_GETRUNRESPONSE']._serialized_start=1453
-  _globals['_GETRUNRESPONSE']._serialized_end=1513
-  _globals['_LISTRUNSREQUEST']._serialized_start=1515
-  _globals['_LISTRUNSREQUEST']._serialized_end=1564
-  _globals['_LISTRUNSRESPONSE']._serialized_start=1566
-  _globals['_LISTRUNSRESPONSE']._serialized_end=1629
-  _globals['_CANCELRUNREQUEST']._serialized_start=1631
-  _globals['_CANCELRUNREQUEST']._serialized_end=1728
-  _globals['_CANCELRUNRESPONSE']._serialized_start=1730
-  _globals['_CANCELRUNRESPONSE']._serialized_end=1793
-  _globals['_PAUSERUNREQUEST']._serialized_start=1795
-  _globals['_PAUSERUNREQUEST']._serialized_end=1891
-  _globals['_PAUSERUNRESPONSE']._serialized_start=1893
-  _globals['_PAUSERUNRESPONSE']._serialized_end=1955
-  _globals['_RESUMERUNREQUEST']._serialized_start=1957
-  _globals['_RESUMERUNREQUEST']._serialized_end=2038
-  _globals['_RESUMERUNRESPONSE']._serialized_start=2040
-  _globals['_RESUMERUNRESPONSE']._serialized_end=2103
-  _globals['_AGENTRUNTIMESERVICE']._serialized_start=2106
-  _globals['_AGENTRUNTIMESERVICE']._serialized_end=2721
+  _globals['_RUN']._serialized_end=900
+  _globals['_USAGE']._serialized_start=903
+  _globals['_USAGE']._serialized_end=1052
+  _globals['_STARTRUNREQUEST']._serialized_start=1055
+  _globals['_STARTRUNREQUEST']._serialized_end=1375
+  _globals['_STARTRUNREQUEST_PARAMETERSENTRY']._serialized_start=1326
+  _globals['_STARTRUNREQUEST_PARAMETERSENTRY']._serialized_end=1375
+  _globals['_STARTRUNRESPONSE']._serialized_start=1377
+  _globals['_STARTRUNRESPONSE']._serialized_end=1439
+  _globals['_GETRUNREQUEST']._serialized_start=1441
+  _globals['_GETRUNREQUEST']._serialized_end=1472
+  _globals['_GETRUNRESPONSE']._serialized_start=1474
+  _globals['_GETRUNRESPONSE']._serialized_end=1534
+  _globals['_LISTRUNSREQUEST']._serialized_start=1536
+  _globals['_LISTRUNSREQUEST']._serialized_end=1585
+  _globals['_LISTRUNSRESPONSE']._serialized_start=1587
+  _globals['_LISTRUNSRESPONSE']._serialized_end=1650
+  _globals['_CANCELRUNREQUEST']._serialized_start=1652
+  _globals['_CANCELRUNREQUEST']._serialized_end=1749
+  _globals['_CANCELRUNRESPONSE']._serialized_start=1751
+  _globals['_CANCELRUNRESPONSE']._serialized_end=1814
+  _globals['_PAUSERUNREQUEST']._serialized_start=1816
+  _globals['_PAUSERUNREQUEST']._serialized_end=1912
+  _globals['_PAUSERUNRESPONSE']._serialized_start=1914
+  _globals['_PAUSERUNRESPONSE']._serialized_end=1976
+  _globals['_RESUMERUNREQUEST']._serialized_start=1978
+  _globals['_RESUMERUNREQUEST']._serialized_end=2059
+  _globals['_RESUMERUNRESPONSE']._serialized_start=2061
+  _globals['_RESUMERUNRESPONSE']._serialized_end=2124
+  _globals['_AGENTRUNTIMESERVICE']._serialized_start=2127
+  _globals['_AGENTRUNTIMESERVICE']._serialized_end=2742
 # @@protoc_insertion_point(module_scope)
