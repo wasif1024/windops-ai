@@ -79,6 +79,13 @@ Today that is only the Reliability Engineer. The agent gives input, never code, 
 supporting analysis. What ran goes in the trace as the tool message's artifact, and each use is audited as the
 agent, on the user's behalf. A rehearsal runs a real task only when started with `sandbox=true`.
 
+## Dry runs
+
+With `WINDOPS_AGENT_STAND_IN=on`, the runtime serves a stand-in of Anthropic's Messages API on 127.0.0.1, inside its
+own pod. A run with `stand_in=true` takes the whole team through the real Claude client against it, with a placeholder
+key, at no cost ([ADR 0027](../../docs/adr/0027-dry-runs-against-a-stand-in-claude-api.md)). Its calls are counted as
+`provider="stand-in"`, never as Claude's.
+
 ## Traces
 
 Each run is traced to LangSmith through one client whose hooks redact every value before export
@@ -96,6 +103,7 @@ make team-check
 make trace-check
 make sandbox-check
 make progress-check
+make phase-8-gate MODE=stand_in
 make claude-check
 ```
 

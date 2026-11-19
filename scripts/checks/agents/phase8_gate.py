@@ -49,7 +49,7 @@ from scripts.setup.identity_seed import keycloak_public
 SCENARIO = "gearbox-temp-001"
 INVESTIGATION = "deployment/windops-investigation"
 APPLICATION = "windops-application"
-SETTLE_SECONDS = 30
+SETTLE_SECONDS = 60
 
 
 def check(condition: bool, message: str) -> None:
@@ -68,8 +68,9 @@ def set_mode(mode: str | None) -> None:
     setting = f"WINDOPS_INVESTIGATION_AGENTS={mode}" if mode else "WINDOPS_INVESTIGATION_AGENTS-"
     kubectl("set", "env", INVESTIGATION, setting)
     kubectl("rollout", "status", INVESTIGATION, "--timeout=300s")
-    # Its callers' circuit breakers, such as the Policy Service's, close again once they see it
-    # answer: a run started sooner may retry a step, which is safe but muddles the evidence.
+    # The old pod takes up to its 20-second grace to go, and its callers' keepalive up to 30
+    # more to notice: a run started sooner may retry step 11, which is free but muddles the
+    # evidence (ADR 0027).
     time.sleep(SETTLE_SECONDS)
 
 
@@ -109,8 +110,15 @@ def prove(outcome: Outcome, mode: str) -> None:
     for key in ("expected_tools", "diagnosis", "escalation"):
         # Judged on Claude, for the record: the gate itself asks for a valid, cited report.
         print(f"info - {key}: {scores[key].passed} {scores[key].comment}", flush=True)
+    prove_trace(o.run_id)
+    print(f"info - {len(o.tool_calls)} tool calls, {o.tokens} tokens, ${o.cost_usd:.4f}",
+          flush=True)  # fmt: skip
+
+
+def prove_trace(run_id: str) -> None:
+    """The run's trace, over every attempt (OBS-005 to OBS-008). Reading it costs nothing."""
     client, project = langsmith()
-    root, runs = every_attempt(client, project, o.run_id)
+    root, runs = every_attempt(client, project, run_id)
     exported = json.dumps([{"inputs": r.inputs, "outputs": r.outputs} for r in runs],
                           default=str)  # fmt: skip
     llm = [r for r in runs if r.run_type == "llm"]
@@ -120,31 +128,50 @@ def prove(outcome: Outcome, mode: str) -> None:
     calls = [r for r in llm if not (r.extra.get("metadata") or {}).get("agent")]
     named = {r.extra["metadata"]["agent"] for r in agents}
     scripted = {r.extra["metadata"].get("model") for r in agents} == {"scripted"}
+    # The Supervisor chooses whom to hand work to: every agent that worked has its model run.
+    handed = {str((r.inputs or {}).get("subagent_type", "")) for r in runs
+              if r.run_type == "tool" and r.name == "task"} - {""}  # fmt: skip
+    worked = {"supervisor", *handed}
+    print(f"info - the Supervisor handed work to {sorted(handed)}", flush=True)
     check(
-        set(STEPS) <= {r.name for r in runs} and named >= AGENTS and not scripted
+        set(STEPS) <= {r.name for r in runs} and named >= worked and worked <= AGENTS
+        and not scripted
         and all({"model", "effort", "prompt_version"} <= set(r.extra["metadata"])
                 for r in agents),
-        f"Its trace holds all 13 steps, and {len(agents)} agent model runs, every agent's "
-        "naming its model, effort and prompt version (OBS-005, OBS-006)",
+        f"Its trace holds all 13 steps, and {len(agents)} agent model runs, every agent that "
+        "worked naming its model, effort and prompt version (OBS-005, OBS-006)",
     )  # fmt: skip
-    used = [r for r in calls if (r.extra.get("metadata") or {}).get("usage_metadata")]
+    # LangSmith's own record of each call's tokens, from the usage Claude reported.
+    used = [r for r in calls if (r.total_tokens or 0) > 0]
     note = f"Each of the {len(calls)} calls beneath them records its token use (OBS-007)"
     check(bool(calls) and len(used) == len(calls), note)
     tools = {r.name for r in runs if r.run_type == "tool"}
     check("task" in tools and "windops_get_evidence" in tools,
           f"It holds the tool calls and handoffs: {sorted(tools)}")  # fmt: skip
     check(JWT_HEADER not in exported, "No token reached the trace")
-    shared = root.extra["metadata"]["correlation_id"] == o.run_id
+    shared = root.extra["metadata"]["correlation_id"] == run_id
     check(shared, "Its root names the run as the correlation ID its audit records share (OBS-008)")
-    print(f"info - {len(o.tool_calls)} tool calls, {o.tokens} tokens, ${o.cost_usd:.4f}",
-          flush=True)  # fmt: skip
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--mode", choices=("stand_in", "claude"), required=True)
     parser.add_argument("--spend", action="store_true", help="allow calls to Claude, which cost")
+    again = "check an earlier run's trace and metrics again, calling nothing"
+    parser.add_argument("--verify-run", default="", help=again)
     arguments = parser.parse_args(argv)
+    if arguments.verify_run:
+        provider = "anthropic" if arguments.mode == "claude" else "stand-in"
+        try:
+            prove_trace(arguments.verify_run)
+            check(
+                llm_calls(provider) > 0, f"The LLM metrics hold its calls, as provider {provider}"
+            )
+        except (RuntimeError, OSError, KeyError, httpx.HTTPError) as error:
+            print(f"{type(error).__name__}: {error}", file=sys.stderr)
+            return 1
+        print(f"Phase 8 gate's trace checks passed for {arguments.verify_run}")
+        return 0
     if arguments.mode == "claude" and not arguments.spend:
         print("MODE=claude costs money: add SPEND=yes once it is approved", file=sys.stderr)
         return 2

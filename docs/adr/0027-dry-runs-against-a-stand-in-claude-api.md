@@ -62,4 +62,10 @@ together.
   - On the cluster, `make phase-8-gate MODE=stand_in` proves the whole gate.
 - **Rollout:** every image was rebuilt for the keepalive, as old servers would refuse pings this frequent.
 - **What a dry run cannot show:** whether Claude follows its prompts, cites well, needs repairs, or fits its budget.
-  The first paid run shows that, capped by the policy at $10, 2 million tokens and 50 tool calls a run.
+- **The paid run:** before it, Anthropic's free token count accepted every real request the client builds. An
+  environment may cap each run below the policy's budget with `WINDOPS_INVESTIGATION_COST_BUDGET_USD`, as the account's
+  credit was below the policy's $10. The one investigation on Claude:
+  - cost $4.09, under a $6.00 cap;
+  - gave a validated, cited result and the right diagnosis.
+
+  It is recorded in the [Phase 8 exit gate](../phases/phase-08-exit-gate.md).

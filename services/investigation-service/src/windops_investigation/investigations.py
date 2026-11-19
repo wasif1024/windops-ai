@@ -83,7 +83,7 @@ class Runtime(Protocol):
 
     async def start_run(
         self, *, case_id: str, snapshot_id: str, parameters: dict[str, str], requested_by: str,
-        delegation_id: str, key: str,
+        delegation_id: str, key: str, cost_budget_usd: str = "",
     ) -> Any: ...  # fmt: skip
 
     async def get_run(self, run_id: str) -> Any: ...
@@ -183,6 +183,9 @@ class Keeper:
     secret: str
     mode: str
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
+    # Lowers each run's cost budget below the Claude policy's, as for an account with less credit
+    # than the policy allows a run. The runtime never lets it raise one. Empty keeps the policy's.
+    cost_budget_usd: str = ""
 
     async def run_once(self) -> int:
         """Start what is ready, and follow what is running. Returns how many changed."""
@@ -244,7 +247,7 @@ class Keeper:
             case_id=case_id, snapshot_id=case.evidence_snapshot_id,
             parameters=parameters_for(self.mode, case.turbine_id),
             requested_by=wanted.requested_by, delegation_id=delegation,
-            key=f"investigate-{case_id}",
+            key=f"investigate-{case_id}", cost_budget_usd=self.cost_budget_usd,
         )  # fmt: skip
         async with self.engine.begin() as connection:
             locked = await _locked_case(connection, tenant, case_id)
@@ -366,12 +369,12 @@ class RuntimeClient:
 
     async def start_run(
         self, *, case_id: str, snapshot_id: str, parameters: dict[str, str], requested_by: str,
-        delegation_id: str, key: str,
+        delegation_id: str, key: str, cost_budget_usd: str = "",
     ) -> Any:  # fmt: skip
         request = agent_runtime_pb2.StartRunRequest(
             case_id=case_id, snapshot_id=snapshot_id, workflow="investigation",
             parameters=parameters, requested_by=requested_by, idempotency_key=key,
-            delegation_id=delegation_id,
+            delegation_id=delegation_id, cost_budget_usd=cost_budget_usd,
         )  # fmt: skip
         return (await _ask(self._client, self._stub().StartRun, request, "The Agent Runtime")).run
 
