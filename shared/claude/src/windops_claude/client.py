@@ -15,7 +15,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage
 from pydantic import BaseModel
 
-from windops_claude import models, responses
+from windops_claude import models, responses, telemetry
 from windops_claude.budget import Call, Meter
 from windops_claude.conversation import HistoryGuard
 from windops_claude.policy import Policy
@@ -69,16 +69,18 @@ class Claude:
             guard.before(messages)
         parsed: BaseModel | None = None
         parsing_error: Any = None
-        if schema is None:
-            # Options such as bound tools, as a caller like Deep Agents binds them.
-            message = await model.ainvoke(list(messages), **dict(options or {}))
-        else:
-            answer = await models.structured(model, schema).ainvoke(list(messages))
-            message, parsed, parsing_error = (
-                answer["raw"],
-                answer["parsed"],
-                answer["parsing_error"],
-            )
+        # Its latency, and what failed if no answer came (SRS 10.3).
+        with telemetry.timed(role_name, role.model):
+            if schema is None:
+                # Options such as bound tools, as a caller like Deep Agents binds them.
+                message = await model.ainvoke(list(messages), **dict(options or {}))
+            else:
+                answer = await models.structured(model, schema).ainvoke(list(messages))
+                message, parsed, parsing_error = (
+                    answer["raw"],
+                    answer["parsed"],
+                    answer["parsing_error"],
+                )
         if not isinstance(message, AIMessage):
             raise TypeError("Claude's answer was not a message")
         response = responses.read(message, role.model)
@@ -89,6 +91,7 @@ class Claude:
             cost_usd=cost_usd(self.policy.pricing, response.served_model, response.usage,
                               inference_geo=self._geo),
         )  # fmt: skip
+        telemetry.answered(call)
         await self._meter.charge(call)
         responses.check(message, role.model)
         if guard is not None:

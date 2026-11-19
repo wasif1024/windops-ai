@@ -10,6 +10,7 @@ import contextlib
 import logging
 import random
 import socket
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -61,6 +62,13 @@ _ended = _meter.create_counter("windops_agent_runs_ended", description="Runs end
 _lost = _meter.create_counter(
     "windops_agent_run_leases_lost", description="Runs a worker stopped because its lease was lost"
 )
+# Each attempt's working time, by workflow and how it ended: completed, failed, retried, and
+# the rest, so the Agent Operations dashboard shows durations and retries (SRS 10.3).
+_attempts = _meter.create_histogram(
+    "windops.agent.run.attempt.duration", unit="s",
+    description="Time a worker spent on one attempt at a run, by workflow and outcome",
+    explicit_bucket_boundaries_advisory=[1, 5, 10, 30, 60, 120, 300, 600, 1200, 1800, 3600],
+)  # fmt: skip
 
 
 def _note_lost(claim: Claim) -> None:
@@ -196,7 +204,10 @@ class Worker:
                 extra={"run_id": claim.run_id, "attempt": claim.attempt,
                        "reclaimed": claim.reclaimed, "worker": owner},
             )  # fmt: skip
-            await self.execute(claim, stop)
+            started = time.monotonic()
+            outcome = await self.execute(claim, stop)
+            _attempts.record(time.monotonic() - started,
+                             {"workflow": claim.workflow, "outcome": outcome})  # fmt: skip
 
     async def execute(self, claim: Claim, stop: asyncio.Event) -> str:
         """Run the claim to an end. Returns what happened, for logs and tests."""
@@ -340,7 +351,7 @@ class Worker:
 
     async def _end(self, claim: Claim, status: str, reason: str) -> str:
         if await self._queue.finish(claim, status, reason):
-            _ended.add(1, {"status": status})
+            _ended.add(1, {"status": status, "workflow": claim.workflow})
             logger.info("Ended a run", extra={"run_id": claim.run_id, "status": status})
             await self._end_delegation(claim, status)
             return status

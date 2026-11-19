@@ -2612,6 +2612,7 @@ dependencies = [
     { name = "anthropic" },
     { name = "langchain-anthropic" },
     { name = "langchain-core" },
+    { name = "opentelemetry-api" },
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
@@ -2621,6 +2622,7 @@ requires-dist = [
     { name = "anthropic", specifier = "==2.4.0" },
     { name = "langchain-anthropic", specifier = "==1.7.10" },
     { name = "langchain-core", specifier = "==1.7.5" },
+    { name = "opentelemetry-api", specifier = ">=1.45.2" },
     { name = "pydantic", specifier = ">=2.12" },
     { name = "pyyaml", specifier = ">=6.0.3" },
 ]

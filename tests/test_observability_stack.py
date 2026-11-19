@@ -361,3 +361,54 @@ def test_a_prometheus_config_change_restarts_prometheus(documents: list[dict[str
     )
     volume = prometheus["spec"]["template"]["spec"]["volumes"][0]["configMap"]["name"]
     assert volume.startswith("windops-prometheus-config-")
+
+
+def _exprs(name: str) -> str:
+    return " ".join(
+        target["expr"]
+        for panel in json.loads((DASHBOARDS / name).read_text())["panels"]
+        for target in panel["targets"]
+    )
+
+
+def test_agent_operations_has_the_srs_indicators() -> None:
+    """SRS 10.3: investigation volume, completion and failure rates, tool success, duration and
+    handoffs."""
+    titles = panel_titles("agent-operations.json")
+    for wanted in ("Investigations started", "Completion rate", "Failure rate", "Tool success",
+                   "Investigation duration", "Handoffs"):  # fmt: skip
+        assert wanted.lower() in titles
+
+
+def test_llm_operations_has_the_srs_indicators() -> None:
+    """SRS 10.3: tokens, cache hit rate, estimated cost, model latency, provider errors,
+    refusals and retries."""
+    titles = panel_titles("llm-operations.json")
+    for wanted in ("Tokens", "Cache hit rate", "Estimated cost", "Model latency",
+                   "Provider errors", "Refusals", "Retries"):  # fmt: skip
+        assert wanted.lower() in titles
+
+
+# What the runtime, the Claude library and the MCP servers export, as Prometheus names them.
+AGENT_METRICS = {
+    "windops_agent_runs_queued_total", "windops_agent_runs_ended_total",
+    "windops_agent_run_claims_total", "windops_agent_tool_calls_total",
+    "windops_agent_handoffs_total", "windops_agent_run_attempt_duration_seconds_bucket",
+    "windops_agent_run_attempt_duration_seconds_count", "windops_mcp_tool_duration_seconds_count",
+    "windops_llm_calls_total", "windops_llm_tokens_total", "windops_llm_cost_usd_total",
+    "windops_llm_errors_total", "windops_llm_call_duration_seconds_bucket",
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("name", ["agent-operations.json", "llm-operations.json"])
+def test_agent_dashboards_use_only_metrics_that_are_exported(name: str) -> None:
+    import re
+
+    used = set(re.findall(r"\b(windops_[a-z_]+)", _exprs(name)))
+    assert used <= AGENT_METRICS, used - AGENT_METRICS
+
+
+@pytest.mark.parametrize("alert", ["WindopsAgentToolFailing", "WindopsModelCostHigh"])
+def test_agent_failures_and_cost_have_their_alerts(alert: str) -> None:
+    """SRS 10.3: repeated tool failures, and excessive model cost."""
+    assert alert_rules()[alert]["labels"]["category"] == "agents"
