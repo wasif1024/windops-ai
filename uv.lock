@@ -2259,8 +2259,10 @@ name = "windops-agent-runtime"
 version = "0.1.0"
 source = { editable = "services/agent-runtime-service" }
 dependencies = [
+    { name = "deepagents" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint" },
+    { name = "mcp" },
     { name = "windops-auth" },
     { name = "windops-claude" },
     { name = "windops-contracts" },
@@ -2274,8 +2276,10 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "deepagents", specifier = "==0.7.32" },
     { name = "langgraph", specifier = "==1.2.19" },
     { name = "langgraph-checkpoint", specifier = "==4.3.1" },
+    { name = "mcp", specifier = ">=1.30.0,<2" },
     { name = "windops-auth", editable = "shared/auth" },
     { name = "windops-claude", editable = "shared/claude" },
     { name = "windops-contracts", editable = "shared/contracts" },

@@ -64,6 +64,8 @@ class Pricing(_Strict):
 class Budget(_Strict):
     tokens: int = Field(gt=0)
     cost_usd: Decimal = Field(gt=0)
+    # Tool calls by all of a run's agents together (SRS 5.6).
+    tool_calls: int = Field(default=50, gt=0)
 
 
 class Budgets(_Strict):

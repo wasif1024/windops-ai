@@ -338,6 +338,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0018](docs/adr/0018-the-investigation-graph-and-its-checkpoints.md) | The investigation graph: 13 nodes, checkpointed under the run's lease, no interrupts, pins checked on resume |
 | [0019](docs/adr/0019-agent-identities-delegations-and-agent-tokens.md) | Agent identities: delegations, 120-second agent tokens from the Identity Service, and agents that only read and draft |
 | [0020](docs/adr/0020-windops-mcp-and-agent-allowlists.md) | WindOps MCP for the platform's own records, and each agent's allowlist enforced where its tokens are minted |
+| [0021](docs/adr/0021-the-agents-and-skills-on-deep-agents.md) | The six agents and six skills on restricted Deep Agents, every call through the Claude policy, rehearsed at no cost |
 
 ## Repository layout
 

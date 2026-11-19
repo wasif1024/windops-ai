@@ -15,7 +15,11 @@ FROM python:3.13-slim-bookworm@sha256:413041be39649714885528a06586416279db85744b
 RUN python -m pip uninstall --yes --quiet --root-user-action=ignore pip setuptools wheel
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+# The agents' definitions and skills, which each run pins by hash (ADR 0021).
+COPY agents /app/agents
+COPY skills /app/skills
+ENV PATH="/app/.venv/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    WINDOPS_AGENTS_ROOT=/app
 USER 10001:10001
 EXPOSE 50051 8080
 CMD ["python", "-m", "windops_agent_runtime.main"]

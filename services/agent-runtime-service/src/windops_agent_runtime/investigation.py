@@ -15,18 +15,21 @@ own (step 14, Phase 10).
 **Pins:** a run pins the graph's version and shape, and the prompt, tool and skill versions it
 uses (AGT-004). A resume under different pins ends the run as stale (AGT-005).
 
-**What each step does now:** only steps 1, 2, 3 and 13 have work to do, and none of them changes a
-case yet. Steps 4 to 12 come with the agents, their tools and structured results (M8.6 to M8.8,
-Phase 9). Until then each records a data gap naming its module, so a run's result says plainly
-what was not done. Step 4 can, for checks, ask the Supervisor for a one-line plan, a real call to
-Claude, to prove that a resumed run never makes the same call twice. Investigation starts runs,
-and step 13 sets the case to pending_review, once the steps have content (M8.11).
+**What each step does now (M8.7, ADR 0021):** step 5 runs the team. Steps 4 to 9 happen inside
+it: the Supervisor plans, delegates to its specialists, and synthesizes their findings. Steps 6
+to 8 and 11 then record, from the tools the team called, whether each happened, and name a data
+gap where it did not. Validating the report's structure (step 10) comes in M8.8, and the
+recommendation and draft (step 12) in M8.8 and Phase 9. A run started without the team records a
+gap for each, and, for checks, step 4 can ask the Supervisor for a one-line plan: a real call to
+Claude, to prove a resumed run never makes it twice. Investigation starts runs, and step 13 sets
+the case to pending_review, from M8.11.
 """
 
 import asyncio
 import hashlib
 import json
 import operator
+import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -38,9 +41,12 @@ from langgraph.graph import END, START, StateGraph
 from windops_claude import stable_system
 from windops_grpc import InvalidRequestError
 
+from windops_agent_runtime.team import rehearsal
+from windops_agent_runtime.team.definitions import team
 from windops_agent_runtime.workflows import ClaudeUnavailableError, Context, StepFailedError
 
-GRAPH_VERSION = "1"
+GRAPH_VERSION = "2"
+_TURBINE = re.compile(r"[A-Za-z0-9_.:-]{1,64}")
 # SRS 5.4 steps 1 to 13, in order, and the module that gives each its content.
 STEPS: tuple[tuple[str, str], ...] = (
     ("receive", "M8.4"),
@@ -71,19 +77,30 @@ class State(TypedDict):
     data_gaps: Annotated[list[str], operator.add]
     plan: str
     concluded_at: str
+    # The Supervisor's report, whom it asked, and every tool its team called (M8.7).
+    report: str
+    delegated: Annotated[list[str], operator.add]
+    tools_used: Annotated[list[str], operator.add]
 
 
 def pins_of(parameters: Mapping[str, Any]) -> dict[str, Any]:
     """What a run is pinned to (AGT-004). Prompts, tools and skills join as their modules land."""
     shape = "|".join(name for name, _ in STEPS)
+    prompts: dict[str, str] = {}
+    tools: dict[str, str] = {}
+    skills: dict[str, str] = {}
+    if parameters.get("plan_with_claude"):
+        prompts["plan"] = hashlib.sha256(_PLANNER.encode()).hexdigest()
+    if parameters.get("team"):
+        pinned = team().pins()
+        prompts.update(pinned["prompts"])
+        tools, skills = pinned["tools"], pinned["skills"]
     return {
         "graph": f"investigation@{GRAPH_VERSION}",
         "graph_shape": hashlib.sha256(shape.encode()).hexdigest(),
-        "prompts": {"plan": hashlib.sha256(_PLANNER.encode()).hexdigest()}
-        if parameters.get("plan_with_claude")
-        else {},
-        "tools": {},
-        "skills": {},
+        "prompts": prompts,
+        "tools": tools,
+        "skills": skills,
     }
 
 
@@ -117,8 +134,11 @@ def build(context: Context, parameters: Mapping[str, Any]) -> StateGraph[State]:
         return {"data_gaps": ["snapshot: read through WindOps MCP from M8.6"]}
 
     async def plan(state: State) -> dict[str, Any]:
+        if parameters.get("team"):
+            # The Supervisor plans at the start of its own run, in step 5.
+            return {}
         if not parameters.get("plan_with_claude"):
-            return {"data_gaps": ["plan: the Supervisor plans from M8.7"]}
+            return {"data_gaps": ["plan: the run was started without the agents"]}
         claude = context.claude
         if claude is None:
             raise ClaudeUnavailableError("The run asked for a plan, and the runtime has no key")
@@ -127,6 +147,42 @@ def build(context: Context, parameters: Mapping[str, Any]) -> StateGraph[State]:
             [stable_system(_PLANNER), HumanMessage(f"Case {state['case_id']}: a synthetic check.")],
         )
         return {"plan": result.message.text.strip()[:500]}
+
+    async def specialists(state: State) -> dict[str, Any]:
+        if not parameters.get("team"):
+            return {"data_gaps": ["specialists: the run was started without the agents"]}
+        runner = context.team
+        if runner is None:
+            raise ClaudeUnavailableError(
+                "The run needs its agents, and the runtime cannot run them"
+            )
+        # Steps 4 to 9 happen inside: the Supervisor plans, delegates and synthesizes.
+        scripted = None
+        if parameters.get("rehearse"):
+            scripted = rehearsal.models(
+                state["case_id"], state["snapshot_id"], str(parameters["turbine_id"])
+            )
+        found = await runner.investigate(state["case_id"], state["snapshot_id"], model=scripted)
+        return {"report": found.report, "delegated": list(found.delegated),
+                "tools_used": list(found.tools_used)}  # fmt: skip
+
+    def used(state: State, *names: str) -> bool:
+        return any(tool.startswith(names) for tool in state["tools_used"])
+
+    def covered(step: str, gap: str, *tools: str) -> Node:
+        """Steps 6 to 8 and 11 happen inside the team's run: say whether they did."""
+
+        async def check_used(state: State) -> dict[str, Any]:
+            if not parameters.get("team"):
+                return {"data_gaps": [f"{step}: arrives with the agents"]}
+            return {} if used(state, *tools) else {"data_gaps": [f"{step}: {gap}"]}
+
+        return check_used
+
+    async def aggregate(state: State) -> dict[str, Any]:
+        if parameters.get("team") and state["report"]:
+            return {}
+        return {"data_gaps": ["aggregate: there is no report from the Supervisor"]}
 
     async def conclude(state: State) -> dict[str, Any]:
         # Setting the case to pending_review comes with Investigation's side of the run (M8.11).
@@ -144,6 +200,15 @@ def build(context: Context, parameters: Mapping[str, Any]) -> StateGraph[State]:
 
     own: dict[str, Node] = {
         "receive": receive, "validate": nothing, "snapshot": snapshot, "plan": plan,
+        "specialists": specialists,
+        "documents": covered("documents", "no specialist searched the approved documents",
+                             "documentation_"),
+        "research": covered("research", "no specialist read the forecast or researched",
+                            "weather_", "tavily_"),
+        "impact": covered("impact", "no estimate was asked for", "windops_estimate_impact"),
+        "aggregate": aggregate,
+        "policy_checks": covered("policy_checks", "no proposal was checked against policy",
+                                 "windops_check_policy"),
         "conclude": conclude,
     }  # fmt: skip
     previous = START
@@ -161,7 +226,9 @@ class Investigation:
     version: str = GRAPH_VERSION
 
     def check(self, parameters: Mapping[str, str]) -> dict[str, Any]:
-        unknown = set(parameters) - {"step_seconds", "plan_with_claude"}
+        unknown = set(parameters) - {
+            "step_seconds", "plan_with_claude", "team", "rehearse", "turbine_id",
+        }  # fmt: skip
         if unknown:
             raise InvalidRequestError(f"Unknown parameters: {', '.join(sorted(unknown))}")
         try:
@@ -173,7 +240,19 @@ class Investigation:
         plan = parameters.get("plan_with_claude", "false")
         if plan not in ("true", "false"):
             raise InvalidRequestError("plan_with_claude must be true or false")
-        return {"step_seconds": seconds, "plan_with_claude": plan == "true"}
+        agents = parameters.get("team", "true")
+        if agents not in ("true", "false"):
+            raise InvalidRequestError("team must be true or false")
+        # A rehearsal runs the real team on a scripted model: no call reaches Claude (M8.7).
+        rehearse = parameters.get("rehearse", "false")
+        if rehearse not in ("true", "false"):
+            raise InvalidRequestError("rehearse must be true or false")
+        turbine = parameters.get("turbine_id", "")
+        if rehearse == "true" and not (agents == "true" and _TURBINE.fullmatch(turbine)):
+            raise InvalidRequestError("A rehearsal needs the team and a turbine_id")
+        return {"step_seconds": seconds, "plan_with_claude": plan == "true",
+                "team": agents == "true", "rehearse": rehearse == "true",
+                "turbine_id": turbine}  # fmt: skip
 
     def total_steps(self, parameters: Mapping[str, Any]) -> int:
         return len(STEPS)
@@ -194,7 +273,7 @@ class Investigation:
         # A new run starts from its inputs. A run claimed again carries on from its checkpoint.
         inputs: State | None = None if started is not None else State(
             case_id=context.case_id, snapshot_id=context.snapshot_id, completed=[], data_gaps=[],
-            plan="", concluded_at="",
+            plan="", concluded_at="", report="", delegated=[], tools_used=[],
         )  # fmt: skip
         # "sync": each checkpoint is written before the next node starts, so a worker that stops
         # loses at most the node it was in.

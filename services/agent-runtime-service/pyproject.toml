@@ -5,7 +5,10 @@ description = "WindOps agent runtime: agent runs as queued jobs, on worker repli
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    # The official MCP SDK, on its 1.x line, as the servers use it (ADR 0014).
+    "mcp>=1.30.0,<2",
     # Pinned exactly, as confirmed by make vendor-check (ADR 0015).
+    "deepagents==0.7.32",
     "langgraph==1.2.19",
     "langgraph-checkpoint==4.3.1",
     "windops-auth",

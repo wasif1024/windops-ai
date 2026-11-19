@@ -1,0 +1,19 @@
+# The Supervisor (SRS 5.3). Its model and effort come from claude-policy.yaml, by role (LLM-001).
+# Its tools must match its allowlist in the Identity Service (ADR 0020): a test checks.
+name: supervisor
+version: 1
+role: supervisor
+description: Plans a bounded investigation, delegates to specialists, synthesizes their findings, and checks policy.
+tools:
+  - mcp.windops.get_case
+  - mcp.windops.list_cases
+  - mcp.windops.get_evidence
+  - mcp.windops.check_policy
+skills: []
+# The specialists it may delegate to, by name, through Deep Agents' task tool.
+delegates:
+  - scada-analyst
+  - reliability-engineer
+  - production-impact
+  - maintenance-planner
+  - safety-researcher

@@ -5,7 +5,7 @@
 # content hash in policy.lock.json. A test fails until both are done, so no change slips in
 # unnoticed. A model or effort change must also pass the Section 10 gates before release
 # (LLM-002). Each run pins the version and hash it started with (AGT-004).
-version: 1
+version: 2
 
 # Each role's model and effort, set explicitly: Opus 5.5 would otherwise default to medium
 # (LLM-003). max_tokens bounds one call's output, thinking included.
@@ -43,9 +43,10 @@ pricing:
       rates:
         {input: 0.50, cache_write_5m: 0.625, cache_write_1h: 1.00, cache_read: 0.05, output: 2.50}
 
-# Each investigation's budget, per tenant (LLM-010). Tokens count what the model processed: input
-# not read from the cache, cache writes and output. Cache reads count only in the cost. A run that
-# reaches either ends as budget_exhausted, and a person is alerted.
+# Each investigation's budget, per tenant (LLM-010, SRS 5.6). Tokens count what the model
+# processed: input not read from the cache, cache writes and output. Cache reads count only in the
+# cost. Tool calls count every agent's together. A run that reaches any ends as budget_exhausted,
+# and a person is alerted.
 budgets:
-  default: {tokens: 2000000, cost_usd: 10.00}
+  default: {tokens: 2000000, cost_usd: 10.00, tool_calls: 50}
   tenants: {}

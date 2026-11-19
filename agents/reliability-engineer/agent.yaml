@@ -1,0 +1,15 @@
+# The Reliability Engineer (SRS 5.3). Model and effort come from claude-policy.yaml, by role (LLM-001).
+# It reads documents, which are external content, so it holds no write tool (MCP-006).
+name: reliability-engineer
+version: 1
+role: reliability-engineer
+description: Assesses likely failure modes from manuals, procedures and the turbine's fault history, citing each source and stating uncertainty.
+tools:
+  - mcp.documentation.search_documents
+  - mcp.documentation.read_passage
+  - mcp.windops.get_turbine
+  - mcp.windops.list_cases
+  - mcp.windops.get_evidence
+skills:
+  - gearbox-diagnostics
+  - vibration-analysis

@@ -54,7 +54,8 @@ SNAPSHOT = "evs_" + "h" * 20
 def start(key: str, **parameters: str) -> pb.Run:
     with runtime(investigation_bundle(), signing_key()) as api:
         request = pb.StartRunRequest(
-            case_id=CASE, snapshot_id=SNAPSHOT, workflow="investigation", parameters=parameters,
+            case_id=CASE, snapshot_id=SNAPSHOT, workflow="investigation",
+            parameters={"team": "false", **parameters},
             requested_by="user:workflow-check-engineer",
             idempotency_key=f"workflow-check-{RUN}-{key}",
         )  # fmt: skip
@@ -85,7 +86,7 @@ def ended(run_id: str, timeout: float = 240) -> dict[str, object]:
 def check_kill() -> None:
     run = start("kill", step_seconds="2", plan_with_claude="true")
     check(
-        run.status == "queued" and '"graph":"investigation@1"' in run.pins_json,
+        run.status == "queued" and '"graph":"investigation@2"' in run.pins_json,
         "An investigation run is queued, pinned to its graph and its prompts (AGT-004)",
     )
     before = wait_for(

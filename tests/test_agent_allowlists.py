@@ -87,3 +87,13 @@ def test_a_bad_allowlist_stops_the_service_from_starting(
     monkeypatch.setattr(targets, "WRITE_TOOLS", frozenset({"mcp.windops.create_draft"}))
     with pytest.raises(ValueError):
         check_allowlists()
+
+
+def test_each_agents_definition_names_exactly_its_allowlist() -> None:
+    """An agent's definition and its tokens can never drift apart (M8.7, ADR 0021)."""
+    from windops_agent_runtime.team.definitions import team
+
+    agents = team().agents
+    assert set(agents) == set(AGENT_TOOLS)
+    for name, agent in agents.items():
+        assert set(agent.tools) == AGENT_TOOLS[name], name
