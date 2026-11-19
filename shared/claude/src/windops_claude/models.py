@@ -40,8 +40,12 @@ def chat_model(
     max_tokens: int | None = None,
     max_retries: int = 2,
     timeout_seconds: float = 300.0,
+    base_url: str | None = None,
 ) -> ChatAnthropic:
+    """base_url is only for a stand-in of the API, as a dry run uses; otherwise Anthropic's."""
     options = request_options(policy.role(role_name), max_tokens)
+    if base_url is not None:
+        options["base_url"] = base_url
     return ChatAnthropic(  # type: ignore[call-arg]
         api_key=SecretStr(api_key),
         max_retries=max_retries,

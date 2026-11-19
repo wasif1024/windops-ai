@@ -15,6 +15,20 @@ CERTIFICATE_FILE = "tls.crt"
 PRIVATE_KEY_FILE = "tls.key"
 AUTHORITY_FILE = "ca.crt"
 WATCH_SECONDS = 30.0
+# Every channel pings its server every 20 seconds, and gives up on a connection that does not
+# answer within 10. Without this, a connection to a pod that has gone, as after a rollout, hangs
+# every call until the operating system notices, minutes later, while the new pod waits unused.
+CHANNEL_OPTIONS = (
+    ("grpc.keepalive_time_ms", 20_000),
+    ("grpc.keepalive_timeout_ms", 10_000),
+    ("grpc.keepalive_permit_without_calls", 1),
+    ("grpc.http2.max_pings_without_data", 0),
+)
+# What a server accepts, so those pings are never taken for abuse.
+SERVER_OPTIONS = (
+    ("grpc.keepalive_permit_without_calls", 1),
+    ("grpc.http2.min_recv_ping_interval_without_data_ms", 10_000),
+)
 _COMMON_NAME = "x509_common_name"
 
 
@@ -45,8 +59,10 @@ def channel_credentials(directory: Path) -> grpc.ChannelCredentials:
 def create_channel(target: str, tls_directory: Path | None) -> grpc.aio.Channel:
     """Open a channel. Without a directory it is plain, which only tests can reach (Settings)."""
     if tls_directory is None:
-        return grpc.aio.insecure_channel(target)
-    return grpc.aio.secure_channel(target, channel_credentials(tls_directory))
+        return grpc.aio.insecure_channel(target, options=CHANNEL_OPTIONS)
+    return grpc.aio.secure_channel(
+        target, channel_credentials(tls_directory), options=CHANNEL_OPTIONS
+    )
 
 
 def peer_service(context: Any) -> str | None:

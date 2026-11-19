@@ -3,7 +3,8 @@
 Each call is counted with its role, the model that served it, its stop reason and whether it
 fell back, and its tokens, cost and latency are added up. A call that fails before Claude
 answers is counted by what failed: rate limited, overloaded, timed out, unreachable, refused
-by the API, or out of budget. Labels are fixed values only, never content.
+by the API, or out of budget. Labels are fixed values only, never content. Each carries its
+provider: "anthropic", or "stand-in" for a dry run's stand-in API, which the dashboards leave out.
 """
 
 import time
@@ -55,9 +56,9 @@ def error_kind(error: BaseException) -> str:
     return "other"
 
 
-def answered(call: Call) -> None:
+def answered(call: Call, provider: str = "anthropic") -> None:
     """Count a call Claude answered, whatever its stop reason: every answer is paid for."""
-    labels = {"role": call.role, "model": call.served_model}
+    labels = {"role": call.role, "model": call.served_model, "provider": provider}
     _calls.add(1, {**labels, "stop_reason": call.stop_reason or "unknown",
                    "fallback": call.fallback})  # fmt: skip
     usage = call.usage
@@ -73,7 +74,7 @@ def answered(call: Call) -> None:
 
 
 @contextmanager
-def timed(role: str, model: str) -> Iterator[None]:
+def timed(role: str, model: str, provider: str = "anthropic") -> Iterator[None]:
     """Time one call to Claude, and count it as an error if no answer came."""
     started = time.perf_counter()
     outcome = "answered"
@@ -81,8 +82,9 @@ def timed(role: str, model: str) -> Iterator[None]:
         yield
     except BaseException as error:
         outcome = error_kind(error)
-        _errors.add(1, {"role": role, "model": model, "error": outcome})
+        _errors.add(1, {"role": role, "model": model, "provider": provider, "error": outcome})
         raise
     finally:
         _duration.record(time.perf_counter() - started,
-                         {"role": role, "model": model, "outcome": outcome})  # fmt: skip
+                         {"role": role, "model": model, "provider": provider,
+                          "outcome": outcome})  # fmt: skip

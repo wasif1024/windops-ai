@@ -86,6 +86,7 @@ BUILT_TARGETS = {
     "sandbox-check",
     "progress-check",
     "regression",
+    "phase-8-gate",
     "claude-check",
     "claude-policy-lock",
     "frontend-test",

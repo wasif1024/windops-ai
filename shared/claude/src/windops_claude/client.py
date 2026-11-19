@@ -49,9 +49,13 @@ class Claude:
         *,
         inference_geo: str = "global",
         make_model: Callable[..., ChatAnthropic] = models.chat_model,
+        provider: str = "anthropic",
     ) -> None:
         self.policy, self._meter, self._api_key = policy, meter, api_key
         self._geo, self._make = inference_geo, make_model
+        # "anthropic", or "stand-in" for a dry run's stand-in API, so its calls are never
+        # counted as Claude's on the LLM Operations dashboard.
+        self.provider = provider
 
     async def invoke(
         self,
@@ -70,7 +74,7 @@ class Claude:
         parsed: BaseModel | None = None
         parsing_error: Any = None
         # Its latency, and what failed if no answer came (SRS 10.3).
-        with telemetry.timed(role_name, role.model):
+        with telemetry.timed(role_name, role.model, self.provider):
             if schema is None:
                 # Options such as bound tools, as a caller like Deep Agents binds them.
                 message = await model.ainvoke(list(messages), **dict(options or {}))
@@ -91,7 +95,7 @@ class Claude:
             cost_usd=cost_usd(self.policy.pricing, response.served_model, response.usage,
                               inference_geo=self._geo),
         )  # fmt: skip
-        telemetry.answered(call)
+        telemetry.answered(call, self.provider)
         await self._meter.charge(call)
         responses.check(message, role.model)
         if guard is not None:

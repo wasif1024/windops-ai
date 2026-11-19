@@ -22,8 +22,9 @@ event ID (API-003). An event is keyed by what it records, so two replicas follow
 run add each step once. Events never change.
 
 **What a run costs:** `WINDOPS_INVESTIGATION_AGENTS` says how runs are started. `rehearse` runs
-the real team on a scripted model, with no call to Claude; `claude` runs it on Claude; `off`
-starts none. The deployments say `rehearse` until the exit gate (M8.13) turns Claude on.
+the real team on a scripted model, with no call to Claude; `stand_in` runs it on the real Claude
+client against the runtime's stand-in API, also free; `claude` runs it on Claude; `off` starts
+none. The deployments say `rehearse` until the exit gate (M8.13) turns Claude on.
 """
 
 import asyncio
@@ -69,7 +70,7 @@ WAITING, RUNNING, COMPLETED, ENDED, NOT_STARTED = (
     "waiting", "running", "completed", "ended", "not_started",
 )  # fmt: skip
 OVER = (COMPLETED, ENDED, NOT_STARTED)
-MODES = ("rehearse", "claude", "off")
+MODES = ("rehearse", "stand_in", "claude", "off")
 # The longest a delegation may last (ADR 0019), so a run has the time it needs.
 DELEGATION_SECONDS = 4 * 3600
 # A run needs time left under its delegation; one with less is not started.
@@ -102,6 +103,9 @@ def parameters_for(mode: str, turbine_id: str) -> dict[str, str]:
     """The investigation workflow's parameters: the team, rehearsed unless Claude is on."""
     if mode == "claude":
         return {"team": "true"}
+    if mode == "stand_in":
+        # A dry run: the real Claude client, against the runtime's stand-in API (ADR 0027).
+        return {"team": "true", "stand_in": "true"}
     return {"team": "true", "rehearse": "true", "turbine_id": turbine_id}
 
 

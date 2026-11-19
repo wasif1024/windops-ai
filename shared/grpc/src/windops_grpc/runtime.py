@@ -19,7 +19,7 @@ from windops_observability import ServiceInfo, Telemetry, configure_logging, con
 
 from windops_grpc.interceptor import ServerContextInterceptor
 from windops_grpc.settings import Settings
-from windops_grpc.tls import server_credentials, stop_when_certificate_changes
+from windops_grpc.tls import SERVER_OPTIONS, server_credentials, stop_when_certificate_changes
 
 logger = logging.getLogger("windops.service")
 
@@ -153,7 +153,7 @@ class ServiceRuntime:
         interceptor = ServerContextInterceptor(
             settings.identity_secret, meter_provider=self._telemetry.meter_provider
         )
-        server = grpc.aio.server(interceptors=[interceptor])
+        server = grpc.aio.server(interceptors=[interceptor], options=SERVER_OPTIONS)
         health_pb2_grpc.add_HealthServicer_to_server(self._health, server)
         await self._set_serving(False)
         self._register(server)

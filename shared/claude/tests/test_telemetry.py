@@ -45,7 +45,7 @@ def test_an_answer_counts_its_tokens_by_kind_its_cost_and_its_stop_reason(
     recorded: dict[str, Recorder],
 ) -> None:
     telemetry.answered(call())
-    labels = {"role": "supervisor", "model": "claude-opus-5-5"}
+    labels = {"role": "supervisor", "model": "claude-opus-5-5", "provider": "anthropic"}
     assert recorded["_calls"].seen == [
         (1, {**labels, "stop_reason": "end_turn", "fallback": False})
     ]
@@ -92,7 +92,15 @@ def test_a_call_with_no_answer_is_counted_by_what_failed(
     with pytest.raises(type(error)), telemetry.timed("scada-analyst", "claude-opus-5-5"):
         raise error
     assert recorded["_errors"].seen == [
-        (1, {"role": "scada-analyst", "model": "claude-opus-5-5", "error": kind})
+        (
+            1,
+            {
+                "role": "scada-analyst",
+                "model": "claude-opus-5-5",
+                "provider": "anthropic",
+                "error": kind,
+            },
+        )
     ]
     ((seconds, labels),) = recorded["_duration"].seen
     assert seconds >= 0 and labels["outcome"] == kind
