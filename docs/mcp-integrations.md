@@ -42,6 +42,8 @@ Every tool has a timeout and two limits: a rate for each caller each minute, and
 | `windops.get_evidence` | Gives a frozen evidence snapshot's items, each item's content clipped at 4,000 characters | None | 10s | 30 | 2,000 |
 | `windops.estimate_impact` | Gets the Production Impact Service's deterministic estimate for an action on a case | None | 20s | 10 | 500 |
 | `windops.check_policy` | Gets the Policy Service's deterministic outcome on a proposed action: pass, escalate or block | None | 20s | 10 | 500 |
+| `windops.find_parts` | Finds spare parts that fit a turbine's model, with how many are available in its wind farm's store. Holds nothing | None | 10s | 30 | 2,000 |
+| `windops.check_parts` | Checks whether named parts fit a turbine and are available in its wind farm's store: available, short, incompatible, retired or unknown. Holds nothing | None | 10s | 30 | 2,000 |
 | `windops.create_draft_work_order` | Drafts a work order for a case, validated at once, returning its problems. The one write tool any agent holds: only the Maintenance Planner's, as it reads no external content | Draft only | 20s | 10 | 200 |
 | `filesystem.list_files` | Lists a folder in `documents` or `evaluations` | None | 5s | 60 | 4,000 |
 | `filesystem.read_file` | Reads one UTF-8 file of at most 256 KiB: `.md`, `.txt`, `.json`, `.yaml`, `.yml` or `.csv` | The file | 5s | 60 | 4,000 |

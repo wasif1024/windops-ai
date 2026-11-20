@@ -22,8 +22,8 @@ service MaintenanceService {
   rpc CreateDraft(CreateDraftRequest) returns (CreateDraftResponse);
   // Replaces a draft's plan. Only a draft changes, and only from the revision the caller saw.
   rpc UpdateDraft(UpdateDraftRequest) returns (UpdateDraftResponse);
-  // Checks a work order again, now: the turbine, the plan, its procedures, and the Policy
-  // Service's rules (FR-MNT-002). The result is kept with it.
+  // Checks a work order again, now: the turbine, the plan, its procedures, its parts, and the
+  // Policy Service's rules (FR-MNT-002). The result is kept with it.
   rpc ValidateWorkOrder(ValidateWorkOrderRequest) returns (ValidateWorkOrderResponse);
   // Validates it, then submits it for a decision, announcing workorder.submitted. Refused while
   // any blocking problem stands. Only a person, never an agent.
@@ -44,7 +44,8 @@ message Task {
   bool requires_climb = 4;
 }
 
-// A part the work needs. The Inventory Service checks it fits and is in stock (M9.2).
+// A part the work needs. The Inventory Service checks it fits the turbine and is in its wind
+// farm's store (M9.2). Naming it holds nothing: only a person reserves.
 message PartLine {
   string part_number = 1;
   int32 quantity = 2;
@@ -77,6 +78,16 @@ message Problem {
   bool blocking = 4;
 }
 
+// What the Inventory Service found for one of the plan's parts, when checked.
+message PartAvailability {
+  string part_number = 1;
+  int32 quantity = 2;
+  // "available", "short", "incompatible", "retired" or "unknown".
+  string status = 3;
+  // Available in the turbine's wind farm's store when checked.
+  int64 available = 4;
+}
+
 message Validation {
   google.protobuf.Timestamp checked_at = 1;
   // No blocking problem.
@@ -87,6 +98,8 @@ message Validation {
   // The Policy Service's result: "pass", "escalate" or "block". Empty if it could not be asked.
   string policy_outcome = 5;
   string policy_result_id = 6;
+  // Each of the plan's parts, in order. Empty if the Inventory Service could not be asked.
+  repeated PartAvailability parts = 7;
 }
 
 message WorkOrder {

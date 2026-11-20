@@ -15,6 +15,8 @@ applies to every call. Its tools are in [ADR 0020](../../docs/adr/0020-windops-m
 | `get_evidence` | Investigation | A frozen evidence snapshot, item by item |
 | `estimate_impact` | Production Impact | A deterministic estimate, each figure with its range and assumptions |
 | `check_policy` | Policy | The deterministic rules' outcome on a proposed action |
+| `find_parts` | Asset, Inventory | Parts that fit a turbine's model, with how many its wind farm's store has available (ADR 0030) |
+| `check_parts` | Asset, Inventory | Whether named parts fit a turbine and are available in its store, now (ADR 0030) |
 | `create_draft_work_order` | Maintenance | A draft work order, validated at once: the one change an agent may make (ADR 0029) |
 
 **Tenant and permissions:**
@@ -24,9 +26,9 @@ applies to every call. Its tools are in [ADR 0020](../../docs/adr/0020-windops-m
   (SEC-009).
 - **Outputs:** they name only the fields an agent needs. No user's ID reaches one.
 
-**Nothing here changes a record.** `estimate_impact` and `check_policy` keep the result they compute, as their
-services always do, so a later step can cite it. A retry by the same caller gets the same result. Parts and drafts
-come with the Inventory and Maintenance services (Phase 9).
+**Nothing else here changes a record.** `estimate_impact` and `check_policy` keep the result they compute, as their
+services always do, so a later step can cite it. A retry by the same caller gets the same result. A part an agent
+finds or checks is a suggestion: nothing is reserved, and only a person reserves (FR-INVT-002).
 
 ## Check it
 

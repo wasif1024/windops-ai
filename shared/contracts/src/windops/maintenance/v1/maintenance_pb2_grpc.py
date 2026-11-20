@@ -115,8 +115,8 @@ class MaintenanceServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def ValidateWorkOrder(self, request, context):
-        """Checks a work order again, now: the turbine, the plan, its procedures, and the Policy
-        Service's rules (FR-MNT-002). The result is kept with it.
+        """Checks a work order again, now: the turbine, the plan, its procedures, its parts, and the
+        Policy Service's rules (FR-MNT-002). The result is kept with it.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

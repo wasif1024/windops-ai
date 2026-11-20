@@ -26,6 +26,7 @@ members = [
     "services/external-intelligence-service",
     "services/fault-detection-service",
     "services/identity-service",
+    "services/inventory-service",
     "services/investigation-service",
     "services/knowledge-service",
     "services/maintenance-service",
@@ -92,6 +93,7 @@ windops-agent-runtime = { workspace = true }
 windops-agent-sandbox = { workspace = true }
 windops-external-intelligence = { workspace = true }
 windops-maintenance = { workspace = true }
+windops-inventory = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -144,6 +146,8 @@ files = [
     "services/fault-detection-service/tests",
     "services/identity-service/src",
     "services/identity-service/tests",
+    "services/inventory-service/src",
+    "services/inventory-service/tests",
     "services/investigation-service/src",
     "services/investigation-service/tests",
     "services/knowledge-service/src",
@@ -224,6 +228,8 @@ mypy_path = [
     "services/fault-detection-service/tests",
     "services/identity-service/src",
     "services/identity-service/tests",
+    "services/inventory-service/src",
+    "services/inventory-service/tests",
     "services/investigation-service/src",
     "services/investigation-service/tests",
     "services/knowledge-service/src",
@@ -370,4 +376,5 @@ dev = [
     "windops-weather",
     "windops-web-bff",
     "windops-maintenance",
+    "windops-inventory",
 ]

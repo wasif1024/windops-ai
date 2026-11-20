@@ -1,0 +1,225 @@
+syntax = "proto3";
+
+package windops.inventory.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Spare parts: the catalog, which turbine models each part fits, the stock in each wind farm's
+// store, and reservations against work orders (SRS 4.8, FR-INVT-001 to FR-INVT-003).
+//
+// Reading: the catalog needs inventory.read anywhere in the tenant; a store's stock needs it for
+// that wind farm. Changing: the catalog needs inventory.update for the tenant, a store's stock
+// inventory.update for its wind farm, and a reservation inventory.reserve there.
+//
+// Only a person changes stock or reserves it (FR-INVT-003). An agent's part recommendation is a
+// suggestion, never a transaction (FR-INVT-002): the Authorization Service refuses an agent
+// anything but reading and drafting, and this service refuses any identity with an agent behind
+// it, or with no person, before asking. A separately authorized deterministic workflow may
+// reserve once one exists (Phase 10). The tenant comes from the caller's verified identity
+// (GRP-004). Every change is kept in the stock ledger, audited, announced as evidence.changed, and
+// may be retried with the same idempotency_key (GRP-007).
+service InventoryService {
+  // Adds a part to the catalog or replaces it, from the version the caller saw.
+  rpc PutPart(PutPartRequest) returns (PutPartResponse);
+  rpc GetPart(GetPartRequest) returns (GetPartResponse);
+  // By part number. Filtered by the turbine model it fits, its component kind, or words in its
+  // name, and with a store's stock when one is named.
+  rpc ListParts(ListPartsRequest) returns (ListPartsResponse);
+  // Adds stock to a store, or takes it away. Never below what is reserved.
+  rpc AdjustStock(AdjustStockRequest) returns (AdjustStockResponse);
+  // A part's stock in each store the caller may read.
+  rpc GetStock(GetStockRequest) returns (GetStockResponse);
+  // Whether each part fits a turbine model and is available in its wind farm's store, now. What
+  // a work order's validation asks. Nothing is held.
+  rpc CheckParts(CheckPartsRequest) returns (CheckPartsResponse);
+  // Holds parts in a store for a work order: every line, or none. Only a person.
+  rpc ReserveParts(ReservePartsRequest) returns (ReservePartsResponse);
+  // Returns a held reservation's parts to the store. Only a person.
+  rpc ReleaseReservation(ReleaseReservationRequest) returns (ReleaseReservationResponse);
+  // Newest first.
+  rpc ListReservations(ListReservationsRequest) returns (ListReservationsResponse);
+}
+
+// A turbine model, as the Asset Service names it. Matched without regard to case.
+message ModelRef {
+  string manufacturer = 1;
+  string model = 2;
+}
+
+message Part {
+  // Letters, digits and ". _ / -", such as "GBX-FAN-CAP-25UF". Unique in the tenant.
+  string part_number = 1;
+  string name = 2;
+  string description = 3;
+  // The component it belongs to, as the Asset Service's kinds, such as "gearbox".
+  string component_kind = 4;
+  // "each", "set", "kit", "litre", "kilogram" or "metre".
+  string unit = 5;
+  // The turbine models it fits.
+  repeated ModelRef fits = 6;
+  // A consumable, such as grease, that fits every model. Then `fits` is empty.
+  bool fits_any_model = 7;
+  // Kept for history, but never checked as available or reserved again.
+  bool retired = 8;
+  // From 1, each change: what PutPart's expected_version names.
+  int64 version = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// One part's stock in one wind farm's store.
+message StockLevel {
+  string part_number = 1;
+  string wind_farm_id = 2;
+  int64 on_hand = 3;
+  // Held for work orders.
+  int64 reserved = 4;
+  // On hand and not reserved.
+  int64 available = 5;
+  int64 version = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message PartLine {
+  string part_number = 1;
+  int32 quantity = 2;
+}
+
+message PartCheck {
+  string part_number = 1;
+  int32 quantity = 2;
+  // "available", "short", "incompatible", "retired" or "unknown".
+  string status = 3;
+  // Available in the store now; 0 for a part not in it.
+  int64 available = 4;
+  string name = 5;
+  string message = 6;
+}
+
+message Reservation {
+  // "rsv_" and 20 lowercase letters and digits.
+  string reservation_id = 1;
+  string work_order_id = 2;
+  string part_number = 3;
+  string wind_farm_id = 4;
+  int32 quantity = 5;
+  // "held" or "released"; "consumed" comes with Phase 10, when work is completed.
+  string status = 6;
+  string reserved_by = 7;
+  google.protobuf.Timestamp reserved_at = 8;
+  string released_by = 9;
+  google.protobuf.Timestamp released_at = 10;
+  string release_reason = 11;
+}
+
+message PutPartRequest {
+  Part part = 1;
+  // 0 to add a new part; otherwise the version being replaced.
+  int64 expected_version = 2;
+  string idempotency_key = 3;
+}
+
+message PutPartResponse {
+  Part part = 1;
+}
+
+message GetPartRequest {
+  string part_number = 1;
+}
+
+message GetPartResponse {
+  Part part = 1;
+}
+
+message ListPartsRequest {
+  // Only parts that fit this model, or any model.
+  ModelRef fits = 1;
+  string component_kind = 2;
+  // Words that must all be in the part number, name or description, without regard to case.
+  string query = 3;
+  bool include_retired = 4;
+  // With this store's stock of each part. Needs inventory.read for it.
+  string wind_farm_id = 5;
+  int32 page_size = 6;
+  string page_token = 7;
+}
+
+message ListedPart {
+  Part part = 1;
+  // Present when ListPartsRequest named a store.
+  StockLevel stock = 2;
+}
+
+message ListPartsResponse {
+  repeated ListedPart parts = 1;
+  string next_page_token = 2;
+}
+
+message AdjustStockRequest {
+  string part_number = 1;
+  string wind_farm_id = 2;
+  // Added when positive, taken away when negative; never zero.
+  int64 delta = 3;
+  // Why, such as "Delivered on PO 4471" or "Stock count".
+  string reason = 4;
+  string idempotency_key = 5;
+}
+
+message AdjustStockResponse {
+  StockLevel stock = 1;
+}
+
+message GetStockRequest {
+  string part_number = 1;
+}
+
+message GetStockResponse {
+  repeated StockLevel stock = 1;
+}
+
+message CheckPartsRequest {
+  // The turbine's model and wind farm, as the Asset Service gives them.
+  ModelRef model = 1;
+  string wind_farm_id = 2;
+  repeated PartLine lines = 3;
+}
+
+message CheckPartsResponse {
+  // In the order asked.
+  repeated PartCheck checks = 1;
+}
+
+message ReservePartsRequest {
+  string work_order_id = 1;
+  string wind_farm_id = 2;
+  repeated PartLine lines = 3;
+  string idempotency_key = 4;
+}
+
+message ReservePartsResponse {
+  repeated Reservation reservations = 1;
+}
+
+message ReleaseReservationRequest {
+  string reservation_id = 1;
+  string reason = 2;
+  string idempotency_key = 3;
+}
+
+message ReleaseReservationResponse {
+  Reservation reservation = 1;
+}
+
+message ListReservationsRequest {
+  string work_order_id = 1;
+  string wind_farm_id = 2;
+  string part_number = 3;
+  // Empty means every status.
+  repeated string statuses = 4;
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+message ListReservationsResponse {
+  repeated Reservation reservations = 1;
+  string next_page_token = 2;
+}

@@ -50,7 +50,9 @@ Global___Task: _TypeAlias = Task  # noqa: Y015
 
 @_typing.final
 class PartLine(_message.Message):
-    """A part the work needs. The Inventory Service checks it fits and is in stock (M9.2)."""
+    """A part the work needs. The Inventory Service checks it fits the turbine and is in its wind
+    farm's store (M9.2). Naming it holds nothing: only a person reserves.
+    """
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -161,6 +163,38 @@ class Problem(_message.Message):
 Global___Problem: _TypeAlias = Problem  # noqa: Y015
 
 @_typing.final
+class PartAvailability(_message.Message):
+    """What the Inventory Service found for one of the plan's parts, when checked."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PART_NUMBER_FIELD_NUMBER: _builtins.int
+    QUANTITY_FIELD_NUMBER: _builtins.int
+    STATUS_FIELD_NUMBER: _builtins.int
+    AVAILABLE_FIELD_NUMBER: _builtins.int
+    part_number: _builtins.str
+    quantity: _builtins.int
+    status: _builtins.str
+    """"available", "short", "incompatible", "retired" or "unknown"."""
+    available: _builtins.int
+    """Available in the turbine's wind farm's store when checked."""
+    def __init__(
+        self,
+        *,
+        part_number: _builtins.str = ...,
+        quantity: _builtins.int = ...,
+        status: _builtins.str = ...,
+        available: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["available", b"available", "part_number", b"part_number", "quantity", b"quantity", "status", b"status"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___PartAvailability: _TypeAlias = PartAvailability  # noqa: Y015
+
+@_typing.final
 class Validation(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -170,6 +204,7 @@ class Validation(_message.Message):
     TURBINE_STATUS_FIELD_NUMBER: _builtins.int
     POLICY_OUTCOME_FIELD_NUMBER: _builtins.int
     POLICY_RESULT_ID_FIELD_NUMBER: _builtins.int
+    PARTS_FIELD_NUMBER: _builtins.int
     passed: _builtins.bool
     """No blocking problem."""
     turbine_status: _builtins.str
@@ -181,6 +216,10 @@ class Validation(_message.Message):
     def checked_at(self) -> _timestamp_pb2.Timestamp: ...
     @_builtins.property
     def problems(self) -> _containers.RepeatedCompositeFieldContainer[Global___Problem]: ...
+    @_builtins.property
+    def parts(self) -> _containers.RepeatedCompositeFieldContainer[Global___PartAvailability]:
+        """Each of the plan's parts, in order. Empty if the Inventory Service could not be asked."""
+
     def __init__(
         self,
         *,
@@ -190,10 +229,11 @@ class Validation(_message.Message):
         turbine_status: _builtins.str = ...,
         policy_outcome: _builtins.str = ...,
         policy_result_id: _builtins.str = ...,
+        parts: _abc.Iterable[Global___PartAvailability] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["checked_at", b"checked_at"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["checked_at", b"checked_at", "passed", b"passed", "policy_outcome", b"policy_outcome", "policy_result_id", b"policy_result_id", "problems", b"problems", "turbine_status", b"turbine_status"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["checked_at", b"checked_at", "parts", b"parts", "passed", b"passed", "policy_outcome", b"policy_outcome", "policy_result_id", b"policy_result_id", "problems", b"problems", "turbine_status", b"turbine_status"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

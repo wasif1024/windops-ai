@@ -1,4 +1,5 @@
-"""A work order, validated now (FR-MNT-002): its plan, its turbine, and the Policy Service's rules.
+"""A work order, validated now (FR-MNT-002): its plan, its turbine, its parts, and the Policy
+Service's rules.
 
 Each source is asked as the caller, so it decides for them. What cannot be asked is a blocking
 problem: a submission never goes ahead on a check that did not run (SRS 7.7).
@@ -12,6 +13,7 @@ from google.protobuf.message import Message
 from google.protobuf.timestamp_pb2 import Timestamp
 from windops.asset.v1 import asset_pb2
 from windops.authorization.v1 import authorization_pb2
+from windops.inventory.v1 import inventory_pb2
 from windops.investigation.v1 import investigation_pb2
 from windops.maintenance.v1 import maintenance_pb2 as pb
 from windops.policy.v1 import policy_pb2
@@ -25,6 +27,14 @@ DEADLINE_SECONDS = 3.0
 POLICY_DEADLINE_SECONDS = 15.0
 # A turbine in these is noted for the reviewer; it does not stop the plan.
 NOTED_STATUSES = ("fault", "maintenance", "offline", "stopped")
+# What the Inventory Service found, and whether it stops submission. A shortage is for the
+# reviewer: the parts may be ordered or moved before the window. Naming a part reserves nothing.
+PART_PROBLEMS = {
+    "unknown": (True, "No such part in the catalog"),
+    "retired": (True, "The part is retired"),
+    "incompatible": (True, "It does not fit this turbine's model"),
+    "short": (False, "Not enough in the wind farm's store"),
+}
 
 
 async def ask(
@@ -55,6 +65,7 @@ class Sources(Protocol):
 
     async def case(self, case_id: str) -> Any: ...
     async def turbine(self, turbine_id: str) -> Any: ...
+    async def parts(self, turbine: Any, lines: list[pb.PartLine]) -> list[Any]: ...
     async def evaluate(
         self, case_id: str, proposal: policy_pb2.Proposal, impact_result_id: str, key: str
     ) -> Any: ...
@@ -104,6 +115,28 @@ class ServiceSources:
             )
         ).turbine
 
+    async def parts(self, turbine: Any, lines: list[pb.PartLine]) -> list[Any]:
+        request = inventory_pb2.CheckPartsRequest(
+            model=inventory_pb2.ModelRef(
+                manufacturer=turbine.model.manufacturer, model=turbine.model.model
+            ),
+            wind_farm_id=turbine.wind_farm_id,
+            lines=[
+                inventory_pb2.PartLine(part_number=line.part_number, quantity=line.quantity)
+                for line in lines
+            ],
+        )
+        return list(
+            (
+                await ask(
+                    self._clients["inventory"],
+                    self._stubs["inventory"]().CheckParts,
+                    request,
+                    "The Inventory Service",
+                )
+            ).checks
+        )
+
     async def evaluate(
         self, case_id: str, proposal: policy_pb2.Proposal, impact_result_id: str, key: str
     ) -> Any:
@@ -135,9 +168,10 @@ async def validate(
 ) -> pb.Validation:
     """Every check, with what it found. Passed when nothing blocks."""
     found = plans.check(plan, now)
-    status = ""
+    status, turbine = "", None
     try:
-        status = str((await sources.turbine(case.turbine_id)).status)
+        turbine = await sources.turbine(case.turbine_id)
+        status = str(turbine.status)
     except NotFoundError:
         found.append(
             pb.Problem(
@@ -165,6 +199,7 @@ async def validate(
                 message=f"The turbine is {status}",
             )
         )
+    available = await _parts(sources, turbine, plan, found)
     outcome = result_id = ""
     if plan.action in plans.ACTIONS:
         proposal = policy_pb2.Proposal(
@@ -214,4 +249,45 @@ async def validate(
         turbine_status=status,
         policy_outcome=outcome,
         policy_result_id=result_id,
+        parts=available,
     )
+
+
+async def _parts(
+    sources: Sources, turbine: Any, plan: pb.Plan, found: list[pb.Problem]
+) -> list[pb.PartAvailability]:
+    """Whether each part fits the turbine and is in its wind farm's store. If the Inventory
+    Service cannot say, no part is known to be available, and submission waits (SRS 7.7)."""
+    if not plan.parts or turbine is None or any(p.field.startswith("parts[") for p in found):
+        # A malformed or repeated line is already a blocking problem of the plan's own.
+        return []
+    lines = list(plan.parts)
+    try:
+        checks = await sources.parts(turbine, lines)
+    except (NotFoundError, UnavailableError):
+        found.append(
+            pb.Problem(
+                field="parts",
+                code="inventory_unavailable",
+                blocking=True,
+                message="The parts cannot be checked against inventory right now",
+            )
+        )
+        return []
+    for index, check in enumerate(checks):
+        if check.status in PART_PROBLEMS:
+            blocking, why = PART_PROBLEMS[check.status]
+            found.append(
+                pb.Problem(
+                    field=f"parts[{index}]",
+                    code=f"part_{check.status}",
+                    blocking=blocking,
+                    message=f"{check.part_number}: {check.message or why}",
+                )
+            )
+    return [
+        pb.PartAvailability(
+            part_number=c.part_number, quantity=c.quantity, status=c.status, available=c.available
+        )
+        for c in checks
+    ]

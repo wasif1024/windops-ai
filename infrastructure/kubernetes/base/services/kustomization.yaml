@@ -19,6 +19,7 @@ resources:
   - ../../../../services/external-intelligence-service/deploy
   - ../../../../services/fault-detection-service/deploy
   - ../../../../services/identity-service/deploy
+  - ../../../../services/inventory-service/deploy
   - ../../../../services/investigation-service/deploy
   - ../../../../services/knowledge-service/deploy
   - ../../../../services/maintenance-service/deploy

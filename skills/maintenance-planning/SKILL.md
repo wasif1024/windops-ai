@@ -1,7 +1,7 @@
 ---
 name: maintenance-planning
 description: How to prepare a wind turbine maintenance task for a person to decide on.
-version: 1
+version: 2
 ---
 
 # Maintenance planning
@@ -19,7 +19,9 @@ Prepare, for each proposed task:
 ## Assumptions
 
 - Name every assumption: the failure mode it treats, the parts, the crew, the weather.
-- Parts availability is unknown until the Inventory Service can be asked. Never state a part is in stock.
+- Parts: propose only parts that fit the turbine's model. A part is in stock only if `check_parts` said it was
+  available just now; a short, incompatible, retired or unknown part is named as such, never assumed.
+- A part you propose is a suggestion. Nothing is reserved until a person reserves it.
 
 ## What happens next
 
