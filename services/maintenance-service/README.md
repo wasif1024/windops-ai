@@ -29,7 +29,8 @@ stops submission; the rest are for the reviewer.
 
 The Maintenance Planner agent drafts through WindOps MCP's `create_draft_work_order`, for its principal. This service
 refuses any identity with an agent behind it, or with no person, before it submits or withdraws anything, whatever
-the Authorization Service would allow.
+the Authorization Service would allow. Each refusal is audited as `authorization.denied`, with the agent as the actor
+on its principal's behalf, so the Denials page shows it.
 
 ## Run the tests
 

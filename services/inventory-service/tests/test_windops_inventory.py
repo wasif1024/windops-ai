@@ -286,6 +286,18 @@ def test_an_agent_reads_but_never_changes_or_reserves_even_if_permissions_said_i
             )
         (level,) = await world.stock()
         assert (level.on_hand, level.reserved) == (4, 0)
+        # Each refusal is recorded, as Authorization records its own (SRS 9.4, SEC-010).
+        refusals = {(a.actor_type, a.actor_id, a.on_behalf_of, a.resource_id)
+                    for a in await world.events("audit.requested.inventory")
+                    if a.action == "authorization.denied" and a.outcome == "denied"}  # fmt: skip
+        assert refusals == {
+            ("agent", AGENT, PLANNER, "inventory.reserve"),
+            ("agent", AGENT, PLANNER, "inventory.update"),
+            ("agent", AGENT, "service:fault-investigator", "inventory.reserve"),
+            ("agent", AGENT, "service:fault-investigator", "inventory.update"),
+            ("service", "service:fault-investigator", "", "inventory.reserve"),
+            ("service", "service:fault-investigator", "", "inventory.update"),
+        }
 
     with_service(scenario, generous=True)
 

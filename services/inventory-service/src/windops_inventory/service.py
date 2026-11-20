@@ -38,6 +38,7 @@ from windops_inventory.store import (
     KeyReusedError,
     announce,
     audit,
+    denied,
     move,
     part_record,
     remember,
@@ -106,11 +107,13 @@ class InventoryService(inventory_pb2_grpc.InventoryServiceServicer):
         kind = "agent" if identity.actor else ("user" if identity.user_id else "service")
         return identity.tenant_id, who, kind
 
-    @staticmethod
-    def _person() -> None:
-        """Only a person, with no agent acting for them, changes or reserves stock."""
+    async def _person(self, permission: str) -> None:
+        """Only a person, with no agent acting for them, changes or reserves stock. A refusal is
+        recorded, as Authorization would record its own."""
         identity = current_identity()
         if identity.actor or not identity.user_id:
+            async with self._engine.begin() as connection:
+                await denied(connection, identity, permission)
             raise PermissionDeniedError(
                 "Only a person may change or reserve stock: an agent's part recommendation is "
                 "a suggestion (FR-INVT-002, FR-INVT-003)"
@@ -212,7 +215,7 @@ class InventoryService(inventory_pb2_grpc.InventoryServiceServicer):
     async def PutPart(  # noqa: N802  # The name comes from the contract.
         self, request: pb.PutPartRequest, context: Any
     ) -> pb.PutPartResponse:
-        self._person()
+        await self._person(UPDATE)
         tenant, who, kind = self._caller()
         refused = rules.part_problem(request.part)
         if refused:
@@ -404,7 +407,7 @@ class InventoryService(inventory_pb2_grpc.InventoryServiceServicer):
     async def AdjustStock(  # noqa: N802  # The name comes from the contract.
         self, request: pb.AdjustStockRequest, context: Any
     ) -> pb.AdjustStockResponse:
-        self._person()
+        await self._person(UPDATE)
         tenant, who, kind = self._caller()
         reason = request.reason.strip()
         refused = rules.wind_farm_problem(request.wind_farm_id)
@@ -602,7 +605,7 @@ class InventoryService(inventory_pb2_grpc.InventoryServiceServicer):
         self, request: pb.ReservePartsRequest, context: Any
     ) -> pb.ReservePartsResponse:
         # Before anything else: an agent never reserves, whatever it was granted (SEC-009).
-        self._person()
+        await self._person(RESERVE)
         tenant, who, kind = self._caller()
         refused = rules.wind_farm_problem(request.wind_farm_id) or rules.lines_problem(
             request.lines
@@ -736,7 +739,7 @@ class InventoryService(inventory_pb2_grpc.InventoryServiceServicer):
     async def ReleaseReservation(  # noqa: N802  # The name comes from the contract.
         self, request: pb.ReleaseReservationRequest, context: Any
     ) -> pb.ReleaseReservationResponse:
-        self._person()
+        await self._person(RESERVE)
         tenant, who, kind = self._caller()
         reason = request.reason.strip()
         if not 0 < len(reason) <= rules.MAXIMUM_REASON:

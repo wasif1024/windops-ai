@@ -98,3 +98,12 @@ with the turbine's model and wind farm. The result is kept in the validation, pa
   - **Using `evidence.changed` to mark a recommendation stale:** Phase 10.
   - **Consuming reserved parts** when work is completed: Phase 10.
   - **Parts prices** for the Production Impact Service: no unit cost is kept yet.
+
+## Amended 2026-11-20, for M9.5
+
+**The Inventory Service records its own refusals.** When it refuses an identity with an agent behind it, or with no
+person, it has not asked Authorization, so Authorization recorded nothing. It now audits the refusal itself, in the
+same shape: `authorization.denied`, naming the permission refused (`inventory.reserve` to reserve or release,
+`inventory.update` to adjust stock or change a part), with the agent as the actor on its principal's behalf
+(SEC-010). The administrator console's Denials page shows these alongside Authorization's own (SRS 9.4). `make
+agent-denial-check` proves it, for the Phase 9 exit gate.

@@ -27,7 +27,8 @@ choice of part is a suggestion ([ADR 0030](../../docs/adr/0030-parts-checked-by-
 
 **A person, never an agent (FR-INVT-002, FR-INVT-003, SEC-009).** This service refuses any identity with an agent
 behind it, or with no person, before it changes or reserves anything, whatever the Authorization Service would allow.
-A separately authorized deterministic workflow may reserve once Phase 10 adds one.
+A separately authorized deterministic workflow may reserve once Phase 10 adds one. Each refusal is audited as
+`authorization.denied`, with the agent as the actor on its principal's behalf, so the Denials page shows it.
 
 ## Checking parts
 
