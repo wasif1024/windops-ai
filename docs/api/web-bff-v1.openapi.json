@@ -69,6 +69,39 @@
         "title": "Acknowledge",
         "type": "object"
       },
+      "ActiveCase": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "turbine_id": {
+            "title": "Turbine Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "turbine_id",
+          "title",
+          "status",
+          "severity"
+        ],
+        "title": "ActiveCase",
+        "type": "object"
+      },
       "Alarm": {
         "properties": {
           "acknowledged_at": {
@@ -861,6 +894,29 @@
         "title": "Latest",
         "type": "object"
       },
+      "ListedPart": {
+        "properties": {
+          "part": {
+            "$ref": "#/components/schemas/Part"
+          },
+          "stock": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Stock"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "part",
+          "stock"
+        ],
+        "title": "ListedPart",
+        "type": "object"
+      },
       "Location": {
         "properties": {
           "latitude": {
@@ -942,6 +998,24 @@
         "title": "MfaStatus",
         "type": "object"
       },
+      "Model": {
+        "properties": {
+          "manufacturer": {
+            "title": "Manufacturer",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manufacturer",
+          "model"
+        ],
+        "title": "Model",
+        "type": "object"
+      },
       "NewBreakGlass": {
         "properties": {
           "duration_minutes": {
@@ -968,6 +1042,24 @@
           "reason"
         ],
         "title": "NewBreakGlass",
+        "type": "object"
+      },
+      "NewDraft": {
+        "properties": {
+          "case_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PlanIn"
+          }
+        },
+        "required": [
+          "case_id",
+          "plan"
+        ],
+        "title": "NewDraft",
         "type": "object"
       },
       "NewGrant": {
@@ -1125,6 +1217,191 @@
         "title": "OwnBranding",
         "type": "object"
       },
+      "Part": {
+        "properties": {
+          "component_kind": {
+            "title": "Component Kind",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "fits": {
+            "items": {
+              "$ref": "#/components/schemas/Model"
+            },
+            "title": "Fits",
+            "type": "array"
+          },
+          "fits_any_model": {
+            "title": "Fits Any Model",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "part_number": {
+            "title": "Part Number",
+            "type": "string"
+          },
+          "retired": {
+            "title": "Retired",
+            "type": "boolean"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "part_number",
+          "name",
+          "description",
+          "component_kind",
+          "unit",
+          "fits",
+          "fits_any_model",
+          "retired",
+          "version"
+        ],
+        "title": "Part",
+        "type": "object"
+      },
+      "PartAvailability": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "integer"
+          },
+          "part_number": {
+            "title": "Part Number",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "part_number",
+          "quantity",
+          "status",
+          "available"
+        ],
+        "title": "PartAvailability",
+        "type": "object"
+      },
+      "PartDetail": {
+        "properties": {
+          "part": {
+            "$ref": "#/components/schemas/Part"
+          },
+          "stock": {
+            "items": {
+              "$ref": "#/components/schemas/Stock"
+            },
+            "title": "Stock",
+            "type": "array"
+          }
+        },
+        "required": [
+          "part",
+          "stock"
+        ],
+        "title": "PartDetail",
+        "type": "object"
+      },
+      "PartLine": {
+        "properties": {
+          "part_number": {
+            "title": "Part Number",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "part_number",
+          "quantity"
+        ],
+        "title": "PartLine",
+        "type": "object"
+      },
+      "PartLineIn": {
+        "properties": {
+          "part_number": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{1,63}$",
+            "title": "Part Number",
+            "type": "string"
+          },
+          "quantity": {
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "part_number",
+          "quantity"
+        ],
+        "title": "PartLineIn",
+        "type": "object"
+      },
+      "PartSearch": {
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Model"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_page_token": {
+            "title": "Next Page Token",
+            "type": "string"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/ListedPart"
+            },
+            "title": "Parts",
+            "type": "array"
+          },
+          "turbine_id": {
+            "title": "Turbine Id",
+            "type": "string"
+          },
+          "wind_farm_id": {
+            "title": "Wind Farm Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turbine_id",
+          "wind_farm_id",
+          "model",
+          "parts",
+          "next_page_token"
+        ],
+        "title": "PartSearch",
+        "type": "object"
+      },
       "PermissionList": {
         "properties": {
           "permissions": {
@@ -1167,6 +1444,194 @@
         "title": "Permissions",
         "type": "object"
       },
+      "Plan": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "estimated_downtime_hours": {
+            "title": "Estimated Downtime Hours",
+            "type": "number"
+          },
+          "impact_result_id": {
+            "title": "Impact Result Id",
+            "type": "string"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/PartLine"
+            },
+            "title": "Parts",
+            "type": "array"
+          },
+          "planned_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned End"
+          },
+          "planned_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Start"
+          },
+          "procedures": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Procedures",
+            "type": "array"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            },
+            "title": "Tasks",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "action",
+          "summary",
+          "tasks",
+          "parts",
+          "procedures",
+          "planned_start",
+          "planned_end",
+          "estimated_downtime_hours",
+          "impact_result_id"
+        ],
+        "title": "Plan",
+        "type": "object"
+      },
+      "PlanChange": {
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PlanIn"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "plan"
+        ],
+        "title": "PlanChange",
+        "type": "object"
+      },
+      "PlanIn": {
+        "description": "A plan as the planner writes it. The Maintenance Service checks it in full; this only\nkeeps it to a sane size.",
+        "properties": {
+          "action": {
+            "pattern": "^(inspection|repair|replacement|adjustment|monitoring)$",
+            "title": "Action",
+            "type": "string"
+          },
+          "estimated_downtime_hours": {
+            "maximum": 720.0,
+            "minimum": 0.0,
+            "title": "Estimated Downtime Hours",
+            "type": "number"
+          },
+          "impact_result_id": {
+            "default": "",
+            "maxLength": 64,
+            "title": "Impact Result Id",
+            "type": "string"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/PartLineIn"
+            },
+            "maxItems": 50,
+            "title": "Parts",
+            "type": "array"
+          },
+          "planned_end": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned End"
+          },
+          "planned_start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Start"
+          },
+          "procedures": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Procedures",
+            "type": "array"
+          },
+          "summary": {
+            "maxLength": 4000,
+            "title": "Summary",
+            "type": "string"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/TaskIn"
+            },
+            "maxItems": 50,
+            "title": "Tasks",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 200,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "action",
+          "summary",
+          "tasks",
+          "estimated_downtime_hours"
+        ],
+        "title": "PlanIn",
+        "type": "object"
+      },
       "Point": {
         "properties": {
           "quality": {
@@ -1195,6 +1660,34 @@
           "quality"
         ],
         "title": "Point",
+        "type": "object"
+      },
+      "Problem": {
+        "properties": {
+          "blocking": {
+            "title": "Blocking",
+            "type": "boolean"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "code",
+          "message",
+          "blocking"
+        ],
+        "title": "Problem",
         "type": "object"
       },
       "Reading": {
@@ -1541,6 +2034,60 @@
         "title": "StartInvestigation",
         "type": "object"
       },
+      "Stock": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "integer"
+          },
+          "on_hand": {
+            "title": "On Hand",
+            "type": "integer"
+          },
+          "reserved": {
+            "title": "Reserved",
+            "type": "integer"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "wind_farm_id": {
+            "title": "Wind Farm Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "wind_farm_id",
+          "on_hand",
+          "reserved",
+          "available",
+          "updated_at"
+        ],
+        "title": "Stock",
+        "type": "object"
+      },
+      "Submission": {
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "Submission",
+        "type": "object"
+      },
       "Suspension": {
         "properties": {
           "reason": {
@@ -1554,6 +2101,74 @@
           "reason"
         ],
         "title": "Suspension",
+        "type": "object"
+      },
+      "Task": {
+        "properties": {
+          "crew_size": {
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Crew Size",
+            "type": "integer"
+          },
+          "description": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "duration_hours": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 240.0,
+            "title": "Duration Hours",
+            "type": "number"
+          },
+          "requires_climb": {
+            "title": "Requires Climb",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "description",
+          "duration_hours",
+          "crew_size",
+          "requires_climb"
+        ],
+        "title": "Task",
+        "type": "object"
+      },
+      "TaskIn": {
+        "properties": {
+          "crew_size": {
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Crew Size",
+            "type": "integer"
+          },
+          "description": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "duration_hours": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 240.0,
+            "title": "Duration Hours",
+            "type": "number"
+          },
+          "requires_climb": {
+            "title": "Requires Climb",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "description",
+          "duration_hours",
+          "crew_size",
+          "requires_climb"
+        ],
+        "title": "TaskIn",
         "type": "object"
       },
       "TelemetryWindow": {
@@ -1985,6 +2600,62 @@
         "title": "UserPage",
         "type": "object"
       },
+      "Validation": {
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/PartAvailability"
+            },
+            "title": "Parts",
+            "type": "array"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "policy_outcome": {
+            "title": "Policy Outcome",
+            "type": "string"
+          },
+          "policy_result_id": {
+            "title": "Policy Result Id",
+            "type": "string"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "turbine_status": {
+            "title": "Turbine Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "checked_at",
+          "passed",
+          "problems",
+          "turbine_status",
+          "policy_outcome",
+          "policy_result_id",
+          "parts"
+        ],
+        "title": "Validation",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -2068,6 +2739,214 @@
           "turbines"
         ],
         "title": "WindFarmSummary",
+        "type": "object"
+      },
+      "Withdrawal": {
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "Withdrawal",
+        "type": "object"
+      },
+      "WorkOrder": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "drafted_by": {
+            "title": "Drafted By",
+            "type": "string"
+          },
+          "drafted_by_agent": {
+            "title": "Drafted By Agent",
+            "type": "string"
+          },
+          "evidence_snapshot_id": {
+            "title": "Evidence Snapshot Id",
+            "type": "string"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/Plan"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "submitted_by": {
+            "title": "Submitted By",
+            "type": "string"
+          },
+          "turbine_id": {
+            "title": "Turbine Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/Validation"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "work_order_id": {
+            "title": "Work Order Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_order_id",
+          "version",
+          "revision",
+          "case_id",
+          "turbine_id",
+          "evidence_snapshot_id",
+          "plan",
+          "status",
+          "drafted_by",
+          "drafted_by_agent",
+          "created_at",
+          "updated_at",
+          "submitted_by",
+          "submitted_at",
+          "validation"
+        ],
+        "title": "WorkOrder",
+        "type": "object"
+      },
+      "WorkOrderDetail": {
+        "properties": {
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/WorkOrderEvent"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "work_order": {
+            "$ref": "#/components/schemas/WorkOrder"
+          }
+        },
+        "required": [
+          "work_order",
+          "history"
+        ],
+        "title": "WorkOrderDetail",
+        "type": "object"
+      },
+      "WorkOrderEvent": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "at",
+          "action",
+          "actor_type",
+          "actor_id",
+          "agent",
+          "revision",
+          "note"
+        ],
+        "title": "WorkOrderEvent",
+        "type": "object"
+      },
+      "WorkOrderList": {
+        "properties": {
+          "next_page_token": {
+            "title": "Next Page Token",
+            "type": "string"
+          },
+          "work_orders": {
+            "items": {
+              "$ref": "#/components/schemas/WorkOrder"
+            },
+            "title": "Work Orders",
+            "type": "array"
+          }
+        },
+        "required": [
+          "work_orders",
+          "next_page_token"
+        ],
+        "title": "WorkOrderList",
         "type": "object"
       },
       "windops_web_bff__api__Tenant": {
@@ -3768,6 +4647,142 @@
         "summary": "What the signed-in user may do, so a screen shows only that"
       }
     },
+    "/api/v1/parts": {
+      "get": {
+        "operationId": "search_parts_api_v1_parts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "turbine_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Turbine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "component_kind",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Component Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 200,
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_retired",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Retired",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Page Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartSearch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Spare parts by words or component, or those that fit a turbine, with its store's stock"
+      }
+    },
+    "/api/v1/parts/detail": {
+      "get": {
+        "operationId": "part_detail_api_v1_parts_detail_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "part_number",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{1,63}$",
+              "title": "Part Number",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One part, and its stock in each store the user may read"
+      }
+    },
     "/api/v1/platform/break-glass": {
       "get": {
         "operationId": "my_break_glass_api_v1_platform_break_glass_get",
@@ -4276,6 +5291,462 @@
           }
         },
         "summary": "The signed-in user's tenant"
+      }
+    },
+    "/api/v1/work-orders": {
+      "get": {
+        "operationId": "list_work_orders_api_v1_work_orders_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "case_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "turbine_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Turbine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 3,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Page Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrderList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Work orders the user may read, newest first, by case, turbine or status"
+      },
+      "post": {
+        "operationId": "draft_api_v1_work_orders_post",
+        "parameters": [
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewDraft"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Draft a work order for an active case. It is validated at once"
+      }
+    },
+    "/api/v1/work-orders/cases": {
+      "get": {
+        "operationId": "active_cases_api_v1_work_orders_cases_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "turbine_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Turbine Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ActiveCase"
+                  },
+                  "title": "Response Active Cases Api V1 Work Orders Cases Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Active cases the user may read, most severe and newest first, to draft for"
+      }
+    },
+    "/api/v1/work-orders/{work_order_id}": {
+      "get": {
+        "operationId": "get_work_order_api_v1_work_orders__work_order_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_order_id",
+            "required": true,
+            "schema": {
+              "pattern": "^wo_[a-z0-9]{20}$",
+              "title": "Work Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrderDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One work order, with every change to it"
+      }
+    },
+    "/api/v1/work-orders/{work_order_id}/plan": {
+      "put": {
+        "operationId": "update_api_v1_work_orders__work_order_id__plan_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_order_id",
+            "required": true,
+            "schema": {
+              "pattern": "^wo_[a-z0-9]{20}$",
+              "title": "Work Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace a draft's plan, from the revision the user saw. It is validated again"
+      }
+    },
+    "/api/v1/work-orders/{work_order_id}/submit": {
+      "post": {
+        "operationId": "submit_api_v1_work_orders__work_order_id__submit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_order_id",
+            "required": true,
+            "schema": {
+              "pattern": "^wo_[a-z0-9]{20}$",
+              "title": "Work Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Submission"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit a draft for a decision, once nothing blocks it. Only a person"
+      }
+    },
+    "/api/v1/work-orders/{work_order_id}/validate": {
+      "post": {
+        "operationId": "validate_api_v1_work_orders__work_order_id__validate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_order_id",
+            "required": true,
+            "schema": {
+              "pattern": "^wo_[a-z0-9]{20}$",
+              "title": "Work Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check a draft again now: its plan, turbine, parts and the Policy Service's rules"
+      }
+    },
+    "/api/v1/work-orders/{work_order_id}/withdraw": {
+      "post": {
+        "operationId": "withdraw_api_v1_work_orders__work_order_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_order_id",
+            "required": true,
+            "schema": {
+              "pattern": "^wo_[a-z0-9]{20}$",
+              "title": "Work Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Withdrawal"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw a draft, with a reason"
       }
     }
   }

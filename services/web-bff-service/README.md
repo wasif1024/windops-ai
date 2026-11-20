@@ -147,6 +147,28 @@ The Investigation Service decides who may investigate a turbine and read a case
 - **The browser:** `EventSource` cannot send an `Authorization` header, so the frontend reads the stream with
   `fetch`.
 
+### Maintenance planner and parts lookup (M9.4)
+
+The Maintenance Service validates every plan, decides who may draft, and lets only a person submit
+([ADR 0029](../../docs/adr/0029-work-orders-drafted-by-anyone-submitted-by-a-person.md)). The Inventory Service decides
+which stores each user may read ([ADR 0030](../../docs/adr/0030-parts-checked-by-anyone-reserved-by-a-person.md)).
+A submission blocked by its validation is `409 conflict`, and a change from a revision the user no longer sees is too.
+
+| Route | What |
+| --- | --- |
+| `GET /api/v1/work-orders?status=draft&case_id=…&turbine_id=…` | Work orders the user may read, newest first |
+| `GET /api/v1/work-orders/cases` | The active cases the user may read, to draft for |
+| `POST /api/v1/work-orders` | Draft a work order for an active case: `201`, validated at once |
+| `GET /api/v1/work-orders/{id}` | One work order, its validation part by part, and every change, an agent's included |
+| `PUT /api/v1/work-orders/{id}/plan` | Replace a draft's plan, from `expected_revision` |
+| `POST /api/v1/work-orders/{id}/validate` | Check a draft again now |
+| `POST /api/v1/work-orders/{id}/submit` | Submit a draft from `expected_revision`, once nothing blocks it |
+| `POST /api/v1/work-orders/{id}/withdraw` | Withdraw a draft, with a reason |
+| `GET /api/v1/parts?turbine_id=…&component_kind=…&query=…` | Parts by words or component. With a turbine, only those that fit its model, each with its wind farm's store's stock |
+| `GET /api/v1/parts/detail?part_number=…` | One part, and its stock in each store the user may read. A part number may hold `/` and `.`, so it is a query, not a path |
+
+Reserving parts has no route yet: it comes with approval, in Phase 10.
+
 ## Metrics
 
 For the Security dashboard (SRS 10.3), with fixed labels only:
