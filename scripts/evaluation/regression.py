@@ -391,7 +391,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         scenarios = [s for s in scenarios if s.case_id in arguments.scenario]
     passed = False
     try:
-        clean_up(TENANT, PREFIX)
+        clean_up(TENANT, PREFIX, FARM)
         bootstrap(TENANT, ENGINEER, "reliability-engineer")
         with keycloak_public() as public:
             operator = Operator(Realm(public), TENANT)
@@ -410,7 +410,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"{type(error).__name__}: {error}", file=sys.stderr)
         return 1
     finally:
-        clean_up(TENANT, PREFIX)
+        clean_up(TENANT, PREFIX, FARM)
     print("Regression passed" if passed else "Regression failed")
     return 0 if passed else 1
 

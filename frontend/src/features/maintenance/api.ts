@@ -154,5 +154,5 @@ export const POLICY_STYLE: Record<string, string> = {
 export function draftedBy(order: WorkOrder): string {
   if (!order.drafted_by_agent) return order.drafted_by;
   const agent = order.drafted_by_agent.replace(/^agent:/, "").replaceAll("-", " ");
-  return `The ${agent} agent, for ${order.drafted_by}`;
+  return `the ${agent} agent, for ${order.drafted_by}`;
 }

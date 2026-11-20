@@ -316,9 +316,10 @@ def check_evidence(engineer: Caller, telemetry: Caller, got: Any) -> None:
               "own login")  # fmt: skip
 
 
-def clean_up(tenant: str = TENANT, prefix: str = PREFIX) -> None:
+def clean_up(tenant: str = TENANT, prefix: str = PREFIX, farm: str = "") -> None:
     """Every turbine the gate has made, and all it left: telemetry, detections, cases, evidence.
-    The regression runner (M8.12) cleans its own replayed turbines the same way."""
+    The regression runner (M8.12) cleans its own replayed turbines the same way, and names its
+    farm, which goes too once no turbine is left in it."""
     mine = f"turbine_id LIKE '{prefix}%'"
     # Constants only, never input.
     frozen = f"(SELECT snapshot_id FROM telemetry_snapshots WHERE {mine})"  # noqa: S608
@@ -356,6 +357,12 @@ def clean_up(tenant: str = TENANT, prefix: str = PREFIX) -> None:
         f"SELECT set_config('windops.tenant_id', '{tenant}', false); "  # noqa: S608
         f"DELETE FROM components WHERE {mine}; DELETE FROM turbines WHERE {mine}; SELECT 1"
     )
+    if farm:
+        asset.sql(
+            f"SELECT set_config('windops.tenant_id', '{tenant}', false); "  # noqa: S608
+            f"DELETE FROM wind_farms WHERE wind_farm_id = '{farm}' AND NOT EXISTS (SELECT 1 "
+            f"FROM turbines WHERE wind_farm_id = '{farm}'); SELECT 1"
+        )
 
 
 def main() -> int:
