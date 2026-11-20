@@ -18,6 +18,7 @@ patches:
 - path: patches/windops-fault-detection.yaml
 - path: patches/windops-gateway.yaml
 - path: patches/windops-identity.yaml
+- path: patches/windops-inventory.yaml
 - path: patches/windops-investigation.yaml
 - path: patches/windops-knowledge.yaml
 - path: patches/windops-maintenance.yaml

@@ -16,11 +16,13 @@ later reaches an agent unless it is named here.
 | get_evidence | Investigation | A frozen evidence snapshot, item by item |
 | estimate_impact | Production Impact | A deterministic estimate: energy, availability and cost |
 | check_policy | Policy | Deterministic rules on a proposed action |
+| find_parts | Asset, Inventory | Parts that fit a turbine, with its wind farm's stock |
+| check_parts | Asset, Inventory | Whether named parts fit a turbine and are in stock, now |
 | create_draft_work_order | Maintenance | A draft work order: the one change an agent may make |
 
-Nothing here changes a record. `estimate_impact` and `check_policy` each keep the result they
-compute, as their services always do, and change nothing else. Parts and drafts come with the
-Inventory and Maintenance services (Phase 9).
+Nothing else here changes a record. `estimate_impact` and `check_policy` each keep the result
+they compute, as their services always do, and change nothing else. A part an agent finds or
+checks is a suggestion: nothing is reserved, and only a person reserves (FR-INVT-002).
 """
 
 import hashlib
@@ -31,6 +33,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from pydantic import Field
 from windops.alarm.v1 import alarm_pb2, alarm_pb2_grpc
 from windops.asset.v1 import asset_pb2, asset_pb2_grpc
+from windops.inventory.v1 import inventory_pb2, inventory_pb2_grpc
 from windops.investigation.v1 import investigation_pb2, investigation_pb2_grpc
 from windops.maintenance.v1 import maintenance_pb2, maintenance_pb2_grpc
 from windops.policy.v1 import policy_pb2, policy_pb2_grpc
@@ -126,6 +129,22 @@ class DraftTask(ToolInput):
 class DraftPart(ToolInput):
     part_number: str = Field(min_length=2, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9._/-]+$")
     quantity: int = Field(ge=1, le=1000)
+
+
+class PartsInput(ToolInput):
+    turbine_id: str = Field(min_length=1, max_length=64, pattern=_ID)
+    component_kind: str = Field(
+        default="", max_length=64, pattern=r"^[a-z_]*$",
+        description="Only parts for this component, such as gearbox or main_bearing",
+    )  # fmt: skip
+    query: str = Field(default="", max_length=200,
+                       description="Words in the part's number, name or description")  # fmt: skip
+    limit: int = Field(default=20, ge=1, le=50)
+
+
+class CheckPartsInput(ToolInput):
+    turbine_id: str = Field(min_length=1, max_length=64, pattern=_ID)
+    parts: list[DraftPart] = Field(min_length=1, max_length=50)
 
 
 # A knowledge passage's citation, as the Documentation server gives it.
@@ -295,6 +314,39 @@ class DraftWorkOrder(ToolOutput):
     passed: bool
     problems: list[DraftProblem]
     policy_outcome: str
+
+
+class FoundPart(ToolOutput):
+    part_number: str
+    name: str
+    description: str
+    component_kind: str
+    unit: str
+    # In the turbine's wind farm's store, now: on hand and not reserved.
+    available: int
+
+
+class FoundParts(ToolOutput):
+    turbine_id: str
+    wind_farm_id: str
+    model: str
+    parts: list[FoundPart]
+
+
+class PartStatus(ToolOutput):
+    part_number: str
+    quantity: int
+    # "available", "short", "incompatible", "retired" or "unknown".
+    status: str
+    available: int
+    message: str
+
+
+class PartsChecked(ToolOutput):
+    turbine_id: str
+    wind_farm_id: str
+    model: str
+    checks: list[PartStatus]
 
 
 class EvidenceItem(ToolOutput):
@@ -557,6 +609,54 @@ def tools(services: Services) -> list[Tool]:
             verified=result.verified,
         )  # fmt: skip
 
+    async def turbine_of(turbine_id: str) -> Any:
+        return (
+            await call("asset", asset_pb2_grpc.AssetServiceStub, "WINDOPS_ASSET_ADDRESS",
+                       "GetTurbine", asset_pb2.GetTurbineRequest(turbine_id=turbine_id))
+        ).turbine  # fmt: skip
+
+    async def find_parts(arguments: PartsInput) -> FoundParts:
+        turbine = await turbine_of(arguments.turbine_id)
+        listed = await call(
+            "inventory", inventory_pb2_grpc.InventoryServiceStub, "WINDOPS_INVENTORY_ADDRESS",
+            "ListParts",
+            inventory_pb2.ListPartsRequest(
+                fits=inventory_pb2.ModelRef(manufacturer=turbine.model.manufacturer,
+                                            model=turbine.model.model),
+                component_kind=arguments.component_kind, query=arguments.query,
+                wind_farm_id=turbine.wind_farm_id, page_size=arguments.limit,
+            ),
+        )  # fmt: skip
+        return FoundParts(
+            turbine_id=turbine.turbine_id, wind_farm_id=turbine.wind_farm_id,
+            model=f"{turbine.model.manufacturer} {turbine.model.model}",
+            parts=[FoundPart(part_number=p.part.part_number, name=p.part.name,
+                             description=_clip(p.part.description),
+                             component_kind=p.part.component_kind, unit=p.part.unit,
+                             available=p.stock.available) for p in listed.parts],
+        )  # fmt: skip
+
+    async def check_parts(arguments: CheckPartsInput) -> PartsChecked:
+        turbine = await turbine_of(arguments.turbine_id)
+        checked = await call(
+            "inventory", inventory_pb2_grpc.InventoryServiceStub, "WINDOPS_INVENTORY_ADDRESS",
+            "CheckParts",
+            inventory_pb2.CheckPartsRequest(
+                model=inventory_pb2.ModelRef(manufacturer=turbine.model.manufacturer,
+                                             model=turbine.model.model),
+                wind_farm_id=turbine.wind_farm_id,
+                lines=[inventory_pb2.PartLine(part_number=p.part_number, quantity=p.quantity)
+                       for p in arguments.parts],
+            ),
+        )  # fmt: skip
+        return PartsChecked(
+            turbine_id=turbine.turbine_id, wind_farm_id=turbine.wind_farm_id,
+            model=f"{turbine.model.manufacturer} {turbine.model.model}",
+            checks=[PartStatus(part_number=c.part_number, quantity=c.quantity, status=c.status,
+                               available=c.available, message=c.message)
+                    for c in checked.checks],
+        )  # fmt: skip
+
     async def create_draft_work_order(arguments: DraftInput) -> DraftWorkOrder:
         def stamp(value: datetime) -> Timestamp:
             made = Timestamp()
@@ -669,6 +769,16 @@ def tools(services: Services) -> list[Tool]:
              "or block, each rule with its version and reason. An agent cannot override it.",
              PolicyInput, PolicyCheck, check_policy, timeout_seconds=20, per_minute=10,
              per_day=500),
+        tool("find_parts", "Find parts for a turbine",
+             "Spare parts that fit a turbine's model, with how many are available in its wind "
+             "farm's store now. Filter by component kind or words. Finding a part holds "
+             "nothing: name it in a draft, and a person reserves it (FR-INVT-002).",
+             PartsInput, FoundParts, find_parts, timeout_seconds=10, per_minute=30),
+        tool("check_parts", "Check parts for a turbine",
+             "Whether each named part fits a turbine and how many are available in its wind "
+             "farm's store now: available, short, incompatible, retired or unknown. State a "
+             "part's availability only from this. Checking holds nothing.",
+             CheckPartsInput, PartsChecked, check_parts, timeout_seconds=10, per_minute=30),
         tool("create_draft_work_order", "Draft a work order",
              "A draft work order for a case: its tasks, crew, window, parts, the procedures it "
              "follows and the expected downtime. It is validated at once, and its problems come "

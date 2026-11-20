@@ -51,8 +51,8 @@ class MaintenanceServiceStub:
     UpdateDraft: _grpc.UnaryUnaryMultiCallable[_maintenance_pb2.UpdateDraftRequest, _maintenance_pb2.UpdateDraftResponse]
     """Replaces a draft's plan. Only a draft changes, and only from the revision the caller saw."""
     ValidateWorkOrder: _grpc.UnaryUnaryMultiCallable[_maintenance_pb2.ValidateWorkOrderRequest, _maintenance_pb2.ValidateWorkOrderResponse]
-    """Checks a work order again, now: the turbine, the plan, its procedures, and the Policy
-    Service's rules (FR-MNT-002). The result is kept with it.
+    """Checks a work order again, now: the turbine, the plan, its procedures, its parts, and the
+    Policy Service's rules (FR-MNT-002). The result is kept with it.
     """
     SubmitWorkOrder: _grpc.UnaryUnaryMultiCallable[_maintenance_pb2.SubmitWorkOrderRequest, _maintenance_pb2.SubmitWorkOrderResponse]
     """Validates it, then submits it for a decision, announcing workorder.submitted. Refused while
@@ -88,8 +88,8 @@ class MaintenanceServiceAsyncStub(MaintenanceServiceStub):
     UpdateDraft: _aio.UnaryUnaryMultiCallable[_maintenance_pb2.UpdateDraftRequest, _maintenance_pb2.UpdateDraftResponse]  # type: ignore[assignment]
     """Replaces a draft's plan. Only a draft changes, and only from the revision the caller saw."""
     ValidateWorkOrder: _aio.UnaryUnaryMultiCallable[_maintenance_pb2.ValidateWorkOrderRequest, _maintenance_pb2.ValidateWorkOrderResponse]  # type: ignore[assignment]
-    """Checks a work order again, now: the turbine, the plan, its procedures, and the Policy
-    Service's rules (FR-MNT-002). The result is kept with it.
+    """Checks a work order again, now: the turbine, the plan, its procedures, its parts, and the
+    Policy Service's rules (FR-MNT-002). The result is kept with it.
     """
     SubmitWorkOrder: _aio.UnaryUnaryMultiCallable[_maintenance_pb2.SubmitWorkOrderRequest, _maintenance_pb2.SubmitWorkOrderResponse]  # type: ignore[assignment]
     """Validates it, then submits it for a decision, announcing workorder.submitted. Refused while
@@ -140,8 +140,8 @@ class MaintenanceServiceServicer(metaclass=_abc_1.ABCMeta):
         request: _maintenance_pb2.ValidateWorkOrderRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_maintenance_pb2.ValidateWorkOrderResponse, _abc.Awaitable[_maintenance_pb2.ValidateWorkOrderResponse]]:
-        """Checks a work order again, now: the turbine, the plan, its procedures, and the Policy
-        Service's rules (FR-MNT-002). The result is kept with it.
+        """Checks a work order again, now: the turbine, the plan, its procedures, its parts, and the
+        Policy Service's rules (FR-MNT-002). The result is kept with it.
         """
 
     @_abc_1.abstractmethod

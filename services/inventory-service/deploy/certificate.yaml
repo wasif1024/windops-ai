@@ -1,0 +1,29 @@
+# This service's identity for mutual TLS (GRP-005).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: windops-inventory-tls
+  labels:
+    app.kubernetes.io/name: windops-inventory
+    app.kubernetes.io/part-of: windops
+spec:
+  secretName: windops-inventory-tls
+  commonName: windops-inventory
+  dnsNames:
+    - windops-inventory
+    - windops-inventory.windops-application
+    - windops-inventory.windops-application.svc
+    - windops-inventory.windops-application.svc.cluster.local
+  duration: 720h
+  renewBefore: 168h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - client auth
+  issuerRef:
+    name: windops-internal
+    kind: ClusterIssuer
+    group: cert-manager.io

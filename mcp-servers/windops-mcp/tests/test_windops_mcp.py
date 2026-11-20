@@ -10,6 +10,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from pydantic import ValidationError
 from windops.alarm.v1 import alarm_pb2
 from windops.asset.v1 import asset_pb2
+from windops.inventory.v1 import inventory_pb2
 from windops.investigation.v1 import investigation_pb2
 from windops.maintenance.v1 import maintenance_pb2
 from windops.policy.v1 import policy_pb2
@@ -21,9 +22,12 @@ from windops_mcp_windops.tools import (
     AlarmsInput,
     CaseInput,
     CasesInput,
+    CheckPartsInput,
     DraftInput,
+    DraftPart,
     EvidenceInput,
     ImpactInput,
+    PartsInput,
     PolicyInput,
     SummaryInput,
     TurbineInput,
@@ -122,6 +126,19 @@ class Fake:
                     estimated_by="u-operator",
                 )
             ),
+            "ListParts": inventory_pb2.ListPartsResponse(parts=[inventory_pb2.ListedPart(
+                part=inventory_pb2.Part(part_number="GBX-FAN-CAP", name="Fan capacitor",
+                                        description="25 µF", component_kind="gearbox",
+                                        unit="each", version=3),
+                stock=inventory_pb2.StockLevel(part_number="GBX-FAN-CAP",
+                                               wind_farm_id="dogger-east", on_hand=4,
+                                               reserved=1, available=3),
+            )]),
+            "CheckParts": inventory_pb2.CheckPartsResponse(checks=[
+                inventory_pb2.PartCheck(part_number="GBX-FAN-CAP", quantity=5, status="short",
+                                        available=3, name="Fan capacitor",
+                                        message="3 of 5 available in the store"),
+            ]),
             "EvaluateProposal": policy_pb2.EvaluateProposalResponse(result=policy_pb2.PolicyResult(
                 result_id="pol_1", case_id=CASE, outcome="escalate",
                 rules=[policy_pb2.RuleOutcome(rule_id="climb-wind", version=2,
@@ -290,3 +307,25 @@ def test_an_agent_drafts_a_work_order_and_sees_its_problems() -> None:
         draft_input(tasks=[])
     with pytest.raises(ValidationError):
         draft_input(impact_result_id="anything")
+
+
+def test_an_agent_finds_and_checks_parts_for_the_turbine_s_model_and_store() -> None:
+    """M9.2: read only; the turbine's model and wind farm come from the Asset Service, never
+    from the agent, and nothing is reserved (FR-INVT-002)."""
+    fake = Fake()
+    found = run(fake, "find_parts", PartsInput(turbine_id="dogger-east-t01", query="fan"))
+    assert (found.model, found.wind_farm_id) == ("Synthetic WS-8.0-167", "dogger-east")
+    assert [(p.part_number, p.available) for p in found.parts] == [("GBX-FAN-CAP", 3)]
+    asked = fake.calls[1][2]
+    assert (asked.fits.model, asked.wind_farm_id, asked.query) == (
+        "WS-8.0-167", "dogger-east", "fan",
+    )  # fmt: skip
+    checked = run(Fake(), "check_parts", CheckPartsInput(
+        turbine_id="dogger-east-t01", parts=[DraftPart(part_number="GBX-FAN-CAP", quantity=5)],
+    ))  # fmt: skip
+    assert [(c.status, c.available) for c in checked.checks] == [("short", 3)]
+    assert {m for _, m, _ in fake.calls} == {"GetTurbine", "ListParts"}
+    with pytest.raises(ValidationError):
+        CheckPartsInput(turbine_id="dogger-east-t01", parts=[])
+    with pytest.raises(ValidationError):
+        PartsInput(turbine_id="dogger-east-t01", component_kind="Gear Box")

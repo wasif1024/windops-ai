@@ -1,5 +1,5 @@
 """Work orders through a real gRPC server and SQL database, with stand-in Authorization,
-Investigation, Asset and Policy services. SQLite has no row-level security, so
+Investigation, Asset, Inventory and Policy services. SQLite has no row-level security, so
 `make maintenance-check` proves that on PostgreSQL."""
 
 import asyncio
@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import StaticPool
 from windops.asset.v1 import asset_pb2
+from windops.inventory.v1 import inventory_pb2
 from windops.investigation.v1 import investigation_pb2
 from windops.maintenance.v1 import maintenance_pb2 as pb
 from windops.maintenance.v1 import maintenance_pb2_grpc
@@ -98,6 +99,9 @@ class FakeSources:
     policy_down: bool = False
     case_status: str = "investigating"
     proposals: list[Any] = field(default_factory=list)
+    # What the Inventory Service says of each part, by number; None when it cannot be asked.
+    stock: dict[str, tuple[str, int]] | None = field(default_factory=dict)
+    asked: list[Any] = field(default_factory=list)
 
     async def case(self, case_id: str) -> Any:
         if current_identity().tenant_id != TENANT or case_id != CASE:
@@ -107,7 +111,18 @@ class FakeSources:
 
     async def turbine(self, turbine_id: str) -> Any:
         return asset_pb2.Turbine(turbine_id=turbine_id, wind_farm_id="dogger-east",
-                                 status="operating")  # fmt: skip
+                                 status="operating",
+                                 model=asset_pb2.TurbineModel(manufacturer="WindOps Synthetic",
+                                                              model="WS-8.0-167"))  # fmt: skip
+
+    async def parts(self, turbine: Any, lines: list[Any]) -> list[Any]:
+        if self.stock is None:
+            raise UnavailableError("The Inventory Service cannot be reached right now")
+        self.asked.append((turbine.model.model, turbine.wind_farm_id))
+        return [inventory_pb2.PartCheck(part_number=line.part_number, quantity=line.quantity,
+                                        status=self.stock.get(line.part_number, ("unknown", 0))[0],
+                                        available=self.stock.get(line.part_number, ("", 0))[1])
+                for line in lines]  # fmt: skip
 
     async def evaluate(self, case_id: str, proposal: Any, impact_result_id: str, key: str) -> Any:
         if self.policy_down:
@@ -376,3 +391,46 @@ def test_each_plan_rule_names_what_is_wrong(changes: dict[str, Any], field: str,
 def test_a_plan_without_an_estimate_is_only_noted() -> None:
     found = plans.check(good_plan(impact_result_id=""), NOW)
     assert [(p.code, p.blocking) for p in found] == [("missing", False)]
+
+
+def test_each_part_is_checked_against_inventory() -> None:
+    """M9.2: a part that does not fit or is not in the catalog blocks; a shortage is noted.
+    Naming a part reserves nothing."""
+    stocked = FakeSources(stock={"FAN-CAP": ("available", 4), "MOTOR": ("short", 0),
+                                 "OTHER": ("incompatible", 2)})  # fmt: skip
+
+    def line(part_number: str, quantity: int) -> pb.PartLine:
+        return pb.PartLine(part_number=part_number, quantity=quantity)
+
+    async def scenario(world: World) -> None:
+        draft = await world.draft(good_plan(parts=[line("FAN-CAP", 2), line("MOTOR", 1)]))
+        assert draft.validation.passed
+        assert [(p.part_number, p.status, p.available) for p in draft.validation.parts] == [
+            ("FAN-CAP", "available", 4), ("MOTOR", "short", 0),
+        ]  # fmt: skip
+        assert [(p.field, p.code, p.blocking) for p in draft.validation.problems] == [
+            ("parts[1]", "part_short", False)
+        ]
+        assert world.sources.asked == [("WS-8.0-167", "dogger-east")]
+        blocked = await world.draft(good_plan(parts=[line("OTHER", 1), line("GONE", 1)]))
+        assert {(p.code, p.blocking) for p in blocked.validation.problems} == {
+            ("part_incompatible", True), ("part_unknown", True),
+        }  # fmt: skip
+        assert await code_of(world.submit(blocked)) == grpc.StatusCode.FAILED_PRECONDITION
+        twice = await world.draft(good_plan(parts=[line("FAN-CAP", 1), line("FAN-CAP", 1)]))
+        assert [p.code for p in twice.validation.problems] == ["duplicate"]
+        # Two drafts and the submission's check again; a repeated part is not asked about.
+        assert len(world.sources.asked) == 3
+
+    with_service(scenario, sources=stocked)
+
+    async def unreachable(world: World) -> None:
+        draft = await world.draft(good_plan(parts=[line("FAN-CAP", 1)]))
+        assert [(p.code, p.blocking) for p in draft.validation.problems] == [
+            ("inventory_unavailable", True)
+        ]
+        assert not draft.validation.parts
+        # A plan with no parts does not need the Inventory Service.
+        assert (await world.draft()).validation.passed
+
+    with_service(unreachable, sources=FakeSources(stock=None))

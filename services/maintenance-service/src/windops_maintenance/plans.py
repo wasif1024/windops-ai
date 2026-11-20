@@ -70,6 +70,7 @@ def check(plan: pb.Plan, now: datetime) -> list[pb.Problem]:
                     f"{where}.crew_size", "out_of_range", f"A crew is 1 to {MAXIMUM_CREW} people"
                 )
             )
+    named: set[str] = set()
     for index, part in enumerate(plan.parts):
         if not PART.fullmatch(part.part_number) or not 1 <= part.quantity <= 1000:
             found.append(
@@ -79,6 +80,15 @@ def check(plan: pb.Plan, now: datetime) -> list[pb.Problem]:
                     "A part needs its number and a quantity from 1 to 1000",
                 )
             )
+        elif part.part_number in named:
+            found.append(
+                _problem(
+                    f"parts[{index}]",
+                    "duplicate",
+                    f"{part.part_number} is named twice; give it once, with the total",
+                )
+            )
+        named.add(part.part_number)
     bad = [c for c in plan.procedures if not CITATION.fullmatch(c)]
     if bad:
         found.append(

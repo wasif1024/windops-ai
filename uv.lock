@@ -20,6 +20,7 @@ members = [
     "windops-fault-detection",
     "windops-grpc",
     "windops-identity",
+    "windops-inventory",
     "windops-investigation",
     "windops-knowledge",
     "windops-maintenance",
@@ -2381,6 +2382,7 @@ dev = [
     { name = "windops-fault-detection" },
     { name = "windops-grpc" },
     { name = "windops-identity" },
+    { name = "windops-inventory" },
     { name = "windops-investigation" },
     { name = "windops-knowledge" },
     { name = "windops-maintenance" },
@@ -2451,6 +2453,7 @@ dev = [
     { name = "windops-fault-detection", editable = "services/fault-detection-service" },
     { name = "windops-grpc", editable = "shared/grpc" },
     { name = "windops-identity", editable = "services/identity-service" },
+    { name = "windops-inventory", editable = "services/inventory-service" },
     { name = "windops-investigation", editable = "services/investigation-service" },
     { name = "windops-knowledge", editable = "services/knowledge-service" },
     { name = "windops-maintenance", editable = "services/maintenance-service" },
@@ -2778,6 +2781,33 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-events", editable = "shared/events" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-observability", editable = "shared/observability" },
+    { name = "windops-outbox", editable = "shared/outbox" },
+    { name = "windops-resilience", editable = "shared/resilience" },
+]
+
+[[package]]
+name = "windops-inventory"
+version = "0.1.0"
+source = { editable = "services/inventory-service" }
+dependencies = [
+    { name = "windops-auth" },
+    { name = "windops-contracts" },
+    { name = "windops-events" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-observability" },
+    { name = "windops-outbox" },
+    { name = "windops-resilience" },
+]
+
+[package.metadata]
+requires-dist = [
     { name = "windops-auth", editable = "shared/auth" },
     { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-events", editable = "shared/events" },

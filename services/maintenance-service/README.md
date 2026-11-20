@@ -20,8 +20,9 @@ stops submission; the rest are for the reviewer.
 
 | Check | Blocks when |
 | --- | --- |
-| The plan | A title, action or summary is missing; there is no task; a task is outside 0 to 240 hours or 1 to 20 people; a part or procedure is malformed; a repair, replacement or adjustment cites no procedure; the window ends before it starts or has started; downtime is outside 0 to 720 hours |
+| The plan | A title, action or summary is missing; there is no task; a task is outside 0 to 240 hours or 1 to 20 people; a part or procedure is malformed, or a part is named twice; a repair, replacement or adjustment cites no procedure; the window ends before it starts or has started; downtime is outside 0 to 720 hours |
 | The turbine | It cannot be found, or its status cannot be checked. Faulted, stopped, offline or in maintenance is noted |
+| The parts | A part is unknown, retired, or does not fit the turbine's model, or the Inventory Service cannot be asked. A part short in the wind farm's store is noted. Each part's availability is kept with the validation ([ADR 0030](../../docs/adr/0030-parts-checked-by-anyone-reserved-by-a-person.md)) |
 | The Policy Service | Its rules block the plan, or it cannot be asked. An escalation is noted |
 
 ## Agents only draft (FR-MNT-003, SEC-009)

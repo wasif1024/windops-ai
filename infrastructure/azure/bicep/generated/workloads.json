@@ -95,6 +95,14 @@
     "receives": []
   },
   {
+    "name": "windops-inventory",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
     "name": "windops-investigation",
     "namespace": "windops-application",
     "events": true,

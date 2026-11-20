@@ -12,7 +12,8 @@ MCP_TOOLS: dict[str, tuple[str, ...]] = {
     "documentation": ("search_documents", "read_passage"),
     "tavily": ("search_web", "extract_page", "get_research"),
     "weather": ("get_forecast",),
-    # The platform's own records, tenant-scoped (M8.6), and draft work orders (M9.1).
+    # The platform's own records, tenant-scoped (M8.6), draft work orders (M9.1) and parts
+    # (M9.2).
     "windops": (
         "get_turbine",
         "get_latest_telemetry",
@@ -23,6 +24,9 @@ MCP_TOOLS: dict[str, tuple[str, ...]] = {
         "get_evidence",
         "estimate_impact",
         "check_policy",
+        # Parts read only: an agent's choice of part is a suggestion (FR-INVT-002, M9.2).
+        "find_parts",
+        "check_parts",
         # The one write an agent may make: a draft (FR-MNT-003, M9.1).
         "create_draft_work_order",
     ),
@@ -105,10 +109,16 @@ AGENT_TOOLS: dict[str, frozenset[str]] = {
     | frozenset(sandbox_scope(task) for task in SANDBOX_TASKS),
     # Production Impact's deterministic results, to explain, never to change (FR-IMP-004).
     "production-impact": _tools("windops", "get_case", "get_turbine", "estimate_impact"),
-    # Maintenance history and draft work orders (inventory comes in M9.2). Never reads raw web
-    # content, so it may hold the one write tool (MCP-006).
+    # Maintenance history, parts, and draft work orders. Never reads raw web content, so it may
+    # hold the one write tool (MCP-006). It reserves nothing: only a person does (FR-INVT-003).
     "maintenance-planner": _tools(
-        "windops", "get_case", "list_cases", "get_turbine", "create_draft_work_order"
+        "windops",
+        "get_case",
+        "list_cases",
+        "get_turbine",
+        "find_parts",
+        "check_parts",
+        "create_draft_work_order",
     ),
     # Procedures, external research and weather. Read-only; cannot declare a site safe.
     "safety-researcher": _tools("documentation", "search_documents", "read_passage")

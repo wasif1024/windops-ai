@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 from windops.asset.v1 import asset_pb2_grpc
 from windops.authorization.v1 import authorization_pb2_grpc
+from windops.inventory.v1 import inventory_pb2_grpc
 from windops.investigation.v1 import investigation_pb2_grpc
 from windops.maintenance.v1 import maintenance_pb2_grpc
 from windops.policy.v1 import policy_pb2_grpc
@@ -89,10 +90,12 @@ def main() -> None:
             ),
             "asset": stub(asset_pb2_grpc.AssetServiceStub, "WINDOPS_ASSET_ADDRESS"),
             "policy": stub(policy_pb2_grpc.PolicyServiceStub, "WINDOPS_POLICY_ADDRESS"),
+            "inventory": stub(inventory_pb2_grpc.InventoryServiceStub, "WINDOPS_INVENTORY_ADDRESS"),
         },
         {
             "investigation": _client("investigation"),
             "asset": _client("asset"),
+            "inventory": _client("inventory"),
             # The Policy Service gathers a case's facts and a forecast: a long call, not a slow one.
             "policy": _client("policy", slow_call_seconds=12.0),
         },
