@@ -10,10 +10,23 @@ that matter, and authorized people approve every high-impact action, for each te
 The platform is advisory only: it never issues turbine commands. It is a portfolio-grade reference system, built
 to production standards and run on synthetic data from a seeded, physics-based turbine simulator.
 
-**Status:** Phases 1 to 6 and 4A are complete. Faults are detected by versioned rules and become cases bound to
-immutable evidence. Proposals are priced by Production Impact and judged by Policy on the live weather forecast,
-failing closed when an input is missing. The platform is **deployed and proven on Azure Kubernetes Service** by
-its Azure DevOps pipeline, and runs the same way on a laptop ([evidence](docs/phases/phase-04a-exit-gate.md)).
+**Status:** Phases 1 to 9 and 4A are complete, each closed by an exit gate proven on a real cluster. The platform
+is **deployed and proven on Azure Kubernetes Service** by its Azure DevOps pipeline, and runs the same way on a
+laptop ([evidence](docs/phases/phase-04a-exit-gate.md)).
+
+**What it does today:**
+- **Detects** faults with versioned rules, and opens one deduplicated case per fault, bound to an immutable, hashed
+  evidence snapshot ([Phase 5](docs/phases/phase-05-exit-gate.md)).
+- **Decides deterministically:** a Policy Service that fails closed, production impact calculated from real power
+  curves, and weather taken only from a structured forecast ([Phase 6](docs/phases/phase-06-exit-gate.md)).
+- **Grounds every answer:** permission-checked retrieval of cited passages, and redacted, logged web research,
+  behind hardened MCP servers ([Phase 7](docs/phases/phase-07-exit-gate.md)).
+- **Investigates with six agents on Claude Opus 5.5,** in durable LangGraph runs that survive a lost worker. Every
+  fact cites what a tool returned, and every run is traced with secrets redacted
+  ([Phase 8](docs/phases/phase-08-exit-gate.md)).
+- **Plans maintenance:** an agent drafts the work order, checked against parts, the turbine and policy, and only a
+  person can submit it. Every agent attempt to submit or reserve is refused, at five layers, and audited
+  ([Phase 9](docs/phases/phase-09-exit-gate.md)).
 
 <table>
   <tr>
@@ -64,35 +77,33 @@ hop, and the staging deployment's resource groups.</sub>
 
 An investigation from detection to decision, as specified in [SRS section 5.4](docs/srs.md#54-workflow). A
 deterministic rule raises the fault; the Supervisor delegates to five specialist agents, each limited to its own
-allowlisted tools; the Policy Service checks the result; and a person approves or rejects the draft work order. The
-animation illustrates the specified workflow, not a recording.
+allowlisted tools; the Policy Service checks the result; the Maintenance Planner drafts the work order; and a person
+approves or rejects it. The animation is an illustration, not a recording. Everything up to the draft runs today;
+the human decision arrives with Phase 10.
 
 ## The console today
 
-The operations console as it runs now, against the simulator's live demo fleet. All the data is synthetic. The
-healthy demo fleet raises no alarms, so the three shown were sent for the picture through the turbines' device
-route, as their controllers would send them.
+[![The WindOps AI operations console, captured from the running platform. Six desktop screens in browser frames: the Fleet overview with two offshore wind farms of four turbines each, live power and wind; Dogger East T01's detail page with its latest readings and live charts of power and wind speed; the Alarm console with three standing alarms, most severe first; the Maintenance planner listing two drafts, one marked as an agent's draft; that agent's draft, Inspect the gearbox oil cooling on DE-T01, with its plan, parts available in the store, its validation with the Policy Service's escalation, and the planner's options to edit, check again, submit or withdraw; and Parts lookup, listing the parts that fit the turbine's model with stock in its wind farm's store. Beside them, the same agent's draft on a phone, with a notice that only a person submits.](docs/assets/console-tour.png)](docs/assets/console-tour.png)
 
-<table>
-  <tr>
-    <td width="50%"><a href="docs/assets/screens/fleet-overview.png"><img src="docs/assets/screens/fleet-overview.png" alt="The Fleet overview for the North Sea Wind tenant. Two offshore wind farms, Dogger East and Hornsea West, each show four operating turbines as cards, with each turbine's power, its share of rated power, wind speed and a green Live badge a few seconds old."></a></td>
-    <td width="50%"><a href="docs/assets/screens/turbine-detail.png"><img src="docs/assets/screens/turbine-detail.png" alt="A turbine's page for Dogger East T01. It shows the turbine's model, rated power and location, its twelve latest readings, and live line charts over the last five minutes for power, wind speed, gearbox oil temperature, main bearing temperature and nacelle vibration."></a></td>
-  </tr>
-  <tr>
-    <td><b>Fleet overview:</b> every wind farm and turbine, with its status, latest power and wind, and how fresh the reading is.</td>
-    <td><b>Turbine detail:</b> the model, the latest readings, and live charts over 5, 15 or 60 minutes.</td>
-  </tr>
-  <tr>
-    <td width="50%"><a href="docs/assets/screens/alarm-console.png"><img src="docs/assets/screens/alarm-console.png" alt="The Alarm console for the North Sea Wind tenant, showing standing alarms with filters for each state. Three active alarms are listed, most severe and newest first: generator bearing temperature high on dogger-east-t04, gearbox oil temperature high on dogger-east-t01, both high, and nacelle vibration high on hornsea-west-t03, medium, each with its code, tag and how long ago it was raised."></a></td>
-    <td width="50%"><a href="docs/assets/screens/alarm-detail.png"><img src="docs/assets/screens/alarm-detail.png" alt="The page for the gearbox oil temperature high alarm on dogger-east-t01, now acknowledged. It shows the alarm's code, tag and when it was raised, its high severity from the turbine's controller, who acknowledged it and when, a form to shelve it with a reason, and its history: raised as active by the turbine's controller, then acknowledged by the operator with the comment that the crew was informed."></a></td>
-  </tr>
-  <tr>
-    <td><b>Alarm console:</b> every alarm the user may see, most severe and newest first, filtered by state and kept current.</td>
-    <td><b>One alarm:</b> where its severity came from, every change and who made it, and what an operator may do next.</td>
-  </tr>
-</table>
+The operations console as it runs now, signed in as a Maintenance Planner, against the simulator's live demo fleet.
+All the data is synthetic. For the picture, `make readme-screens` adds, and then removes:
+- three alarms, sent through the turbines' device route, as their controllers would send them;
+- a parts catalogue with stock;
+- an active gearbox case, with a planner's own work orders;
+- the agent's draft, made through the Maintenance Planner agent's own MCP tool and token. Its plan was written for
+  the picture, not by a model.
 
-The screens are responsive and work at phone size. `make frontend-check` captures them in a real browser on each run.
+| Screen | What it shows |
+| --- | --- |
+| [Fleet overview](docs/assets/screens/fleet-overview.png) | Every wind farm and turbine, with its status, latest power and wind, and how fresh the reading is |
+| [Turbine detail](docs/assets/screens/turbine-detail.png) | The model, the latest readings, and live charts over 5, 15 or 60 minutes, with suspect readings marked |
+| [Alarm console](docs/assets/screens/alarm-console.png) | Every alarm the user may see, most severe and newest first, with where its severity came from |
+| [Maintenance planner](docs/assets/screens/maintenance-planner.png) | Work orders by status, an agent's draft marked, and a new draft for an active case |
+| [An agent's draft](docs/assets/screens/work-order.png) | Its plan, each part's availability, its validation and policy outcome, and what a person may do next |
+| [Parts lookup](docs/assets/screens/parts-lookup.png) | The parts that fit a turbine, with stock in its wind farm's store |
+| [On a phone](docs/assets/screens/phone-work-order.png) | The same draft at phone size: every screen works from 360 pixels wide |
+
+`make frontend-check` proves each screen's journey in a real browser, at desktop and phone size, on every run.
 
 ## Design principles
 
@@ -113,7 +124,7 @@ The design is mapped to four AI governance sources: [ISO/IEC 42001](https://www.
 [AI ethics principles and the PDPL](https://sdaia.gov.sa/en/SDAIA/about/Pages/RegulationsAndPolicies.aspx). Each
 control is marked from the implementation tracker: in place, planned with its module, or proposed and not yet planned.
 
-[![The AI governance crosswalk. Ten themes, from governance and accountability to fairness, each with what ISO/IEC 42001, the NIST AI RMF, the NCA's AI Cybersecurity Guidelines and SDAIA call it, and the WindOps AI controls that answer it. Green marks a control in place, such as row-level tenant isolation, immutable evidence and fail-closed policy rules. Amber marks a planned one with its module, such as agents that can only draft, separation of duties, the AI governance pack with its risk register, system cards and incident runbook (M14.6), and the PDPL data map (M15.10).](docs/assets/ai-governance.png)](docs/assets/ai-governance.png)
+[![The AI governance crosswalk. Ten themes, from governance and accountability to fairness, each with what ISO/IEC 42001, the NIST AI RMF, the NCA's AI Cybersecurity Guidelines and SDAIA call it, and the WindOps AI controls that answer it. Green marks a control in place, such as row-level tenant isolation, immutable evidence and fail-closed policy rules. Green also marks agents that can only draft, proven at Phase 9's gate. Amber marks a planned one with its module, such as separation of duties, the AI governance pack with its risk register, system cards and incident runbook (M14.6), and the PDPL data map (M15.10).](docs/assets/ai-governance.png)](docs/assets/ai-governance.png)
 
 It is an alignment for review, not a certification. [AI governance](docs/ai-governance.md) explains each row, the
 status of each source, and what is still missing.
@@ -209,15 +220,19 @@ only read access unless it needs more.
 | 5. Alarms, detection and cases | Done, [exit gate](docs/phases/phase-05-exit-gate.md) |
 | 6. Deterministic decisions | Done, [exit gate](docs/phases/phase-06-exit-gate.md) |
 | 7. Knowledge and external intelligence | Done, [exit gate](docs/phases/phase-07-exit-gate.md) |
+| 8. Agent workflow | Done, [exit gate](docs/phases/phase-08-exit-gate.md): one investigation on Claude, $4.09 |
+| 9. Maintenance and inventory | Done, [exit gate](docs/phases/phase-09-exit-gate.md): agents draft, and never submit or reserve |
 
 | Running today | |
 | --- | --- |
-| Edge | API Gateway, Web BFF and the React frontend, with Keycloak sign-in and MFA |
+| Edge | API Gateway, Web BFF and the React frontend, with Keycloak sign-in and MFA, and the fleet, alarm, maintenance and parts screens |
 | Identity and tenancy | Identity, Authorization and Tenant services, with tenant branding and administration consoles |
 | Operations | Asset Service with synthetic demo fleets, and Telemetry Service with authenticated device ingestion, fed live by the simulator's 13 devices |
 | Faults and decisions | Alarm, Fault Detection and Investigation services: controller alarms, versioned fault rules, and one deduplicated case per fault, bound to immutable evidence. The Policy Service judges proposals against versioned rules, and fails closed, the Production Impact Service prices them, with a range for every figure, and the Weather Service gives each site's forecast, with its provenance and age |
 | Knowledge | Knowledge Service: checked uploads of manuals, bulletins and procedures, their metadata from their own headers, and passages indexed with OpenAI embeddings in Qdrant, only up to each tenant's allowed classification. Search returns cited passages of current revisions, each checked against the caller's permissions first |
 | External intelligence | External Intelligence Service: Tavily web research with generic queries only, every source recorded and flagged when stale, undated, low-confidence or conflicting, within each tenant's policy and quotas |
+| Agents | Agent Runtime: six agents on Claude Opus 5.5, in durable, checkpointed LangGraph runs with per-agent tokens and allowlists, structured and cited results, redacted LangSmith traces, and registered Sandbox tasks. The regression set replays 12 scenarios. Investigation starts a run for each case, and follows it live to pending review |
+| Maintenance | Maintenance Service: work orders validated against the plan, the turbine, its parts and policy, drafted by a person or an agent, and submitted only by a person. Inventory Service: parts, compatibility, stock and reservations, changed or reserved only by a person |
 | Platform | Audit Service, with a tamper-evident trail, plus PostgreSQL, Redis, Qdrant, NATS JetStream and the full observability stack |
 | On Azure | Asset, Audit, Authorization and Tenant on AKS, with Service Bus, Azure Database for PostgreSQL, Key Vault and Azure Monitor |
 
