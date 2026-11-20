@@ -10,8 +10,10 @@ platform's models:
   What is left, listing and reading, reaches only the run's own skills, held in its state, and
   never the host filesystem. A permission rule denies everything else.
 
-Each agent gets exactly its definition's tools (ADR 0020), and its own skills. Every tool call by
-every agent counts against the run's tool-call budget (SRS 5.6).
+Each agent gets exactly its definition's tools (ADR 0020), and its own skills, with one exception:
+in the investigation the Maintenance Planner advises without its drafting tool, which it gets in
+step 12, once the result has passed its checks and policy (M9.3). Every tool call by every agent
+counts against the run's tool-call budget (SRS 5.6).
 """
 
 from collections.abc import Callable
@@ -35,6 +37,8 @@ from windops_agent_runtime.team.result import Seen
 from windops_agent_runtime.team.sandbox import SandboxRun
 from windops_agent_runtime.team.tools import Tokens, ToolBox
 
+# Held back from the team in step 5: a work order is drafted only in step 12 (M9.3).
+DRAFTING_TOOLS = frozenset({"mcp.windops.create_draft_work_order"})
 EXCLUDED_TOOLS = frozenset(
     {"write_file", "edit_file", "delete", "execute", "write_todos", "glob", "grep"}
 )
@@ -75,6 +79,24 @@ class Usage:
         self.calls.append(name)
 
 
+def chat_for(
+    team: Team, claude: Claude, role: str, model: Callable[[str], Any] | None = None
+) -> Any:
+    """An agent's model: Claude for its own role, or a script's. Labelled for its trace runs."""
+    agent = team.agents[role]
+    configured = claude.policy.role(agent.role)
+    built = model(role) if model is not None else MeteredChat(role=agent.role, claude=claude)
+    # On each model run in the trace: who, on what, and from which prompt (OBS-006). A
+    # rehearsal's scripted model says so.
+    built.metadata = {
+        "agent": agent.name,
+        "model": configured.model if model is None else "scripted",
+        "effort": configured.effort,
+        "prompt_version": f"{agent.version}:{agent.prompt_hash[:12]}",
+    }
+    return built
+
+
 @dataclass(frozen=True)
 class Assembled:
     agent: Any
@@ -97,23 +119,13 @@ async def assemble(
     usage = Usage(limit=tool_calls)
 
     def chat(role: str) -> Any:
-        agent = team.agents[role]
-        configured = claude.policy.role(agent.role)
-        built = model(role) if model is not None else MeteredChat(role=agent.role, claude=claude)
-        # On each model run in the trace: who, on what, and from which prompt (OBS-006). A
-        # rehearsal's scripted model says so.
-        built.metadata = {
-            "agent": agent.name,
-            "model": configured.model if model is None else "scripted",
-            "effort": configured.effort,
-            "prompt_version": f"{agent.version}:{agent.prompt_hash[:12]}",
-        }
-        return built
+        return chat_for(team, claude, role, model)
 
     async def tools_of(name: str) -> list[BaseTool]:
         agent = team.agents[name]
+        scopes = tuple(s for s in agent.tools if s not in DRAFTING_TOOLS)
         return await toolbox.tools_for(
-            name, agent.tools, tokens, before_call=usage.count, after_call=usage.seen.add,
+            name, scopes, tokens, before_call=usage.count, after_call=usage.seen.add,
             sandbox_run=sandbox_run,
         )  # fmt: skip
 

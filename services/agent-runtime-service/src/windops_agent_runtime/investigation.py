@@ -18,12 +18,13 @@ uses (AGT-004). A resume under different pins ends the run as stale (AGT-005).
 **What each step does now (M8.7, ADR 0021):** step 5 runs the team. Steps 4 to 9 happen inside
 it: the Supervisor plans, delegates to its specialists, and synthesizes their findings. Steps 6
 to 8 and 11 then record, from the tools the team called, whether each happened, and name a data
-gap where it did not. Validating the report's structure (step 10) comes in M8.8, and the
-recommendation and draft (step 12) in M8.8 and Phase 9. A run started without the team records a
-gap for each, and, for checks, step 4 can ask the Supervisor for a one-line plan: a real call to
-Claude, to prove a resumed run never makes it twice. Investigation starts runs for its cases, and
-follows them: when a run completes, step 13's end, it sets the case to pending_review (M8.11,
-ADR 0025).
+gap where it did not. Step 10 structures and checks the report (M8.8). Step 12 keeps the
+recommendation and, where appropriate, has the Maintenance Planner prepare a proposal and draft
+a work order for the first action policy did not block (M9.3, ADR 0031). A run started without
+the team records a gap for each, and, for checks, step 4 can ask the Supervisor for a one-line
+plan: a real call to Claude, to prove a resumed run never makes it twice. Investigation starts
+runs for its cases, and follows them: when a run completes, step 13's end, it sets the case to
+pending_review (M8.11, ADR 0025).
 """
 
 import asyncio
@@ -42,12 +43,12 @@ from langgraph.graph import END, START, StateGraph
 from windops_claude import stable_system
 from windops_grpc import InvalidRequestError
 
-from windops_agent_runtime.team import rehearsal
+from windops_agent_runtime.team import planner, rehearsal
 from windops_agent_runtime.team.definitions import team
 from windops_agent_runtime.team.result import Recommendation, Seen
 from windops_agent_runtime.workflows import ClaudeUnavailableError, Context, StepFailedError
 
-GRAPH_VERSION = "3"
+GRAPH_VERSION = "4"
 _TURBINE = re.compile(r"[A-Za-z0-9_.:-]{1,64}")
 # SRS 5.4 steps 1 to 13, in order, and the module that gives each its content.
 STEPS: tuple[tuple[str, str], ...] = (
@@ -216,13 +217,45 @@ def build(context: Context, parameters: Mapping[str, Any]) -> StateGraph[State]:
                 state["case_id"], Recommendation.model_validate(action)
             )
             checked.append({"action": action["action"], "result_id": outcome.result_id,
-                            "outcome": outcome.outcome})  # fmt: skip
+                            "outcome": outcome.outcome,
+                            "window_only": outcome.window_only})  # fmt: skip
         return {"policy": checked}
 
+    async def proposal(state: State) -> tuple[dict[str, Any], list[str], list[str]]:
+        """The planner's proposal and draft, where appropriate: (what to keep, gaps, tools)."""
+        actions = state["result"]["recommended_actions"]
+        chosen = planner.choose(actions, state["policy"])
+        if chosen is None:
+            why = "the Policy Service blocked every action" if actions else "none was recommended"
+            # A block for want of a planned window is drafted: see planner.choose.
+            return {"work_order": None, "proposal": ""}, [f"recommend: no work order: {why}"], []
+        if context.team is None:
+            raise ClaudeUnavailableError("The run needs its planner, and the runtime has none")
+        action, outcome = chosen
+        turbine = str(state["result"].get("asset_id") or parameters.get("turbine_id", ""))
+        now = datetime.now(UTC)
+        briefing = planner.brief(
+            case_id=state["case_id"], snapshot_id=state["snapshot_id"], turbine_id=turbine,
+            result=state["result"], action=action, policy=outcome,
+            procedures=planner.procedures_of(sorted(Seen.from_dict(state["seen"]).references)),
+            now=now,
+        )  # fmt: skip
+        scripted = None
+        if parameters.get("rehearse"):
+            scripted = rehearsal.drafting(state["case_id"], turbine, action, now)
+        drafted = await context.team.draft_work_order(
+            briefing, used=len(state["tools_used"]), model=scripted
+        )
+        gaps = [] if drafted.work_order else [f"recommend: no work order: {drafted.refused}"]
+        kept = {"work_order": drafted.work_order, "proposal": drafted.proposal,
+                "proposed_action": action["action"]}  # fmt: skip
+        return kept, gaps, drafted.tools_used
+
     async def recommend(state: State) -> dict[str, Any]:
-        """Step 12: the result, completed and kept. Drafting a work order comes in Phase 9."""
+        """Step 12: the result, completed and kept, with the planner's proposal and draft."""
         if not state["result"]:
             return {"data_gaps": ["recommend: there is no result to recommend from"]}
+        drafted, gaps, tools = await proposal(state)
         policy = state["policy"]
         result = {
             **state["result"],
@@ -233,10 +266,11 @@ def build(context: Context, parameters: Mapping[str, Any]) -> StateGraph[State]:
             or any(p["outcome"] != "pass" for p in policy),
             "model_versions": await context.models_used(),
             "generated_at": datetime.now(UTC).isoformat(),
-            "run_data_gaps": state["data_gaps"],
+            "run_data_gaps": [*state["data_gaps"], *gaps],
+            **drafted,
         }
         await context.save_result(result)
-        return {"result": result, "data_gaps": ["recommend: draft work orders come in Phase 9"]}
+        return {"result": result, "data_gaps": gaps, "tools_used": tools}
 
     async def conclude(state: State) -> dict[str, Any]:
         # The run completes here. Investigation, which owns the case and follows the run, then

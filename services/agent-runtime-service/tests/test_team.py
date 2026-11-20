@@ -71,7 +71,7 @@ def test_the_team_is_srs_5_3s_with_its_six_skills() -> None:
 
 def test_every_change_to_a_prompt_tool_list_or_skill_changes_the_pins() -> None:
     pins = TEAM.pins()
-    assert set(pins["prompts"]) == {*TEAM.agents, "supervisor:result"}
+    assert set(pins["prompts"]) == {*TEAM.agents, "supervisor:result", "maintenance-planner:draft"}
     assert set(pins["skills"]) == set(TEAM.skills)
     assert pins["prompts"]["supervisor"].startswith("1:")
 

@@ -13,6 +13,8 @@ script. No call reaches Claude, and no web search is made. The check proves:
 - each call was audited as that agent, on the user's behalf (SEC-010);
 - the result is structured as SRS 5.7 sets out, cites only what the tools returned, and is kept
   on the run, and its recommended action went through the real Policy Service (M8.8);
+- in step 12 the Maintenance Planner tries to draft, and is refused, as the operator it acts for
+  may not plan: the run completes without a work order, and says why (M9.3);
 - the run is pinned to every agent's prompt, tool list and skill (AGT-004);
 - no token was kept in the run's checkpoints (SEC-008), and nothing was asked of Claude.
 
@@ -59,6 +61,9 @@ EXPECTED = {
     "windops_get_case",
     "windops_list_cases",
     "weather_get_forecast",
+    # Step 12's planner (M9.3).
+    "windops_find_parts",
+    "windops_create_draft_work_order",
 }
 AUDITED = {
     ("mcp.windops.get_evidence", "agent:supervisor"),
@@ -161,6 +166,12 @@ def prove(realm: Realm, key: str, cases: Cases) -> None:
         f"Each recommended action went through the Policy Service: {policy[0]['outcome']}, "
         f"{kept['policy_result_id']}, so a person must look",
     )  # fmt: skip
+    check(
+        kept["work_order"] is None
+        and any(g.startswith("recommend: no work order") for g in kept["run_data_gaps"]),
+        "In step 12 the planner's draft was refused, as the operator may not plan: no work "
+        "order, and a data gap says why",
+    )
     calls = run_sql("SELECT count(*) FROM run_calls WHERE run_id = :run", run.run_id)
     check(calls == "0", "Nothing was asked of Claude: the rehearsal costs nothing")
     deadline, seen = time.monotonic() + 60, set()

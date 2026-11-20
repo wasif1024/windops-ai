@@ -12,7 +12,9 @@ labelled `provider="stand-in"`, which the LLM Operations dashboard leaves out.
 
 It plays the team as the rehearsal does: the Supervisor reads the evidence and hands work to
 every specialist; each specialist makes its rehearsal's one free tool call and answers; step 10
-gets a result that cites what the tools returned. It never decides anything a model would.
+gets a result that cites what the tools returned; step 12's planner reads the history, finds
+parts, and drafts the action it was given as the rehearsal would. It never decides anything a
+model would.
 """
 
 import asyncio
@@ -23,6 +25,7 @@ import json
 import re
 import socket
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 import uvicorn
@@ -32,12 +35,17 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from windops_agent_runtime.team import rehearsal
+from windops_agent_runtime.team.build import DRAFTING_TOOLS
 from windops_agent_runtime.team.definitions import SUPERVISOR, team
+from windops_agent_runtime.team.planner import DRAFT_TOOL
 
 PLACEHOLDER_KEY = "stand-in-placeholder"
 _CASE = re.compile(r"case_[a-z0-9]{20}")
 _SNAPSHOT = re.compile(r"evs_[a-z0-9]{20}")
 _TURBINE_FIELD = re.compile(r'"turbine_id":\s*"([A-Za-z0-9_.:-]{1,64})"')
+_TURBINE_LINE = re.compile(r"^Turbine: ([A-Za-z0-9_.:-]{1,64})$", re.MULTILINE)
+_NOW_LINE = re.compile(r"^Time now: (\S+)$", re.MULTILINE)
+_ACTION = re.compile(r"^The action to plan:\n(\{.*\})$", re.MULTILINE)
 _TURBINE_TEXT = re.compile(r"turbine ([A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}[A-Za-z0-9_-])")
 _ids = itertools.count(1)
 
@@ -86,8 +94,10 @@ def _specialist_of(tools: set[str]) -> str:
     for name, agent in team().agents.items():
         if name == SUPERVISOR:
             continue
+        # In the investigation the planner has no drafting tool: step 12 alone drafts.
+        scopes = [s for s in agent.tools if s not in DRAFTING_TOOLS]
         own = {".".join(s.split(".")[1:]).replace(".", "_") if s.startswith("mcp.")
-               else s.replace(".", "_") for s in agent.tools}  # fmt: skip
+               else s.replace(".", "_") for s in scopes}  # fmt: skip
         if own <= tools and len(own) > overlap:
             best, overlap = name, len(own)
     return best
@@ -109,6 +119,8 @@ def answer(body: Mapping[str, Any]) -> dict[str, Any]:
                         "end_turn")  # fmt: skip
     if "task" in tools:
         return _supervisor(body, turns, case, snapshot, turbine)
+    if DRAFT_TOOL in tools:
+        return _planner(body, turns, case, everything)
     return _specialist(body, tools, turns, case, snapshot, turbine)
 
 
@@ -140,6 +152,24 @@ def _specialist(body: Mapping[str, Any], tools: set[str], turns: int, case: str,
         return _message(body, [_tool_use(first["name"], first["args"])], "tool_use")
     return _message(body, [{"type": "text", "text": f"{name or 'specialist'}: stand-in answer, "
                             "from the tool's result above."}], "end_turn")  # fmt: skip
+
+
+def _planner(body: Mapping[str, Any], turns: int, case: str, brief: str) -> dict[str, Any]:
+    """Step 12: the rehearsal's planner, from the brief's turbine, action and time."""
+    turbine = (_TURBINE_LINE.findall(brief) or [""])[0]
+    now_text = (_NOW_LINE.findall(brief) or [""])[0]
+    now = datetime.fromisoformat(now_text) if now_text else datetime.now(UTC)
+    action = json.loads((_ACTION.findall(brief) or ['{"action": "inspection"}'])[0])
+    if turns == 0:
+        call = _tool_use("windops_list_cases", {"turbine_id": turbine, "limit": 5})
+    elif turns == 1:
+        call = _tool_use("windops_find_parts", {"turbine_id": turbine, "limit": 5})
+    elif turns == 2:
+        call = _tool_use(DRAFT_TOOL, rehearsal.draft_arguments(case, action, now))
+    else:
+        return _message(body, [{"type": "text", "text": "Stand-in proposal: the action, drafted "
+                                "as a work order for a person."}], "end_turn")  # fmt: skip
+    return _message(body, [call], "tool_use")
 
 
 def _draft(brief: str, case: str, snapshot: str, turbine: str) -> dict[str, Any]:

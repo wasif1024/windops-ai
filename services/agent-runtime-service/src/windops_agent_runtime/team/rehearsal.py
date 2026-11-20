@@ -3,15 +3,17 @@
 A run asked to rehearse assembles the real team, with real tools, tokens and MCP servers, and
 swaps only the model: each agent follows a fixed script instead of asking Claude. The Supervisor
 reads the evidence, delegates to each specialist once, and reports; each specialist makes one
-real tool call, from its own allowlist, and answers. No call reaches Claude, and no tool that
-costs anything is used: web research is left out. Only when asked, the Reliability Engineer also
-runs a real Sandbox task on a synthetic vibration, which costs a little LangSmith compute.
+real tool call, from its own allowlist, and answers. In step 12 the Maintenance Planner reads the
+turbine's history, finds parts, and drafts the recommended inspection as a real draft work order
+(M9.3). No call reaches Claude, and no tool that costs anything is used: web research is left
+out. Only when asked, the Reliability Engineer also runs a real Sandbox task on a synthetic
+vibration, which costs a little LangSmith compute.
 
 The run with Claude itself is the M8.13 exit gate's.
 """
 
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -23,6 +25,7 @@ from windops_agent_runtime.team.metered import PROVIDER
 from windops_agent_runtime.team.result import Claim, Draft, Recommendation, Seen
 
 REPORT = "Rehearsal report: every specialist answered, and nothing was concluded."
+PROPOSAL = "Rehearsal proposal: the recommended action, drafted as a work order for a person."
 
 
 def _call(name: str, **args: Any) -> AIMessage:
@@ -110,6 +113,42 @@ def models(
 
     def make(role: str) -> BaseChatModel:
         return RehearsalModel(role=role, script=planned.get(role, []))
+
+    return make
+
+
+def draft_arguments(case_id: str, action: Mapping[str, Any], now: datetime) -> dict[str, Any]:
+    """The rehearsal's work order for an action: one task, a window two days out, no parts and no
+    procedure. An inspection or monitoring needs none; anything else is drafted, and its
+    validation says what is missing."""
+    start = (now + timedelta(days=2)).replace(minute=0, second=0, microsecond=0)
+    hours = float(action.get("downtime_hours") or 4)
+    return {
+        "case_id": case_id, "title": f"Rehearsal: {action['action']} for {case_id}"[:200],
+        "action": action["action"], "summary": str(action.get("summary") or "Rehearsal")[:4000],
+        "tasks": [{"description": str(action.get("summary") or "Rehearsal task")[:2000],
+                   "duration_hours": hours, "crew_size": 2,
+                   "requires_climb": bool(action.get("requires_climb"))}],
+        "parts": [], "procedures": [], "planned_start": start.isoformat(),
+        "planned_end": (start + timedelta(hours=hours)).isoformat(),
+        "estimated_downtime_hours": hours,
+        "impact_result_id": str(action.get("impact_result_id") or ""),
+    }  # fmt: skip
+
+
+def drafting(
+    case_id: str, turbine_id: str, action: Mapping[str, Any], now: datetime
+) -> Callable[[str], BaseChatModel]:
+    """Step 12's planner, scripted: its history, its parts, one draft, and its proposal."""
+    script = [
+        _call("windops_list_cases", turbine_id=turbine_id, limit=5),
+        _call("windops_find_parts", turbine_id=turbine_id, limit=5),
+        _call("windops_create_draft_work_order", **draft_arguments(case_id, action, now)),
+        AIMessage(PROPOSAL),
+    ]
+
+    def make(role: str) -> BaseChatModel:
+        return RehearsalModel(role=role, script=script if role == "maintenance-planner" else [])
 
     return make
 
