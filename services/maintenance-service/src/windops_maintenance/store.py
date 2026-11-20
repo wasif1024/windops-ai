@@ -86,6 +86,23 @@ def _hash(request: Message) -> str:
     return hashlib.sha256(request.SerializeToString(deterministic=True)).hexdigest()
 
 
+async def denied(connection: AsyncConnection, identity: Any, permission: str) -> None:
+    """Record a refusal made here, before Authorization was asked, as Authorization records its
+    own, so the Denials page shows it too (SRS 9.4). An agent is the actor, on its principal's
+    behalf (SEC-010)."""
+    actor = identity.user_id or identity.subject
+    await add_event(
+        connection, audit_request_subject(SERVICE_NAME), tenant_id=identity.tenant_id,
+        payload=events_pb2.AuditRequested(
+            action="authorization.denied", actor_type="agent" if identity.actor else (
+                "user" if identity.user_id else "service"),
+            actor_id=identity.actor or actor, on_behalf_of=actor if identity.actor else "",
+            resource_type="permission", resource_id=permission, outcome="denied",
+        ),
+        producer=SERVICE_NAME,
+    )  # fmt: skip
+
+
 async def remembered(
     connection: AsyncConnection, tenant_id: str, caller: str, key: str, method: str,
     request: Message,

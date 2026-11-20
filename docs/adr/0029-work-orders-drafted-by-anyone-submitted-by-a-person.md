@@ -77,3 +77,12 @@ blocking one stops submission:
   - **Decisions, new versions and completion:** Phase 10.
 - **Procedures** are checked for form here. That each cites a current, approved passage comes with M9.3, where the
   planner cites them.
+
+## Amended 2026-11-20, for M9.5
+
+**The Maintenance Service records its own refusals.** When it refuses an identity with an agent behind it, or with
+no person, it has not asked Authorization, so Authorization recorded nothing. It now audits the refusal itself, in
+the same shape: `authorization.denied`, naming the permission refused (`maintenance.submit` to submit,
+`maintenance.draft` to withdraw), with the agent as the actor on its principal's behalf (SEC-010). The administrator
+console's Denials page shows these alongside Authorization's own (SRS 9.4). `make agent-denial-check` proves it, for
+the Phase 9 exit gate.

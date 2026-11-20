@@ -281,6 +281,13 @@ def test_an_agent_drafts_but_never_submits_even_if_permissions_said_it_may() -> 
         assert (drafted.actor_type, drafted.actor_id, drafted.on_behalf_of) == (
             "agent", AGENT, PLANNER,
         )  # fmt: skip
+        # Each refusal is recorded, as Authorization records its own (SRS 9.4, SEC-010).
+        refusals = [a for a in audited if a.action == "authorization.denied"]
+        assert {(a.actor_type, a.actor_id, a.on_behalf_of, a.resource_id, a.outcome)
+                for a in refusals} == {
+            ("agent", AGENT, PLANNER, "maintenance.submit", "denied"),
+            ("agent", AGENT, PLANNER, "maintenance.draft", "denied"),
+        }  # fmt: skip
         # The person may submit what the agent drafted.
         assert (await world.submit(draft)).work_order.status == "submitted"
 
@@ -295,6 +302,11 @@ def test_the_fault_investigator_drafts_and_no_service_principal_submits() -> Non
         assert draft.drafted_by == "service:fault-investigator"
         alone = as_caller("service:fault-investigator", person=False)
         assert await code_of(world.submit(draft, who=alone)) == grpc.StatusCode.PERMISSION_DENIED
+        (refusal,) = [a for a in await world.events("audit.requested.maintenance")
+                      if a.action == "authorization.denied"]  # fmt: skip
+        assert (refusal.actor_type, refusal.actor_id, refusal.on_behalf_of) == (
+            "service", "service:fault-investigator", "",
+        )  # fmt: skip
 
     with_service(scenario)
 

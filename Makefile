@@ -18,7 +18,7 @@ PLANNED_TARGETS := \
 	seed-demo:M14.5 \
 	smoke-test:M14.5
 
-.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate phase-4-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check agent-identity-check mcp-check mcp-servers-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check simulator-check telemetry-storage-check cms-check data-quality-check snapshot-check freshness-check fault-stream-check alarm-check fault-rules-check detection-check case-check fault-case-check maintenance-check inventory-check phase-5-gate policy-check impact-check weather-check boundary-check weather-outage-check phase-6-gate citation-check phase-7-gate vendor-check runtime-check workflow-check agent-tools-check team-check planner-check trace-check sandbox-check progress-check regression phase-8-gate claude-check claude-policy-lock knowledge-seed knowledge-check retrieval-check research-check servicebus-provision servicebus-check azure-overlay azure-monitoring azure-foundation azure-plan azure-up azure-down azure-destroy azure-platform azure-prove azure-stop-postgres azure-logs azure-pipeline-identity $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
+.PHONY: help dev demo-logins config install lint format typecheck test audit contracts contracts-gen check logs services sample-check phase-1-gate service images scaffold-check cluster cluster-stop cluster-delete cluster-check infra secrets clean gateway gateway-routes gateway-forward gateway-check observability-forward observability-check postgres-provision postgres-check redis-check qdrant-check nats-check migrate migration migrate-check outbox-check audit-check events-check dead-letters phase-2-gate phase-3-gate phase-4-gate route-sweep identity-seed identity-check mfa-check mtls-check data-tls-check authorization-seed authorization-check identity-service-check tenant-seed tenant-check cross-tenant-check edge-check openapi bff-check gateway-policy-check token-exchange-check agent-identity-check mcp-check mcp-servers-check frontend-test frontend-check admin-api-check platform-api-check security-check asset-seed asset-check telemetry-devices telemetry-check simulator-check telemetry-storage-check cms-check data-quality-check snapshot-check freshness-check fault-stream-check alarm-check fault-rules-check detection-check case-check fault-case-check maintenance-check inventory-check phase-5-gate policy-check impact-check weather-check boundary-check weather-outage-check phase-6-gate citation-check phase-7-gate vendor-check runtime-check workflow-check agent-tools-check team-check planner-check agent-denial-check trace-check sandbox-check progress-check regression phase-8-gate phase-9-gate claude-check claude-policy-lock knowledge-seed knowledge-check retrieval-check research-check servicebus-provision servicebus-check azure-overlay azure-monitoring azure-foundation azure-plan azure-up azure-down azure-destroy azure-platform azure-prove azure-stop-postgres azure-logs azure-pipeline-identity $(foreach item,$(PLANNED_TARGETS),$(firstword $(subst :, ,$(item))))
 
 help: ## Show the available commands
 	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | sed -E 's/:.*## /|/' | awk -F'|' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -427,6 +427,9 @@ team-check: ## Rehearse the investigation team on the cluster: real team, tools 
 planner-check: ## Prove step 12: the Maintenance Planner's proposal and one draft work order, rehearsed and dry run, no cost (M9.3)
 	uv run python -m scripts.checks.agents.planner
 
+agent-denial-check: ## Prove an agent drafts, and every attempt to submit or reserve as an agent is denied and audited, no cost (M9.5)
+	uv run python -m scripts.checks.agents.denials
+
 trace-check: ## Prove agent traces reach LangSmith complete, and only redacted: a planted secret never leaves (M8.9)
 	uv run python -m scripts.checks.agents.trace
 
@@ -436,6 +439,9 @@ sandbox-check: ## Prove the Agent Sandbox Adapter: registered tasks, limits, no 
 phase-8-gate: ## The Phase 8 exit gate: make phase-8-gate MODE=stand_in (free), or MODE=claude SPEND=yes once approved
 	@test -n "$(MODE)" || { echo "Usage: make phase-8-gate MODE=stand_in|claude [SPEND=yes]" >&2; exit 2; }
 	uv run python -m scripts.checks.agents.phase8_gate --mode $(MODE) $(if $(filter yes,$(SPEND)),--spend,)
+
+phase-9-gate: ## Check the Phase 9 exit gate on the cluster: agents draft and never submit or reserve, then every check, no cost
+	uv run python -m scripts.checks.gates.phase_9
 
 regression: ## Run the regression set on the cluster, scored deterministically: make regression [SCENARIO=id] (M8.12)
 	uv run python -m scripts.evaluation.regression $(if $(SCENARIO),--scenario $(SCENARIO),)

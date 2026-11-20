@@ -32,6 +32,7 @@ from windops_maintenance.store import (
     WORK_ORDER_HISTORY,
     WORK_ORDERS,
     KeyReusedError,
+    denied,
     record,
     remember,
     remembered,
@@ -94,11 +95,13 @@ class MaintenanceService(maintenance_pb2_grpc.MaintenanceServiceServicer):
         kind = "agent" if agent else ("user" if identity.user_id else "service")
         return identity.tenant_id, who, kind, agent
 
-    @staticmethod
-    def _person() -> None:
-        """Only a person, with no agent acting for them, takes a work order past draft."""
+    async def _person(self, permission: str) -> None:
+        """Only a person, with no agent acting for them, takes a work order past draft. A
+        refusal is recorded, as Authorization would record its own."""
         identity = current_identity()
         if identity.actor or not identity.user_id:
+            async with self._engine.begin() as connection:
+                await denied(connection, identity, permission)
             raise PermissionDeniedError(
                 "Only a person may do this: an agent may only draft (SEC-009, FR-MNT-003)"
             )
@@ -353,7 +356,7 @@ class MaintenanceService(maintenance_pb2_grpc.MaintenanceServiceServicer):
         self, request: pb.SubmitWorkOrderRequest, context: Any
     ) -> pb.SubmitWorkOrderResponse:
         # Before anything else: an agent never submits, whatever it was granted (SEC-009).
-        self._person()
+        await self._person(SUBMIT)
         tenant, who, kind, _ = self._caller()
         async with self._engine.connect() as connection:
             await in_tenant(connection, tenant)
@@ -424,7 +427,7 @@ class MaintenanceService(maintenance_pb2_grpc.MaintenanceServiceServicer):
     async def WithdrawDraft(  # noqa: N802  # The name comes from the contract.
         self, request: pb.WithdrawDraftRequest, context: Any
     ) -> pb.WithdrawDraftResponse:
-        self._person()
+        await self._person(DRAFT_PERMISSION)
         tenant, who, kind, _ = self._caller()
         reason = request.reason.strip()
         if not reason or len(reason) > MAXIMUM_REASON:

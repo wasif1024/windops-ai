@@ -43,8 +43,13 @@ from scripts.setup.provision_postgres import read_passwords
 CONTEXT = KUBE_CONTEXT
 SYSTEM, APPLICATION, DATA = "windops-system", "windops-application", "windops-data"
 TENANT, OTHER = "north-sea", "atlas-wind"
-# Every service that stores data so far. A new one must be added here.
-DATABASES = ("audit", "authorization", "identity", "tenant")
+# Every service that stores data so far. A new one must be added here; a repository test holds
+# this to the services with migrations.
+DATABASES = (
+    "agent_runtime", "alarm", "asset", "audit", "authorization", "external_intelligence",
+    "fault_detection", "identity", "inventory", "investigation", "knowledge", "maintenance",
+    "policy", "production_impact", "telemetry", "tenant", "weather",
+)  # fmt: skip
 # Tables with a tenant that need no policy, and why. The repository test exempts the same.
 # Only the service itself reads these, across tenants, never a request: the relay its outbox, and
 # the Knowledge Service's indexer its queue, which holds identifiers only (M7.2).
@@ -154,8 +159,10 @@ def check_table(service: str, table: str) -> None:
         ),
     )
     mine = sql(service, as_tenant(TENANT, statement("SELECT count(*) FROM {table}", table=table)))
-    refused = moved.returncode != 0 and (
-        "row-level security" in moved.stderr or "append-only" in moved.stderr
+    # A record kept as it happened refuses the change before row-level security is reached.
+    refused = moved.returncode != 0 and any(
+        reason in moved.stderr
+        for reason in ("row-level security", "append-only", "never change", "never deleted")
     )
     note = "" if refused else f" (it holds no {TENANT} rows to try)"
     check(
@@ -238,6 +245,14 @@ class Attacker:
     def check_audit(self) -> None:
         host = "windops-audit.windops-application.svc.cluster.local"
         seen: set[str] = set()
+
+        def ids(tenant: str) -> set[str]:
+            found = sql("audit", as_tenant(tenant, "SELECT event_id FROM audit_records"))
+            return set(found.stdout.split()[1:])
+
+        # The attempts above are audited too, and their records keep arriving while this reads.
+        # So: every record there before must be seen, and nothing seen may be outside the tenant.
+        before = ids(TENANT)
         with (
             port_forward("deployment/windops-audit", APPLICATION, 50051) as port,
             blocking_channel(port, host, self.bundle) as channel,
@@ -255,14 +270,12 @@ class Attacker:
                 if not token:
                     break
         self.attempts += 1
-        mine = int(last_line(sql("audit", as_tenant(TENANT, "SELECT count(*) FROM audit_records"))))
-        theirs = set(
-            sql("audit", as_tenant(OTHER, "SELECT event_id FROM audit_records")).stdout.split()[1:]
-        )
+        after, theirs = ids(TENANT), ids(OTHER)
         # The request has no tenant field, so the caller's verified tenant is the only one possible.
         check(
-            len(seen) == mine and bool(theirs) and not seen & theirs,
-            f"Audit: {TENANT} reads exactly its {mine} records, none of {OTHER}'s {len(theirs)}",
+            before <= seen <= after and bool(theirs) and not seen & theirs,
+            f"Audit: {TENANT} reads all of its {len(seen)} records, none of {OTHER}'s "
+            f"{len(theirs)}",
         )
 
 
