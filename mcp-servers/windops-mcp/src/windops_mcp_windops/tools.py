@@ -16,6 +16,7 @@ later reaches an agent unless it is named here.
 | get_evidence | Investigation | A frozen evidence snapshot, item by item |
 | estimate_impact | Production Impact | A deterministic estimate: energy, availability and cost |
 | check_policy | Policy | Deterministic rules on a proposed action |
+| create_draft_work_order | Maintenance | A draft work order: the one change an agent may make |
 
 Nothing here changes a record. `estimate_impact` and `check_policy` each keep the result they
 compute, as their services always do, and change nothing else. Parts and drafts come with the
@@ -24,13 +25,14 @@ Inventory and Maintenance services (Phase 9).
 
 import hashlib
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from google.protobuf.timestamp_pb2 import Timestamp
 from pydantic import Field
 from windops.alarm.v1 import alarm_pb2, alarm_pb2_grpc
 from windops.asset.v1 import asset_pb2, asset_pb2_grpc
 from windops.investigation.v1 import investigation_pb2, investigation_pb2_grpc
+from windops.maintenance.v1 import maintenance_pb2, maintenance_pb2_grpc
 from windops.policy.v1 import policy_pb2, policy_pb2_grpc
 from windops.production_impact.v1 import production_impact_pb2, production_impact_pb2_grpc
 from windops.telemetry.v1 import telemetry_pb2, telemetry_pb2_grpc
@@ -112,6 +114,42 @@ class SummaryInput(ToolInput):
     metrics: list[MetricName] = Field(default_factory=list, max_length=12,
                                       description="Empty for every metric")  # fmt: skip
     buckets: int = Field(default=12, ge=1, le=48, description="Equal slices of the window")
+
+
+class DraftTask(ToolInput):
+    description: str = Field(min_length=1, max_length=2000)
+    duration_hours: float = Field(gt=0, le=240)
+    crew_size: int = Field(ge=1, le=20)
+    requires_climb: bool
+
+
+class DraftPart(ToolInput):
+    part_number: str = Field(min_length=2, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9._/-]+$")
+    quantity: int = Field(ge=1, le=1000)
+
+
+# A knowledge passage's citation, as the Documentation server gives it.
+Citation = Annotated[
+    str, Field(max_length=90, pattern=r"^kn:[A-Z0-9][A-Z0-9-]{2,63}@\d{1,4}#\d{1,5}$")
+]
+
+
+class DraftInput(ToolInput):
+    case_id: str = Field(max_length=25, pattern=_CASE)
+    title: str = Field(min_length=1, max_length=200)
+    action: Action
+    summary: str = Field(min_length=1, max_length=4000)
+    tasks: list[DraftTask] = Field(min_length=1, max_length=50)
+    parts: list[DraftPart] = Field(default_factory=list, max_length=50)
+    procedures: list[Citation] = Field(
+        default_factory=list,
+        max_length=20,
+        description="Approved procedures by citation, as documentation_read_passage gave them",
+    )
+    planned_start: datetime
+    planned_end: datetime
+    estimated_downtime_hours: float = Field(ge=0, le=720)
+    impact_result_id: str = Field(default="", max_length=40, pattern=r"^(imp_[a-z0-9]{20})?$")
 
 
 class ImpactInput(ToolInput):
@@ -239,6 +277,24 @@ class TelemetrySummary(ToolOutput):
     window_end: str
     content_hash: str
     metrics: list[MetricSummary]
+
+
+class DraftProblem(ToolOutput):
+    field: str
+    code: str
+    message: str
+    blocking: bool
+
+
+class DraftWorkOrder(ToolOutput):
+    work_order_id: str
+    status: str
+    revision: int
+    case_id: str
+    drafted_by_agent: str
+    passed: bool
+    problems: list[DraftProblem]
+    policy_outcome: str
 
 
 class EvidenceItem(ToolOutput):
@@ -501,6 +557,45 @@ def tools(services: Services) -> list[Tool]:
             verified=result.verified,
         )  # fmt: skip
 
+    async def create_draft_work_order(arguments: DraftInput) -> DraftWorkOrder:
+        def stamp(value: datetime) -> Timestamp:
+            made = Timestamp()
+            made.FromDatetime(value if value.tzinfo else value.replace(tzinfo=UTC))
+            return made
+
+        plan = maintenance_pb2.Plan(
+            title=arguments.title, action=arguments.action, summary=arguments.summary,
+            tasks=[maintenance_pb2.Task(description=t.description, duration_hours=t.duration_hours,
+                                        crew_size=t.crew_size, requires_climb=t.requires_climb)
+                   for t in arguments.tasks],
+            parts=[maintenance_pb2.PartLine(part_number=p.part_number, quantity=p.quantity)
+                   for p in arguments.parts],
+            procedures=arguments.procedures, planned_start=stamp(arguments.planned_start),
+            planned_end=stamp(arguments.planned_end),
+            estimated_downtime_hours=arguments.estimated_downtime_hours,
+            impact_result_id=arguments.impact_result_id,
+        )  # fmt: skip
+        order = (
+            await call(
+                "maintenance", maintenance_pb2_grpc.MaintenanceServiceStub,
+                "WINDOPS_MAINTENANCE_ADDRESS", "CreateDraft",
+                maintenance_pb2.CreateDraftRequest(
+                    case_id=arguments.case_id, plan=plan,
+                    idempotency_key=_key("draft", arguments.model_dump_json()),
+                ),
+                # A draft is validated at once, through the Policy Service.
+                deadline_seconds=IMPACT_DEADLINE_SECONDS,
+            )
+        ).work_order  # fmt: skip
+        return DraftWorkOrder(
+            work_order_id=order.work_order_id, status=order.status, revision=order.revision,
+            case_id=order.case_id, drafted_by_agent=order.drafted_by_agent,
+            passed=order.validation.passed,
+            problems=[DraftProblem(field=p.field, code=p.code, message=p.message,
+                                   blocking=p.blocking) for p in order.validation.problems],
+            policy_outcome=order.validation.policy_outcome,
+        )  # fmt: skip
+
     async def check_policy(arguments: PolicyInput) -> PolicyCheck:
         proposal = policy_pb2.Proposal(
             action=arguments.action, summary=arguments.summary,
@@ -574,4 +669,10 @@ def tools(services: Services) -> list[Tool]:
              "or block, each rule with its version and reason. An agent cannot override it.",
              PolicyInput, PolicyCheck, check_policy, timeout_seconds=20, per_minute=10,
              per_day=500),
+        tool("create_draft_work_order", "Draft a work order",
+             "A draft work order for a case: its tasks, crew, window, parts, the procedures it "
+             "follows and the expected downtime. It is validated at once, and its problems come "
+             "back. Only a draft: a person submits it, and another decides (FR-MNT-003).",
+             DraftInput, DraftWorkOrder, create_draft_work_order, timeout_seconds=20,
+             per_minute=10, per_day=200, read_only=False),
     ]  # fmt: skip

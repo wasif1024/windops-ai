@@ -12,7 +12,7 @@ MCP_TOOLS: dict[str, tuple[str, ...]] = {
     "documentation": ("search_documents", "read_passage"),
     "tavily": ("search_web", "extract_page", "get_research"),
     "weather": ("get_forecast",),
-    # The platform's own records, tenant-scoped (M8.6). Parts and drafts come in Phase 9.
+    # The platform's own records, tenant-scoped (M8.6), and draft work orders (M9.1).
     "windops": (
         "get_turbine",
         "get_latest_telemetry",
@@ -23,6 +23,8 @@ MCP_TOOLS: dict[str, tuple[str, ...]] = {
         "get_evidence",
         "estimate_impact",
         "check_policy",
+        # The one write an agent may make: a draft (FR-MNT-003, M9.1).
+        "create_draft_work_order",
     ),
     # Development only, never deployed on Azure.
     "filesystem": ("list_files", "read_file"),
@@ -75,7 +77,8 @@ EXTERNAL_TOOLS = frozenset(
     }
 )  # fmt: skip
 # None yet: create_draft arrives with the Maintenance Service (Phase 9), for the planner alone.
-WRITE_TOOLS: frozenset[str] = frozenset()
+# Tools that change something. No agent that reads external content may hold one (MCP-006).
+WRITE_TOOLS: frozenset[str] = frozenset({tool_scope("windops", "create_draft_work_order")})
 
 
 def _tools(server: str, *names: str) -> frozenset[str]:
@@ -102,8 +105,11 @@ AGENT_TOOLS: dict[str, frozenset[str]] = {
     | frozenset(sandbox_scope(task) for task in SANDBOX_TASKS),
     # Production Impact's deterministic results, to explain, never to change (FR-IMP-004).
     "production-impact": _tools("windops", "get_case", "get_turbine", "estimate_impact"),
-    # Maintenance history (inventory and drafts come in Phase 9). Never reads raw web content.
-    "maintenance-planner": _tools("windops", "get_case", "list_cases", "get_turbine"),
+    # Maintenance history and draft work orders (inventory comes in M9.2). Never reads raw web
+    # content, so it may hold the one write tool (MCP-006).
+    "maintenance-planner": _tools(
+        "windops", "get_case", "list_cases", "get_turbine", "create_draft_work_order"
+    ),
     # Procedures, external research and weather. Read-only; cannot declare a site safe.
     "safety-researcher": _tools("documentation", "search_documents", "read_passage")
     | _tools("tavily", "search_web", "extract_page", "get_research")

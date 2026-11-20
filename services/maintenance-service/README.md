@@ -1,0 +1,38 @@
+# windops-maintenance
+
+Maintenance plans and work orders (SRS 4.12, FR-MNT-002, FR-MNT-003). A person or an agent drafts a work order
+against an active case; only a person submits it ([ADR 0029](../../docs/adr/0029-work-orders-drafted-by-anyone-submitted-by-a-person.md)).
+
+## A work order
+
+| State | How it gets there |
+| --- | --- |
+| `draft` | `CreateDraft`, with `maintenance.draft`, by a person or an agent. `UpdateDraft` replaces its plan, from the revision the caller saw |
+| `submitted` | `SubmitWorkOrder`, with `maintenance.submit`, by a person only, once nothing blocks it. Announced as `workorder.submitted` |
+| `withdrawn` | `WithdrawDraft`, by a person, with a reason |
+
+Approval, rejection, staleness, completion and verification come with Phase 10.
+
+## Validation (FR-MNT-002)
+
+Run as a draft is made or changed, on demand with `ValidateWorkOrder`, and again at submission. A blocking problem
+stops submission; the rest are for the reviewer.
+
+| Check | Blocks when |
+| --- | --- |
+| The plan | A title, action or summary is missing; there is no task; a task is outside 0 to 240 hours or 1 to 20 people; a part or procedure is malformed; a repair, replacement or adjustment cites no procedure; the window ends before it starts or has started; downtime is outside 0 to 720 hours |
+| The turbine | It cannot be found, or its status cannot be checked. Faulted, stopped, offline or in maintenance is noted |
+| The Policy Service | Its rules block the plan, or it cannot be asked. An escalation is noted |
+
+## Agents only draft (FR-MNT-003, SEC-009)
+
+The Maintenance Planner agent drafts through WindOps MCP's `create_draft_work_order`, for its principal. This service
+refuses any identity with an agent behind it, or with no person, before it submits or withdraws anything, whatever
+the Authorization Service would allow.
+
+## Run the tests
+
+```bash
+uv run pytest services/maintenance-service/tests
+make maintenance-check   # on the cluster: drafts, validation, submission, and agents held to drafts
+```

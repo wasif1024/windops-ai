@@ -1,0 +1,202 @@
+syntax = "proto3";
+
+package windops.maintenance.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Maintenance plans and work orders (SRS 4.12, FR-MNT-002, FR-MNT-003).
+//
+// A work order is planned against a case: its tasks, crew, window, parts, procedures and expected
+// downtime. A person or an agent drafts it; only a person submits it, and another person decides
+// on it (Phase 10). An agent can never take a work order past draft (SEC-009): the Authorization
+// Service refuses it anything but reading and drafting, and this service refuses any identity
+// with an agent behind it, whatever Authorization says.
+//
+// Drafting needs maintenance.draft for the case's turbine, its wind farm or the tenant;
+// submitting needs maintenance.submit there and a person. Reading needs investigation.read. A
+// work order the caller may not read is not found. The tenant comes from the caller's verified
+// identity (GRP-004). Every change is kept in its history, audited, and may be retried with the
+// same idempotency_key (GRP-007).
+service MaintenanceService {
+  // A draft for an active case, validated at once. Its problems are kept with it.
+  rpc CreateDraft(CreateDraftRequest) returns (CreateDraftResponse);
+  // Replaces a draft's plan. Only a draft changes, and only from the revision the caller saw.
+  rpc UpdateDraft(UpdateDraftRequest) returns (UpdateDraftResponse);
+  // Checks a work order again, now: the turbine, the plan, its procedures, and the Policy
+  // Service's rules (FR-MNT-002). The result is kept with it.
+  rpc ValidateWorkOrder(ValidateWorkOrderRequest) returns (ValidateWorkOrderResponse);
+  // Validates it, then submits it for a decision, announcing workorder.submitted. Refused while
+  // any blocking problem stands. Only a person, never an agent.
+  rpc SubmitWorkOrder(SubmitWorkOrderRequest) returns (SubmitWorkOrderResponse);
+  // Withdraws a draft. Only a person.
+  rpc WithdrawDraft(WithdrawDraftRequest) returns (WithdrawDraftResponse);
+  // With its history.
+  rpc GetWorkOrder(GetWorkOrderRequest) returns (GetWorkOrderResponse);
+  // Newest first.
+  rpc ListWorkOrders(ListWorkOrdersRequest) returns (ListWorkOrdersResponse);
+}
+
+message Task {
+  string description = 1;
+  double duration_hours = 2;
+  int32 crew_size = 3;
+  // Work at height: the tower, nacelle or hub.
+  bool requires_climb = 4;
+}
+
+// A part the work needs. The Inventory Service checks it fits and is in stock (M9.2).
+message PartLine {
+  string part_number = 1;
+  int32 quantity = 2;
+}
+
+// What a work order plans. A draft is made from one and replaced by one.
+message Plan {
+  string title = 1;
+  // "inspection", "repair", "replacement", "adjustment" or "monitoring".
+  string action = 2;
+  string summary = 3;
+  repeated Task tasks = 4;
+  repeated PartLine parts = 5;
+  // The approved procedures it follows, by knowledge citation, such as kn:GBX-OIL-01@3#12.
+  repeated string procedures = 6;
+  google.protobuf.Timestamp planned_start = 7;
+  google.protobuf.Timestamp planned_end = 8;
+  double estimated_downtime_hours = 9;
+  // The Production Impact Service's estimate for this case and action, if one was made.
+  string impact_result_id = 10;
+}
+
+message Problem {
+  // The field it concerns, such as "tasks[0].duration_hours" or "policy".
+  string field = 1;
+  // A stable code, such as "missing", "out_of_range", "unknown_turbine" or "policy_block".
+  string code = 2;
+  string message = 3;
+  // A blocking problem stops submission. Others are for the reviewer.
+  bool blocking = 4;
+}
+
+message Validation {
+  google.protobuf.Timestamp checked_at = 1;
+  // No blocking problem.
+  bool passed = 2;
+  repeated Problem problems = 3;
+  // The turbine's status when checked.
+  string turbine_status = 4;
+  // The Policy Service's result: "pass", "escalate" or "block". Empty if it could not be asked.
+  string policy_outcome = 5;
+  string policy_result_id = 6;
+}
+
+message WorkOrder {
+  // "wo_" and 20 lowercase letters and digits.
+  string work_order_id = 1;
+  // The proposal version, from 1. A rejected or stale one is revised as a new version (Phase 10).
+  int64 version = 2;
+  // Each change to it, from 1: what UpdateDraft's expected_revision names.
+  int64 revision = 3;
+  string case_id = 4;
+  string turbine_id = 5;
+  // The case's evidence when it was drafted.
+  string evidence_snapshot_id = 6;
+  Plan plan = 7;
+  // "draft", "submitted" or "withdrawn"; "approved", "rejected", "stale", "completed" and
+  // "verified" come with Phase 10.
+  string status = 8;
+  // The person, or principal, it was drafted for.
+  string drafted_by = 9;
+  // The agent that drafted it, such as "agent:maintenance-planner"; empty for a person.
+  string drafted_by_agent = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  string submitted_by = 13;
+  google.protobuf.Timestamp submitted_at = 14;
+  Validation validation = 15;
+}
+
+message WorkOrderEvent {
+  google.protobuf.Timestamp at = 1;
+  // "drafted", "updated", "validated", "submitted" or "withdrawn".
+  string action = 2;
+  // "user", "agent" or "service".
+  string actor_type = 3;
+  string actor_id = 4;
+  // The agent behind it, if any.
+  string agent = 5;
+  int64 revision = 6;
+  string note = 7;
+}
+
+message CreateDraftRequest {
+  string case_id = 1;
+  Plan plan = 2;
+  string idempotency_key = 3;
+}
+
+message CreateDraftResponse {
+  WorkOrder work_order = 1;
+}
+
+message UpdateDraftRequest {
+  string work_order_id = 1;
+  int64 expected_revision = 2;
+  Plan plan = 3;
+  string idempotency_key = 4;
+}
+
+message UpdateDraftResponse {
+  WorkOrder work_order = 1;
+}
+
+message ValidateWorkOrderRequest {
+  string work_order_id = 1;
+}
+
+message ValidateWorkOrderResponse {
+  WorkOrder work_order = 1;
+}
+
+message SubmitWorkOrderRequest {
+  string work_order_id = 1;
+  int64 expected_revision = 2;
+  string idempotency_key = 3;
+}
+
+message SubmitWorkOrderResponse {
+  WorkOrder work_order = 1;
+}
+
+message WithdrawDraftRequest {
+  string work_order_id = 1;
+  string reason = 2;
+  string idempotency_key = 3;
+}
+
+message WithdrawDraftResponse {
+  WorkOrder work_order = 1;
+}
+
+message GetWorkOrderRequest {
+  string work_order_id = 1;
+}
+
+message GetWorkOrderResponse {
+  WorkOrder work_order = 1;
+  // Oldest first.
+  repeated WorkOrderEvent history = 2;
+}
+
+message ListWorkOrdersRequest {
+  string case_id = 1;
+  string turbine_id = 2;
+  // Empty means every status.
+  repeated string statuses = 3;
+  int32 page_size = 4;
+  string page_token = 5;
+}
+
+message ListWorkOrdersResponse {
+  repeated WorkOrder work_orders = 1;
+  string next_page_token = 2;
+}

@@ -20,6 +20,7 @@ patches:
 - path: patches/windops-identity.yaml
 - path: patches/windops-investigation.yaml
 - path: patches/windops-knowledge.yaml
+- path: patches/windops-maintenance.yaml
 - path: patches/windops-mcp-documentation.yaml
 - path: patches/windops-mcp-tavily.yaml
 - path: patches/windops-mcp-weather.yaml
