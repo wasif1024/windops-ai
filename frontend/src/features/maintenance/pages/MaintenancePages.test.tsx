@@ -134,7 +134,7 @@ describe("the maintenance planner", () => {
     const api = fakeApi();
     show(<WorkOrderPage api={api as unknown as MaintenanceApi} workOrderId={order.work_order_id} canDraft canSubmit />);
     expect(await screen.findByRole("note")).toBeTruthy();
-    expect(screen.getByText(/The maintenance planner agent, for service:fault-investigator/)).toBeTruthy();
+    expect(screen.getByText(/the maintenance planner agent, for service:fault-investigator/)).toBeTruthy();
     expect(within(screen.getByRole("list", { name: "Parts" })).getByText("Short: 1 in the store")).toBeTruthy();
     expect(within(screen.getByRole("list", { name: "For the reviewer" })).getByText(/1 of 2 available/)).toBeTruthy();
     expect(within(screen.getByRole("list", { name: "History" })).getByText(/maintenance planner agent/)).toBeTruthy();

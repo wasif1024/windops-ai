@@ -63,13 +63,13 @@ def test_roadmap_progress_counts_ticked_modules(tmp_path: Path) -> None:
 
 
 def test_readme_shows_one_architecture_diagram_and_the_animation() -> None:
-    """The README is the overview: the Kubernetes view, the agents' animation and the governance
-    crosswalk, nothing more."""
+    """The README is the overview: the Kubernetes view, the agents' animation, the console as it
+    runs and the governance crosswalk, nothing more."""
     readme = (ROOT / "README.md").read_text()
     images = re.findall(r"docs/assets/[\w-]+\.(?:png|gif)", readme)
     assert sorted(set(images)) == [
         "docs/assets/agent-orchestration.gif", "docs/assets/ai-governance.png",
-        "docs/assets/kubernetes-on-azure.png",
+        "docs/assets/console-tour.png", "docs/assets/kubernetes-on-azure.png",
     ]  # fmt: skip
     # The architecture comes before the agents, and the detailed diagrams are a link away.
     assert readme.index("kubernetes-on-azure.png") < readme.index("agent-orchestration.gif")
@@ -126,17 +126,21 @@ def test_end_to_end_diagram_draws_every_srs_service_once() -> None:
 
 
 def test_readme_shows_the_console_as_it_runs() -> None:
-    """Four screens of the real console, each a file in the repository, after the diagrams."""
+    """The real console in one picture, and each of its screens a file in the repository, after
+    the diagrams. `make readme-screens` captures them (scripts/generate/console_screens.py)."""
     readme = (ROOT / "README.md").read_text()
     screens = re.findall(r"docs/assets/screens/[\w-]+\.png", readme)
     assert sorted(set(screens)) == [
-        "docs/assets/screens/alarm-console.png", "docs/assets/screens/alarm-detail.png",
-        "docs/assets/screens/fleet-overview.png", "docs/assets/screens/turbine-detail.png",
+        "docs/assets/screens/alarm-console.png", "docs/assets/screens/fleet-overview.png",
+        "docs/assets/screens/maintenance-planner.png", "docs/assets/screens/parts-lookup.png",
+        "docs/assets/screens/phone-work-order.png", "docs/assets/screens/turbine-detail.png",
+        "docs/assets/screens/work-order.png",
     ]  # fmt: skip
     # The scaffold check runs the tests in a copy without the assets, so check files where they are.
     if (ROOT / "docs/assets").is_dir():
         assert all((ROOT / screen).is_file() for screen in screens)
     assert readme.index("agent-orchestration.gif") < readme.index("## The console today")
+    assert readme.index("## The console today") < readme.index("console-tour.png")
 
 
 def test_readme_shows_the_industry_images() -> None:

@@ -18,7 +18,7 @@ a module of the `scripts` package, so it runs from the repository root as, for e
 | `evaluation/` | Phase 8: the regression set's scenario loader, its deterministic evaluators (EVL-003), and the runner that replays scenarios on the cluster and keeps the scores in LangSmith | `make regression` |
 | `checks/gates/` | Each phase's exit gate, which runs that phase's checks together | `make phase-3-gate`, `make phase-4-gate`, `make phase-5-gate`, `make phase-6-gate`, `make phase-7-gate`, `make boundary-check`, `make citation-check` |
 | `dev/` | Working on WindOps: running it locally, the service template, and dead letters | `make dev`, `make service NAME=...`, `make dead-letters` |
-| `generate/` | Files made from the code, which tests keep up to date | `make contracts-gen`, `make openapi` |
+| `generate/` | Files made from the code, which tests keep up to date, and the README's pictures, including the console captured from the running platform | `make contracts-gen`, `make openapi`, `make readme-screens` |
 
 ## Adding one
 
