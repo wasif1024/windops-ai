@@ -1,8 +1,9 @@
 # The Maintenance Planner (SRS 5.3). Model and effort come from claude-policy.yaml, by role.
 # It never reads raw web content (SRS 5.3), so it may draft work orders (M9.1). It finds and
-# checks parts (M9.2), and reserves none: only a person does (FR-INVT-002).
+# checks parts (M9.2), and reserves none: only a person does (FR-INVT-002). In the investigation
+# it advises the Supervisor, without its drafting tool; in step 12 it drafts, from draft.md (M9.3).
 name: maintenance-planner
-version: 3
+version: 4
 role: maintenance-planner
 description: Prepares what a maintenance task would involve, from the case's findings and the turbine's maintenance history.
 tools:

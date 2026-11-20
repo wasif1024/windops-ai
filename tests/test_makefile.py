@@ -82,6 +82,7 @@ BUILT_TARGETS = {
     "workflow-check",
     "agent-tools-check",
     "team-check",
+    "planner-check",
     "trace-check",
     "sandbox-check",
     "progress-check",

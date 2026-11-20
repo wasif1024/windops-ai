@@ -11,7 +11,9 @@ There are three workflows:
   and `skills/`. Step 10 turns the Supervisor's report into SRS 5.7's structured result and checks every citation
   against what the tools returned, with at most two repairs; step 11 checks each recommended action through Policy;
   step 12 keeps the result on the run
-  ([ADR 0022](../../docs/adr/0022-the-structured-result-checked-against-what-the-team-saw.md)). A run can rehearse the
+  ([ADR 0022](../../docs/adr/0022-the-structured-result-checked-against-what-the-team-saw.md)), with the Maintenance
+  Planner's proposal and one draft work order for the first action policy did not block
+  ([ADR 0031](../../docs/adr/0031-step-12-the-planner-drafts-after-policy.md)). A run can rehearse the
   team on a scripted model, at no cost. Investigation starts these runs for its cases, follows them, and sets the
   case to `pending_review` when one completes
   ([ADR 0025](../../docs/adr/0025-investigations-started-and-followed-by-their-case-owner.md)).

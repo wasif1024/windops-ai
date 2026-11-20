@@ -663,7 +663,7 @@ async def test_an_investigation_runs_every_step_and_checkpoints_each(
     engine: AsyncEngine, clock: Clock, queue: Queue
 ) -> None:
     run = await start_investigation(engine, clock)
-    assert json.loads(run.pins_json)["graph"] == "investigation@3"
+    assert json.loads(run.pins_json)["graph"] == "investigation@4"
     claim = await queue.claim("replica-a/0")
     assert claim is not None
     assert await Worker(queue, REGISTRY).execute(claim, asyncio.Event()) == "completed"
@@ -900,6 +900,7 @@ async def test_an_investigation_with_its_team_keeps_a_checked_result_and_its_pol
     """A rehearsal: the real graph and team on a scripted model, the result checked, and every
     recommended action through policy (M8.7, M8.8)."""
     from team_support import Tokens, mcp_names, sandbox_run, toolbox
+    from windops_agent_runtime.team import rehearsal
     from windops_agent_runtime.team.definitions import team
     from windops_agent_runtime.team.run import TeamRunner
 
@@ -912,8 +913,18 @@ async def test_an_investigation_with_its_team_keeps_a_checked_result_and_its_pol
     async def policy(arguments: dict[str, Any]) -> str:
         return json.dumps({"result_id": "pol_1", "outcome": "escalate", "rules": []})
 
+    drafts: list[dict[str, Any]] = []
+
+    async def draft(arguments: dict[str, Any]) -> str:
+        drafts.append(arguments)
+        return json.dumps({"work_order_id": "wo_" + "d" * 20, "status": "draft",
+                           "revision": 1, "case_id": CASE,
+                           "drafted_by_agent": "agent:maintenance-planner", "passed": True,
+                           "problems": [], "policy_outcome": "escalate"})  # fmt: skip
+
     every: dict[str, Any] = dict.fromkeys(mcp_names(team().agents.values()), answer)
-    every |= {"windops_get_evidence": evidence, "windops_check_policy": policy}
+    every |= {"windops_get_evidence": evidence, "windops_check_policy": policy,
+              "windops_create_draft_work_order": draft}  # fmt: skip
 
     def make_team(claim: Any, claude: Any, tokens: Any) -> TeamRunner:
         return TeamRunner(team(), toolbox(every), claude=claude, tokens=Tokens(),
@@ -927,7 +938,11 @@ async def test_an_investigation_with_its_team_keeps_a_checked_result_and_its_pol
     )  # fmt: skip
     with caller():
         run = (await service(engine, clock).StartRun(request, None)).run
-    assert set(json.loads(run.pins_json)["prompts"]) == {*team().agents, "supervisor:result"}
+    assert set(json.loads(run.pins_json)["prompts"]) == {
+        *team().agents,
+        "supervisor:result",
+        "maintenance-planner:draft",
+    }
     claim = await queue.claim("replica-a/0")
     assert claim is not None
     worker = Worker(
@@ -939,9 +954,16 @@ async def test_an_investigation_with_its_team_keeps_a_checked_result_and_its_pol
     assert (kept["case_id"], kept["snapshot_id"]) == (CASE, SNAPSHOT)
     assert kept["observed_facts"][0]["citations"] == ["tel_1"]
     # Policy escalated the recommended inspection, so a person must look.
-    assert kept["policy"] == [{"action": "inspection", "result_id": "pol_1", "outcome": "escalate"}]
+    assert kept["policy"] == [
+        {"action": "inspection", "result_id": "pol_1", "outcome": "escalate", "window_only": False}
+    ]
     assert kept["policy_result_id"] == "pol_1" and kept["escalation_required"] is True
     assert kept["model_versions"] == {} and kept["repairs"] == 0
+    # Step 12: the planner drafted the escalated inspection, once, for a person (M9.3).
+    assert [d["action"] for d in drafts] == ["inspection"] and drafts[0]["case_id"] == CASE
+    assert kept["work_order"]["work_order_id"] == "wo_" + "d" * 20
+    assert (kept["proposed_action"], kept["proposal"]) == ("inspection", rehearsal.PROPOSAL)
+    assert not any(g.startswith("recommend:") for g in kept["run_data_gaps"])
 
 
 class Captured:

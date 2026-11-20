@@ -13,7 +13,7 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage
 from windops_claude import Claude
 
-from windops_agent_runtime.team import counted, rehearsal
+from windops_agent_runtime.team import counted, planner, rehearsal
 from windops_agent_runtime.team.build import assemble
 from windops_agent_runtime.team.compose import Composed, InvalidResultError, compose
 from windops_agent_runtime.team.definitions import SUPERVISOR, Team
@@ -34,10 +34,17 @@ class Findings:
     seen: dict[str, Any] = field(default_factory=dict)
 
 
+# Rules judged only over a planned window, on its forecast (FR-POL-004). A recommendation has no
+# window, so they block it; the draft has one, and is judged again on it (M9.3).
+WINDOW_CATEGORY = "weather_window"
+
+
 @dataclass(frozen=True)
 class PolicyCheck:
     result_id: str
     outcome: str
+    # Blocked only by rules that need a planned window to judge.
+    window_only: bool = False
 
 
 class TeamRunner:
@@ -118,7 +125,23 @@ class TeamRunner:
         found = json.loads(answer)
         if "error" in found or not found.get("result_id"):
             raise PolicyUnavailableError(str(found.get("error", "no result")))
-        return PolicyCheck(result_id=str(found["result_id"]), outcome=str(found["outcome"]))
+        blocking = [r for r in found.get("rules") or [] if r.get("outcome") == "block"]
+        return PolicyCheck(
+            result_id=str(found["result_id"]), outcome=str(found["outcome"]),
+            window_only=bool(blocking)
+            and all(r.get("category") == WINDOW_CATEGORY for r in blocking),
+        )  # fmt: skip
+
+    async def draft_work_order(
+        self, briefing: str, *, used: int, model: Callable[[str], Any] | None = None
+    ) -> planner.Drafting:
+        """Step 12: the Maintenance Planner's proposal and draft, within what is left of the
+        run's tool-call budget after the `used` calls before it (M9.3)."""
+        return await planner.draft(
+            self._team, claude=self._claude, tokens=self._tokens, toolbox=self._toolbox,
+            tool_calls=max(0, self._tool_calls - used), briefing=briefing,
+            model=model or self._model,
+        )  # fmt: skip
 
 
 class PolicyUnavailableError(Exception):

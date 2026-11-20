@@ -26,6 +26,8 @@ from windops_claude.conversation import check_stable
 # The repository root locally; the image copies agents/ and skills/ to /app.
 ROOT = Path(os.environ.get("WINDOPS_AGENTS_ROOT", Path(__file__).resolve().parents[5]))
 SUPERVISOR = "supervisor"
+# Drafts step 12's work order, on its own, after the policy checks (M9.3).
+PLANNER = "maintenance-planner"
 
 
 def _hash(text: str) -> str:
@@ -56,6 +58,8 @@ class Agent:
     prompt: str
     # The Supervisor's second prompt: turning its report into the structured result (M8.8).
     result_prompt: str = ""
+    # The Maintenance Planner's second prompt: drafting a work order in step 12 (M9.3).
+    draft_prompt: str = ""
 
     @property
     def prompt_hash(self) -> str:
@@ -80,6 +84,11 @@ class Team:
                     f"{n}:result": f"{a.version}:{_hash(a.result_prompt)}"
                     for n, a in sorted(self.agents.items())
                     if a.result_prompt
+                },
+                **{
+                    f"{n}:draft": f"{a.version}:{_hash(a.draft_prompt)}"
+                    for n, a in sorted(self.agents.items())
+                    if a.draft_prompt
                 },
             },
             "tools": {n: a.tools_hash for n, a in sorted(self.agents.items())},
@@ -115,11 +124,14 @@ def load_agent(folder: Path) -> Agent:
     result_file = folder / "result.md"
     result_prompt = result_file.read_text().strip() if result_file.exists() else ""
     check_stable(result_prompt)
+    draft_file = folder / "draft.md"
+    draft_prompt = draft_file.read_text().strip() if draft_file.exists() else ""
+    check_stable(draft_prompt)
     return Agent(
         name=folder.name, version=int(spec["version"]), role=str(spec["role"]),
         description=str(spec["description"]), tools=tuple(spec.get("tools") or ()),
         skills=tuple(spec.get("skills") or ()), delegates=tuple(spec.get("delegates") or ()),
-        prompt=prompt, result_prompt=result_prompt,
+        prompt=prompt, result_prompt=result_prompt, draft_prompt=draft_prompt,
     )  # fmt: skip
 
 
@@ -131,6 +143,8 @@ def load_team(root: Path = ROOT, policy: Policy | None = None) -> Team:
         raise ValueError("There is no supervisor")
     if not agents[SUPERVISOR].result_prompt:
         raise ValueError("The supervisor has no result.md")
+    if PLANNER not in agents or not agents[PLANNER].draft_prompt:
+        raise ValueError("The maintenance-planner has no draft.md")
     for agent in agents.values():
         if agent.role not in policy.roles:
             raise ValueError(f"{agent.name}'s role {agent.role!r} is not in the Claude policy")

@@ -92,7 +92,8 @@ with the turbine's model and wind farm. The result is kept in the validation, pa
   - **A work order's validation** names its part available, and blocks one that does not fit.
 - **`make maintenance-check`** passes unchanged. A plan without parts does not ask Inventory.
 - **Not yet:**
-  - **The planner's own use of these tools,** in its proposal and step 12's draft, comes with M9.3.
+  - **The planner's own use of these tools,** in its proposal and step 12's draft, comes with M9.3
+    ([ADR 0031](0031-step-12-the-planner-drafts-after-policy.md)).
   - **The parts lookup screen:** M9.4.
   - **Using `evidence.changed` to mark a recommendation stale:** Phase 10.
   - **Consuming reserved parts** when work is completed: Phase 10.
