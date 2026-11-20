@@ -28,6 +28,7 @@ members = [
     "services/identity-service",
     "services/investigation-service",
     "services/knowledge-service",
+    "services/maintenance-service",
     "services/policy-service",
     "services/production-impact-service",
     "services/sample-caller-service",
@@ -90,6 +91,7 @@ windops-knowledge = { workspace = true }
 windops-agent-runtime = { workspace = true }
 windops-agent-sandbox = { workspace = true }
 windops-external-intelligence = { workspace = true }
+windops-maintenance = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -111,7 +113,23 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "S", "SIM", "RUF"]
 python_version = "3.13"
 strict = true
 files = [
+    "mcp-servers/documentation-mcp/src",
+    "mcp-servers/documentation-mcp/tests",
+    "mcp-servers/filesystem-mcp/src",
+    "mcp-servers/filesystem-mcp/tests",
+    "mcp-servers/postgres-mcp/src",
+    "mcp-servers/postgres-mcp/tests",
+    "mcp-servers/tavily-mcp/src",
+    "mcp-servers/tavily-mcp/tests",
+    "mcp-servers/weather-mcp/src",
+    "mcp-servers/weather-mcp/tests",
+    "mcp-servers/windops-mcp/src",
+    "mcp-servers/windops-mcp/tests",
     "scripts",
+    "services/agent-runtime-service/src",
+    "services/agent-runtime-service/tests",
+    "services/agent-sandbox-adapter/src",
+    "services/agent-sandbox-adapter/tests",
     "services/alarm-service/src",
     "services/alarm-service/tests",
     "services/asset-service/src",
@@ -120,10 +138,6 @@ files = [
     "services/audit-service/tests",
     "services/authorization-service/src",
     "services/authorization-service/tests",
-    "services/agent-runtime-service/src",
-    "services/agent-runtime-service/tests",
-    "services/agent-sandbox-adapter/src",
-    "services/agent-sandbox-adapter/tests",
     "services/external-intelligence-service/src",
     "services/external-intelligence-service/tests",
     "services/fault-detection-service/src",
@@ -134,6 +148,8 @@ files = [
     "services/investigation-service/tests",
     "services/knowledge-service/src",
     "services/knowledge-service/tests",
+    "services/maintenance-service/src",
+    "services/maintenance-service/tests",
     "services/policy-service/src",
     "services/policy-service/tests",
     "services/production-impact-service/src",
@@ -160,6 +176,8 @@ files = [
     "shared/events/tests",
     "shared/grpc/src",
     "shared/grpc/tests",
+    "shared/mcp/src",
+    "shared/mcp/tests",
     "shared/migrations/src",
     "shared/migrations/tests",
     "shared/observability/src",
@@ -170,12 +188,14 @@ files = [
     "shared/resilience/tests",
     "shared/screening/src",
     "shared/screening/tests",
-    "shared/mcp/src",
-    "shared/mcp/tests",
+    "simulator/src",
+    "simulator/tests",
+    "tests",
+]
+explicit_package_bases = true
+mypy_path = [
     "mcp-servers/documentation-mcp/src",
     "mcp-servers/documentation-mcp/tests",
-    "mcp-servers/windops-mcp/src",
-    "mcp-servers/windops-mcp/tests",
     "mcp-servers/filesystem-mcp/src",
     "mcp-servers/filesystem-mcp/tests",
     "mcp-servers/postgres-mcp/src",
@@ -184,12 +204,12 @@ files = [
     "mcp-servers/tavily-mcp/tests",
     "mcp-servers/weather-mcp/src",
     "mcp-servers/weather-mcp/tests",
-    "simulator/src",
-    "simulator/tests",
-    "tests",
-]
-explicit_package_bases = true
-mypy_path = [
+    "mcp-servers/windops-mcp/src",
+    "mcp-servers/windops-mcp/tests",
+    "services/agent-runtime-service/src",
+    "services/agent-runtime-service/tests",
+    "services/agent-sandbox-adapter/src",
+    "services/agent-sandbox-adapter/tests",
     "services/alarm-service/src",
     "services/alarm-service/tests",
     "services/asset-service/src",
@@ -198,10 +218,6 @@ mypy_path = [
     "services/audit-service/tests",
     "services/authorization-service/src",
     "services/authorization-service/tests",
-    "services/agent-runtime-service/src",
-    "services/agent-runtime-service/tests",
-    "services/agent-sandbox-adapter/src",
-    "services/agent-sandbox-adapter/tests",
     "services/external-intelligence-service/src",
     "services/external-intelligence-service/tests",
     "services/fault-detection-service/src",
@@ -212,6 +228,8 @@ mypy_path = [
     "services/investigation-service/tests",
     "services/knowledge-service/src",
     "services/knowledge-service/tests",
+    "services/maintenance-service/src",
+    "services/maintenance-service/tests",
     "services/policy-service/src",
     "services/policy-service/tests",
     "services/production-impact-service/src",
@@ -239,6 +257,8 @@ mypy_path = [
     "shared/events/tests",
     "shared/grpc/src",
     "shared/grpc/tests",
+    "shared/mcp/src",
+    "shared/mcp/tests",
     "shared/migrations/src",
     "shared/migrations/tests",
     "shared/observability/src",
@@ -249,20 +269,6 @@ mypy_path = [
     "shared/resilience/tests",
     "shared/screening/src",
     "shared/screening/tests",
-    "shared/mcp/src",
-    "shared/mcp/tests",
-    "mcp-servers/documentation-mcp/src",
-    "mcp-servers/documentation-mcp/tests",
-    "mcp-servers/windops-mcp/src",
-    "mcp-servers/windops-mcp/tests",
-    "mcp-servers/filesystem-mcp/src",
-    "mcp-servers/filesystem-mcp/tests",
-    "mcp-servers/postgres-mcp/src",
-    "mcp-servers/postgres-mcp/tests",
-    "mcp-servers/tavily-mcp/src",
-    "mcp-servers/tavily-mcp/tests",
-    "mcp-servers/weather-mcp/src",
-    "mcp-servers/weather-mcp/tests",
     "simulator/src",
 ]
 
@@ -363,4 +369,5 @@ dev = [
     "windops-tenant",
     "windops-weather",
     "windops-web-bff",
+    "windops-maintenance",
 ]

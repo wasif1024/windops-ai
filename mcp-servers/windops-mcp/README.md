@@ -15,6 +15,7 @@ applies to every call. Its tools are in [ADR 0020](../../docs/adr/0020-windops-m
 | `get_evidence` | Investigation | A frozen evidence snapshot, item by item |
 | `estimate_impact` | Production Impact | A deterministic estimate, each figure with its range and assumptions |
 | `check_policy` | Policy | The deterministic rules' outcome on a proposed action |
+| `create_draft_work_order` | Maintenance | A draft work order, validated at once: the one change an agent may make (ADR 0029) |
 
 **Tenant and permissions:**
 - **Tenant:** every tool calls its service as the verified caller, and the tenant comes from the token. No tool takes

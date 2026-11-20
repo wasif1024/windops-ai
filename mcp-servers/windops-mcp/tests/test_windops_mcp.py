@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from windops.alarm.v1 import alarm_pb2
 from windops.asset.v1 import asset_pb2
 from windops.investigation.v1 import investigation_pb2
+from windops.maintenance.v1 import maintenance_pb2
 from windops.policy.v1 import policy_pb2
 from windops.production_impact.v1 import production_impact_pb2
 from windops.telemetry.v1 import telemetry_pb2
@@ -20,6 +21,7 @@ from windops_mcp_windops.tools import (
     AlarmsInput,
     CaseInput,
     CasesInput,
+    DraftInput,
     EvidenceInput,
     ImpactInput,
     PolicyInput,
@@ -57,6 +59,13 @@ class Fake:
                                              rated_power_kw=8000, rotor_diameter_m=167,
                                              hub_height_m=110),
                 serial_number="SYN-123", status="operating", status_changed_at=STAMP,
+            )),
+            "CreateDraft": maintenance_pb2.CreateDraftResponse(work_order=maintenance_pb2.WorkOrder(
+                work_order_id="wo_" + "d" * 20, status="draft", revision=1, case_id=CASE,
+                drafted_by="u-operator", drafted_by_agent="agent:maintenance-planner",
+                validation=maintenance_pb2.Validation(passed=False, policy_outcome="escalate",
+                    problems=[maintenance_pb2.Problem(field="procedures", code="missing",
+                                                      message="Cite one", blocking=True)]),
             )),
             "SummarizeTelemetrySnapshot": telemetry_pb2.SummarizeTelemetrySnapshotResponse(
                 snapshot=telemetry_pb2.TelemetrySnapshot(
@@ -143,11 +152,12 @@ def run(fake: Fake, name: str, arguments: Any) -> Any:
         return asyncio.run(by_name(fake)[name].handler(arguments))
 
 
-def test_every_tool_only_reads_and_returns_nothing_external() -> None:
-    """MCP-006: so any agent may hold any of them alongside external content."""
+def test_every_tool_but_the_draft_only_reads_and_none_returns_external_content() -> None:
+    """MCP-006: the one write, a draft work order, goes only to an agent that reads nothing
+    external (M9.1)."""
     for tool in module.tools(Fake()):  # type: ignore[arg-type]
-        assert tool.read_only and not tool.external, tool.name
-        assert tool.server == "windops"
+        assert tool.read_only == (tool.name != "create_draft_work_order"), tool.name
+        assert not tool.external and tool.server == "windops", tool.name
 
 
 def test_turbine_and_telemetry_name_only_what_an_agent_needs() -> None:
@@ -251,3 +261,32 @@ def test_an_estimate_has_the_time_it_takes() -> None:
     fake = Fake()
     run(fake, "estimate_impact", ImpactInput(case_id=CASE, action="inspection", downtime_hours=6))
     assert fake.deadlines["EstimateImpact"] == module.IMPACT_DEADLINE_SECONDS >= 10
+
+
+def draft_input(**changes: Any) -> DraftInput:
+    values: dict[str, Any] = {
+        "case_id": CASE, "title": "Oil cooler inspection", "action": "inspection",
+        "summary": "Inspect the cooler fan.",
+        "tasks": [{"description": "Inspect the fan", "duration_hours": 3, "crew_size": 2,
+                   "requires_climb": True}],
+        "planned_start": "2026-12-01T08:00:00Z", "planned_end": "2026-12-01T14:00:00Z",
+        "estimated_downtime_hours": 6,
+    }  # fmt: skip
+    return DraftInput(**{**values, **changes})
+
+
+def test_an_agent_drafts_a_work_order_and_sees_its_problems() -> None:
+    """M9.1: the one change an agent may make, retried as one request."""
+    fake = Fake()
+    found = run(fake, "create_draft_work_order", draft_input())
+    assert (found.work_order_id, found.status, found.passed) == ("wo_" + "d" * 20, "draft", False)
+    assert [(p.field, p.blocking) for p in found.problems] == [("procedures", True)]
+    request = fake.calls[0][2]
+    assert request.plan.tasks[0].requires_climb and request.idempotency_key
+    again = Fake()
+    run(again, "create_draft_work_order", draft_input())
+    assert again.calls[0][2].idempotency_key == request.idempotency_key
+    with pytest.raises(ValidationError):
+        draft_input(tasks=[])
+    with pytest.raises(ValidationError):
+        draft_input(impact_result_id="anything")

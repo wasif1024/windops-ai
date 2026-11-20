@@ -116,6 +116,14 @@
     "receives": []
   },
   {
+    "name": "windops-maintenance",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
     "name": "windops-mcp-documentation",
     "namespace": "windops-mcp",
     "events": true,
