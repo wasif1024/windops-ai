@@ -12,6 +12,11 @@ makes is deleted afterwards. Their grants stay, for IDs that can no longer sign 
 For the alarm console, a demo turbine's device raises a check-only alarm per screen size through
 the gateway's device route, as the alarm check does, and the operator acknowledges it in the
 browser. Those alarms are removed afterwards.
+
+For the maintenance planner and parts lookup (M9.4), it makes a Maintenance Planner for each
+screen size, signing in with a password alone, and a check-only part and an active case for each.
+The planner finds the part and drafts and submits a work order with it. The users, parts, cases
+and work orders are removed afterwards.
 """
 
 import base64
@@ -29,6 +34,7 @@ import httpx
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
+from scripts.checks.consoles.planner_setup import PlannerSetup
 from scripts.checks.fleet.alarm import TURBINE, report, sql
 from scripts.checks.fleet.telemetry import device_token, send_to
 from scripts.checks.identity.identity import Realm, delete_user
@@ -64,6 +70,8 @@ PLATFORM_ADMINS = {
 # The users each journey adds, which are deleted here afterwards.
 ADDED = {project: f"added-{project}-{RUN}@windops-check.example" for project in PROJECTS}
 API = PUBLIC_URL.removesuffix("/auth") + "/api/v1"
+# The Maintenance Planner each screen size signs in as (M9.4).
+PLANNERS = {project: f"planner-ui-{project}-{RUN}@windops-check.example" for project in PROJECTS}
 # The alarm each screen size acknowledges. The alarm check's clean-up removes these too.
 ALARM_TAGS = {project: f"alarm-check-ui-{project}-{RUN}" for project in PROJECTS}
 
@@ -102,6 +110,11 @@ def prepare_admins(api: httpx.Client, password: str) -> None:
             )
             ensure_member(api, organization, user_id)
             bootstrap(tenant, user_id, role)
+    organization = ensure_tenant(api, TENANT, TENANTS[TENANT])
+    for email in PLANNERS.values():
+        user_id = ensure_user(api, email, password, new_password=True)
+        ensure_member(api, organization, user_id)
+        bootstrap(TENANT, user_id, "maintenance-planner")
 
 
 def enroll_admins(password: str) -> tuple[dict[str, str], str]:
@@ -135,7 +148,9 @@ def remove_alarms() -> None:
     )
 
 
-def run_browser(password: str, keys: dict[str, str], operator_token: str) -> int:
+def run_browser(
+    password: str, keys: dict[str, str], operator_token: str, planning: PlannerSetup
+) -> int:
     with keycloak_public():
         # An operator's refused attempt, so the console has an access denial to show (SRS 9.4).
         refused = httpx.get(
@@ -156,6 +171,8 @@ def run_browser(password: str, keys: dict[str, str], operator_token: str) -> int
             "NODE_EXTRA_CA_CERTS": authority_file(),
             # Codes used while setting up count as used, so the browser waits for a newer one.
             "ENROLLED_AT": str(int(time.time())),
+            "PLANNER_PASSWORD": password,
+            "PLANNER_TURBINE": TURBINE,
         }
         for project in PROJECTS:
             upper = project.upper()
@@ -165,6 +182,9 @@ def run_browser(password: str, keys: dict[str, str], operator_token: str) -> int
             env[f"PLATFORM_EMAIL_{upper}"] = PLATFORM_ADMINS[project]
             env[f"PLATFORM_TOTP_KEY_{upper}"] = keys[PLATFORM_ADMINS[project]]
             env[f"ALARM_TAG_{upper}"] = ALARM_TAGS[project]
+            env[f"PLANNER_EMAIL_{upper}"] = PLANNERS[project]
+            env[f"PLANNER_PART_{upper}"] = planning.parts[project]
+            env[f"PLANNER_CASE_{upper}"] = planning.cases[project]
         result = subprocess.run(["npx", "playwright", "test"], cwd=FRONTEND, env=env, check=False)
     return result.returncode
 
@@ -175,18 +195,26 @@ def main() -> int:
     admin_password = read_passwords(ADMIN_SECRET_FILE)["password"]
     password = strong_password()
     code = 1
+    planning = PlannerSetup(RUN, PROJECTS)
     try:
         with keycloak_admin() as base:
             try:
                 with admin_client(base, admin_password) as api:
                     prepare_admins(api, password)
                 keys, operator_token = enroll_admins(password)
-                code = run_browser(password, keys, operator_token)
+                planning.make()
+                code = run_browser(password, keys, operator_token, planning)
             finally:
                 remove_alarms()
+                planning.remove()
                 # A fresh login, as the first may have expired during the browser run.
                 with admin_client(base, admin_password) as api:
-                    for email in (*ADMINS.values(), *PLATFORM_ADMINS.values(), *ADDED.values()):
+                    for email in (
+                        *ADMINS.values(),
+                        *PLATFORM_ADMINS.values(),
+                        *ADDED.values(),
+                        *PLANNERS.values(),
+                    ):
                         delete_user(api, email)
     except (RuntimeError, OSError, httpx.HTTPError, subprocess.CalledProcessError) as error:
         print(f"{type(error).__name__}: {error}", file=sys.stderr)

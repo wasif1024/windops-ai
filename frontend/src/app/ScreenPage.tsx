@@ -2,6 +2,8 @@ import { useParams } from "react-router-dom";
 import { AdminPage } from "../features/admin/pages/AdminPage";
 import { AlarmScreen } from "../features/alarms/pages/AlarmScreen";
 import { FleetScreen, TelemetryScreen } from "../features/fleet/pages/FleetScreen";
+import { MaintenanceScreen } from "../features/maintenance/pages/MaintenanceScreen";
+import { PartsScreen } from "../features/parts/pages/PartsScreen";
 import { PlatformPage } from "../features/platform/pages/PlatformPage";
 import { screenById, type Screen } from "./navigation";
 
@@ -22,6 +24,8 @@ export function ScreenPage({ screens, token, held }: { screens: Screen[]; token:
   if (screen.id === "fleet") return <FleetScreen token={token} />;
   if (screen.id === "telemetry") return <TelemetryScreen token={token} />;
   if (screen.id === "alarms") return <AlarmScreen token={token} held={held} />;
+  if (screen.id === "maintenance") return <MaintenanceScreen token={token} held={held} />;
+  if (screen.id === "parts") return <PartsScreen token={token} />;
   return (
     <section>
       <h2 className="text-xl font-semibold">{screen.title}</h2>
