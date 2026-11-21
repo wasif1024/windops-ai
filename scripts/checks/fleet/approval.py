@@ -53,6 +53,8 @@ PLANNER, MANAGER = "approval-check-planner", "approval-check-manager"
 # A person who both plans and approves (RBAC-004), and an administrator who could make themselves
 # a manager (RBAC-006).
 BOTH, ADMIN = "approval-check-planning-manager", "approval-check-admin"
+# Who confirms the administrator's change to who may approve (RBAC-007).
+SECOND_ADMIN = "approval-check-second-admin"
 AUTHORIZATION_HOST = "windops-authorization.windops-system.svc.cluster.local"
 AGENT = "agent:maintenance-planner"
 HOST = "windops-approval.windops-application.svc.cluster.local"
@@ -253,24 +255,37 @@ def separated(approvals: Caller, authorization: Caller, both: Any, plain: Any) -
           f"Another manager decides it, recorded with who could not: "
           f"{list(decided.decision.requesters)}, rules {decided.decision.policy.approval_rules}, "
           f"permissions version {decided.decision.policy.permissions_version}")  # fmt: skip
-    granted = authorization.call(
+    held = authorization.call(
         "GrantRole",
         authorization_pb2.GrantRoleRequest(grantee_id=ADMIN, role="maintenance-manager",
                                            idempotency_key=f"apr-{RUN}-self"),
         ADMIN, TENANT,
-    ).grant  # fmt: skip
+    ).pending  # fmt: skip
+    # A change to who may approve waits for a second administrator (RBAC-007, M10.2b): confirmed,
+    # it is still the administrator's own change.
+    granted = confirm(authorization, held.change_id, "self").grant
     try:
         own = approvals.code("DecideApproval", decide(plain), ADMIN, TENANT)
         check(own == grpc.StatusCode.PERMISSION_DENIED,
               "A Tenant Administrator who made themselves a Maintenance Manager after the request "
               "may not decide it (RBAC-006)")  # fmt: skip
     finally:
-        authorization.call(
+        ending = authorization.call(
             "RevokeRole",
             authorization_pb2.RevokeRoleRequest(grant_id=granted.grant_id,
                                                 idempotency_key=f"apr-{RUN}-unself"),
             ADMIN, TENANT,
-        )  # fmt: skip
+        ).pending  # fmt: skip
+        confirm(authorization, ending.change_id, "unself")
+
+
+def confirm(authorization: Caller, change_id: str, what: str) -> Any:
+    return authorization.call(
+        "ConfirmChange",
+        authorization_pb2.ConfirmChangeRequest(change_id=change_id,
+                                               idempotency_key=f"apr-{RUN}-{what}-ok"),
+        SECOND_ADMIN, TENANT,
+    )  # fmt: skip
 
 
 def published_and_audited(approval_id: str) -> None:
@@ -329,6 +344,7 @@ def main() -> int:
         bootstrap(TENANT, BOTH, "maintenance-planner")
         bootstrap(TENANT, BOTH, "maintenance-manager")
         bootstrap(TENANT, ADMIN, "tenant-administrator")
+        bootstrap(TENANT, SECOND_ADMIN, "tenant-administrator")
         with ExitStack() as outer:
             cases = Cases(key)
             outer.callback(cases.close)

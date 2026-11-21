@@ -1,6 +1,7 @@
 // The Platform console's calls to Web BFF (M3.10). The services decide every one: the Tenant
 // Service needs tenant.manage, and Authorization allows break-glass only to a Platform Administrator.
 import { getJson, sendJson } from "../../api/client";
+import type { PendingChange } from "../admin/api";
 
 export interface Tenant {
   tenant_id: string;
@@ -61,6 +62,22 @@ export function platformApi(token: string) {
         reason,
         duration_minutes: minutes,
       }),
+    policyChanges: () => getJson<{ changes: PendingChange[] }>("/platform/policy-changes", token),
+    confirmChange: (key: string, item: PendingChange) =>
+      sendJson<PendingChange>(
+        "POST",
+        `${tenant(item.tenant_id)}/policy-changes/${encodeURIComponent(item.change_id)}/confirm`,
+        token,
+        key,
+      ),
+    declineChange: (key: string, item: PendingChange, reason: string) =>
+      sendJson<PendingChange>(
+        "POST",
+        `${tenant(item.tenant_id)}/policy-changes/${encodeURIComponent(item.change_id)}/decline`,
+        token,
+        key,
+        { reason },
+      ),
     endBreakGlass: (key: string, grantId: string) =>
       sendJson<BreakGlassGrant>("POST", `/platform/break-glass/${encodeURIComponent(grantId)}/end`, token, key),
   };

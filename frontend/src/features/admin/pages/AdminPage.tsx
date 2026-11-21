@@ -4,6 +4,7 @@ import { adminApi } from "../api";
 import { useLoad } from "../../../api/useLoad";
 import { BrandingPage } from "./BrandingPage";
 import { DenialsPage } from "./DenialsPage";
+import { PolicyChangesPage } from "./PolicyChangesPage";
 import { RolesPage } from "./RolesPage";
 import { UserPage } from "./UserPage";
 import { UsersPage } from "./UsersPage";
@@ -18,6 +19,7 @@ interface Tab {
 export const TABS: Tab[] = [
   { id: "users", title: "Users", needs: "users.manage" },
   { id: "roles", title: "Role permissions", needs: "permissions.manage" },
+  { id: "policy-changes", title: "Approval policy changes", needs: "roles.manage" },
   { id: "denials", title: "Access denials", needs: "audit.read" },
   { id: "branding", title: "Branding", needs: "branding.manage" },
 ];
@@ -76,6 +78,9 @@ export function AdminPage({ token, held }: { token: string; held: ReadonlySet<st
             <UsersPage api={api} />
           ))}
         {tab.id === "roles" && <RolesPage api={api} />}
+        {tab.id === "policy-changes" && (
+          <PolicyChangesPage api={api} title="Approval policy changes" empty="No change to who may approve is waiting." />
+        )}
         {tab.id === "denials" && <DenialsPage api={api} emails={emails} />}
         {tab.id === "branding" && <BrandingPage api={api} />}
       </div>

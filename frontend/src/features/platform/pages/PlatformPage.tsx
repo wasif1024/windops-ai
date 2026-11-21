@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { platformApi } from "../api";
+import { PolicyChangesPage } from "../../admin/pages/PolicyChangesPage";
 import { BreakGlassPage } from "./BreakGlassPage";
 import { TenantPage } from "./TenantPage";
 import { TenantsPage } from "./TenantsPage";
@@ -8,6 +9,7 @@ import { TenantsPage } from "./TenantsPage";
 const TABS = [
   { id: "tenants", title: "Tenants" },
   { id: "break-glass", title: "Break-glass access" },
+  { id: "policy-changes", title: "Escalated changes" },
 ];
 
 /** The Platform Administrator's console, across tenants (M3.10). */
@@ -41,6 +43,13 @@ export function PlatformPage({ token }: { token: string }) {
       <div className="mt-4">
         {tab?.id === "tenants" && (tenant ? <TenantPage api={api} id={tenant} /> : <TenantsPage api={api} />)}
         {tab?.id === "break-glass" && <BreakGlassPage api={api} />}
+        {tab?.id === "policy-changes" && (
+          <PolicyChangesPage
+            api={api}
+            title="Escalated approval policy changes"
+            empty="No tenant is waiting for a Platform Administrator to confirm a change."
+          />
+        )}
       </div>
     </section>
   );

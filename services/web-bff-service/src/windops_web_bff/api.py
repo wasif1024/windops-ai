@@ -31,6 +31,7 @@ from windops_web_bff.investigations import Watch, add_investigation_routes
 from windops_web_bff.limits import LimitUnavailableError, RateLimiter, traffic_class
 from windops_web_bff.maintenance import add_maintenance_routes
 from windops_web_bff.platform import add_platform_routes
+from windops_web_bff.policy_changes import add_policy_change_routes
 from windops_web_bff.security_metrics import SecurityCounters
 from windops_web_bff.tokens import REASONS, Caller, TokenError, TokenVerifier, bearer
 
@@ -324,6 +325,7 @@ def create_router(deps: Dependencies) -> APIRouter:
         )
 
     add_admin_routes(router, caller, call_as)
+    add_policy_change_routes(router, caller, call_as)
     add_branding_routes(router, caller, call_as, ApiError)
     add_platform_routes(router, caller, call_as)
     add_fleet_routes(

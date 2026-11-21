@@ -24,27 +24,25 @@ from windops_grpc import (
 )
 from windops_migrations import across_tenants, in_tenant
 
-from windops_authorization import policy
+from windops_authorization import changes, policy
 from windops_authorization.policy import Decision, RuleError, Scope
 from windops_authorization.store import (
     BREAK_GLASS_GRANTS,
+    PENDING_CHANGES,
     ROLE_GRANTS,
     KeyReusedError,
     active_grants,
-    add_grant,
     audit,
     aware,
     break_glass_until,
     custom_mapping,
-    end_grant,
     find_active_grant,
     mapping_without_own_changes,
     new_id,
-    other_whole_tenant_holders,
     permissions_version,
     remember,
     remembered,
-    replace_role_permissions,
+    tenant_administrators,
 )
 
 _TENANT = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
@@ -327,24 +325,21 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
                 return replay  # type: ignore[no-any-return]
             if await find_active_grant(connection, tenant, request.grantee_id, request.role, scope):
                 raise ConflictError("The user already has this role here")
-            grant_id = await add_grant(
-                connection, tenant, request.grantee_id, request.role, scope, actor=actor, now=now
-            )
-            await audit(
-                connection,
-                tenant_id=tenant,
-                action=f"authorization.role.granted.{request.role}",
-                actor_id=actor,
-                resource_type="user",
-                resource_id=request.grantee_id,
-                outcome="succeeded",
-            )
-            row = (
-                await connection.execute(
-                    select(ROLE_GRANTS).where(ROLE_GRANTS.c.grant_id == grant_id)
+            if changes.role_approves(request.role, await custom_mapping(connection, tenant)):
+                # It changes who may approve: a second person confirms it (RBAC-007).
+                held = await changes.propose(
+                    connection, tenant, changes.GRANT, request, role=request.role, actor=actor,
+                    now=now, grantee_id=request.grantee_id,
+                    summary=f"Give {request.grantee_id} the {request.role} role, in "
+                            f"{changes.where(scope)}",
+                )  # fmt: skip
+                response = authorization_pb2.GrantRoleResponse(pending=held)
+            else:
+                response = authorization_pb2.GrantRoleResponse(
+                    grant=await changes.apply_grant(
+                        connection, tenant, request, actor=actor, now=now
+                    )
                 )
-            ).one()
-            response = authorization_pb2.GrantRoleResponse(grant=_grant_message(row))
             await remember(
                 connection, actor, request.idempotency_key, "GrantRole", request, response, now
             )
@@ -363,47 +358,21 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
             )
             if replay is not None:
                 return replay  # type: ignore[no-any-return]
-            await in_tenant(connection, tenant)
-            row = (
-                await connection.execute(
-                    select(ROLE_GRANTS).where(
-                        ROLE_GRANTS.c.grant_id == request.grant_id,
-                        ROLE_GRANTS.c.tenant_id == tenant,
+            row = await changes.active_grant(connection, tenant, request.grant_id)
+            if changes.role_approves(row.role, await custom_mapping(connection, tenant)):
+                held = await changes.propose(
+                    connection, tenant, changes.REVOKE, request, role=row.role, actor=actor,
+                    now=now, grantee_id=row.user_id, grant_id=row.grant_id,
+                    summary=f"End {row.user_id}'s {row.role} role, in "
+                            f"{changes.where(Scope(row.wind_farm_id, row.turbine_id))}",
+                )  # fmt: skip
+                response = authorization_pb2.RevokeRoleResponse(pending=held)
+            else:
+                response = authorization_pb2.RevokeRoleResponse(
+                    grant=await changes.apply_revoke(
+                        connection, tenant, row.grant_id, actor=actor, now=now
                     )
                 )
-            ).one_or_none()
-            if row is None:
-                raise NotFoundError("No such grant in this tenant")
-            if row.revoked_at is not None:
-                raise ConflictError("The grant has already ended")
-            keeps_tenant_running = (
-                row.role
-                in (
-                    policy.TENANT_ADMINISTRATOR,
-                    policy.PLATFORM_ADMINISTRATOR,
-                )
-                and Scope(row.wind_farm_id, row.turbine_id).whole_tenant
-            )
-            if keeps_tenant_running and not await other_whole_tenant_holders(
-                connection, tenant, row.role, row.grant_id
-            ):
-                raise ConflictError("This would leave nobody able to manage roles")
-            await end_grant(connection, row.grant_id, actor=actor, now=now)
-            await audit(
-                connection,
-                tenant_id=tenant,
-                action=f"authorization.role.revoked.{row.role}",
-                actor_id=actor,
-                resource_type="user",
-                resource_id=row.user_id,
-                outcome="succeeded",
-            )
-            ended = (
-                await connection.execute(
-                    select(ROLE_GRANTS).where(ROLE_GRANTS.c.grant_id == row.grant_id)
-                )
-            ).one()
-            response = authorization_pb2.RevokeRoleResponse(grant=_grant_message(ended))
             await remember(
                 connection, actor, request.idempotency_key, "RevokeRole", request, response, now
             )
@@ -465,33 +434,185 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
             )
             if replay is not None:
                 return replay  # type: ignore[no-any-return]
-            await replace_role_permissions(
-                connection, tenant, request.role, chosen, actor=actor, now=now
-            )
-            await audit(
-                connection,
-                tenant_id=tenant,
-                action="authorization.role_permissions.changed",
-                actor_id=actor,
-                resource_type="role",
-                resource_id=request.role,
-                outcome="succeeded",
-            )
-            response = authorization_pb2.SetRolePermissionsResponse(
-                role_permissions=authorization_pb2.RolePermissions(
-                    tenant_id=tenant, role=request.role, permissions=sorted(chosen), customized=True
+            custom = await custom_mapping(connection, tenant)
+            if changes.changes_approval(request.role, custom, chosen):
+                verb = "Take" if changes.role_approves(request.role, custom) else "Give"
+                held = await changes.propose(
+                    connection, tenant, changes.ROLE_PERMISSIONS, request, role=request.role,
+                    actor=actor, now=now, permissions=chosen,
+                    summary=f"{verb} {changes.APPROVE} {'from' if verb == 'Take' else 'to'} the "
+                            f"{request.role} role, with {len(chosen)} permissions in all",
+                )  # fmt: skip
+                response = authorization_pb2.SetRolePermissionsResponse(pending=held)
+            else:
+                response = authorization_pb2.SetRolePermissionsResponse(
+                    role_permissions=await changes.apply_role_permissions(
+                        connection, tenant, request.role, chosen, actor=actor, now=now
+                    )
                 )
-            )
             await remember(
-                connection,
-                actor,
-                request.idempotency_key,
-                "SetRolePermissions",
-                request,
-                response,
-                now,
-            )
+                connection, actor, request.idempotency_key, "SetRolePermissions", request,
+                response, now,
+            )  # fmt: skip
         return response
+
+    # --- Approval policy changes, confirmed by a second person (RBAC-007)
+
+    async def _may_decide_change(self, identity: VerifiedIdentity, user: str, row: Any) -> None:
+        """A second Tenant Administrator with the change's permission, or, where the tenant has
+        no other, a Platform Administrator. Each with a recent second factor."""
+        permission = (
+            "permissions.manage" if row.kind == changes.ROLE_PERMISSIONS else "roles.manage"
+        )
+        if identity.tenant_id == row.tenant_id:
+            await self._require(permission, row.tenant_id, step_up=True)
+            return
+        await self._require_platform_administrator(identity, user)
+        try:
+            require_recent_mfa(authentication_claims(identity))
+        except MfaRequiredError:
+            await self._refuse(identity, permission, STEP_UP)
+        async with self._engine.connect() as connection:
+            others = await tenant_administrators(connection, row.tenant_id, besides=row.proposed_by)
+        if others:
+            await self._refuse(identity, permission, "This tenant has another Tenant "
+                               "Administrator to confirm it, so it is not escalated")  # fmt: skip
+
+    async def _pending(self, tenant: str, change_id: str, now: datetime) -> Any:
+        async with self._engine.connect() as connection:
+            row = await changes.load(connection, tenant, change_id)
+        status = changes.status_of(row, now)
+        if status != changes.PENDING:
+            raise ConflictError(f"The change is {status}, and can no longer be decided")
+        return row
+
+    async def ListPendingChanges(  # noqa: N802  # The name comes from the contract.
+        self, request: authorization_pb2.ListPendingChangesRequest, context: Any
+    ) -> authorization_pb2.ListPendingChangesResponse:
+        identity, now = current_identity(), _now()
+        c = PENDING_CHANGES.c
+        query = select(PENDING_CHANGES).order_by(c.proposed_at.desc()).limit(_MAXIMUM_LISTED)
+        if not request.include_decided:
+            query = query.where(c.status == changes.PENDING)
+        if identity.tenant_id == policy.PLATFORM_TENANT and not request.target_tenant_id:
+            # The escalations, in every tenant, for a Platform Administrator.
+            await self._require_platform_administrator(identity, self._user(identity))
+            async with self._engine.connect() as connection:
+                await across_tenants(connection)
+                rows = (await connection.execute(query.where(c.escalated.is_(True)))).all()
+        else:
+            _, _, tenant = await self._require(
+                "roles.manage", request.target_tenant_id, step_up=False
+            )
+            async with self._engine.connect() as connection:
+                await in_tenant(connection, tenant)
+                rows = (await connection.execute(query.where(c.tenant_id == tenant))).all()
+        return authorization_pb2.ListPendingChangesResponse(
+            changes=[changes.change_message(r, now) for r in rows]
+        )
+
+    async def ConfirmChange(  # noqa: N802  # The name comes from the contract.
+        self, request: authorization_pb2.ConfirmChangeRequest, context: Any
+    ) -> authorization_pb2.ConfirmChangeResponse:
+        identity = current_identity()
+        user, tenant, now = (
+            self._user(identity),
+            self._target(identity, request.target_tenant_id),
+            _now(),
+        )
+        async with self._engine.begin() as connection:
+            replay = await _replayed(
+                connection, user, "ConfirmChange", request, authorization_pb2.ConfirmChangeResponse
+            )
+        if replay is not None:
+            return replay  # type: ignore[no-any-return]
+        row = await self._pending(tenant, request.change_id, now)
+        if user == row.proposed_by:
+            await self._refuse(identity, "approval_policy.confirm", "A second administrator must "
+                               "confirm a change to who may approve (RBAC-007)")  # fmt: skip
+        await self._may_decide_change(identity, user, row)
+        async with self._engine.begin() as connection:
+            row = await changes.load(connection, tenant, request.change_id)
+            if changes.status_of(row, now) != changes.PENDING:
+                raise ConflictError("Someone else decided it first")
+            response = authorization_pb2.ConfirmChangeResponse()
+            # Applied as the proposer's change, so it never makes them eligible for an earlier
+            # approval (RBAC-006).
+            if row.kind == changes.GRANT:
+                response.grant.CopyFrom(await changes.apply_grant(
+                    connection, tenant, authorization_pb2.GrantRoleRequest.FromString(row.request),
+                    actor=row.proposed_by, now=now))  # fmt: skip
+            elif row.kind == changes.REVOKE:
+                response.grant.CopyFrom(
+                    await changes.apply_revoke(
+                        connection, tenant, row.grant_id, actor=row.proposed_by, now=now
+                    )
+                )
+            else:
+                chosen = frozenset(p for p in row.permissions.split(",") if p)
+                response.role_permissions.CopyFrom(
+                    await changes.apply_role_permissions(
+                        connection, tenant, row.role, chosen, actor=row.proposed_by, now=now
+                    )
+                )
+            await self._decide_change(connection, row, changes.CONFIRMED, user, now)
+            response.change.CopyFrom(
+                changes.change_message(await changes.load(connection, tenant, row.change_id), now)
+            )
+            await audit(connection, tenant_id=tenant,
+                        action="authorization.approval_policy.confirmed", actor_id=user,
+                        resource_type="pending_change", resource_id=row.change_id,
+                        outcome="succeeded")  # fmt: skip
+            await remember(connection, user, request.idempotency_key, "ConfirmChange", request,
+                           response, now)  # fmt: skip
+        return response
+
+    async def DeclineChange(  # noqa: N802  # The name comes from the contract.
+        self, request: authorization_pb2.DeclineChangeRequest, context: Any
+    ) -> authorization_pb2.DeclineChangeResponse:
+        identity = current_identity()
+        user, tenant, now = (
+            self._user(identity),
+            self._target(identity, request.target_tenant_id),
+            _now(),
+        )
+        reason = request.reason.strip()
+        if not reason or len(reason) > 500:
+            raise InvalidRequestError("A reason of at most 500 characters is needed")
+        async with self._engine.begin() as connection:
+            replay = await _replayed(
+                connection, user, "DeclineChange", request, authorization_pb2.DeclineChangeResponse
+            )
+        if replay is not None:
+            return replay  # type: ignore[no-any-return]
+        row = await self._pending(tenant, request.change_id, now)
+        if user != row.proposed_by:
+            # The proposer withdraws their own; anyone else must be able to confirm it.
+            await self._may_decide_change(identity, user, row)
+        async with self._engine.begin() as connection:
+            row = await changes.load(connection, tenant, request.change_id)
+            if changes.status_of(row, now) != changes.PENDING:
+                raise ConflictError("Someone else decided it first")
+            await self._decide_change(connection, row, changes.DECLINED, user, now, reason)
+            response = authorization_pb2.DeclineChangeResponse(change=changes.change_message(
+                await changes.load(connection, tenant, row.change_id), now))  # fmt: skip
+            await audit(connection, tenant_id=tenant,
+                        action="authorization.approval_policy.declined", actor_id=user,
+                        resource_type="pending_change", resource_id=row.change_id,
+                        outcome="succeeded")  # fmt: skip
+            await remember(connection, user, request.idempotency_key, "DeclineChange", request,
+                           response, now)  # fmt: skip
+        return response
+
+    @staticmethod
+    async def _decide_change(connection: AsyncConnection, row: Any, status: str, user: str,
+                             now: datetime, reason: str = "") -> None:  # fmt: skip
+        c = PENDING_CHANGES.c
+        await connection.execute(
+            update(PENDING_CHANGES)
+            .where(c.change_id == row.change_id, c.status == changes.PENDING)
+            .values(status=status, decided_by=user, decided_at=now, decline_reason=reason)
+        )
 
     async def StartBreakGlass(  # noqa: N802  # The name comes from the contract.
         self, request: authorization_pb2.StartBreakGlassRequest, context: Any

@@ -1,7 +1,7 @@
 import { type FormEvent, useCallback, useId, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "../../../components/Button";
-import type { AdminApi, RoleGrant, User } from "../api";
+import { type AdminApi, isHeld, type PendingChange, type RoleGrant, type User } from "../api";
 import { FIRST_ROLE, roleTitle, TENANT_ROLES } from "../catalog";
 import { ChangeStatus } from "../../../components/ChangeStatus";
 import { INPUT, LABEL, Loading, Panel, when } from "../../../components/Panel";
@@ -110,6 +110,8 @@ function Roles({ api, id }: { api: AdminApi; id: string }) {
   const [farm, setFarm] = useState("");
   const [turbine, setTurbine] = useState("");
   const [scopeError, setScopeError] = useState(false);
+  // A change to who may approve, held for a second administrator (RBAC-007).
+  const [held, setHeld] = useState<PendingChange | null>(null);
   const change = useChange();
   // Named by its label alone, not by the chosen option as well.
   const field = useId();
@@ -123,18 +125,30 @@ function Roles({ api, id }: { api: AdminApi; id: string }) {
     }
     setScopeError(false);
     const body = { user_id: id, role, wind_farm_id: farm.trim(), turbine_id: turbine.trim() };
-    if (await change.run((key) => api.grant(key, body))) {
+    const result = await change.run((key) => api.grant(key, body));
+    if (result) {
+      setHeld(isHeld(result) ? result : null);
       setFarm("");
       setTurbine("");
       reload();
     }
   };
   const revoke = async (grantId: string) => {
-    if (await change.run((key) => api.revoke(key, grantId))) reload();
+    const result = await change.run((key) => api.revoke(key, grantId));
+    if (result) {
+      setHeld(isHeld(result) ? result : null);
+      reload();
+    }
   };
 
   return (
     <Panel title="Roles">
+      {held && (
+        <p role="status" className="mb-3 break-words rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Waiting for a second administrator: {held.summary}. It changes who may approve maintenance, so it takes effect
+          once another Tenant Administrator confirms it under Approval policy changes.
+        </p>
+      )}
       <Loading state={state}>
         {({ grants }) => {
           const active = grants.filter((item) => !item.revoked_at);
