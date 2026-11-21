@@ -52,6 +52,12 @@ CASES = Table(
     Column("evidence_version", BigInteger, nullable=False, server_default="0"),
     # Set while a new snapshot is wanted, as when detections join; cleared once one is frozen.
     Column("evidence_wanted_at", DateTime(timezone=True)),
+    # Set while the newest snapshot is stale (SRS 8.5): the first rule that fired, what it found,
+    # when, and the rules' version. A new snapshot clears them (EVD-008).
+    Column("stale_rule", Text, nullable=False, server_default=""),
+    Column("stale_detail", Text, nullable=False, server_default=""),
+    Column("stale_at", DateTime(timezone=True)),
+    Column("stale_rules_version", Text, nullable=False, server_default=""),
     # At most one active case from detections for a component of a turbine.
     Index(
         "cases_one_active", "tenant_id", "turbine_id", "component_group", unique=True,
@@ -166,6 +172,21 @@ PROGRESS = Table(
     Column("event_key", Text, nullable=False),
     Index("case_progress_once", "tenant_id", "case_id", "event_key", unique=True),
 )
+# Each work order submitted for a decision, at its newest version: what the stale rules watch
+# (SRS 8.5). Parts are "<number>=<status at submission>", procedures citations, comma-separated.
+CASE_PROPOSALS = Table(
+    "case_proposals",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("work_order_id", Text, primary_key=True),
+    Column("version", BigInteger, nullable=False),
+    Column("case_id", Text, nullable=False),
+    Column("evidence_snapshot_id", Text, nullable=False),
+    Column("parts", Text, nullable=False),
+    Column("procedures", Text, nullable=False),
+    Column("submitted_at", DateTime(timezone=True), nullable=False),
+    Index("case_proposals_by_case", "tenant_id", "case_id"),
+)
 # A retry with the same key returns the first answer, and changes nothing (GRP-007).
 IDEMPOTENCY_KEYS = Table(
     "idempotency_keys",
@@ -180,7 +201,7 @@ IDEMPOTENCY_KEYS = Table(
 )
 TENANT_TABLES = (
     "cases", "case_detections", "case_history", "idempotency_keys", "evidence_snapshots",
-    "evidence_items", "case_investigations", "case_progress",
+    "evidence_items", "case_investigations", "case_progress", "case_proposals",
 )  # fmt: skip
 
 
@@ -248,6 +269,8 @@ async def record(
         payload=events_pb2.CaseUpdated(
             case_id=case.case_id, status=case.status, turbine_id=case.turbine_id,
             severity=case.severity, action=action, version=case.version,
+            evidence_snapshot_id=case.evidence_snapshot_id, stale_rule=case.stale_rule,
+            stale_detail=case.stale_detail, stale_rules_version=case.stale_rules_version,
         ),
         producer=SERVICE_NAME,
     )  # fmt: skip

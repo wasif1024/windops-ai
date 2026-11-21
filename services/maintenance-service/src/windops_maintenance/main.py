@@ -8,8 +8,6 @@ from pathlib import Path
 from typing import Any
 
 import grpc
-from nats.errors import Error as NatsError
-from nats.js.errors import APIError
 from opentelemetry import metrics
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -20,7 +18,7 @@ from windops.investigation.v1 import investigation_pb2_grpc
 from windops.maintenance.v1 import maintenance_pb2_grpc
 from windops.policy.v1 import policy_pb2_grpc
 from windops_auth import current_identity_token
-from windops_events import Event, Events, EventsUnavailableError, open_events
+from windops_events import Event, Events, EventsUnavailableError, keep_consuming, open_events
 from windops_grpc import ServiceClient, create_channel, run_service
 from windops_migrations import create_service_engine
 from windops_observability import breaker_state_metrics
@@ -37,7 +35,7 @@ RECONNECT_SECONDS = 5
 
 
 async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
-    """Apply each approval.decided, and publish the outbox: audit requests and
+    """Apply each approval.decided and stale case, and publish the outbox: audit requests and
     workorder.submitted. An outage must not restart this service (RES-006), so it keeps trying."""
     events: Events | None = None
     while events is None:
@@ -52,28 +50,30 @@ async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), timeout=RECONNECT_SECONDS)
 
-    async def handler(event: Event) -> None:
+    async def decided(event: Event) -> None:
         await decisions.handle(engine, event)
 
-    consumer = events.consumer(subject=decisions.SUBJECT, durable=SERVICE_NAME, handler=handler)
-    relay = asyncio.create_task(OutboxRelay(engine, events.publisher).run_forever(stop))
-    started = False
+    async def case_changed(event: Event) -> None:
+        await decisions.on_case(engine, event)
+
+    tasks = [
+        asyncio.create_task(OutboxRelay(engine, events.publisher).run_forever(stop)),
+        asyncio.create_task(keep_consuming(
+            events.consumer(subject=decisions.SUBJECT, durable=SERVICE_NAME, handler=decided),
+            stop, "decisions",
+        )),
+        # Work orders on a snapshot the stale rules found stale (SRS 8.5, M10.3).
+        asyncio.create_task(keep_consuming(
+            events.consumer(subject=decisions.CASE_SUBJECT, durable=f"{SERVICE_NAME}-cases",
+                            handler=case_changed),
+            stop, "case changes",
+        )),
+    ]  # fmt: skip
     try:
-        while not stop.is_set():
-            try:
-                if not started:
-                    await consumer.start()
-                    started = True
-                await consumer.run_once()
-            except (NatsError, APIError, EventsUnavailableError, TimeoutError, OSError) as error:
-                logger.warning(
-                    "Cannot read decisions yet", extra={"error_type": type(error).__name__}
-                )
-                with contextlib.suppress(TimeoutError):
-                    await asyncio.wait_for(stop.wait(), timeout=RECONNECT_SECONDS)
+        await stop.wait()
     finally:
         stop.set()
-        await relay
+        await asyncio.gather(*tasks, return_exceptions=True)
         await events.close()
 
 

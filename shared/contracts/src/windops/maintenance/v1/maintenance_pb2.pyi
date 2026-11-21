@@ -258,6 +258,8 @@ class WorkOrder(_message.Message):
     SUBMITTED_BY_FIELD_NUMBER: _builtins.int
     SUBMITTED_AT_FIELD_NUMBER: _builtins.int
     VALIDATION_FIELD_NUMBER: _builtins.int
+    STALE_RULE_FIELD_NUMBER: _builtins.int
+    STALE_DETAIL_FIELD_NUMBER: _builtins.int
     work_order_id: _builtins.str
     """"wo_" and 20 lowercase letters and digits."""
     version: _builtins.int
@@ -269,15 +271,19 @@ class WorkOrder(_message.Message):
     evidence_snapshot_id: _builtins.str
     """The case's evidence when it was drafted."""
     status: _builtins.str
-    """"draft", "submitted", "withdrawn", "approved" or "rejected": a person's decision through the
-    Approval Service, from its approval.decided. "stale", "completed" and "verified" come later in
-    Phase 10.
+    """"draft", "submitted", "withdrawn", "approved", "rejected" or "stale". Approved and rejected
+    are a person's decision through the Approval Service, from its approval.decided; stale is
+    the Investigation Service's rules finding its evidence snapshot stale (SRS 8.5). A rejected
+    or stale one is revised as a new version. "completed" and "verified" come later in Phase 10.
     """
     drafted_by: _builtins.str
     """The person, or principal, it was drafted for."""
     drafted_by_agent: _builtins.str
     """The agent that drafted it, such as "agent:maintenance-planner"; empty for a person."""
     submitted_by: _builtins.str
+    stale_rule: _builtins.str
+    """Why it is stale: the rule that fired, such as "inventory", and what it found (EVD-007)."""
+    stale_detail: _builtins.str
     @_builtins.property
     def plan(self) -> Global___Plan: ...
     @_builtins.property
@@ -306,10 +312,12 @@ class WorkOrder(_message.Message):
         submitted_by: _builtins.str = ...,
         submitted_at: _timestamp_pb2.Timestamp | None = ...,
         validation: Global___Validation | None = ...,
+        stale_rule: _builtins.str = ...,
+        stale_detail: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "plan", b"plan", "submitted_at", b"submitted_at", "updated_at", b"updated_at", "validation", b"validation"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "created_at", b"created_at", "drafted_by", b"drafted_by", "drafted_by_agent", b"drafted_by_agent", "evidence_snapshot_id", b"evidence_snapshot_id", "plan", b"plan", "revision", b"revision", "status", b"status", "submitted_at", b"submitted_at", "submitted_by", b"submitted_by", "turbine_id", b"turbine_id", "updated_at", b"updated_at", "validation", b"validation", "version", b"version", "work_order_id", b"work_order_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "created_at", b"created_at", "drafted_by", b"drafted_by", "drafted_by_agent", b"drafted_by_agent", "evidence_snapshot_id", b"evidence_snapshot_id", "plan", b"plan", "revision", b"revision", "stale_detail", b"stale_detail", "stale_rule", b"stale_rule", "status", b"status", "submitted_at", b"submitted_at", "submitted_by", b"submitted_by", "turbine_id", b"turbine_id", "updated_at", b"updated_at", "validation", b"validation", "version", b"version", "work_order_id", b"work_order_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -327,7 +335,9 @@ class WorkOrderEvent(_message.Message):
     REVISION_FIELD_NUMBER: _builtins.int
     NOTE_FIELD_NUMBER: _builtins.int
     action: _builtins.str
-    """"drafted", "updated", "validated", "submitted", "withdrawn", "approved" or "rejected"."""
+    """"drafted", "updated", "validated", "submitted", "withdrawn", "approved", "rejected", "stale"
+    or "revised".
+    """
     actor_type: _builtins.str
     """"user", "agent" or "service"."""
     actor_id: _builtins.str
@@ -600,26 +610,83 @@ class GetWorkOrderRequest(_message.Message):
 Global___GetWorkOrderRequest: _TypeAlias = GetWorkOrderRequest  # noqa: Y015
 
 @_typing.final
+class ReviseWorkOrderRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    WORK_ORDER_ID_FIELD_NUMBER: _builtins.int
+    EXPECTED_REVISION_FIELD_NUMBER: _builtins.int
+    PLAN_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    work_order_id: _builtins.str
+    expected_revision: _builtins.int
+    idempotency_key: _builtins.str
+    @_builtins.property
+    def plan(self) -> Global___Plan:
+        """The new version's plan. Unset keeps the earlier version's."""
+
+    def __init__(
+        self,
+        *,
+        work_order_id: _builtins.str = ...,
+        expected_revision: _builtins.int = ...,
+        plan: Global___Plan | None = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["plan", b"plan"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["expected_revision", b"expected_revision", "idempotency_key", b"idempotency_key", "plan", b"plan", "work_order_id", b"work_order_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ReviseWorkOrderRequest: _TypeAlias = ReviseWorkOrderRequest  # noqa: Y015
+
+@_typing.final
+class ReviseWorkOrderResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    WORK_ORDER_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def work_order(self) -> Global___WorkOrder: ...
+    def __init__(
+        self,
+        *,
+        work_order: Global___WorkOrder | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["work_order", b"work_order"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["work_order", b"work_order"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ReviseWorkOrderResponse: _TypeAlias = ReviseWorkOrderResponse  # noqa: Y015
+
+@_typing.final
 class GetWorkOrderResponse(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
     WORK_ORDER_FIELD_NUMBER: _builtins.int
     HISTORY_FIELD_NUMBER: _builtins.int
+    EARLIER_VERSIONS_FIELD_NUMBER: _builtins.int
     @_builtins.property
     def work_order(self) -> Global___WorkOrder: ...
     @_builtins.property
     def history(self) -> _containers.RepeatedCompositeFieldContainer[Global___WorkOrderEvent]:
         """Oldest first."""
 
+    @_builtins.property
+    def earlier_versions(self) -> _containers.RepeatedCompositeFieldContainer[Global___WorkOrder]:
+        """Its earlier versions, each as it was when revised, oldest first (EVD-008)."""
+
     def __init__(
         self,
         *,
         work_order: Global___WorkOrder | None = ...,
         history: _abc.Iterable[Global___WorkOrderEvent] | None = ...,
+        earlier_versions: _abc.Iterable[Global___WorkOrder] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["work_order", b"work_order"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["history", b"history", "work_order", b"work_order"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["earlier_versions", b"earlier_versions", "history", b"history", "work_order", b"work_order"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

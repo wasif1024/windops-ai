@@ -18,13 +18,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncConnection
 from windops.events.v1 import events_pb2
+from windops.maintenance.v1 import maintenance_pb2 as pb
 from windops_events import audit_request_subject
 from windops_outbox import add_event
 
 SERVICE_NAME = "maintenance"
 SUBMITTED_SUBJECT = "workorder.submitted"
 DRAFT, SUBMITTED, WITHDRAWN = "draft", "submitted", "withdrawn"
-APPROVED, REJECTED = "approved", "rejected"
+APPROVED, REJECTED, STALE = "approved", "rejected", "stale"
 METADATA = MetaData()
 
 # One row a work order: its current state. Every change is also kept in its history.
@@ -48,6 +49,20 @@ WORK_ORDERS = Table(
     Column("updated_at", DateTime(timezone=True), nullable=False),
     Column("submitted_by", Text, nullable=False, server_default=""),
     Column("submitted_at", DateTime(timezone=True)),
+    # Why it is stale: the rule that fired and what it found (SRS 8.5, EVD-007).
+    Column("stale_rule", Text, nullable=False, server_default=""),
+    Column("stale_detail", Text, nullable=False, server_default=""),
+)
+# Each earlier version of a work order, as it was when revised, never changed (EVD-008): the
+# serialized windops.maintenance.v1.WorkOrder.
+WORK_ORDER_VERSIONS = Table(
+    "work_order_versions",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("work_order_id", Text, primary_key=True),
+    Column("version", BigInteger, primary_key=True),
+    Column("work_order", LargeBinary, nullable=False),
+    Column("revised_at", DateTime(timezone=True), nullable=False),
 )
 WORK_ORDER_HISTORY = Table(
     "work_order_history",
@@ -76,7 +91,7 @@ IDEMPOTENCY_KEYS = Table(
     Column("response", LargeBinary, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
-TENANT_TABLES = ("work_orders", "work_order_history", "idempotency_keys")
+TENANT_TABLES = ("work_orders", "work_order_history", "work_order_versions", "idempotency_keys")
 
 
 class KeyReusedError(ValueError):
@@ -176,6 +191,14 @@ async def record(
                 submitted_by=row.submitted_by,
                 drafted_by=row.drafted_by,
                 drafted_by_agent=row.drafted_by_agent,
+                # What the stale rules watch (SRS 8.5): its parts as validated, and procedures.
+                parts=[
+                    events_pb2.ProposedPart(
+                        part_number=p.part_number, quantity=p.quantity, status=p.status
+                    )
+                    for p in pb.Validation.FromString(row.validation).parts
+                ],
+                procedures=list(pb.Plan.FromString(row.plan).procedures),
             ),
             producer=SERVICE_NAME,
         )

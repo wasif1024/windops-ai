@@ -29,9 +29,11 @@ from windops_maintenance.store import (
     APPROVED,
     DRAFT,
     REJECTED,
+    STALE,
     SUBMITTED,
     WITHDRAWN,
     WORK_ORDER_HISTORY,
+    WORK_ORDER_VERSIONS,
     WORK_ORDERS,
     KeyReusedError,
     denied,
@@ -43,7 +45,9 @@ from windops_maintenance.validation import Authorizer, Sources
 
 READ, DRAFT_PERMISSION, SUBMIT = "investigation.read", "maintenance.draft", "maintenance.submit"
 ACTIVE_CASES = ("open", "investigating", "pending_review")
-STATUSES = (DRAFT, SUBMITTED, WITHDRAWN, APPROVED, REJECTED)
+STATUSES = (DRAFT, SUBMITTED, WITHDRAWN, APPROVED, REJECTED, STALE)
+# What is revised as a new version (EVD-008).
+REVISABLE = (STALE, REJECTED)
 DEFAULT_PAGE, MAXIMUM_PAGE, MAXIMUM_KEY, MAXIMUM_REASON = 50, 200, 64, 500
 
 
@@ -72,6 +76,8 @@ def to_message(row: Any) -> pb.WorkOrder:
         submitted_by=row.submitted_by,
         submitted_at=_timestamp(row.submitted_at),
         validation=pb.Validation.FromString(row.validation),
+        stale_rule=row.stale_rule,
+        stale_detail=row.stale_detail,
     )
 
 
@@ -475,6 +481,69 @@ class MaintenanceService(maintenance_pb2_grpc.MaintenanceServiceServicer):
             )
         return response
 
+    async def ReviseWorkOrder(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.ReviseWorkOrderRequest, context: Any
+    ) -> pb.ReviseWorkOrderResponse:
+        tenant, who, kind, agent = self._caller()
+        if request.HasField("plan") and (refused := plans.shape(request.plan)):
+            raise InvalidRequestError(refused[0].message)
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            first = await self._first(
+                connection, tenant, who, request.idempotency_key, "ReviseWorkOrder", request,
+                pb.ReviseWorkOrderResponse,
+            )  # fmt: skip
+            if first is not None:
+                return first  # type: ignore[no-any-return]
+            row = await self._load(connection, tenant, request.work_order_id)
+        await self._require(DRAFT_PERMISSION, row.turbine_id)
+        self._revisable(row, request.expected_revision)
+        case = await self._sources.case(row.case_id)
+        if case.status not in ACTIVE_CASES:
+            raise ConflictError(f"Only an active case's work is revised; it is {case.status}")
+        if case.stale_rule:
+            raise ConflictError(
+                f"The case's evidence is stale ({case.stale_rule}): re-evaluate the case first, "
+                "so the new version stands on a fresh snapshot"
+            )
+        plan = request.plan if request.HasField("plan") else pb.Plan.FromString(row.plan)
+        now, version = self._now(), row.version + 1
+        checked = await validation.validate(
+            self._sources, case, plan, key=f"{row.work_order_id}-v{version}", now=now
+        )
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, tenant)
+            row = await self._load(connection, tenant, request.work_order_id)
+            self._revisable(row, request.expected_revision)
+            # The earlier version, kept as it was (EVD-008).
+            await connection.execute(WORK_ORDER_VERSIONS.insert().values(
+                tenant_id=tenant, work_order_id=row.work_order_id, version=row.version,
+                work_order=to_message(row).SerializeToString(), revised_at=now,
+            ))  # fmt: skip
+            row = await self._change(
+                connection, row, now, version=version, status=DRAFT,
+                evidence_snapshot_id=case.evidence_snapshot_id,
+                plan=plan.SerializeToString(), validation=checked.SerializeToString(),
+                submitted_by="", submitted_at=None, stale_rule="", stale_detail="",
+            )  # fmt: skip
+            await record(connection, row, action="revised", at=now, actor_type=kind,
+                         actor_id=who, agent=agent, note=f"version {version}")  # fmt: skip
+            response = pb.ReviseWorkOrderResponse(work_order=to_message(row))
+            await remember(connection, tenant_id=tenant, caller=who,
+                           key=request.idempotency_key, method="ReviseWorkOrder",
+                           request=request, response=response, now=now)  # fmt: skip
+        return response
+
+    @staticmethod
+    def _revisable(row: Any, expected_revision: int) -> None:
+        if row.status not in REVISABLE:
+            raise ConflictError(f"Only a stale or rejected work order is revised; this one is "
+                                f"{row.status}")  # fmt: skip
+        if expected_revision != row.revision:
+            raise ConflictError(
+                f"It changed since you read it: revision {row.revision}, not {expected_revision}"
+            )
+
     async def GetWorkOrder(  # noqa: N802  # The name comes from the contract.
         self, request: pb.GetWorkOrderRequest, context: Any
     ) -> pb.GetWorkOrderResponse:
@@ -491,8 +560,15 @@ class MaintenanceService(maintenance_pb2_grpc.MaintenanceServiceServicer):
                     .order_by(h.position)
                 )
             ).all()
+            v = WORK_ORDER_VERSIONS.c
+            earlier = (await connection.execute(
+                select(v.work_order)
+                .where(v.tenant_id == tenant, v.work_order_id == row.work_order_id)
+                .order_by(v.version)
+            )).scalars().all()  # fmt: skip
         return pb.GetWorkOrderResponse(
             work_order=to_message(row),
+            earlier_versions=[pb.WorkOrder.FromString(e) for e in earlier],
             history=[
                 pb.WorkOrderEvent(
                     at=_timestamp(e.at),

@@ -43,6 +43,10 @@ class Case(_message.Message):
     EVIDENCE_STATUS_FIELD_NUMBER: _builtins.int
     INVESTIGATION_STATUS_FIELD_NUMBER: _builtins.int
     RUN_ID_FIELD_NUMBER: _builtins.int
+    STALE_RULE_FIELD_NUMBER: _builtins.int
+    STALE_DETAIL_FIELD_NUMBER: _builtins.int
+    STALE_AT_FIELD_NUMBER: _builtins.int
+    STALE_RULES_VERSION_FIELD_NUMBER: _builtins.int
     case_id: _builtins.str
     turbine_id: _builtins.str
     component_group: _builtins.str
@@ -78,12 +82,21 @@ class Case(_message.Message):
     """
     run_id: _builtins.str
     """The Agent Runtime's run, once started."""
+    stale_rule: _builtins.str
+    """Set while its newest evidence snapshot is stale (SRS 8.5, EVD-007): the rule that fired
+    first, such as "alarm", what it found, when, and the rules' version. A stale recommendation
+    cannot be approved. Freezing a new snapshot re-evaluates the case and clears them (EVD-008).
+    """
+    stale_detail: _builtins.str
+    stale_rules_version: _builtins.str
     @_builtins.property
     def created_at(self) -> _timestamp_pb2.Timestamp: ...
     @_builtins.property
     def updated_at(self) -> _timestamp_pb2.Timestamp: ...
     @_builtins.property
     def last_detection_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def stale_at(self) -> _timestamp_pb2.Timestamp: ...
     def __init__(
         self,
         *,
@@ -107,10 +120,14 @@ class Case(_message.Message):
         evidence_status: _builtins.str = ...,
         investigation_status: _builtins.str = ...,
         run_id: _builtins.str = ...,
+        stale_rule: _builtins.str = ...,
+        stale_detail: _builtins.str = ...,
+        stale_at: _timestamp_pb2.Timestamp | None = ...,
+        stale_rules_version: _builtins.str = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "last_detection_at", b"last_detection_at", "updated_at", b"updated_at"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "last_detection_at", b"last_detection_at", "stale_at", b"stale_at", "updated_at", b"updated_at"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["cancel_reason", b"cancel_reason", "case_id", b"case_id", "case_rules_version", b"case_rules_version", "component_group", b"component_group", "created_at", b"created_at", "created_by", b"created_by", "detection_count", b"detection_count", "evidence_snapshot_id", b"evidence_snapshot_id", "evidence_status", b"evidence_status", "evidence_version", b"evidence_version", "investigation_status", b"investigation_status", "last_detection_at", b"last_detection_at", "origin", b"origin", "run_id", b"run_id", "severity", b"severity", "status", b"status", "title", b"title", "turbine_id", b"turbine_id", "updated_at", b"updated_at", "version", b"version"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["cancel_reason", b"cancel_reason", "case_id", b"case_id", "case_rules_version", b"case_rules_version", "component_group", b"component_group", "created_at", b"created_at", "created_by", b"created_by", "detection_count", b"detection_count", "evidence_snapshot_id", b"evidence_snapshot_id", "evidence_status", b"evidence_status", "evidence_version", b"evidence_version", "investigation_status", b"investigation_status", "last_detection_at", b"last_detection_at", "origin", b"origin", "run_id", b"run_id", "severity", b"severity", "stale_at", b"stale_at", "stale_detail", b"stale_detail", "stale_rule", b"stale_rule", "stale_rules_version", b"stale_rules_version", "status", b"status", "title", b"title", "turbine_id", b"turbine_id", "updated_at", b"updated_at", "version", b"version"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

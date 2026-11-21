@@ -176,3 +176,37 @@ def test_a_draft_is_made_for_an_active_case_the_user_may_read() -> None:
         assert list(cases.calls[0].request.statuses) == [], "the active ones, by default"
 
     with_bff(scenario, services={"investigation": cases})
+
+
+def test_a_stale_work_order_shows_its_rule_and_is_revised_as_the_planner() -> None:
+    """EVD-007 and EVD-008: the rule that fired is shown, and a revision is the next version."""
+    stale = work_order("stale", 4)
+    stale.stale_rule, stale.stale_detail = "inventory", "Part GBX-FAN/CAP.25 is now short"
+    revised = work_order("draft", 5)
+    revised.version = 2
+    maintenance = FakeService({
+        "GetWorkOrder": mnt.GetWorkOrderResponse(work_order=stale, earlier_versions=[]),
+        "ReviseWorkOrder": mnt.ReviseWorkOrderResponse(work_order=revised),
+    })  # fmt: skip
+
+    async def scenario(world: World) -> None:
+        shown = (await world.client.get(f"{PREFIX}/work-orders/{ORDER}",
+                                        headers=auth(token()))).json()  # fmt: skip
+        assert (shown["work_order"]["status"], shown["work_order"]["stale_rule"]) == (
+            "stale",
+            "inventory",
+        )
+        assert shown["earlier_versions"] == []
+        answer = await world.client.post(
+            f"{PREFIX}/work-orders/{ORDER}/revise",
+            headers={**auth(token()), "Idempotency-Key": "r-1"}, json={"expected_revision": 4},
+        )  # fmt: skip
+        assert (answer.json()["version"], answer.json()["status"]) == (2, "draft")
+        sent = maintenance.calls[1]
+        assert (sent.request.expected_revision, sent.request.HasField("plan"), sent.retry) == (
+            4,
+            False,
+            False,
+        )
+
+    with_bff(scenario, services={"maintenance": maintenance})

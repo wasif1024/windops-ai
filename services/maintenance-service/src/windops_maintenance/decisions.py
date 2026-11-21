@@ -15,7 +15,15 @@ from windops.events.v1 import events_pb2
 from windops_events import Event, InvalidEventError, RetryLaterError
 from windops_migrations import in_tenant
 
-from windops_maintenance.store import APPROVED, REJECTED, SUBMITTED, WORK_ORDERS, record
+from windops_maintenance.store import (
+    APPROVED,
+    DRAFT,
+    REJECTED,
+    STALE,
+    SUBMITTED,
+    WORK_ORDERS,
+    record,
+)
 
 SUBJECT = "approval.decided"
 # Only the Approval Service may say a work order was decided on.
@@ -58,3 +66,52 @@ async def handle(engine: AsyncEngine, event: Event) -> bool:
     except OperationalError as error:
         raise RetryLaterError(type(error).__name__) from error
     return True
+
+
+CASE_SUBJECT = "case.updated"
+STALE_ACTION = "stale"
+# Only the Investigation Service may say a case's evidence is stale.
+CASE_PRODUCER = "investigation"
+# What a stale snapshot makes stale: anything not yet decided, or decided but not done.
+STALE_FROM = (DRAFT, SUBMITTED)
+
+
+async def on_case(engine: AsyncEngine, event: Event) -> int:
+    """Mark the work orders on a snapshot the stale rules found stale (SRS 8.5, EVD-007), with
+    the rule. Any other case change is not for this service. Returns how many it marked."""
+    if event.producer != CASE_PRODUCER or not isinstance(event.payload, events_pb2.CaseUpdated):
+        raise InvalidEventError(f"{CASE_SUBJECT} must come from {CASE_PRODUCER}")
+    case = event.payload
+    if case.action != STALE_ACTION:
+        return 0
+    if not case.case_id or not case.evidence_snapshot_id or not case.stale_rule:
+        raise InvalidEventError("A stale case names its snapshot and the rule that fired")
+    w, now, marked = WORK_ORDERS.c, datetime.now(UTC), 0
+    try:
+        async with engine.begin() as connection:
+            await in_tenant(connection, event.tenant_id)
+            rows = (await connection.execute(select(WORK_ORDERS).where(
+                w.tenant_id == event.tenant_id, w.case_id == case.case_id,
+                w.evidence_snapshot_id == case.evidence_snapshot_id, w.status.in_(STALE_FROM),
+            ))).all()  # fmt: skip
+            for row in rows:
+                await connection.execute(
+                    update(WORK_ORDERS)
+                    .where(w.tenant_id == row.tenant_id, w.work_order_id == row.work_order_id)
+                    .values(status=STALE, revision=row.revision + 1, updated_at=now,
+                            stale_rule=case.stale_rule, stale_detail=case.stale_detail[:1000])
+                )  # fmt: skip
+                changed = (
+                    await connection.execute(
+                        select(WORK_ORDERS).where(
+                            w.tenant_id == row.tenant_id, w.work_order_id == row.work_order_id
+                        )
+                    )
+                ).one()
+                await record(connection, changed, action=STALE, at=now, actor_type="service",
+                             actor_id=f"service:{CASE_PRODUCER}",
+                             note=f"{case.stale_rule}: {case.stale_detail}"[:1000])  # fmt: skip
+                marked += 1
+    except OperationalError as error:
+        raise RetryLaterError(type(error).__name__) from error
+    return marked

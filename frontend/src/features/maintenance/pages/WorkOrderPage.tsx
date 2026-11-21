@@ -221,6 +221,22 @@ function Actions({
   );
 }
 
+/** A stale or rejected work order becomes its next version, a draft on fresh evidence. */
+function Revise({ api, order, onDone }: { api: MaintenanceApi; order: WorkOrder; onDone: () => void }) {
+  const change = useChange();
+  return (
+    <div>
+      <Button
+        disabled={change.state.kind === "busy"}
+        onClick={() => void change.run((key) => api.revise(order.work_order_id, key, order.revision)).then((done) => done && onDone())}
+      >
+        Revise as version {order.version + 1}
+      </Button>
+      <ChangeStatus state={change.state} onDismiss={change.reset} />
+    </div>
+  );
+}
+
 /** One work order: its plan, what its validation found, every change, and what to do now. */
 export function WorkOrderPage({
   api,
@@ -243,7 +259,7 @@ export function WorkOrderPage({
         ← Maintenance planner
       </Link>
       <Loading state={state}>
-        {({ work_order: order, history }) => (
+        {({ work_order: order, history, earlier_versions }) => (
           <>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="break-words text-xl font-semibold">{order.plan.title || "Untitled"}</h2>
@@ -253,6 +269,17 @@ export function WorkOrderPage({
               Drafted by {draftedBy(order)} · revision {order.revision}
               {order.submitted_by && ` · submitted by ${order.submitted_by} ${when(order.submitted_at)}`}
             </p>
+            {order.status === "stale" && (
+              <div role="note" className="rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900" data-testid="stale">
+                <p className="break-words">
+                  Its evidence is stale ({order.stale_rule}): {order.stale_detail}. It cannot be approved. Once the case is
+                  re-evaluated, revise it as version {order.version + 1}.
+                </p>
+              </div>
+            )}
+            {(order.status === "stale" || order.status === "rejected") && canDraft && (
+              <Revise api={api} order={order} onDone={reload} />
+            )}
             {order.drafted_by_agent && order.status === "draft" && (
               <p role="note" className="rounded-md border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">
                 An agent drafted this. Check every task, part and procedure before you submit it: only a person submits, and
@@ -297,6 +324,19 @@ export function WorkOrderPage({
             <Panel title="History">
               <History history={history} />
             </Panel>
+            {earlier_versions.length > 0 && (
+              <Panel title="Earlier versions">
+                <ul className="space-y-1 text-sm" aria-label="Earlier versions">
+                  {earlier_versions.map((earlier) => (
+                    <li key={earlier.version} className="break-words">
+                      Version {earlier.version}: {titleCase(earlier.status)}
+                      {earlier.stale_rule && ` (${earlier.stale_rule})`} · snapshot{" "}
+                      <span className="font-mono text-xs">{earlier.evidence_snapshot_id}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+            )}
           </>
         )}
       </Loading>

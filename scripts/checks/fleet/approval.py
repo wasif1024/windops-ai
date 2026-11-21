@@ -249,7 +249,7 @@ def separated(approvals: Caller, authorization: Caller, both: Any, plain: Any) -
     )
     decided = approvals.call("DecideApproval", decide(both), MANAGER, TENANT).approval
     check(decided.status == "approved" and BOTH in decided.decision.requesters
-          and decided.decision.policy.approval_rules == "separation-of-duties-1",
+          and decided.decision.policy.approval_rules == "separation-of-duties-2",
           f"Another manager decides it, recorded with who could not: "
           f"{list(decided.decision.requesters)}, rules {decided.decision.policy.approval_rules}, "
           f"permissions version {decided.decision.policy.permissions_version}")  # fmt: skip

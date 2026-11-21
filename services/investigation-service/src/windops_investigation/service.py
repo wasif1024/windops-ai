@@ -197,6 +197,8 @@ def to_message(row: Any, detection_count: int = 0, investigation: Any = None) ->
         version=row.version, evidence_snapshot_id=row.evidence_snapshot_id,
         evidence_version=row.evidence_version,
         evidence_status="pending" if row.evidence_wanted_at is not None else "ready",
+        stale_rule=row.stale_rule, stale_detail=row.stale_detail,
+        stale_at=_timestamp(row.stale_at), stale_rules_version=row.stale_rules_version,
     )  # fmt: skip
 
 

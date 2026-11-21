@@ -20,6 +20,7 @@ from windops_events.client import (
     tls_context,
 )
 from windops_events.envelope import Event, InvalidEventError, build_envelope, parse_event
+from windops_events.loop import keep_consuming
 from windops_events.streams import (
     AUDIT_REQUEST_SUBJECTS,
     DEAD_LETTER_PREFIX,
@@ -54,6 +55,7 @@ __all__ = [
     "ensure_streams",
     "events_backend",
     "events_breaker",
+    "keep_consuming",
     "open_events",
     "parse_event",
     "tls_context",

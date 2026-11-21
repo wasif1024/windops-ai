@@ -168,6 +168,17 @@ async def validate(
 ) -> pb.Validation:
     """Every check, with what it found. Passed when nothing blocks."""
     found = plans.check(plan, now)
+    if getattr(case, "stale_rule", ""):
+        # A stale recommendation cannot go forward until the case is re-evaluated (EVD-007).
+        found.append(
+            pb.Problem(
+                field="evidence",
+                code="stale_evidence",
+                blocking=True,
+                message=f"The case's evidence is stale ({case.stale_rule}: {case.stale_detail}); "
+                "re-evaluate the case, then revise this work order",
+            )
+        )
     status, turbine = "", None
     try:
         turbine = await sources.turbine(case.turbine_id)

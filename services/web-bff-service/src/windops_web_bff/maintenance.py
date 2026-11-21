@@ -24,7 +24,7 @@ from windops_web_bff.tokens import Caller
 WorkOrderId = Annotated[str, Path(pattern=r"^wo_[a-z0-9]{20}$")]
 PART_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._/-]{1,63}$"
 ACTION_PATTERN = r"^(inspection|repair|replacement|adjustment|monitoring)$"
-STATUSES = ("draft", "submitted", "withdrawn", "approved", "rejected")
+STATUSES = ("draft", "submitted", "withdrawn", "approved", "rejected", "stale")
 
 
 # --- What the browser sends
@@ -70,6 +70,12 @@ class PlanChange(BaseModel):
 
 class Submission(BaseModel):
     expected_revision: int = Field(ge=1)
+
+
+class Revision(BaseModel):
+    expected_revision: int = Field(ge=1)
+    # The new version's plan; unset keeps the earlier one's.
+    plan: PlanIn | None = None
 
 
 class Withdrawal(BaseModel):
@@ -135,7 +141,7 @@ class WorkOrder(BaseModel):
     turbine_id: str
     evidence_snapshot_id: str
     plan: Plan
-    # "draft", "submitted", "withdrawn", "approved" or "rejected".
+    # "draft", "submitted", "withdrawn", "approved", "rejected" or "stale".
     status: str
     drafted_by: str
     # "agent:maintenance-planner" when an agent drafted it; "" for a person.
@@ -145,6 +151,9 @@ class WorkOrder(BaseModel):
     submitted_by: str
     submitted_at: str | None
     validation: Validation
+    # Why it is stale: the rule that fired, and what it found (SRS 8.5, EVD-007).
+    stale_rule: str
+    stale_detail: str
 
 
 class WorkOrderEvent(BaseModel):
@@ -165,6 +174,8 @@ class WorkOrderList(BaseModel):
 class WorkOrderDetail(BaseModel):
     work_order: WorkOrder
     history: list[WorkOrderEvent]
+    # Each earlier version, as it was when revised, oldest first (EVD-008).
+    earlier_versions: list[WorkOrder]
 
 
 class Model(BaseModel):
@@ -266,7 +277,8 @@ def _work_order(message: Any) -> WorkOrder:
         status=message.status, drafted_by=message.drafted_by,
         drafted_by_agent=message.drafted_by_agent, created_at=time_of(message, "created_at"),
         updated_at=time_of(message, "updated_at"), submitted_by=message.submitted_by,
-        submitted_at=time_of(message, "submitted_at"),
+        submitted_at=time_of(message, "submitted_at"), stale_rule=message.stale_rule,
+        stale_detail=message.stale_detail,
         validation=Validation(
             checked_at=time_of(checked, "checked_at"), passed=checked.passed,
             problems=[Problem(field=p.field, code=p.code, message=p.message, blocking=p.blocking)
@@ -365,6 +377,7 @@ def add_maintenance_routes(
                                     actor_type=e.actor_type, actor_id=e.actor_id, agent=e.agent,
                                     revision=e.revision, note=e.note)
                      for e in answer.history],
+            earlier_versions=[_work_order(w) for w in answer.earlier_versions],
         )  # fmt: skip
 
     @router.put(
@@ -419,6 +432,22 @@ def add_maintenance_routes(
         request = mnt.WithdrawDraftRequest(work_order_id=work_order_id, reason=body.reason,
                                            idempotency_key=key)  # fmt: skip
         answer = await call_as("maintenance", "WithdrawDraft", request, who, retry=False)
+        return _work_order(answer.work_order)
+
+    @router.post(
+        "/work-orders/{work_order_id}/revise", response_model=WorkOrder,
+        summary="Revise a stale or rejected work order as its next version, a draft on the "
+                "case's current evidence. The earlier version is kept",
+    )  # fmt: skip
+    async def revise(
+        work_order_id: WorkOrderId, body: Revision, key: Key,
+        who: Annotated[Caller, Depends(caller)],
+    ) -> WorkOrder:  # fmt: skip
+        request = mnt.ReviseWorkOrderRequest(
+            work_order_id=work_order_id, expected_revision=body.expected_revision,
+            plan=plan_message(body.plan) if body.plan else None, idempotency_key=key,
+        )  # fmt: skip
+        answer = await call_as("maintenance", "ReviseWorkOrder", request, who, retry=False)
         return _work_order(answer.work_order)
 
     # --- Parts

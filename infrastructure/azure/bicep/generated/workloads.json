@@ -125,6 +125,18 @@
       {
         "topic": "windops-events",
         "subscription": "investigation"
+      },
+      {
+        "topic": "windops-events",
+        "subscription": "investigation-alarms"
+      },
+      {
+        "topic": "windops-events",
+        "subscription": "investigation-evidence"
+      },
+      {
+        "topic": "windops-events",
+        "subscription": "investigation-proposals"
       }
     ]
   },
@@ -146,6 +158,10 @@
       {
         "topic": "windops-events",
         "subscription": "maintenance"
+      },
+      {
+        "topic": "windops-events",
+        "subscription": "maintenance-cases"
       }
     ]
   },

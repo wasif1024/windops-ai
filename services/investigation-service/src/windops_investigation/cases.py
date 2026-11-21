@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from windops.events.v1 import events_pb2
 from windops_migrations import in_tenant
 
-from windops_investigation import case_rules
+from windops_investigation import case_rules, staleness
 from windops_investigation.store import (
     ACTIVE,
     CANCELLED,
@@ -56,6 +56,20 @@ async def change(
     await record(connection, changed, action=action, at=now, actor_type=actor_type,
                  actor_id=actor_id, note=note)  # fmt: skip
     return changed
+
+
+async def mark_stale(
+    connection: AsyncConnection, case: Any, found: staleness.Stale, *, now: datetime, by: str,
+) -> Any:  # fmt: skip
+    """The first rule to fire marks the case's newest snapshot stale, announced as case.updated
+    with the rule (SRS 8.5, EVD-007). A later one changes nothing until a new snapshot."""
+    if case.stale_rule or case.status not in ACTIVE or not case.evidence_snapshot_id:
+        return case
+    return await change(
+        connection, case, now=now, action="stale", actor_type=SERVICE, actor_id=by,
+        note=f"{found.rule}: {found.detail}"[:1000], stale_rule=found.rule,
+        stale_detail=found.detail[:1000], stale_at=now, stale_rules_version=staleness.VERSION,
+    )  # fmt: skip
 
 
 async def create(
@@ -119,6 +133,9 @@ async def attach_detection(
             note=detected.detection_id, severity=severity, last_detection_at=now,
             evidence_wanted_at=now,
         )  # fmt: skip
+        found = staleness.severity_raised(active.severity, severity, active.evidence_version)
+        if found is not None:
+            case = await mark_stale(connection, case, found, now=now, by=by)
     await connection.execute(
         CASE_DETECTIONS.insert().values(
             tenant_id=tenant, detection_id=detected.detection_id, case_id=case.case_id,

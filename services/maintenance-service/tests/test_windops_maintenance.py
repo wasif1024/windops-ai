@@ -103,12 +103,18 @@ class FakeSources:
     # What the Inventory Service says of each part, by number; None when it cannot be asked.
     stock: dict[str, tuple[str, int]] | None = field(default_factory=dict)
     asked: list[Any] = field(default_factory=list)
+    # The case's newest snapshot, and whether the stale rules found it stale (SRS 8.5).
+    snapshot: str = "evs_" + "c" * 20
+    stale_rule: str = ""
 
     async def case(self, case_id: str) -> Any:
         if current_identity().tenant_id != TENANT or case_id != CASE:
             raise NotFoundError("No such case")
         return investigation_pb2.Case(case_id=CASE, turbine_id=TURBINE, status=self.case_status,
-                                      evidence_snapshot_id="evs_" + "c" * 20)  # fmt: skip
+                                      evidence_snapshot_id=self.snapshot,
+                                      stale_rule=self.stale_rule,
+                                      stale_detail="Part P-1 is now short" if self.stale_rule
+                                      else "")  # fmt: skip
 
     async def turbine(self, turbine_id: str) -> Any:
         return asset_pb2.Turbine(turbine_id=turbine_id, wind_farm_id="dogger-east",
@@ -494,3 +500,114 @@ def test_a_submission_names_what_approval_needs_and_a_decision_moves_the_work_or
         assert [w.work_order_id for w in listed.work_orders] == [order.work_order_id]
 
     with_service(scenario)
+
+
+def stale_case(order: Any, snapshot: str = "evs_" + "c" * 20) -> Event:
+    payload = events_pb2.CaseUpdated(
+        case_id=CASE, status="pending_review", turbine_id=TURBINE, action="stale", version=9,
+        evidence_snapshot_id=snapshot, stale_rule="inventory",
+        stale_detail=f"Part GBX-FAN-CAP for {order.work_order_id} is now short",
+        stale_rules_version="stale-rules-1",
+    )  # fmt: skip
+    return Event("case.updated", f"c-{snapshot}", TENANT, NOW, "investigation", payload, "", "")
+
+
+def test_a_stale_snapshot_marks_its_work_orders_stale_with_the_rule() -> None:
+    """EVD-007: the rule that fired goes with the work order, and only those on that snapshot."""
+
+    async def scenario(world: World) -> None:
+        order = (await world.submit(await world.draft())).work_order
+        draft = await world.draft()
+        [announced] = await world.events("workorder.submitted")
+        assert list(announced.procedures) == ["kn:GBX-OIL-01@3#12"]
+        assert await decisions.on_case(world.engine, stale_case(order, "evs_" + "z" * 20)) == 0
+        assert await decisions.on_case(world.engine, stale_case(order)) == 2
+        assert await decisions.on_case(world.engine, stale_case(order)) == 0, "a repeat"
+        got = await world.stub.GetWorkOrder(
+            pb.GetWorkOrderRequest(work_order_id=order.work_order_id),
+            metadata=as_caller(OPERATOR), timeout=5,
+        )  # fmt: skip
+        assert (got.work_order.status, got.work_order.stale_rule) == ("stale", "inventory")
+        assert got.history[-1].action == "stale"
+        assert got.history[-1].actor_id == "service:investigation"
+        # A stale draft can no longer be submitted.
+        refused = await code_of(world.submit(
+            (await world.stub.GetWorkOrder(pb.GetWorkOrderRequest(
+                work_order_id=draft.work_order_id), metadata=as_caller(PLANNER),
+                timeout=5)).work_order))  # fmt: skip
+        assert refused == grpc.StatusCode.FAILED_PRECONDITION
+        other = events_pb2.CaseUpdated(case_id=CASE, action="severity_raised")
+        assert (
+            await decisions.on_case(
+                world.engine,
+                Event("case.updated", "c-x", TENANT, NOW, "investigation", other, "", ""),
+            )
+            == 0
+        )
+        with pytest.raises(InvalidEventError):
+            await decisions.on_case(world.engine, Event(
+                "case.updated", "c-y", TENANT, NOW, "maintenance",
+                stale_case(order).payload, "", ""))  # fmt: skip
+
+    with_service(scenario)
+
+
+def test_a_stale_work_order_is_revised_as_a_new_version_on_fresh_evidence() -> None:
+    """EVD-008: not while the case is stale; then a draft at version 2 on the new snapshot,
+    validated, with version 1 kept as it was."""
+    sources = FakeSources()
+
+    async def scenario(world: World) -> None:
+        order = (await world.submit(await world.draft())).work_order
+        await decisions.on_case(world.engine, stale_case(order))
+        stale = (await world.stub.GetWorkOrder(
+            pb.GetWorkOrderRequest(work_order_id=order.work_order_id),
+            metadata=as_caller(PLANNER), timeout=5)).work_order  # fmt: skip
+        revise = pb.ReviseWorkOrderRequest(work_order_id=order.work_order_id,
+                                           expected_revision=stale.revision,
+                                           idempotency_key="rev-1")  # fmt: skip
+        sources.stale_rule = "inventory"
+        assert (
+            await code_of(
+                world.stub.ReviseWorkOrder(revise, metadata=as_caller(PLANNER), timeout=5)
+            )
+            == grpc.StatusCode.FAILED_PRECONDITION
+        )
+        drafted = await world.draft()
+        assert any(p.code == "stale_evidence" for p in drafted.validation.problems)
+        # Re-evaluated: a new snapshot, fresh.
+        sources.stale_rule, sources.snapshot = "", "evs_" + "n" * 20
+        revised = (await world.stub.ReviseWorkOrder(
+            revise, metadata=as_caller(PLANNER), timeout=5)).work_order  # fmt: skip
+        assert (revised.version, revised.status, revised.evidence_snapshot_id) == (
+            2,
+            "draft",
+            "evs_" + "n" * 20,
+        )
+        assert revised.stale_rule == "" and revised.submitted_by == ""
+        assert revised.validation.passed
+        got = await world.stub.GetWorkOrder(
+            pb.GetWorkOrderRequest(work_order_id=order.work_order_id),
+            metadata=as_caller(PLANNER), timeout=5,
+        )  # fmt: skip
+        [earlier] = got.earlier_versions
+        assert (
+            earlier.version,
+            earlier.status,
+            earlier.stale_rule,
+            earlier.evidence_snapshot_id,
+        ) == (1, "stale", "inventory", "evs_" + "c" * 20)
+        assert got.history[-1].action == "revised"
+        # Only stale or rejected work is revised.
+        again = await code_of(world.stub.ReviseWorkOrder(
+            pb.ReviseWorkOrderRequest(work_order_id=order.work_order_id,
+                                      expected_revision=revised.revision),
+            metadata=as_caller(PLANNER), timeout=5))  # fmt: skip
+        assert again == grpc.StatusCode.FAILED_PRECONDITION
+        # Version 2 is submitted again, as version 2.
+        resubmitted = (await world.submit(revised)).work_order
+        announced = await world.events("workorder.submitted")
+        assert [e.proposal_version for e in announced] == ["1", "2"]
+        assert resubmitted.version == 2
+
+    with_service(scenario, sources=sources)

@@ -21,8 +21,8 @@ When a decision arrives, the work order and its case are read again from their o
 | Refused when | Then |
 | --- | --- |
 | The decider names a version or snapshot that is not the request's | Nothing changes: read it again |
-| The work order is no longer submitted, or is at another version or snapshot | Superseded |
-| The case is no longer active, or its newest snapshot is another | Superseded |
+| The work order is stale, or no longer submitted, or at another version or snapshot | Superseded, with the stale rule that fired (EVD-007) |
+| The case's evidence is stale, or it is no longer active, or its newest snapshot is another | Superseded |
 | The work order's policy result is neither `pass` nor `escalate` | Refused; still pending |
 | Maintenance, Investigation, Asset or Authorization cannot be asked | `UNAVAILABLE`; still pending |
 
@@ -42,7 +42,7 @@ order.
   manager.
 - **Eligibility now, not by your own change:** `maintenance.approve` is asked of Authorization as of the
   submission, leaving out roles the decider gave themselves since and their own role-permission changes.
-- **The record:** each decision lists who was excluded, the rules (`separation-of-duties-1`) and the
+- **The record:** each decision lists who was excluded, the rules (`separation-of-duties-2`) and the
   role-permission version.
 
 ## Agents never decide (FR-APR-001, SEC-009)

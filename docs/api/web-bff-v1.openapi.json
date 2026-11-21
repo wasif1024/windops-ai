@@ -2003,6 +2003,30 @@
         "title": "Reading",
         "type": "object"
       },
+      "Revision": {
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "Revision",
+        "type": "object"
+      },
       "RoleGrant": {
         "properties": {
           "grant_id": {
@@ -3070,6 +3094,14 @@
             "title": "Revision",
             "type": "integer"
           },
+          "stale_detail": {
+            "title": "Stale Detail",
+            "type": "string"
+          },
+          "stale_rule": {
+            "title": "Stale Rule",
+            "type": "string"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -3131,13 +3163,22 @@
           "updated_at",
           "submitted_by",
           "submitted_at",
-          "validation"
+          "validation",
+          "stale_rule",
+          "stale_detail"
         ],
         "title": "WorkOrder",
         "type": "object"
       },
       "WorkOrderDetail": {
         "properties": {
+          "earlier_versions": {
+            "items": {
+              "$ref": "#/components/schemas/WorkOrder"
+            },
+            "title": "Earlier Versions",
+            "type": "array"
+          },
           "history": {
             "items": {
               "$ref": "#/components/schemas/WorkOrderEvent"
@@ -3151,7 +3192,8 @@
         },
         "required": [
           "work_order",
-          "history"
+          "history",
+          "earlier_versions"
         ],
         "title": "WorkOrderDetail",
         "type": "object"
@@ -6069,6 +6111,68 @@
           }
         },
         "summary": "Replace a draft's plan, from the revision the user saw. It is validated again"
+      }
+    },
+    "/api/v1/work-orders/{work_order_id}/revise": {
+      "post": {
+        "operationId": "revise_api_v1_work_orders__work_order_id__revise_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_order_id",
+            "required": true,
+            "schema": {
+              "pattern": "^wo_[a-z0-9]{20}$",
+              "title": "Work Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Revision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revise a stale or rejected work order as its next version, a draft on the case's current evidence. The earlier version is kept"
       }
     },
     "/api/v1/work-orders/{work_order_id}/submit": {

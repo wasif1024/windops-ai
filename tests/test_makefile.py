@@ -93,6 +93,7 @@ BUILT_TARGETS = {
     "maintenance-check",
     "inventory-check",
     "approval-check",
+    "stale-check",
     "claude-check",
     "claude-policy-lock",
     "frontend-test",

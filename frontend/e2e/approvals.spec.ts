@@ -36,7 +36,7 @@ test("a manager reviews a submitted work order and approves it", async ({ page, 
   await page.getByRole("button", { name: "Approve" }).click();
   const decision = page.getByTestId("decision");
   await expect(decision).toContainText("Approved", { timeout: 30_000 });
-  await expect(decision).toContainText("separation-of-duties-1");
+  await expect(decision).toContainText("separation-of-duties-2");
   await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(0);
   await noSidewaysScroll(page);
 });

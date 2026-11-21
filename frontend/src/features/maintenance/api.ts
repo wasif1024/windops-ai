@@ -3,7 +3,7 @@
 import { getJson, sendJson } from "../../api/client";
 
 export type Action = "inspection" | "repair" | "replacement" | "adjustment" | "monitoring";
-export type WorkOrderStatus = "draft" | "submitted" | "withdrawn" | "approved" | "rejected";
+export type WorkOrderStatus = "draft" | "submitted" | "withdrawn" | "approved" | "rejected" | "stale";
 export type PartStatus = "available" | "short" | "incompatible" | "retired" | "unknown";
 
 export const ACTIONS: Action[] = ["inspection", "repair", "replacement", "adjustment", "monitoring"];
@@ -75,6 +75,9 @@ export interface WorkOrder {
   submitted_by: string;
   submitted_at: string | null;
   validation: Validation;
+  /** Why it is stale: the rule that fired, and what it found (SRS 8.5). */
+  stale_rule: string;
+  stale_detail: string;
 }
 
 export interface WorkOrderEvent {
@@ -90,6 +93,8 @@ export interface WorkOrderEvent {
 export interface WorkOrderDetail {
   work_order: WorkOrder;
   history: WorkOrderEvent[];
+  /** Each earlier version, as it was when revised, oldest first. */
+  earlier_versions: WorkOrder[];
 }
 
 export interface ActiveCase {
@@ -125,6 +130,8 @@ export function maintenanceApi(token: string) {
       sendJson<WorkOrder>("POST", `${one(id)}/submit`, token, key, { expected_revision: revision }),
     withdraw: (id: string, key: string, reason: string) =>
       sendJson<WorkOrder>("POST", `${one(id)}/withdraw`, token, key, { reason }),
+    revise: (id: string, key: string, revision: number) =>
+      sendJson<WorkOrder>("POST", `${one(id)}/revise`, token, key, { expected_revision: revision }),
   };
 }
 
@@ -136,6 +143,7 @@ export const STATUS_STYLE: Record<WorkOrderStatus, string> = {
   withdrawn: "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
   approved: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200",
   rejected: "bg-red-50 text-red-800 ring-1 ring-red-200",
+  stale: "bg-orange-50 text-orange-900 ring-1 ring-orange-200",
 };
 
 export const PART_STYLE: Record<PartStatus, string> = {

@@ -61,6 +61,34 @@
       "filter": "sys.Label = 'approval.decided'",
       "maxDeliveryCount": 100,
       "lockDuration": "PT30S"
+    },
+    {
+      "topic": "windops-events",
+      "name": "investigation-alarms",
+      "filter": "sys.Label = 'alarm.changed'",
+      "maxDeliveryCount": 100,
+      "lockDuration": "PT30S"
+    },
+    {
+      "topic": "windops-events",
+      "name": "investigation-evidence",
+      "filter": "sys.Label = 'evidence.changed'",
+      "maxDeliveryCount": 100,
+      "lockDuration": "PT30S"
+    },
+    {
+      "topic": "windops-events",
+      "name": "investigation-proposals",
+      "filter": "sys.Label = 'workorder.submitted'",
+      "maxDeliveryCount": 100,
+      "lockDuration": "PT30S"
+    },
+    {
+      "topic": "windops-events",
+      "name": "maintenance-cases",
+      "filter": "sys.Label = 'case.updated'",
+      "maxDeliveryCount": 100,
+      "lockDuration": "PT30S"
     }
   ]
 }
