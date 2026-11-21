@@ -570,3 +570,62 @@ def test_the_fault_investigator_reads_evidence_and_drafts_and_nothing_more() -> 
             assert not await check(stub, own, refused), refused
 
     with_service(scenario)
+
+
+async def eligible(stub: Any, who: str, since: Any) -> Any:
+    from google.protobuf.timestamp_pb2 import Timestamp
+
+    stamp = Timestamp()
+    stamp.FromDatetime(since)
+    request = authorization_pb2.CheckRequest(permission="maintenance.approve",
+                                             eligible_since=stamp)  # fmt: skip
+    return await stub.Check(request, metadata=as_user(who), timeout=5)
+
+
+def test_a_role_you_granted_yourself_after_a_request_does_not_make_you_eligible() -> None:
+    """RBAC-006: an administrator who makes themselves a Maintenance Manager after a request
+    was made may approve later requests, never that one."""
+    from datetime import timedelta
+
+    async def scenario(stub: Any, engine: AsyncEngine) -> None:
+        before = _now()
+        await stub.GrantRole(
+            authorization_pb2.GrantRoleRequest(grantee_id=ADMIN, role=policy.MAINTENANCE_MANAGER),
+            metadata=as_user(ADMIN), timeout=5,
+        )  # fmt: skip
+        assert await check(stub, as_user(ADMIN), "maintenance.approve")
+        refused = await eligible(stub, ADMIN, before)
+        assert not refused.allowed and "RBAC-006" in refused.reason
+        assert (await eligible(stub, ADMIN, _now() + timedelta(seconds=1))).allowed
+        # Granted by someone else after the request, it counts.
+        await stub.GrantRole(
+            authorization_pb2.GrantRoleRequest(grantee_id=OPERATOR,
+                                               role=policy.MAINTENANCE_MANAGER),
+            metadata=as_user(ADMIN), timeout=5,
+        )  # fmt: skip
+        assert (await eligible(stub, OPERATOR, before)).allowed
+
+    with_service(scenario)
+
+
+def test_a_permission_you_gave_your_own_role_after_a_request_does_not_count() -> None:
+    """RBAC-005 and RBAC-006: each change is a new version, and its author's own change since
+    the request is undone for that request."""
+
+    async def scenario(stub: Any, engine: AsyncEngine) -> None:
+        assert (await eligible(stub, ADMIN, _now())).permissions_version == 0
+        before = _now()
+        admin = policy.permissions_of(policy.TENANT_ADMINISTRATOR, None)
+        await stub.SetRolePermissions(
+            authorization_pb2.SetRolePermissionsRequest(
+                role=policy.TENANT_ADMINISTRATOR,
+                permissions=sorted(admin | {"maintenance.approve"}),
+            ),
+            metadata=as_user(ADMIN), timeout=5,
+        )  # fmt: skip
+        assert await check(stub, as_user(ADMIN), "maintenance.approve")
+        refused = await eligible(stub, ADMIN, before)
+        assert not refused.allowed and refused.permissions_version == 1
+        assert (await eligible(stub, ADMIN, _now())).allowed
+
+    with_service(scenario)

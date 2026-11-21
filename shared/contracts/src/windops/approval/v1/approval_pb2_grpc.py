@@ -39,7 +39,10 @@ class ApprovalServiceStub:
     cannot be checked refuses the decision (EVD-010). A request whose proposal or snapshot has
     moved on is superseded, and can never be decided (FR-APR-003).
 
-    Deciding needs maintenance.approve for the work order's turbine, its wind farm or the tenant.
+    Deciding needs maintenance.approve for the work order's turbine, its wind farm or the tenant,
+    held at decision time and not by the decider's own change since the request (RBAC-005,
+    RBAC-006). Nobody decides a request they drafted, submitted or changed, or one an agent drafted
+    for them (RBAC-004, RBAC-008).
     Reading needs investigation.read. A request the caller may not read is not found. The tenant
     comes from the caller's verified identity (GRP-004). A decision is announced as
     approval.decided in the same transaction that records it (EVT-002, EVT-004), and may be
@@ -83,7 +86,10 @@ class ApprovalServiceServicer:
     cannot be checked refuses the decision (EVD-010). A request whose proposal or snapshot has
     moved on is superseded, and can never be decided (FR-APR-003).
 
-    Deciding needs maintenance.approve for the work order's turbine, its wind farm or the tenant.
+    Deciding needs maintenance.approve for the work order's turbine, its wind farm or the tenant,
+    held at decision time and not by the decider's own change since the request (RBAC-005,
+    RBAC-006). Nobody decides a request they drafted, submitted or changed, or one an agent drafted
+    for them (RBAC-004, RBAC-008).
     Reading needs investigation.read. A request the caller may not read is not found. The tenant
     comes from the caller's verified identity (GRP-004). A decision is announced as
     approval.decided in the same transaction that records it (EVT-002, EVT-004), and may be
@@ -151,7 +157,10 @@ class ApprovalService:
     cannot be checked refuses the decision (EVD-010). A request whose proposal or snapshot has
     moved on is superseded, and can never be decided (FR-APR-003).
 
-    Deciding needs maintenance.approve for the work order's turbine, its wind farm or the tenant.
+    Deciding needs maintenance.approve for the work order's turbine, its wind farm or the tenant,
+    held at decision time and not by the decider's own change since the request (RBAC-005,
+    RBAC-006). Nobody decides a request they drafted, submitted or changed, or one an agent drafted
+    for them (RBAC-004, RBAC-008).
     Reading needs investigation.read. A request the caller may not read is not found. The tenant
     comes from the caller's verified identity (GRP-004). A decision is announced as
     approval.decided in the same transaction that records it (EVT-002, EVT-004), and may be

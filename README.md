@@ -365,6 +365,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0030](docs/adr/0030-parts-checked-by-anyone-reserved-by-a-person.md) | Spare parts checked by anyone, agents included, and stock changed or reserved only by a person |
 | [0031](docs/adr/0031-step-12-the-planner-drafts-after-policy.md) | Step 12: the Maintenance Planner proposes and drafts one work order, after the result's checks and policy |
 | [0032](docs/adr/0032-approvals-decided-by-a-person-on-what-is-current.md) | Approvals decided only by a person, rechecked on the current proposal and snapshot, and failing closed |
+| [0033](docs/adr/0033-separation-of-duties-at-decision-time.md) | Separation of duties at decision time: nobody decides what they had a hand in, or by their own change since the request |
 
 ## Repository layout
 

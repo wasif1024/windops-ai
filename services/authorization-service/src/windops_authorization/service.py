@@ -38,8 +38,10 @@ from windops_authorization.store import (
     custom_mapping,
     end_grant,
     find_active_grant,
+    mapping_without_own_changes,
     new_id,
     other_whole_tenant_holders,
+    permissions_version,
     remember,
     remembered,
     replace_role_permissions,
@@ -135,6 +137,7 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
         permission: str,
         tenant_id: str,
         scope: Scope,
+        eligible_since: datetime | None = None,
     ) -> Decision:
         if identity.actor:
             # An agent never does more than read and draft, whoever it acts for (SEC-009).
@@ -148,12 +151,27 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
                 policy.service_of(identity.subject), permission, tenant_id, identity.tenant_id
             )
         if tenant_id == identity.tenant_id:
-            return policy.decide_in_tenant(
+            custom = await custom_mapping(connection, tenant_id)
+            decision = policy.decide_in_tenant(
                 permission,
                 scope,
                 await active_grants(connection, tenant_id, identity.user_id),
-                await custom_mapping(connection, tenant_id),
+                custom,
             )
+            if not decision.allowed or eligible_since is None:
+                return decision
+            # RBAC-006: allowed also without what the caller changed themselves since then.
+            without = policy.decide_in_tenant(
+                permission, scope,
+                await active_grants(connection, tenant_id, identity.user_id,
+                                    not_self_after=eligible_since),
+                await mapping_without_own_changes(connection, tenant_id, identity.user_id,
+                                                  eligible_since, custom),
+            )  # fmt: skip
+            if without.allowed:
+                return decision
+            return Decision(False, "Only a change you made yourself after the request allows "
+                                   "this, so it does not count (RBAC-006)")  # fmt: skip
         platform = []
         if identity.tenant_id == policy.PLATFORM_TENANT:
             platform = await active_grants(connection, policy.PLATFORM_TENANT, identity.user_id)
@@ -202,8 +220,13 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
         identity = current_identity()
         target = self._target(identity, request.target_tenant_id)
         scope = _scope(request.scope)
+        since = (aware(request.eligible_since.ToDatetime())
+                 if request.HasField("eligible_since") else None)  # fmt: skip
         async with self._engine.begin() as connection:
-            decision = await self._decide(connection, identity, request.permission, target, scope)
+            decision = await self._decide(
+                connection, identity, request.permission, target, scope, since
+            )
+            version = await permissions_version(connection, target)
             actor = identity.user_id or identity.subject
             if not decision.allowed:
                 # An agent is the actor, on its principal's behalf (SEC-010).
@@ -230,8 +253,9 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
                     outcome="succeeded",
                 )
         return authorization_pb2.CheckResponse(
-            allowed=decision.allowed, reason=decision.reason, break_glass=decision.break_glass
-        )
+            allowed=decision.allowed, reason=decision.reason, break_glass=decision.break_glass,
+            permissions_version=version,
+        )  # fmt: skip
 
     async def ListMyPermissions(  # noqa: N802  # The name comes from the contract.
         self, request: authorization_pb2.ListMyPermissionsRequest, context: Any

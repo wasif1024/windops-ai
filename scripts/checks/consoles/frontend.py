@@ -17,6 +17,10 @@ For the maintenance planner and parts lookup (M9.4), it makes a Maintenance Plan
 screen size, signing in with a password alone, and a check-only part and an active case for each.
 The planner finds the part and drafts and submits a work order with it. The users, parts, cases
 and work orders are removed afterwards.
+
+For the approval queue (M10.2), it makes a Maintenance Manager for each screen size, also with a
+password alone, and a submitted work order for each, which the manager approves in the browser.
+Their approval requests are removed afterwards.
 """
 
 import base64
@@ -72,6 +76,8 @@ ADDED = {project: f"added-{project}-{RUN}@windops-check.example" for project in 
 API = PUBLIC_URL.removesuffix("/auth") + "/api/v1"
 # The Maintenance Planner each screen size signs in as (M9.4).
 PLANNERS = {project: f"planner-ui-{project}-{RUN}@windops-check.example" for project in PROJECTS}
+# The Maintenance Manager each screen size signs in as (M10.2).
+MANAGERS = {project: f"manager-ui-{project}-{RUN}@windops-check.example" for project in PROJECTS}
 # The alarm each screen size acknowledges. The alarm check's clean-up removes these too.
 ALARM_TAGS = {project: f"alarm-check-ui-{project}-{RUN}" for project in PROJECTS}
 
@@ -115,6 +121,10 @@ def prepare_admins(api: httpx.Client, password: str) -> None:
         user_id = ensure_user(api, email, password, new_password=True)
         ensure_member(api, organization, user_id)
         bootstrap(TENANT, user_id, "maintenance-planner")
+    for email in MANAGERS.values():
+        user_id = ensure_user(api, email, password, new_password=True)
+        ensure_member(api, organization, user_id)
+        bootstrap(TENANT, user_id, "maintenance-manager")
 
 
 def enroll_admins(password: str) -> tuple[dict[str, str], str]:
@@ -185,6 +195,8 @@ def run_browser(
             env[f"PLANNER_EMAIL_{upper}"] = PLANNERS[project]
             env[f"PLANNER_PART_{upper}"] = planning.parts[project]
             env[f"PLANNER_CASE_{upper}"] = planning.cases[project]
+            env[f"MANAGER_EMAIL_{upper}"] = MANAGERS[project]
+            env[f"MANAGER_WORK_ORDER_{upper}"] = planning.submitted[project]
         result = subprocess.run(["npx", "playwright", "test"], cwd=FRONTEND, env=env, check=False)
     return result.returncode
 
@@ -214,6 +226,7 @@ def main() -> int:
                         *PLATFORM_ADMINS.values(),
                         *ADDED.values(),
                         *PLANNERS.values(),
+                        *MANAGERS.values(),
                     ):
                         delete_user(api, email)
     except (RuntimeError, OSError, httpx.HTTPError, subprocess.CalledProcessError) as error:

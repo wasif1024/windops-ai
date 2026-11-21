@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 from google.protobuf.message import Message
 from sqlalchemy import (
+    BigInteger,
     Column,
     DateTime,
     LargeBinary,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     Text,
     and_,
     delete,
+    func,
     insert,
     select,
     update,
@@ -30,6 +32,7 @@ from windops_authorization.policy import (
     ROLES,
     Grant,
     Scope,
+    permissions_of,
 )
 
 SERVICE_NAME = "authorization"
@@ -63,6 +66,20 @@ CUSTOMIZED_TENANTS = Table(
     Column("tenant_id", Text, primary_key=True),
     Column("customized_by", Text, nullable=False),
     Column("customized_at", DateTime(timezone=True), nullable=False),
+)
+# Every change to a role's permissions, as it happened, so a decision names the version it was
+# made on (RBAC-005), and a change cannot make its own author eligible for an earlier request
+# (RBAC-006). Each keeps what it replaced, comma-separated and sorted.
+ROLE_PERMISSION_CHANGES = Table(
+    "role_permission_changes",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("version", BigInteger, primary_key=True),
+    Column("role", Text, nullable=False),
+    Column("previous", Text, nullable=False),
+    Column("permissions", Text, nullable=False),
+    Column("changed_by", Text, nullable=False),
+    Column("changed_at", DateTime(timezone=True), nullable=False),
 )
 BREAK_GLASS_GRANTS = Table(
     "break_glass_grants",
@@ -151,16 +168,53 @@ def new_id() -> str:
     return str(uuid.uuid4())
 
 
-async def active_grants(connection: AsyncConnection, tenant_id: str, user_id: str) -> list[Grant]:
+async def active_grants(
+    connection: AsyncConnection,
+    tenant_id: str,
+    user_id: str,
+    *,
+    not_self_after: datetime | None = None,
+) -> list[Grant]:
+    """With not_self_after, leaving out the roles the user granted themselves after then
+    (RBAC-006)."""
     await in_tenant(connection, tenant_id)
-    rows = await connection.execute(
-        select(ROLE_GRANTS.c.role, ROLE_GRANTS.c.wind_farm_id, ROLE_GRANTS.c.turbine_id).where(
-            ROLE_GRANTS.c.tenant_id == tenant_id,
-            ROLE_GRANTS.c.user_id == user_id,
-            ROLE_GRANTS.c.revoked_at.is_(None),
-        )
+    g = ROLE_GRANTS.c
+    query = select(g.role, g.wind_farm_id, g.turbine_id).where(
+        g.tenant_id == tenant_id, g.user_id == user_id, g.revoked_at.is_(None)
     )
+    if not_self_after is not None:
+        query = query.where(~and_(g.granted_by == user_id, g.granted_at > not_self_after))
+    rows = await connection.execute(query)
     return [Grant(row.role, Scope(row.wind_farm_id, row.turbine_id)) for row in rows]
+
+
+async def permissions_version(connection: AsyncConnection, tenant_id: str) -> int:
+    """0 for the SRS 3.2 defaults, then one more for each change (RBAC-005)."""
+    await in_tenant(connection, tenant_id)
+    c = ROLE_PERMISSION_CHANGES.c
+    found = await connection.scalar(select(func.max(c.version)).where(c.tenant_id == tenant_id))
+    return int(found or 0)
+
+
+async def mapping_without_own_changes(
+    connection: AsyncConnection, tenant_id: str, author: str, since: datetime,
+    custom: dict[str, frozenset[str]] | None,
+) -> dict[str, frozenset[str]] | None:  # fmt: skip
+    """The tenant's mapping with the author's own changes since then undone: each role they
+    changed is as it was before their first change after then (RBAC-006)."""
+    if custom is None:
+        return None
+    c = ROLE_PERMISSION_CHANGES.c
+    rows = (await connection.execute(
+        select(c.role, c.previous).where(c.tenant_id == tenant_id, c.changed_by == author,
+                                         c.changed_at > since).order_by(c.version)
+    )).all()  # fmt: skip
+    undone, seen = dict(custom), set()
+    for row in rows:
+        if row.role not in seen:
+            seen.add(row.role)
+            undone[row.role] = frozenset(p for p in row.previous.split(",") if p)
+    return undone
 
 
 async def custom_mapping(
@@ -193,9 +247,17 @@ async def replace_role_permissions(
     actor: str,
     now: datetime,
 ) -> None:
-    """Change one role. The first change copies the defaults, so the other roles stay the same."""
+    """Change one role, keeping the change. The first change copies the defaults, so the other
+    roles stay the same."""
     await in_tenant(connection, tenant_id)
-    if await custom_mapping(connection, tenant_id) is None:
+    before = await custom_mapping(connection, tenant_id)
+    version = await permissions_version(connection, tenant_id) + 1
+    await connection.execute(insert(ROLE_PERMISSION_CHANGES).values(
+        tenant_id=tenant_id, version=version, role=role,
+        previous=",".join(sorted(permissions_of(role, before))),
+        permissions=",".join(sorted(permissions)), changed_by=actor, changed_at=now,
+    ))  # fmt: skip
+    if before is None:
         await connection.execute(
             insert(CUSTOMIZED_TENANTS).values(
                 tenant_id=tenant_id, customized_by=actor, customized_at=now

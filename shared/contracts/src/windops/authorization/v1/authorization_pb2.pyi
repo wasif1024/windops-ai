@@ -50,6 +50,7 @@ class CheckRequest(_message.Message):
     PERMISSION_FIELD_NUMBER: _builtins.int
     SCOPE_FIELD_NUMBER: _builtins.int
     TARGET_TENANT_ID_FIELD_NUMBER: _builtins.int
+    ELIGIBLE_SINCE_FIELD_NUMBER: _builtins.int
     permission: _builtins.str
     """For example "alarm.acknowledge", from SRS 3.2."""
     target_tenant_id: _builtins.str
@@ -60,16 +61,25 @@ class CheckRequest(_message.Message):
     def scope(self) -> Global___Scope:
         """The resource's wind farm and turbine. A wind farm grant covers a turbine only when both are given."""
 
+    @_builtins.property
+    def eligible_since(self) -> _timestamp_pb2.Timestamp:
+        """For a decision on a request made at this time, such as an approval (RBAC-006): what the
+        caller changed themselves since then cannot make them eligible. Roles they granted after it
+        are left out, and so are their changes to role permissions after it. Unset for any other
+        check.
+        """
+
     def __init__(
         self,
         *,
         permission: _builtins.str = ...,
         scope: Global___Scope | None = ...,
         target_tenant_id: _builtins.str = ...,
+        eligible_since: _timestamp_pb2.Timestamp | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["scope", b"scope"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["eligible_since", b"eligible_since", "scope", b"scope"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["permission", b"permission", "scope", b"scope", "target_tenant_id", b"target_tenant_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["eligible_since", b"eligible_since", "permission", b"permission", "scope", b"scope", "target_tenant_id", b"target_tenant_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -82,21 +92,27 @@ class CheckResponse(_message.Message):
     ALLOWED_FIELD_NUMBER: _builtins.int
     REASON_FIELD_NUMBER: _builtins.int
     BREAK_GLASS_FIELD_NUMBER: _builtins.int
+    PERMISSIONS_VERSION_FIELD_NUMBER: _builtins.int
     allowed: _builtins.bool
     reason: _builtins.str
     """Why, in words a log can hold. It never names another user's grants."""
     break_glass: _builtins.bool
     """True when only a break-glass grant allowed it, which is also audited (RBAC-003)."""
+    permissions_version: _builtins.int
+    """The version of the tenant's role permissions it was decided on: 0 for the SRS 3.2
+    defaults, then one more for each change (RBAC-005).
+    """
     def __init__(
         self,
         *,
         allowed: _builtins.bool = ...,
         reason: _builtins.str = ...,
         break_glass: _builtins.bool = ...,
+        permissions_version: _builtins.int = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["allowed", b"allowed", "break_glass", b"break_glass", "reason", b"reason"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["allowed", b"allowed", "break_glass", b"break_glass", "permissions_version", b"permissions_version", "reason", b"reason"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

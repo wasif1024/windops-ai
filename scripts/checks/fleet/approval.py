@@ -15,7 +15,11 @@ submits a work order for each. Then, with the real services:
   snapshot (FR-APR-002); approval.decided is published, the Maintenance Service moves the work
   order to approved, and the decision reaches the audit trail; the database refuses to change it;
 - the second case's evidence is frozen again, so its request is superseded and cannot be approved
-  (FR-APR-003, EVD-009).
+  (FR-APR-003, EVD-009);
+- separation of duties (M10.2): a person who is both a planner and a manager submits a work
+  order and is refused its decision, which another manager makes, recorded with who was excluded
+  (RBAC-004); and a Tenant Administrator who makes themselves a Maintenance Manager after a
+  request may not decide it (RBAC-005, RBAC-006).
 
 Run `make services` first. What it makes is removed at the end.
 """
@@ -30,6 +34,7 @@ from typing import Any
 import grpc
 from windops.approval.v1 import approval_pb2 as pb
 from windops.approval.v1 import approval_pb2_grpc
+from windops.authorization.v1 import authorization_pb2, authorization_pb2_grpc
 from windops.investigation.v1 import investigation_pb2
 from windops.maintenance.v1 import maintenance_pb2, maintenance_pb2_grpc
 
@@ -45,6 +50,10 @@ from scripts.setup.gateway_routes import port_forward
 
 TENANT, OTHER = "north-sea", "atlas-wind"
 PLANNER, MANAGER = "approval-check-planner", "approval-check-manager"
+# A person who both plans and approves (RBAC-004), and an administrator who could make themselves
+# a manager (RBAC-006).
+BOTH, ADMIN = "approval-check-planning-manager", "approval-check-admin"
+AUTHORIZATION_HOST = "windops-authorization.windops-system.svc.cluster.local"
 AGENT = "agent:maintenance-planner"
 HOST = "windops-approval.windops-application.svc.cluster.local"
 MAINTENANCE_HOST = "windops-maintenance.windops-application.svc.cluster.local"
@@ -66,19 +75,19 @@ def kubectl(*args: str) -> None:
                     *args], check=True, capture_output=True, text=True)  # fmt: skip
 
 
-def submit(maintenance: Caller, case_id: str, n: int) -> Any:
+def submit(maintenance: Caller, case_id: str, n: int, planner: str = PLANNER) -> Any:
     draft = maintenance.call(
         "CreateDraft",
         maintenance_pb2.CreateDraftRequest(case_id=case_id, plan=plan(),
                                            idempotency_key=f"apr-{RUN}-{n}"),
-        PLANNER, TENANT,
+        planner, TENANT,
     ).work_order  # fmt: skip
     return maintenance.call(
         "SubmitWorkOrder",
         maintenance_pb2.SubmitWorkOrderRequest(work_order_id=draft.work_order_id,
                                                expected_revision=draft.revision,
                                                idempotency_key=f"apr-{RUN}-{n}-submit"),
-        PLANNER, TENANT,
+        planner, TENANT,
     ).work_order  # fmt: skip
 
 
@@ -231,6 +240,39 @@ def superseded(approvals: Caller, cases: Cases, approval: Any, case_id: str) -> 
           f"{kept.superseded_reason}")  # fmt: skip
 
 
+def separated(approvals: Caller, authorization: Caller, both: Any, plain: Any) -> None:
+    """RBAC-004, RBAC-005, RBAC-006, with the real Authorization Service."""
+    refused = approvals.code("DecideApproval", decide(both), BOTH, TENANT)
+    check(
+        refused == grpc.StatusCode.PERMISSION_DENIED,
+        "A planning manager who submitted the work order is refused its decision (RBAC-004)",
+    )
+    decided = approvals.call("DecideApproval", decide(both), MANAGER, TENANT).approval
+    check(decided.status == "approved" and BOTH in decided.decision.requesters
+          and decided.decision.policy.approval_rules == "separation-of-duties-1",
+          f"Another manager decides it, recorded with who could not: "
+          f"{list(decided.decision.requesters)}, rules {decided.decision.policy.approval_rules}, "
+          f"permissions version {decided.decision.policy.permissions_version}")  # fmt: skip
+    granted = authorization.call(
+        "GrantRole",
+        authorization_pb2.GrantRoleRequest(grantee_id=ADMIN, role="maintenance-manager",
+                                           idempotency_key=f"apr-{RUN}-self"),
+        ADMIN, TENANT,
+    ).grant  # fmt: skip
+    try:
+        own = approvals.code("DecideApproval", decide(plain), ADMIN, TENANT)
+        check(own == grpc.StatusCode.PERMISSION_DENIED,
+              "A Tenant Administrator who made themselves a Maintenance Manager after the request "
+              "may not decide it (RBAC-006)")  # fmt: skip
+    finally:
+        authorization.call(
+            "RevokeRole",
+            authorization_pb2.RevokeRoleRequest(grant_id=granted.grant_id,
+                                                idempotency_key=f"apr-{RUN}-unself"),
+            ADMIN, TENANT,
+        )  # fmt: skip
+
+
 def published_and_audited(approval_id: str) -> None:
     deadline, found = time.monotonic() + 60, "0"
     while time.monotonic() < deadline:
@@ -284,6 +326,9 @@ def main() -> int:
         bootstrap(TENANT, PLANNER, "maintenance-planner")
         bootstrap(TENANT, MANAGER, "maintenance-manager")
         bootstrap(OTHER, MANAGER, "maintenance-manager")
+        bootstrap(TENANT, BOTH, "maintenance-planner")
+        bootstrap(TENANT, BOTH, "maintenance-manager")
+        bootstrap(TENANT, ADMIN, "tenant-administrator")
         with ExitStack() as outer:
             cases = Cases(key)
             outer.callback(cases.close)
@@ -303,6 +348,9 @@ def main() -> int:
                 )
                 maintenance = Caller(maintenance_pb2_grpc.MaintenanceServiceStub(channel), key)
                 orders = [submit(maintenance, c, n) for n, c in enumerate((first, second))]
+                # RBAC-004 and RBAC-006, on the first case: one the planning manager submits,
+                # and one for the administrator.
+                orders += [submit(maintenance, first, 2, BOTH), submit(maintenance, first, 3)]
             port = outer.enter_context(
                 port_forward("deployment/windops-approval", "windops-application", 50051)
             )
@@ -312,6 +360,8 @@ def main() -> int:
             approvals = Caller(raw, key)
             [approval] = requested(approvals, orders[0].work_order_id)
             [other] = requested(approvals, orders[1].work_order_id)
+            [by_both] = requested(approvals, orders[2].work_order_id)
+            [for_admin] = requested(approvals, orders[3].work_order_id)
             check(
                 approval.status == "pending" and approval.proposal_version == orders[0].version
                 and approval.evidence_snapshot_id == orders[0].evidence_snapshot_id
@@ -319,6 +369,13 @@ def main() -> int:
                 f"workorder.submitted opened one pending request, {approval.approval_id}",
             )  # fmt: skip
             refused_to_agents(approvals, raw, key, approval)
+            authorization_port = outer.enter_context(
+                port_forward("deployment/windops-authorization", "windops-system", 50051)
+            )
+            authorization = Caller(authorization_pb2_grpc.AuthorizationServiceStub(
+                outer.enter_context(blocking_channel(authorization_port, AUTHORIZATION_HOST,
+                                                     bundle))), key)  # fmt: skip
+            separated(approvals, authorization, by_both, for_admin)
             fails_closed(approvals, approval)
             with port_forward(
                 "deployment/windops-maintenance", "windops-application", 50051
