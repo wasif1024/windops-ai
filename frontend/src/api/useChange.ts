@@ -11,6 +11,10 @@ export function messageFor(error: unknown): string {
   switch (error.problem.code) {
     case "forbidden":
       return "You do not have permission to do this.";
+    case "requester":
+      return "You drafted, submitted or changed this work order, or an agent drafted it for you, so another manager must decide it.";
+    case "own_change":
+      return "You became eligible only through a change you made yourself after this request was made, so another manager must decide it.";
     case "not_found":
       return "That no longer exists. Reload the page to see the latest.";
     case "conflict":

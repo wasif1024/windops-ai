@@ -23,6 +23,7 @@ from windops_resilience import BreakerOpenError
 
 from windops_web_bff.admin import add_admin_routes
 from windops_web_bff.alarms import add_alarm_routes
+from windops_web_bff.approvals import add_approval_routes
 from windops_web_bff.branding import add_branding_routes
 from windops_web_bff.errors import from_grpc, problem
 from windops_web_bff.fleet import add_fleet_routes
@@ -110,6 +111,8 @@ class Dependencies:
     # The maintenance planner and parts lookup (M9.4).
     maintenance: Callable[..., Awaitable[Any]] | None = None
     inventory: Callable[..., Awaitable[Any]] | None = None
+    # The approval queue (M10.2).
+    approval: Callable[..., Awaitable[Any]] | None = None
     # For the Security dashboard. main.py starts them as the service starts.
     counters: SecurityCounters | None = None
     # Only for tests, when there are no counters: the global provider when unset.
@@ -212,6 +215,7 @@ def create_router(deps: Dependencies) -> APIRouter:
         **({"investigation": deps.investigation} if deps.investigation else {}),
         **({"maintenance": deps.maintenance} if deps.maintenance else {}),
         **({"inventory": deps.inventory} if deps.inventory else {}),
+        **({"approval": deps.approval} if deps.approval else {}),
     }
 
     async def call_as(
@@ -331,6 +335,7 @@ def create_router(deps: Dependencies) -> APIRouter:
 
     add_alarm_routes(router, caller, call_as)
     add_maintenance_routes(router, caller, call_as)
+    add_approval_routes(router, caller, call_as, ApiError)
     add_investigation_routes(
         router, caller, call_as, deps.investigation_watch,
         identity_for=lambda who: identity_for(who, deps.identity_secret),

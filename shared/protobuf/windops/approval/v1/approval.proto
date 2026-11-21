@@ -17,7 +17,10 @@ import "google/protobuf/timestamp.proto";
 // cannot be checked refuses the decision (EVD-010). A request whose proposal or snapshot has
 // moved on is superseded, and can never be decided (FR-APR-003).
 //
-// Deciding needs maintenance.approve for the work order's turbine, its wind farm or the tenant.
+// Deciding needs maintenance.approve for the work order's turbine, its wind farm or the tenant,
+// held at decision time and not by the decider's own change since the request (RBAC-005,
+// RBAC-006). Nobody decides a request they drafted, submitted or changed, or one an agent drafted
+// for them (RBAC-004, RBAC-008).
 // Reading needs investigation.read. A request the caller may not read is not found. The tenant
 // comes from the caller's verified identity (GRP-004). A decision is announced as
 // approval.decided in the same transaction that records it (EVT-002, EVT-004), and may be
@@ -43,6 +46,11 @@ message PolicyContext {
   int64 evidence_version = 5;
   // The Maintenance Service's revision of the work order when it was rechecked.
   int64 work_order_revision = 6;
+  // The separation-of-duties rules the decider was held to, such as "separation-of-duties-1"
+  // (RBAC-004, RBAC-008), and the version of the tenant's role permissions their eligibility was
+  // decided on (RBAC-005).
+  string approval_rules = 7;
+  int64 permissions_version = 8;
 }
 
 message Decision {
@@ -56,6 +64,9 @@ message Decision {
   int64 proposal_version = 5;
   string evidence_snapshot_id = 6;
   PolicyContext policy = 7;
+  // Who may not decide it, because they drafted, submitted or changed it, or an agent drafted it
+  // for them (RBAC-004, RBAC-008). Never the decider.
+  repeated string requesters = 8;
 }
 
 message Approval {

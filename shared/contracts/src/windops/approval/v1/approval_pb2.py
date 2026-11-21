@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"windops/approval/v1/approval.proto\x12\x13windops.approval.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbf\x01\n\rPolicyContext\x12\x18\n\x10policy_result_id\x18\x01 \x01(\t\x12\x16\n\x0epolicy_outcome\x18\x02 \x01(\t\x12\x30\n\x0cvalidated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x63\x61se_status\x18\x04 \x01(\t\x12\x18\n\x10\x65vidence_version\x18\x05 \x01(\x03\x12\x1b\n\x13work_order_revision\x18\x06 \x01(\x03\"\xdb\x01\n\x08\x44\x65\x63ision\x12\x0f\n\x07outcome\x18\x01 \x01(\t\x12\x12\n\ndecided_by\x18\x02 \x01(\t\x12.\n\ndecided_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06reason\x18\x04 \x01(\t\x12\x18\n\x10proposal_version\x18\x05 \x01(\x03\x12\x1c\n\x14\x65vidence_snapshot_id\x18\x06 \x01(\t\x12\x32\n\x06policy\x18\x07 \x01(\x0b\x32\".windops.approval.v1.PolicyContext\"\xca\x03\n\x08\x41pproval\x12\x13\n\x0b\x61pproval_id\x18\x01 \x01(\t\x12\x15\n\rwork_order_id\x18\x02 \x01(\t\x12\x18\n\x10proposal_version\x18\x03 \x01(\x03\x12\x0f\n\x07\x63\x61se_id\x18\x04 \x01(\t\x12\x12\n\nturbine_id\x18\x05 \x01(\t\x12\x1c\n\x14\x65vidence_snapshot_id\x18\x06 \x01(\t\x12\x0e\n\x06status\x18\x07 \x01(\t\x12\x14\n\x0csubmitted_by\x18\x08 \x01(\t\x12\x12\n\ndrafted_by\x18\t \x01(\t\x12\x18\n\x10\x64rafted_by_agent\x18\n \x01(\t\x12\x30\n\x0csubmitted_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\x0crequested_at\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x08\x64\x65\x63ision\x18\r \x01(\x0b\x32\x1d.windops.approval.v1.Decision\x12\x19\n\x11superseded_reason\x18\x0e \x01(\t\x12\x31\n\rsuperseded_at\x18\x0f \x01(\x0b\x32\x1a.google.protobuf.Timestamp\")\n\x12GetApprovalRequest\x12\x13\n\x0b\x61pproval_id\x18\x01 \x01(\t\"F\n\x13GetApprovalResponse\x12/\n\x08\x61pproval\x18\x01 \x01(\x0b\x32\x1d.windops.approval.v1.Approval\"\x8b\x01\n\x14ListApprovalsRequest\x12\x10\n\x08statuses\x18\x01 \x03(\t\x12\x15\n\rwork_order_id\x18\x02 \x01(\t\x12\x0f\n\x07\x63\x61se_id\x18\x03 \x01(\t\x12\x12\n\nturbine_id\x18\x04 \x01(\t\x12\x11\n\tpage_size\x18\x05 \x01(\x05\x12\x12\n\npage_token\x18\x06 \x01(\t\"b\n\x15ListApprovalsResponse\x12\x30\n\tapprovals\x18\x01 \x03(\x0b\x32\x1d.windops.approval.v1.Approval\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\xb1\x01\n\x15\x44\x65\x63ideApprovalRequest\x12\x13\n\x0b\x61pproval_id\x18\x01 \x01(\t\x12\x10\n\x08\x64\x65\x63ision\x18\x02 \x01(\t\x12\x0e\n\x06reason\x18\x03 \x01(\t\x12!\n\x19\x65xpected_proposal_version\x18\x04 \x01(\x03\x12%\n\x1d\x65xpected_evidence_snapshot_id\x18\x05 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x06 \x01(\t\"I\n\x16\x44\x65\x63ideApprovalResponse\x12/\n\x08\x61pproval\x18\x01 \x01(\x0b\x32\x1d.windops.approval.v1.Approval2\xc6\x02\n\x0f\x41pprovalService\x12`\n\x0bGetApproval\x12\'.windops.approval.v1.GetApprovalRequest\x1a(.windops.approval.v1.GetApprovalResponse\x12\x66\n\rListApprovals\x12).windops.approval.v1.ListApprovalsRequest\x1a*.windops.approval.v1.ListApprovalsResponse\x12i\n\x0e\x44\x65\x63ideApproval\x12*.windops.approval.v1.DecideApprovalRequest\x1a+.windops.approval.v1.DecideApprovalResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"windops/approval/v1/approval.proto\x12\x13windops.approval.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf4\x01\n\rPolicyContext\x12\x18\n\x10policy_result_id\x18\x01 \x01(\t\x12\x16\n\x0epolicy_outcome\x18\x02 \x01(\t\x12\x30\n\x0cvalidated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x63\x61se_status\x18\x04 \x01(\t\x12\x18\n\x10\x65vidence_version\x18\x05 \x01(\x03\x12\x1b\n\x13work_order_revision\x18\x06 \x01(\x03\x12\x16\n\x0e\x61pproval_rules\x18\x07 \x01(\t\x12\x1b\n\x13permissions_version\x18\x08 \x01(\x03\"\xef\x01\n\x08\x44\x65\x63ision\x12\x0f\n\x07outcome\x18\x01 \x01(\t\x12\x12\n\ndecided_by\x18\x02 \x01(\t\x12.\n\ndecided_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06reason\x18\x04 \x01(\t\x12\x18\n\x10proposal_version\x18\x05 \x01(\x03\x12\x1c\n\x14\x65vidence_snapshot_id\x18\x06 \x01(\t\x12\x32\n\x06policy\x18\x07 \x01(\x0b\x32\".windops.approval.v1.PolicyContext\x12\x12\n\nrequesters\x18\x08 \x03(\t\"\xca\x03\n\x08\x41pproval\x12\x13\n\x0b\x61pproval_id\x18\x01 \x01(\t\x12\x15\n\rwork_order_id\x18\x02 \x01(\t\x12\x18\n\x10proposal_version\x18\x03 \x01(\x03\x12\x0f\n\x07\x63\x61se_id\x18\x04 \x01(\t\x12\x12\n\nturbine_id\x18\x05 \x01(\t\x12\x1c\n\x14\x65vidence_snapshot_id\x18\x06 \x01(\t\x12\x0e\n\x06status\x18\x07 \x01(\t\x12\x14\n\x0csubmitted_by\x18\x08 \x01(\t\x12\x12\n\ndrafted_by\x18\t \x01(\t\x12\x18\n\x10\x64rafted_by_agent\x18\n \x01(\t\x12\x30\n\x0csubmitted_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\x0crequested_at\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x08\x64\x65\x63ision\x18\r \x01(\x0b\x32\x1d.windops.approval.v1.Decision\x12\x19\n\x11superseded_reason\x18\x0e \x01(\t\x12\x31\n\rsuperseded_at\x18\x0f \x01(\x0b\x32\x1a.google.protobuf.Timestamp\")\n\x12GetApprovalRequest\x12\x13\n\x0b\x61pproval_id\x18\x01 \x01(\t\"F\n\x13GetApprovalResponse\x12/\n\x08\x61pproval\x18\x01 \x01(\x0b\x32\x1d.windops.approval.v1.Approval\"\x8b\x01\n\x14ListApprovalsRequest\x12\x10\n\x08statuses\x18\x01 \x03(\t\x12\x15\n\rwork_order_id\x18\x02 \x01(\t\x12\x0f\n\x07\x63\x61se_id\x18\x03 \x01(\t\x12\x12\n\nturbine_id\x18\x04 \x01(\t\x12\x11\n\tpage_size\x18\x05 \x01(\x05\x12\x12\n\npage_token\x18\x06 \x01(\t\"b\n\x15ListApprovalsResponse\x12\x30\n\tapprovals\x18\x01 \x03(\x0b\x32\x1d.windops.approval.v1.Approval\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\xb1\x01\n\x15\x44\x65\x63ideApprovalRequest\x12\x13\n\x0b\x61pproval_id\x18\x01 \x01(\t\x12\x10\n\x08\x64\x65\x63ision\x18\x02 \x01(\t\x12\x0e\n\x06reason\x18\x03 \x01(\t\x12!\n\x19\x65xpected_proposal_version\x18\x04 \x01(\x03\x12%\n\x1d\x65xpected_evidence_snapshot_id\x18\x05 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x06 \x01(\t\"I\n\x16\x44\x65\x63ideApprovalResponse\x12/\n\x08\x61pproval\x18\x01 \x01(\x0b\x32\x1d.windops.approval.v1.Approval2\xc6\x02\n\x0f\x41pprovalService\x12`\n\x0bGetApproval\x12\'.windops.approval.v1.GetApprovalRequest\x1a(.windops.approval.v1.GetApprovalResponse\x12\x66\n\rListApprovals\x12).windops.approval.v1.ListApprovalsRequest\x1a*.windops.approval.v1.ListApprovalsResponse\x12i\n\x0e\x44\x65\x63ideApproval\x12*.windops.approval.v1.DecideApprovalRequest\x1a+.windops.approval.v1.DecideApprovalResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,23 +33,23 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'windops.approval.v1.approva
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_POLICYCONTEXT']._serialized_start=93
-  _globals['_POLICYCONTEXT']._serialized_end=284
-  _globals['_DECISION']._serialized_start=287
-  _globals['_DECISION']._serialized_end=506
-  _globals['_APPROVAL']._serialized_start=509
-  _globals['_APPROVAL']._serialized_end=967
-  _globals['_GETAPPROVALREQUEST']._serialized_start=969
-  _globals['_GETAPPROVALREQUEST']._serialized_end=1010
-  _globals['_GETAPPROVALRESPONSE']._serialized_start=1012
-  _globals['_GETAPPROVALRESPONSE']._serialized_end=1082
-  _globals['_LISTAPPROVALSREQUEST']._serialized_start=1085
-  _globals['_LISTAPPROVALSREQUEST']._serialized_end=1224
-  _globals['_LISTAPPROVALSRESPONSE']._serialized_start=1226
-  _globals['_LISTAPPROVALSRESPONSE']._serialized_end=1324
-  _globals['_DECIDEAPPROVALREQUEST']._serialized_start=1327
-  _globals['_DECIDEAPPROVALREQUEST']._serialized_end=1504
-  _globals['_DECIDEAPPROVALRESPONSE']._serialized_start=1506
-  _globals['_DECIDEAPPROVALRESPONSE']._serialized_end=1579
-  _globals['_APPROVALSERVICE']._serialized_start=1582
-  _globals['_APPROVALSERVICE']._serialized_end=1908
+  _globals['_POLICYCONTEXT']._serialized_end=337
+  _globals['_DECISION']._serialized_start=340
+  _globals['_DECISION']._serialized_end=579
+  _globals['_APPROVAL']._serialized_start=582
+  _globals['_APPROVAL']._serialized_end=1040
+  _globals['_GETAPPROVALREQUEST']._serialized_start=1042
+  _globals['_GETAPPROVALREQUEST']._serialized_end=1083
+  _globals['_GETAPPROVALRESPONSE']._serialized_start=1085
+  _globals['_GETAPPROVALRESPONSE']._serialized_end=1155
+  _globals['_LISTAPPROVALSREQUEST']._serialized_start=1158
+  _globals['_LISTAPPROVALSREQUEST']._serialized_end=1297
+  _globals['_LISTAPPROVALSRESPONSE']._serialized_start=1299
+  _globals['_LISTAPPROVALSRESPONSE']._serialized_end=1397
+  _globals['_DECIDEAPPROVALREQUEST']._serialized_start=1400
+  _globals['_DECIDEAPPROVALREQUEST']._serialized_end=1577
+  _globals['_DECIDEAPPROVALRESPONSE']._serialized_start=1579
+  _globals['_DECIDEAPPROVALRESPONSE']._serialized_end=1652
+  _globals['_APPROVALSERVICE']._serialized_start=1655
+  _globals['_APPROVALSERVICE']._serialized_end=1981
 # @@protoc_insertion_point(module_scope)

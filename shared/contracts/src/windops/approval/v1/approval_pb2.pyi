@@ -31,6 +31,8 @@ class PolicyContext(_message.Message):
     CASE_STATUS_FIELD_NUMBER: _builtins.int
     EVIDENCE_VERSION_FIELD_NUMBER: _builtins.int
     WORK_ORDER_REVISION_FIELD_NUMBER: _builtins.int
+    APPROVAL_RULES_FIELD_NUMBER: _builtins.int
+    PERMISSIONS_VERSION_FIELD_NUMBER: _builtins.int
     policy_result_id: _builtins.str
     """The Policy Service's result for the work order when it was last validated: "pass" or
     "escalate". A blocked one could not have been submitted.
@@ -41,6 +43,12 @@ class PolicyContext(_message.Message):
     evidence_version: _builtins.int
     work_order_revision: _builtins.int
     """The Maintenance Service's revision of the work order when it was rechecked."""
+    approval_rules: _builtins.str
+    """The separation-of-duties rules the decider was held to, such as "separation-of-duties-1"
+    (RBAC-004, RBAC-008), and the version of the tenant's role permissions their eligibility was
+    decided on (RBAC-005).
+    """
+    permissions_version: _builtins.int
     @_builtins.property
     def validated_at(self) -> _timestamp_pb2.Timestamp: ...
     def __init__(
@@ -52,10 +60,12 @@ class PolicyContext(_message.Message):
         case_status: _builtins.str = ...,
         evidence_version: _builtins.int = ...,
         work_order_revision: _builtins.int = ...,
+        approval_rules: _builtins.str = ...,
+        permissions_version: _builtins.int = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["validated_at", b"validated_at"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_status", b"case_status", "evidence_version", b"evidence_version", "policy_outcome", b"policy_outcome", "policy_result_id", b"policy_result_id", "validated_at", b"validated_at", "work_order_revision", b"work_order_revision"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["approval_rules", b"approval_rules", "case_status", b"case_status", "evidence_version", b"evidence_version", "permissions_version", b"permissions_version", "policy_outcome", b"policy_outcome", "policy_result_id", b"policy_result_id", "validated_at", b"validated_at", "work_order_revision", b"work_order_revision"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -72,6 +82,7 @@ class Decision(_message.Message):
     PROPOSAL_VERSION_FIELD_NUMBER: _builtins.int
     EVIDENCE_SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
     POLICY_FIELD_NUMBER: _builtins.int
+    REQUESTERS_FIELD_NUMBER: _builtins.int
     outcome: _builtins.str
     """"approved" or "rejected"."""
     decided_by: _builtins.str
@@ -84,6 +95,12 @@ class Decision(_message.Message):
     def decided_at(self) -> _timestamp_pb2.Timestamp: ...
     @_builtins.property
     def policy(self) -> Global___PolicyContext: ...
+    @_builtins.property
+    def requesters(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Who may not decide it, because they drafted, submitted or changed it, or an agent drafted it
+        for them (RBAC-004, RBAC-008). Never the decider.
+        """
+
     def __init__(
         self,
         *,
@@ -94,10 +111,11 @@ class Decision(_message.Message):
         proposal_version: _builtins.int = ...,
         evidence_snapshot_id: _builtins.str = ...,
         policy: Global___PolicyContext | None = ...,
+        requesters: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["decided_at", b"decided_at", "policy", b"policy"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["decided_at", b"decided_at", "decided_by", b"decided_by", "evidence_snapshot_id", b"evidence_snapshot_id", "outcome", b"outcome", "policy", b"policy", "proposal_version", b"proposal_version", "reason", b"reason"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["decided_at", b"decided_at", "decided_by", b"decided_by", "evidence_snapshot_id", b"evidence_snapshot_id", "outcome", b"outcome", "policy", b"policy", "proposal_version", b"proposal_version", "reason", b"reason", "requesters", b"requesters"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

@@ -34,6 +34,17 @@ the work order's revision. `approval.decided` and the audit request go into the 
 and the call returns only once it commits (EVT-004). The Maintenance Service applies the decision to its work
 order.
 
+## Separation of duties (RBAC-004 to RBAC-006, RBAC-008)
+
+[ADR 0033](../../docs/adr/0033-separation-of-duties-at-decision-time.md):
+- **Requesters never decide:** the work order's history is read as the decider. Whoever drafted, changed or
+  submitted it, or the person an agent drafted it for, is refused, and the request stays pending for another
+  manager.
+- **Eligibility now, not by your own change:** `maintenance.approve` is asked of Authorization as of the
+  submission, leaving out roles the decider gave themselves since and their own role-permission changes.
+- **The record:** each decision lists who was excluded, the rules (`separation-of-duties-1`) and the
+  role-permission version.
+
 ## Agents never decide (FR-APR-001, SEC-009)
 
 This service refuses any identity with an agent behind it, or with no person, before it asks Authorization. Each
@@ -43,5 +54,5 @@ refusal is audited as `authorization.denied`, with the agent as the actor on its
 
 ```bash
 uv run pytest services/approval-service/tests
-make approval-check   # on the cluster: people decide, agents never, superseded refused, failing closed
+make approval-check   # on the cluster: people decide, agents never, requesters refused, superseded refused, failing closed
 ```

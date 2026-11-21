@@ -40,3 +40,23 @@ def refusal(row: Any, work_order: Any, case: Any) -> Refusal | None:
         return Refusal("The work order has no policy result that allows a decision",
                        supersedes=False)  # fmt: skip
     return None
+
+
+# The separation-of-duties rules below, by version, so each decision names the rules it was held
+# to (RBAC-005). A change to them is a new version.
+APPROVAL_RULES = "separation-of-duties-1"
+# The work order's history actions that make their actor a requester (RBAC-004). Validating
+# changes nothing of the plan, so it does not.
+REQUESTING_ACTIONS = ("drafted", "updated", "submitted")
+
+
+def requesters(row: Any, history: Any) -> list[str]:
+    """Who may not decide it (RBAC-004, RBAC-008): whoever drafted, submitted or changed it.
+
+    An agent acts for its principal, recorded as the actor, so a draft an agent prepared names
+    the person who started the investigation, or the fault-investigator for a fault-triggered
+    one, which is a service and never eligible anyway.
+    """
+    found = [row.drafted_by, row.submitted_by]
+    found += [event.actor_id for event in history if event.action in REQUESTING_ACTIONS]
+    return sorted({who for who in found if who})

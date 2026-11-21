@@ -24,6 +24,7 @@ from windops.maintenance.v1 import maintenance_pb2
 from windops_approval import recheck
 from windops_approval.consumer import handle
 from windops_approval.service import ApprovalService
+from windops_approval.sources import Eligibility
 from windops_approval.store import METADATA, SERVICE_NAME
 from windops_events import Event, InvalidEventError, parse_event
 from windops_grpc import (
@@ -45,6 +46,8 @@ NOW = datetime(2026, 11, 21, 9, 0, tzinfo=UTC)
 WORK_ORDER, CASE, TURBINE = "wo_" + "a" * 20, "case_" + "b" * 20, "dogger-east-t01"
 SNAPSHOT, NEWER = "evs_" + "c" * 20, "evs_" + "d" * 20
 PLANNER, MANAGER, OPERATOR = "u-planner", "u-manager", "u-operator"
+# A manager who also plans: may approve, but not what they had a hand in (RBAC-004).
+BOTH = "u-planning-manager"
 AGENT = "agent:maintenance-planner"
 
 
@@ -71,12 +74,26 @@ class FakeAuthorizer:
 
     grants: set[tuple[str, str]]
     generous: bool = False
+    # Who holds maintenance.approve only by a change they made themselves, and when (RBAC-006).
+    self_granted: dict[str, datetime] = field(default_factory=dict)
+    since: list[datetime] = field(default_factory=list)
 
     async def allowed(self, permission: str, wind_farm_id: str = "", turbine_id: str = "") -> bool:
         identity = current_identity()
         if identity.actor and not self.generous and permission != "investigation.read":
             return False
         return ((identity.user_id or identity.subject), permission) in self.grants
+
+    async def eligible(self, permission: str, since: datetime, wind_farm_id: str = "",
+                       turbine_id: str = "") -> Eligibility:  # fmt: skip
+        self.since.append(since)
+        if not await self.allowed(permission, wind_farm_id, turbine_id):
+            return Eligibility(False, "No role grants this permission here", 3)
+        granted = self.self_granted.get(str(current_identity().user_id))
+        if granted is not None and granted > since:
+            reason = "Only a change you made yourself after the request counts not (RBAC-006)"
+            return Eligibility(False, reason, 3)
+        return Eligibility(True, "Granted by the maintenance-manager role", 3)
 
 
 @dataclass
@@ -96,13 +113,22 @@ class FakeSources:
         investigation_pb2.Case(case_id=CASE, turbine_id=TURBINE, status="pending_review",
                                evidence_snapshot_id=SNAPSHOT, evidence_version=1)
     ))  # fmt: skip
+    # The work order's history: (action, actor).
+    history: list[tuple[str, str]] = field(default_factory=lambda: [
+        ("drafted", "service:fault-investigator"), ("validated", MANAGER),
+        ("updated", PLANNER), ("submitted", PLANNER),
+    ])  # fmt: skip
     asked: list[str] = field(default_factory=list)
 
     async def work_order(self, work_order_id: str) -> Any:
         self.asked.append(f"work_order:{current_identity().user_id}")
         if self.order is None:
             raise UnavailableError("The Maintenance Service cannot be reached right now")
-        return self.order
+        return maintenance_pb2.GetWorkOrderResponse(
+            work_order=self.order,
+            history=[maintenance_pb2.WorkOrderEvent(action=a, actor_id=who)
+                     for a, who in self.history],
+        )  # fmt: skip
 
     async def case(self, case_id: str) -> Any:
         if self.current_case is None:
@@ -118,6 +144,7 @@ class FakeSources:
 GRANTS = {
     (PLANNER, "investigation.read"), (MANAGER, "investigation.read"),
     (MANAGER, "maintenance.approve"), (OPERATOR, "investigation.read"),
+    (BOTH, "investigation.read"), (BOTH, "maintenance.approve"),
     ("service:fault-investigator", "investigation.read"),
 }  # fmt: skip
 
@@ -175,7 +202,8 @@ class World:
 
 
 def with_service(scenario: Callable[[World], Awaitable[None]], *, generous: bool = False,
-                 sources: FakeSources | None = None) -> None:  # fmt: skip
+                 sources: FakeSources | None = None,
+                 authorizer: FakeAuthorizer | None = None) -> None:  # fmt: skip
     root = logging.getLogger()
     saved_handlers, saved_level = list(root.handlers), root.level
     fakes = sources or FakeSources()
@@ -188,7 +216,7 @@ def with_service(scenario: Callable[[World], Awaitable[None]], *, generous: bool
 
         def register(server: grpc.aio.Server) -> None:
             approval_pb2_grpc.add_ApprovalServiceServicer_to_server(
-                ApprovalService(engine, FakeAuthorizer(GRANTS, generous), fakes,
+                ApprovalService(engine, authorizer or FakeAuthorizer(GRANTS, generous), fakes,
                                 clock=lambda: NOW),
                 server,
             )  # fmt: skip
@@ -445,3 +473,78 @@ def test_a_policy_result_that_allows_no_decision_refuses_without_superseding() -
     assert found is not None and not found.supersedes
     order.validation.policy_outcome = "escalate"
     assert recheck.refusal(row, order, case) is None
+
+
+@pytest.mark.parametrize(
+    "history",
+    [
+        [("drafted", BOTH), ("submitted", PLANNER)],
+        [("drafted", PLANNER), ("updated", BOTH), ("submitted", PLANNER)],
+        [("drafted", PLANNER), ("submitted", BOTH)],
+    ],
+    ids=["drafted", "changed", "submitted"],
+)
+def test_nobody_decides_what_they_drafted_changed_or_submitted(
+    history: list[tuple[str, str]],
+) -> None:
+    """RBAC-004: read from the work order's history at decision time. The refusal is audited,
+    the request stays pending, and another manager decides it, recorded with who was excluded."""
+
+    async def scenario(world: World) -> None:
+        world.sources.history = history
+        approval = await world.requested()
+        for decision, reason in (("approve", ""), ("reject", "Not needed")):
+            refused = world.decide(approval, decision, who=as_caller(BOTH), reason=reason)
+            assert await code_of(refused) == grpc.StatusCode.PERMISSION_DENIED
+        assert (await world.get(approval)).status == "pending"
+        audited = await world.events("audit.requested.approval")
+        assert [(a.action, a.actor_id) for a in audited] == [("approval.refused", BOTH)] * 2
+        decided = (await world.decide(approval)).approval
+        assert decided.status == "approved" and BOTH in decided.decision.requesters
+        assert MANAGER not in decided.decision.requesters
+        assert decided.decision.policy.approval_rules == "separation-of-duties-1"
+        assert decided.decision.policy.permissions_version == 3
+
+    with_service(scenario)
+
+
+def test_an_agents_draft_belongs_to_the_person_it_drafted_for() -> None:
+    """RBAC-008: the person who started the investigation is a requester of the agent's draft,
+    whoever submits it. Validating changes nothing, so a manager who only validated may decide."""
+
+    async def scenario(world: World) -> None:
+        world.sources.history = [("drafted", BOTH), ("validated", MANAGER),
+                                 ("submitted", PLANNER)]  # fmt: skip
+        await handle(world.engine, submitted(drafted_by=BOTH))
+        [approval] = (
+            await world.stub.ListApprovals(
+                pb.ListApprovalsRequest(), metadata=as_caller(MANAGER), timeout=5
+            )
+        ).approvals
+        assert approval.drafted_by_agent == AGENT
+        refused = await code_of(world.decide(approval, who=as_caller(BOTH)))
+        assert refused == grpc.StatusCode.PERMISSION_DENIED
+        decided = (await world.decide(approval)).approval
+        assert decided.decision.requesters == sorted([BOTH, PLANNER])
+
+    with_service(scenario)
+
+
+def test_eligibility_is_held_now_and_not_by_your_own_change_since_the_request() -> None:
+    """RBAC-005, RBAC-006: Authorization is asked as of the submission; a role the manager
+    gave themselves after it does not count, and they are told why."""
+    from datetime import timedelta
+
+    authorizer = FakeAuthorizer(GRANTS, self_granted={MANAGER: NOW + timedelta(hours=1)})
+
+    async def scenario(world: World) -> None:
+        approval = await world.requested()
+        with pytest.raises(grpc.aio.AioRpcError) as raised:
+            await world.decide(approval)
+        assert raised.value.code() == grpc.StatusCode.PERMISSION_DENIED
+        assert "RBAC-006" in str(raised.value.details())
+        assert authorizer.since and all(s == NOW for s in authorizer.since)
+        assert (await world.get(approval)).status == "pending"
+        assert world.sources.asked == []
+
+    with_service(scenario, authorizer=authorizer)

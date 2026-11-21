@@ -10,6 +10,7 @@ from typing import Any
 import grpc
 from opentelemetry import metrics
 from windops.alarm.v1 import alarm_pb2_grpc
+from windops.approval.v1 import approval_pb2_grpc
 from windops.asset.v1 import asset_pb2_grpc
 from windops.audit.v1 import audit_pb2_grpc
 from windops.authorization.v1 import authorization_pb2_grpc
@@ -87,6 +88,7 @@ def main() -> None:
             "WINDOPS_MAINTENANCE_ADDRESS",
         ),
         "inventory": (inventory_pb2_grpc.InventoryServiceStub, "WINDOPS_INVENTORY_ADDRESS"),
+        "approval": (approval_pb2_grpc.ApprovalServiceStub, "WINDOPS_APPROVAL_ADDRESS"),
     }
 
     def client_for(service: str) -> tuple[Any, ServiceClient]:
@@ -162,6 +164,7 @@ def main() -> None:
             investigation_watch=watch,
             maintenance=caller_for("maintenance"),
             inventory=caller_for("inventory"),
+            approval=caller_for("approval"),
             counters=counters,
         )
     )

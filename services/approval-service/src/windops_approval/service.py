@@ -24,8 +24,8 @@ from windops_grpc import (
 )
 from windops_migrations import in_tenant
 
-from windops_approval.recheck import refusal
-from windops_approval.sources import Authorizer, Sources
+from windops_approval.recheck import APPROVAL_RULES, refusal, requesters
+from windops_approval.sources import Authorizer, Eligibility, Sources
 from windops_approval.store import (
     APPROVALS,
     APPROVED,
@@ -99,6 +99,18 @@ class ApprovalService(approval_pb2_grpc.ApprovalServiceServicer):
         except NotFoundError:
             return False
         return await self._authorizer.allowed(permission, farm, turbine_id)
+
+    async def _eligible(self, turbine_id: str, since: datetime) -> Eligibility:
+        """maintenance.approve, held now, for the tenant or else the turbine's wind farm, and not
+        only by the decider's own change since the request (RBAC-005, RBAC-006)."""
+        found = await self._authorizer.eligible(APPROVE, since)
+        if found.allowed:
+            return found
+        try:
+            farm = str((await self._sources.turbine(turbine_id)).wind_farm_id)
+        except NotFoundError:
+            return found
+        return await self._authorizer.eligible(APPROVE, since, farm, turbine_id)
 
     async def _require(self, permission: str, turbine_id: str) -> None:
         """One the caller may not read is not found; one they may read but not decide, refused."""
@@ -208,7 +220,16 @@ class ApprovalService(approval_pb2_grpc.ApprovalServiceServicer):
             if first is not None:
                 return pb.DecideApprovalResponse.FromString(first)
             row = await self._load(connection, tenant, request.approval_id)
-        await self._require(APPROVE, row.turbine_id)
+        await self._require(READ, row.turbine_id)
+        submitted = row.submitted_at if row.submitted_at.tzinfo else row.submitted_at.replace(
+            tzinfo=UTC)  # fmt: skip
+        eligibility = await self._eligible(row.turbine_id, submitted)
+        if not eligibility.allowed:
+            raise PermissionDeniedError(
+                "You may not decide on this request: " + eligibility.reason
+                if "RBAC-006" in eligibility.reason
+                else "You do not have permission to decide on work orders"
+            )
         if row.status != PENDING:
             raise ConflictError(f"It is already {row.status}, and cannot be decided again")
         if (
@@ -222,7 +243,7 @@ class ApprovalService(approval_pb2_grpc.ApprovalServiceServicer):
         # EVD-009: what is current now, read as the decider. Anything unreadable refuses the
         # decision, and changes nothing (EVD-010).
         try:
-            work_order = await self._sources.work_order(row.work_order_id)
+            answer = await self._sources.work_order(row.work_order_id)
             case = await self._sources.case(row.case_id)
         except (UnavailableError, NotFoundError) as error:
             async with self._engine.begin() as connection:
@@ -234,11 +255,21 @@ class ApprovalService(approval_pb2_grpc.ApprovalServiceServicer):
                 "The decision cannot be checked against the current work order and evidence "
                 "right now, so it is refused: try again later"
             ) from error
+        work_order = answer.work_order
         found = refusal(row, work_order, case)
+        # RBAC-004, RBAC-008: from the work order's own history, read now.
+        excluded = requesters(row, answer.history)
+        own = None if found is not None or who not in excluded else (
+            "You drafted, submitted or changed this work order, or an agent drafted it for you, "
+            "so another Maintenance Manager must decide it (RBAC-004, RBAC-008)")  # fmt: skip
         now = self._now()
         async with self._engine.begin() as connection:
             await in_tenant(connection, tenant)
-            if found is not None:
+            if own is not None:
+                await audit(connection, identity, action="approval.refused",
+                            resource_type="approval", resource_id=row.approval_id,
+                            outcome="denied")  # fmt: skip
+            elif found is not None:
                 if found.supersedes:
                     await self._settle(
                         connection,
@@ -261,8 +292,10 @@ class ApprovalService(approval_pb2_grpc.ApprovalServiceServicer):
                         policy_outcome=validation.policy_outcome,
                         validated_at=validation.checked_at, case_status=case.status,
                         evidence_version=case.evidence_version,
-                        work_order_revision=work_order.revision,
+                        work_order_revision=work_order.revision, approval_rules=APPROVAL_RULES,
+                        permissions_version=eligibility.permissions_version,
                     ),
+                    requesters=excluded,
                 )  # fmt: skip
                 if not await self._settle(connection, row, status=outcome, decided_by=who,
                                           decided_at=now,
@@ -279,6 +312,8 @@ class ApprovalService(approval_pb2_grpc.ApprovalServiceServicer):
                                key=request.idempotency_key, method="DecideApproval",
                                request=request, response=response, now=now)  # fmt: skip
                 # Returned only once the decision and its event are committed (EVT-004).
+        if own is not None:
+            raise PermissionDeniedError(own)
         if found is not None:
             raise ConflictError(found.reason)
         return response

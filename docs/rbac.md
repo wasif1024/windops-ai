@@ -119,5 +119,14 @@ It is safe to repeat, and recorded in the audit trail as by `bootstrap`.
 
 ## Still to come
 
-- **Separation of duties for approvals** (RBAC-004 to RBAC-008) arrives with the Approval Service, in Phase 10.
-- **Agent and service identities** are structurally ineligible to approve (SEC-009), also in Phase 10.
+- **A second Tenant Administrator for approval policy changes** (RBAC-007) arrives in M10.2b.
+
+## Separation of duties for approvals
+
+From M10.2 ([ADR 0033](adr/0033-separation-of-duties-at-decision-time.md)):
+- **Agents and services never decide** (SEC-009): the Approval Service refuses them before asking anything.
+- **Nobody decides what they had a hand in** (RBAC-004, RBAC-008): whoever drafted, changed or submitted the work
+  order, or the person an agent drafted it for, is refused, and another Maintenance Manager decides.
+- **Eligibility at decision time** (RBAC-005, RBAC-006): `maintenance.approve` is checked as held now, but not by a
+  role the decider granted themselves after the request, nor by their own change to role permissions since then.
+  Each role-permission change is kept as a version, and the decision records the version it was made on.

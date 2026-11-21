@@ -46,6 +46,11 @@ message CheckRequest {
   // The tenant the resource belongs to. Empty for the caller's own, which comes from their verified
   // identity (GRP-004). Only a Platform Administrator may name another, and that is checked.
   string target_tenant_id = 3;
+  // For a decision on a request made at this time, such as an approval (RBAC-006): what the
+  // caller changed themselves since then cannot make them eligible. Roles they granted after it
+  // are left out, and so are their changes to role permissions after it. Unset for any other
+  // check.
+  google.protobuf.Timestamp eligible_since = 4;
 }
 
 message CheckResponse {
@@ -54,6 +59,9 @@ message CheckResponse {
   string reason = 2;
   // True when only a break-glass grant allowed it, which is also audited (RBAC-003).
   bool break_glass = 3;
+  // The version of the tenant's role permissions it was decided on: 0 for the SRS 3.2
+  // defaults, then one more for each change (RBAC-005).
+  int64 permissions_version = 4;
 }
 
 // For target_tenant_id in every request below: empty means the caller's own tenant, from their

@@ -29,7 +29,7 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PlanView({ order }: { order: WorkOrder }) {
+export function PlanView({ order }: { order: WorkOrder }) {
   const plan = order.plan;
   const availability = new Map(order.validation.parts.map((p) => [p.part_number, p]));
   return (
@@ -96,7 +96,7 @@ function PlanView({ order }: { order: WorkOrder }) {
   );
 }
 
-function ValidationView({ validation }: { validation: Validation }) {
+export function ValidationView({ validation }: { validation: Validation }) {
   const blocking = validation.problems.filter((p) => p.blocking);
   const noted = validation.problems.filter((p) => !p.blocking);
   return (
@@ -142,7 +142,7 @@ function who(event: WorkOrderEvent): string {
   return event.actor_id;
 }
 
-function History({ history }: { history: WorkOrderEvent[] }) {
+export function History({ history }: { history: WorkOrderEvent[] }) {
   return (
     <ol className="space-y-3" aria-label="History">
       {history.map((event, index) => (

@@ -251,7 +251,7 @@ HOP_CONTROLS = (
             Control("Mutual TLS, a signed identity and a deadline on every call"),
             Control("The tenant comes from the verified identity, never a request field"),
             Control("Permissions denied by default, decided by the Authorization Service"),
-            Control("Nobody can approve their own request", "M10.2"),
+            Control("Nobody can approve their own request"),
         ),
     ),
     (

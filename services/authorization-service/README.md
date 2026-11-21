@@ -26,6 +26,8 @@ flowchart LR
 | Break-glass needs a reason of 20 characters, lasts 1 to 240 minutes, and only reads | `policy.check_break_glass` |
 | Every denial, change and break-glass use is audited, in the same transaction | `store.audit` and the outbox |
 | A Platform Administrator lists only their own active break-glass grants, in every tenant | `ListMyBreakGlassGrants` |
+| Each change to a role's permissions is kept as a version, never changed, and `Check` names the version it decided on (RBAC-005) | `store.ROLE_PERMISSION_CHANGES` |
+| With `eligible_since`, a role the caller granted themselves after it, or their own change to role permissions after it, does not count (RBAC-006) | `AuthorizationService._decide` |
 
 Ended grants stay, with who ended them and when, so the Approval Service can check the roles someone held
 at the time of a decision (RBAC-005, RBAC-006).
