@@ -53,12 +53,14 @@ def workloads() -> list[dict[str, Any]]:
         (d for d in base_documents() if d["kind"] == "Deployment" and secret_references(d)),
         key=lambda d: d["metadata"]["name"],
     )
-    consumers = {f"windops-{s.durable}": s for s in SUBSCRIPTIONS}
+    consumers: dict[str, list[Any]] = {}
+    for s in SUBSCRIPTIONS:
+        consumers.setdefault(f"windops-{s.owner}", []).append(s)
     out = []
     for deployment in deployments:
         name = deployment["metadata"]["name"]
         variables = {variable for _, variable, _, _ in secret_references(deployment)}
-        subscription = consumers.pop(name, None)
+        subscriptions = consumers.pop(name, [])
         out.append(
             {
                 "name": name,
@@ -66,11 +68,7 @@ def workloads() -> list[dict[str, Any]]:
                 "events": bool(variables & EVENT_SETTINGS),
                 "database": DATABASE_SETTING in variables,
                 "keyVault": bool(variables - REMOVED),
-                "receives": (
-                    [{"topic": subscription.topic, "subscription": subscription.durable}]
-                    if subscription
-                    else []
-                ),
+                "receives": [{"topic": s.topic, "subscription": s.durable} for s in subscriptions],
             }
         )
     if consumers:

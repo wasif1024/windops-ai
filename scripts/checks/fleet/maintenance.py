@@ -316,8 +316,11 @@ def clean_up(case_ids: list[str]) -> None:
     # Only the check's own case IDs, which it made itself.
     sql(
         "ALTER TABLE work_order_history DISABLE TRIGGER work_order_history_never_changes; "  # noqa: S608
+        "ALTER TABLE work_order_versions DISABLE TRIGGER work_order_versions_never_change; "
         f"DELETE FROM work_order_history WHERE work_order_id IN {orders}; "
+        f"DELETE FROM work_order_versions WHERE work_order_id IN {orders}; "
         f"DELETE FROM work_orders WHERE case_id IN ({mine}); "
+        "ALTER TABLE work_order_versions ENABLE TRIGGER work_order_versions_never_change; "
         "ALTER TABLE work_order_history ENABLE TRIGGER work_order_history_never_changes; SELECT 1"
     )
 

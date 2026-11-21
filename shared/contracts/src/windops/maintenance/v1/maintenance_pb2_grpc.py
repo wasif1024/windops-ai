@@ -72,6 +72,11 @@ class MaintenanceServiceStub:
                 request_serializer=windops_dot_maintenance_dot_v1_dot_maintenance__pb2.WithdrawDraftRequest.SerializeToString,
                 response_deserializer=windops_dot_maintenance_dot_v1_dot_maintenance__pb2.WithdrawDraftResponse.FromString,
                 _registered_method=True)
+        self.ReviseWorkOrder = channel.unary_unary(
+                '/windops.maintenance.v1.MaintenanceService/ReviseWorkOrder',
+                request_serializer=windops_dot_maintenance_dot_v1_dot_maintenance__pb2.ReviseWorkOrderRequest.SerializeToString,
+                response_deserializer=windops_dot_maintenance_dot_v1_dot_maintenance__pb2.ReviseWorkOrderResponse.FromString,
+                _registered_method=True)
         self.GetWorkOrder = channel.unary_unary(
                 '/windops.maintenance.v1.MaintenanceService/GetWorkOrder',
                 request_serializer=windops_dot_maintenance_dot_v1_dot_maintenance__pb2.GetWorkOrderRequest.SerializeToString,
@@ -137,6 +142,15 @@ class MaintenanceServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ReviseWorkOrder(self, request, context):
+        """Revises a stale or rejected work order as its next version, a draft on the case's current
+        evidence snapshot, validated at once (EVD-008). The earlier version is kept as it was.
+        Refused while the case's evidence is itself stale: re-evaluate it first.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetWorkOrder(self, request, context):
         """With its history.
         """
@@ -178,6 +192,11 @@ def add_MaintenanceServiceServicer_to_server(servicer, server):
                     servicer.WithdrawDraft,
                     request_deserializer=windops_dot_maintenance_dot_v1_dot_maintenance__pb2.WithdrawDraftRequest.FromString,
                     response_serializer=windops_dot_maintenance_dot_v1_dot_maintenance__pb2.WithdrawDraftResponse.SerializeToString,
+            ),
+            'ReviseWorkOrder': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReviseWorkOrder,
+                    request_deserializer=windops_dot_maintenance_dot_v1_dot_maintenance__pb2.ReviseWorkOrderRequest.FromString,
+                    response_serializer=windops_dot_maintenance_dot_v1_dot_maintenance__pb2.ReviseWorkOrderResponse.SerializeToString,
             ),
             'GetWorkOrder': grpc.unary_unary_rpc_method_handler(
                     servicer.GetWorkOrder,
@@ -338,6 +357,33 @@ class MaintenanceService:
             '/windops.maintenance.v1.MaintenanceService/WithdrawDraft',
             windops_dot_maintenance_dot_v1_dot_maintenance__pb2.WithdrawDraftRequest.SerializeToString,
             windops_dot_maintenance_dot_v1_dot_maintenance__pb2.WithdrawDraftResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReviseWorkOrder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.maintenance.v1.MaintenanceService/ReviseWorkOrder',
+            windops_dot_maintenance_dot_v1_dot_maintenance__pb2.ReviseWorkOrderRequest.SerializeToString,
+            windops_dot_maintenance_dot_v1_dot_maintenance__pb2.ReviseWorkOrderResponse.FromString,
             options,
             channel_credentials,
             insecure,

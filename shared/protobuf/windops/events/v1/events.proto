@@ -99,10 +99,19 @@ message CaseUpdated {
   string status = 2;
   string turbine_id = 3;
   string severity = 4;
-  // "created", "detection_attached", "severity_raised" or "cancelled".
+  // "created", "detection_attached", "severity_raised", "evidence_frozen", "stale" or
+  // "cancelled", among others.
   string action = 5;
   // The case's version after this change.
   int64 version = 6;
+  // The case's newest evidence snapshot.
+  string evidence_snapshot_id = 7;
+  // Set while that snapshot is stale (SRS 8.5, M10.3): the rule that fired first, such as
+  // "inventory", what it found, and the rules' version, such as "stale-rules-1". Empty when
+  // fresh. A new snapshot clears them.
+  string stale_rule = 8;
+  string stale_detail = 9;
+  string stale_rules_version = 10;
 }
 
 // A source record changed, which can make a recommendation stale (SRS 8.5).
@@ -124,6 +133,17 @@ message WorkOrderSubmitted {
   // The person, or principal, it was drafted for, and the agent that drafted it, if any.
   string drafted_by = 7;
   string drafted_by_agent = 8;
+  // What the Investigation Service watches to know when it goes stale (SRS 8.5, M10.3): its
+  // parts, with what the Inventory Service found at submission, and the procedures it cites.
+  repeated ProposedPart parts = 9;
+  repeated string procedures = 10;
+}
+
+message ProposedPart {
+  string part_number = 1;
+  int32 quantity = 2;
+  // "available", "short", "incompatible", "retired" or "unknown", when submitted.
+  string status = 3;
 }
 
 message ApprovalDecided {

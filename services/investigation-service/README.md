@@ -62,6 +62,24 @@ Every change is kept in the case's history with who made it, announced as `case.
 `investigation.read` for the turbine, its wind farm or the tenant, with the wind farm from the Asset Service, asked as
 the caller. A case the caller may not read is not found.
 
+## Stale evidence (SRS 8.5, EVD-007, EVD-008)
+
+The rules, `stale-rules-1` in `staleness.py`, judge the case's newest snapshot and the proposals submitted on it.
+The first to fire marks the snapshot stale, with the rule, what it found and when, announced on `case.updated`:
+
+| Rule | Fires when | From |
+| --- | --- | --- |
+| severity | A detection raises the severity once evidence is frozen | `fault.detected` |
+| alarm | A high or critical alarm on the turbine becomes active, at a version the snapshot does not hold | `alarm.changed` |
+| procedure | A document a submitted proposal cites is replaced | `evidence.changed` from Knowledge |
+| asset | The turbine's status, wind farm, model or serial number changes | `evidence.changed` from Asset |
+| inventory | A proposed part is no longer available | `evidence.changed` from Inventory |
+| age | The snapshot passes 24 hours (critical, high), 72 (medium) or 168 (low) | A sweep every five minutes |
+
+`workorder.submitted` tells it what each proposal names. A new snapshot clears the mark: the case is re-evaluated
+([ADR 0034](../../docs/adr/0034-stale-evidence-rules-and-new-versions.md)). Condition drift and weather come in
+M10.3b.
+
 ## Investigations (API-003)
 
 Each case's investigation runs in the [Agent Runtime](../agent-runtime-service/README.md), started and followed by

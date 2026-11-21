@@ -150,9 +150,17 @@ SERVICE_GRANTS: dict[str, frozenset[str]] = {
     # Its detector reads each streaming turbine's telemetry and alarms on its own schedule.
     "fault-detection": frozenset({"turbine.read", "telemetry.read", "alarm.read"}),
     # Its evidence builder freezes each case's turbine, telemetry, alarms, detections and their
-    # rule versions (EVD-004).
+    # rule versions (EVD-004). Its stale rules read the turbine and a proposal's parts in stock
+    # (SRS 8.5, M10.3).
     "investigation": frozenset(
-        {"turbine.read", "telemetry.read", "alarm.read", "policy.read", "investigation.read"}
+        {
+            "turbine.read",
+            "telemetry.read",
+            "alarm.read",
+            "policy.read",
+            "investigation.read",
+            "inventory.read",
+        }
     ),
     # It gathers the facts it judges a proposal on: the case and its evidence, and the turbine
     # and its site, and the forecast over its planned window (ADR 0009, FR-POL-004).

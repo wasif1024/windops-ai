@@ -207,6 +207,8 @@ async def freeze(
                 evidence_snapshot_id=snapshot_id, evidence_version=version,
                 evidence_wanted_at=current.evidence_wanted_at if still_wanted else None,
                 version=current.version + 1, updated_at=now,
+                # A new snapshot is the case re-evaluated: fresh until a rule fires (EVD-008).
+                stale_rule="", stale_detail="", stale_at=None, stale_rules_version="",
             )
         )  # fmt: skip
         changed = (await connection.execute(

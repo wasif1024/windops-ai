@@ -7,7 +7,7 @@ decider; this only compares.
 from dataclasses import dataclass
 from typing import Any
 
-SUBMITTED = "submitted"
+SUBMITTED, STALE = "submitted", "stale"
 ACTIVE_CASES = ("open", "investigating", "pending_review")
 # What a submitted work order's policy result may be. A blocked one could not be submitted.
 DECIDABLE_POLICY = ("pass", "escalate")
@@ -25,11 +25,18 @@ def refusal(row: Any, work_order: Any, case: Any) -> Refusal | None:
     if work_order.version != row.proposal_version:
         return Refusal(f"The work order is now at version {work_order.version}, not "
                        f"{row.proposal_version}", supersedes=True)  # fmt: skip
+    if work_order.status == STALE:
+        # EVD-007: a stale recommendation is never approved, and says which rule fired.
+        return Refusal(f"The work order is stale: {work_order.stale_rule} "
+                       f"({work_order.stale_detail})", supersedes=True)  # fmt: skip
     if work_order.status != SUBMITTED:
         return Refusal(f"The work order is now {work_order.status}", supersedes=True)
     if work_order.evidence_snapshot_id != row.evidence_snapshot_id:
         return Refusal("The work order now refers to snapshot "
                        f"{work_order.evidence_snapshot_id}", supersedes=True)  # fmt: skip
+    if case.stale_rule:
+        return Refusal(f"The case's evidence is stale: {case.stale_rule} ({case.stale_detail})",
+                       supersedes=True)  # fmt: skip
     if case.status not in ACTIVE_CASES:
         return Refusal(f"The case is now {case.status}", supersedes=True)
     if case.evidence_snapshot_id != row.evidence_snapshot_id:
@@ -44,10 +51,11 @@ def refusal(row: Any, work_order: Any, case: Any) -> Refusal | None:
 
 # The separation-of-duties rules below, by version, so each decision names the rules it was held
 # to (RBAC-005). A change to them is a new version.
-APPROVAL_RULES = "separation-of-duties-1"
-# The work order's history actions that make their actor a requester (RBAC-004). Validating
-# changes nothing of the plan, so it does not.
-REQUESTING_ACTIONS = ("drafted", "updated", "submitted")
+APPROVAL_RULES = "separation-of-duties-2"
+# The work order's history actions that make their actor a requester (RBAC-004): version 2 adds
+# revising a stale or rejected work order as a new version (M10.3). Validating changes nothing of
+# the plan, so it does not.
+REQUESTING_ACTIONS = ("drafted", "updated", "revised", "submitted")
 
 
 def requesters(row: Any, history: Any) -> list[str]:

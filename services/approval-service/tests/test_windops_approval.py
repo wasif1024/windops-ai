@@ -502,7 +502,7 @@ def test_nobody_decides_what_they_drafted_changed_or_submitted(
         decided = (await world.decide(approval)).approval
         assert decided.status == "approved" and BOTH in decided.decision.requesters
         assert MANAGER not in decided.decision.requesters
-        assert decided.decision.policy.approval_rules == "separation-of-duties-1"
+        assert decided.decision.policy.approval_rules == "separation-of-duties-2"
         assert decided.decision.policy.permissions_version == 3
 
     with_service(scenario)

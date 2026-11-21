@@ -89,10 +89,17 @@ class SubscriptionSpec:
 
     subject: str
     durable: str
+    # The service that reads it, when it is not the durable's own name: a service with more than
+    # one subscription names each "<service>-<what>".
+    service: str = ""
 
     @property
     def topic(self) -> str:
         return topic_for(self.subject)
+
+    @property
+    def owner(self) -> str:
+        return self.service or self.durable
 
 
 # Every consumer today. A new consumer adds its subscription here, and provisioning creates it.
@@ -103,6 +110,11 @@ SUBSCRIPTIONS = (
     SubscriptionSpec("fault.detected", "investigation"),
     SubscriptionSpec("workorder.submitted", "approval"),
     SubscriptionSpec("approval.decided", "maintenance"),
+    # The stale rules' inputs and outputs (SRS 8.5, M10.3).
+    SubscriptionSpec("alarm.changed", "investigation-alarms", "investigation"),
+    SubscriptionSpec("evidence.changed", "investigation-evidence", "investigation"),
+    SubscriptionSpec("workorder.submitted", "investigation-proposals", "investigation"),
+    SubscriptionSpec("case.updated", "maintenance-cases", "maintenance"),
 )
 
 

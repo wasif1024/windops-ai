@@ -4,12 +4,11 @@ import asyncio
 import contextlib
 import logging
 import os
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
 import grpc
-from nats.errors import Error as NatsError
-from nats.js.errors import APIError
 from opentelemetry import metrics
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -19,16 +18,18 @@ from windops.asset.v1 import asset_pb2_grpc
 from windops.authorization.v1 import authorization_pb2_grpc
 from windops.fault_detection.v1 import fault_detection_pb2_grpc
 from windops.identity.v1 import identity_pb2_grpc
+from windops.inventory.v1 import inventory_pb2, inventory_pb2_grpc
 from windops.investigation.v1 import investigation_pb2_grpc
 from windops.telemetry.v1 import telemetry_pb2_grpc
 from windops_auth import current_identity_token
-from windops_events import Event, Events, EventsUnavailableError, open_events
-from windops_grpc import ServiceClient, create_channel, run_service
+from windops_events import Event, Events, EventsUnavailableError, keep_consuming, open_events
+from windops_grpc import ServiceClient, UnavailableError, create_channel, run_service
 from windops_migrations import create_service_engine
 from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
-from windops_resilience import BreakerConfig, CircuitBreaker
+from windops_resilience import BreakerConfig, BreakerOpenError, CircuitBreaker
 
+from windops_investigation import stale
 from windops_investigation.consumer import SUBJECT, handle
 from windops_investigation.evidence import Builder, keep_building
 from windops_investigation.investigations import (
@@ -50,10 +51,14 @@ logger = logging.getLogger("windops.service")
 RECONNECT_SECONDS = 5
 
 
+Handler = Callable[[Event], Awaitable[Any]]
+
+
 async def consume_and_relay(
-    engine: AsyncEngine, stop: asyncio.Event, investigate: bool = False
+    engine: AsyncEngine, stop: asyncio.Event, consumers: list[tuple[str, str, Handler]]
 ) -> None:
-    """Keep trying to connect, because an outage must not restart this service (RES-006)."""
+    """Read each subject on its own, and relay the outbox. Keep trying to connect, because an
+    outage must not restart this service (RES-006)."""
     events: Events | None = None
     while events is None:
         if stop.is_set():
@@ -68,29 +73,48 @@ async def consume_and_relay(
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), timeout=RECONNECT_SECONDS)
 
-    async def handler(event: Event) -> None:
-        await handle(engine, event, investigate)
+    def handled(work: Handler) -> Callable[[Event], Awaitable[None]]:
+        async def handler(event: Event) -> None:
+            await work(event)
 
-    consumer = events.consumer(subject=SUBJECT, durable=SERVICE_NAME, handler=handler)
-    relay = asyncio.create_task(OutboxRelay(engine, events.publisher).run_forever(stop))
-    started = False
+        return handler
+
+    tasks = [asyncio.create_task(OutboxRelay(engine, events.publisher).run_forever(stop))]
+    for subject, durable, work in consumers:
+        consumer = events.consumer(subject=subject, durable=durable, handler=handled(work))
+        tasks.append(asyncio.create_task(keep_consuming(consumer, stop, subject)))
     try:
-        while not stop.is_set():
-            try:
-                if not started:
-                    await consumer.start()
-                    started = True
-                await consumer.run_once()
-            except (NatsError, APIError, EventsUnavailableError, TimeoutError, OSError) as error:
-                logger.warning(
-                    "Cannot read detections yet", extra={"error_type": type(error).__name__}
-                )
-                with contextlib.suppress(TimeoutError):
-                    await asyncio.wait_for(stop.wait(), timeout=RECONNECT_SECONDS)
+        await stop.wait()
     finally:
         stop.set()
-        await relay
+        await asyncio.gather(*tasks, return_exceptions=True)
         await events.close()
+
+
+class StaleOwners:
+    """The turbine and a proposal's parts, for the stale rules, asked as this service."""
+
+    def __init__(self, assets: Any, inventory: Any, client: ServiceClient) -> None:
+        self._assets, self._inventory, self._client = assets, inventory, client
+
+    async def turbine(self, turbine_id: str) -> Any:
+        return await self._assets.turbine(turbine_id)
+
+    async def parts(self, turbine: Any, lines: list[tuple[str, int]]) -> list[Any]:
+        request = inventory_pb2.CheckPartsRequest(
+            model=inventory_pb2.ModelRef(manufacturer=turbine.model.manufacturer,
+                                         model=turbine.model.model),
+            wind_farm_id=turbine.wind_farm_id,
+            lines=[inventory_pb2.PartLine(part_number=n, quantity=q) for n, q in lines],
+        )  # fmt: skip
+        try:
+            answer = await self._client.call(self._inventory().CheckParts, request,
+                                             idempotent=True, deadline_seconds=3.0)  # fmt: skip
+        except grpc.aio.AioRpcError as error:
+            raise UnavailableError("The Inventory Service cannot be asked right now") from error
+        except (BreakerOpenError, TimeoutError) as error:
+            raise UnavailableError("The Inventory Service cannot be asked right now") from error
+        return list(answer.checks)
 
 
 class _Lazy:
@@ -197,8 +221,31 @@ def main() -> None:
             server,
         )
 
+    owners = StaleOwners(
+        assets,
+        lambda: inventory_pb2_grpc.InventoryServiceStub(channel("WINDOPS_INVENTORY_ADDRESS")),
+        _client("inventory"),
+    )
+    investigate_cases = agents != "off"
+
+    async def detected(event: Event) -> None:
+        await handle(engine, event, investigate_cases)
+
+    async def evidence_changed(event: Event) -> None:
+        await stale.on_evidence(engine, event, owners, secret)
+
     async def consume(stop: asyncio.Event) -> None:
-        await consume_and_relay(engine, stop, investigate=agents != "off")
+        await consume_and_relay(engine, stop, [
+            (SUBJECT, SERVICE_NAME, detected),
+            # The stale rules (SRS 8.5, M10.3), each subject on its own durable consumer.
+            (stale.ALARM_SUBJECT, f"{SERVICE_NAME}-alarms", lambda e: stale.on_alarm(engine, e)),
+            (stale.EVIDENCE_SUBJECT, f"{SERVICE_NAME}-evidence", evidence_changed),
+            (stale.SUBMITTED_SUBJECT, f"{SERVICE_NAME}-proposals",
+             lambda e: stale.on_submitted(engine, e)),
+        ])  # fmt: skip
+
+    async def sweep(stop: asyncio.Event) -> None:
+        await stale.keep_sweeping(engine, stop)
 
     async def build(stop: asyncio.Event) -> None:
         await keep_building(builder, stop)
@@ -211,7 +258,7 @@ def main() -> None:
             SERVICE_NAME,
             register,
             readiness_checks=(database_ready,),
-            background=(consume, build, investigate),
+            background=(consume, build, investigate, sweep),
         )
     )
 

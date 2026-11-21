@@ -3,9 +3,11 @@
 isort:skip_file
 """
 
+from collections import abc as _abc
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
+from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from windops.telemetry.v1 import telemetry_pb2 as _telemetry_pb2
 import builtins as _builtins
@@ -342,14 +344,29 @@ class CaseUpdated(_message.Message):
     SEVERITY_FIELD_NUMBER: _builtins.int
     ACTION_FIELD_NUMBER: _builtins.int
     VERSION_FIELD_NUMBER: _builtins.int
+    EVIDENCE_SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    STALE_RULE_FIELD_NUMBER: _builtins.int
+    STALE_DETAIL_FIELD_NUMBER: _builtins.int
+    STALE_RULES_VERSION_FIELD_NUMBER: _builtins.int
     case_id: _builtins.str
     status: _builtins.str
     turbine_id: _builtins.str
     severity: _builtins.str
     action: _builtins.str
-    """"created", "detection_attached", "severity_raised" or "cancelled"."""
+    """"created", "detection_attached", "severity_raised", "evidence_frozen", "stale" or
+    "cancelled", among others.
+    """
     version: _builtins.int
     """The case's version after this change."""
+    evidence_snapshot_id: _builtins.str
+    """The case's newest evidence snapshot."""
+    stale_rule: _builtins.str
+    """Set while that snapshot is stale (SRS 8.5, M10.3): the rule that fired first, such as
+    "inventory", what it found, and the rules' version, such as "stale-rules-1". Empty when
+    fresh. A new snapshot clears them.
+    """
+    stale_detail: _builtins.str
+    stale_rules_version: _builtins.str
     def __init__(
         self,
         *,
@@ -359,10 +376,14 @@ class CaseUpdated(_message.Message):
         severity: _builtins.str = ...,
         action: _builtins.str = ...,
         version: _builtins.int = ...,
+        evidence_snapshot_id: _builtins.str = ...,
+        stale_rule: _builtins.str = ...,
+        stale_detail: _builtins.str = ...,
+        stale_rules_version: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "case_id", b"case_id", "severity", b"severity", "status", b"status", "turbine_id", b"turbine_id", "version", b"version"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "case_id", b"case_id", "evidence_snapshot_id", b"evidence_snapshot_id", "severity", b"severity", "stale_detail", b"stale_detail", "stale_rule", b"stale_rule", "stale_rules_version", b"stale_rules_version", "status", b"status", "turbine_id", b"turbine_id", "version", b"version"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -407,6 +428,8 @@ class WorkOrderSubmitted(_message.Message):
     SUBMITTED_BY_FIELD_NUMBER: _builtins.int
     DRAFTED_BY_FIELD_NUMBER: _builtins.int
     DRAFTED_BY_AGENT_FIELD_NUMBER: _builtins.int
+    PARTS_FIELD_NUMBER: _builtins.int
+    PROCEDURES_FIELD_NUMBER: _builtins.int
     work_order_id: _builtins.str
     proposal_version: _builtins.str
     case_id: _builtins.str
@@ -419,6 +442,14 @@ class WorkOrderSubmitted(_message.Message):
     drafted_by: _builtins.str
     """The person, or principal, it was drafted for, and the agent that drafted it, if any."""
     drafted_by_agent: _builtins.str
+    @_builtins.property
+    def parts(self) -> _containers.RepeatedCompositeFieldContainer[Global___ProposedPart]:
+        """What the Investigation Service watches to know when it goes stale (SRS 8.5, M10.3): its
+        parts, with what the Inventory Service found at submission, and the procedures it cites.
+        """
+
+    @_builtins.property
+    def procedures(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
     def __init__(
         self,
         *,
@@ -430,14 +461,42 @@ class WorkOrderSubmitted(_message.Message):
         submitted_by: _builtins.str = ...,
         drafted_by: _builtins.str = ...,
         drafted_by_agent: _builtins.str = ...,
+        parts: _abc.Iterable[Global___ProposedPart] | None = ...,
+        procedures: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "drafted_by", b"drafted_by", "drafted_by_agent", b"drafted_by_agent", "evidence_snapshot_id", b"evidence_snapshot_id", "proposal_version", b"proposal_version", "submitted_by", b"submitted_by", "turbine_id", b"turbine_id", "work_order_id", b"work_order_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "drafted_by", b"drafted_by", "drafted_by_agent", b"drafted_by_agent", "evidence_snapshot_id", b"evidence_snapshot_id", "parts", b"parts", "procedures", b"procedures", "proposal_version", b"proposal_version", "submitted_by", b"submitted_by", "turbine_id", b"turbine_id", "work_order_id", b"work_order_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___WorkOrderSubmitted: _TypeAlias = WorkOrderSubmitted  # noqa: Y015
+
+@_typing.final
+class ProposedPart(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PART_NUMBER_FIELD_NUMBER: _builtins.int
+    QUANTITY_FIELD_NUMBER: _builtins.int
+    STATUS_FIELD_NUMBER: _builtins.int
+    part_number: _builtins.str
+    quantity: _builtins.int
+    status: _builtins.str
+    """"available", "short", "incompatible", "retired" or "unknown", when submitted."""
+    def __init__(
+        self,
+        *,
+        part_number: _builtins.str = ...,
+        quantity: _builtins.int = ...,
+        status: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["part_number", b"part_number", "quantity", b"quantity", "status", b"status"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ProposedPart: _TypeAlias = ProposedPart  # noqa: Y015
 
 @_typing.final
 class ApprovalDecided(_message.Message):

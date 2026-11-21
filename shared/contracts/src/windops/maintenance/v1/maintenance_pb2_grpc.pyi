@@ -60,6 +60,11 @@ class MaintenanceServiceStub:
     """
     WithdrawDraft: _grpc.UnaryUnaryMultiCallable[_maintenance_pb2.WithdrawDraftRequest, _maintenance_pb2.WithdrawDraftResponse]
     """Withdraws a draft. Only a person."""
+    ReviseWorkOrder: _grpc.UnaryUnaryMultiCallable[_maintenance_pb2.ReviseWorkOrderRequest, _maintenance_pb2.ReviseWorkOrderResponse]
+    """Revises a stale or rejected work order as its next version, a draft on the case's current
+    evidence snapshot, validated at once (EVD-008). The earlier version is kept as it was.
+    Refused while the case's evidence is itself stale: re-evaluate it first.
+    """
     GetWorkOrder: _grpc.UnaryUnaryMultiCallable[_maintenance_pb2.GetWorkOrderRequest, _maintenance_pb2.GetWorkOrderResponse]
     """With its history."""
     ListWorkOrders: _grpc.UnaryUnaryMultiCallable[_maintenance_pb2.ListWorkOrdersRequest, _maintenance_pb2.ListWorkOrdersResponse]
@@ -97,6 +102,11 @@ class MaintenanceServiceAsyncStub(MaintenanceServiceStub):
     """
     WithdrawDraft: _aio.UnaryUnaryMultiCallable[_maintenance_pb2.WithdrawDraftRequest, _maintenance_pb2.WithdrawDraftResponse]  # type: ignore[assignment]
     """Withdraws a draft. Only a person."""
+    ReviseWorkOrder: _aio.UnaryUnaryMultiCallable[_maintenance_pb2.ReviseWorkOrderRequest, _maintenance_pb2.ReviseWorkOrderResponse]  # type: ignore[assignment]
+    """Revises a stale or rejected work order as its next version, a draft on the case's current
+    evidence snapshot, validated at once (EVD-008). The earlier version is kept as it was.
+    Refused while the case's evidence is itself stale: re-evaluate it first.
+    """
     GetWorkOrder: _aio.UnaryUnaryMultiCallable[_maintenance_pb2.GetWorkOrderRequest, _maintenance_pb2.GetWorkOrderResponse]  # type: ignore[assignment]
     """With its history."""
     ListWorkOrders: _aio.UnaryUnaryMultiCallable[_maintenance_pb2.ListWorkOrdersRequest, _maintenance_pb2.ListWorkOrdersResponse]  # type: ignore[assignment]
@@ -161,6 +171,17 @@ class MaintenanceServiceServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_maintenance_pb2.WithdrawDraftResponse, _abc.Awaitable[_maintenance_pb2.WithdrawDraftResponse]]:
         """Withdraws a draft. Only a person."""
+
+    @_abc_1.abstractmethod
+    def ReviseWorkOrder(
+        self,
+        request: _maintenance_pb2.ReviseWorkOrderRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_maintenance_pb2.ReviseWorkOrderResponse, _abc.Awaitable[_maintenance_pb2.ReviseWorkOrderResponse]]:
+        """Revises a stale or rejected work order as its next version, a draft on the case's current
+        evidence snapshot, validated at once (EVD-008). The earlier version is kept as it was.
+        Refused while the case's evidence is itself stale: re-evaluate it first.
+        """
 
     @_abc_1.abstractmethod
     def GetWorkOrder(

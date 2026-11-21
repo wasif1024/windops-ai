@@ -42,9 +42,12 @@ const order: WorkOrder = {
     policy_result_id: "pol_1",
     parts: [{ part_number: "GBX-FAN-CAP", quantity: 2, status: "short", available: 1 }],
   },
+  stale_rule: "",
+  stale_detail: "",
 };
 
 const detail: WorkOrderDetail = {
+  earlier_versions: [],
   work_order: order,
   history: [
     {
@@ -71,6 +74,7 @@ function fakeApi() {
     validate: vi.fn(async () => order),
     submit: vi.fn(async () => ({ ...order, status: "submitted" as const })),
     withdraw: vi.fn(async () => ({ ...order, status: "withdrawn" as const })),
+    revise: vi.fn(async () => ({ ...order, version: 2 })),
   };
 }
 
@@ -177,5 +181,19 @@ describe("the maintenance planner", () => {
 
   it("names a person who drafted it plainly", () => {
     expect(draftedBy({ ...order, drafted_by: "u-1", drafted_by_agent: "" })).toBe("u-1");
+  });
+});
+
+describe("a stale work order", () => {
+  it("shows the rule that fired, and is revised as the next version", async () => {
+    const api = fakeApi();
+    const stale = { ...order, status: "stale" as const, stale_rule: "inventory", stale_detail: "Part GBX-FAN-CAP is now short" };
+    api.get.mockResolvedValue({ ...detail, work_order: stale, earlier_versions: [] });
+    show(<WorkOrderPage api={api as unknown as MaintenanceApi} workOrderId={order.work_order_id} canDraft canSubmit />);
+    const note = await screen.findByTestId("stale");
+    expect(note.textContent).toContain("inventory");
+    expect(note.textContent).toContain("cannot be approved");
+    fireEvent.click(screen.getByRole("button", { name: "Revise as version 2" }));
+    await waitFor(() => expect(api.revise).toHaveBeenCalledWith(order.work_order_id, expect.any(String), order.revision));
   });
 });
