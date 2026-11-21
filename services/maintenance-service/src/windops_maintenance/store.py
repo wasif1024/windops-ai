@@ -24,6 +24,7 @@ from windops_outbox import add_event
 SERVICE_NAME = "maintenance"
 SUBMITTED_SUBJECT = "workorder.submitted"
 DRAFT, SUBMITTED, WITHDRAWN = "draft", "submitted", "withdrawn"
+APPROVED, REJECTED = "approved", "rejected"
 METADATA = MetaData()
 
 # One row a work order: its current state. Every change is also kept in its history.
@@ -167,7 +168,14 @@ async def record(
             SUBMITTED_SUBJECT,
             tenant_id=row.tenant_id,
             payload=events_pb2.WorkOrderSubmitted(
-                work_order_id=row.work_order_id, proposal_version=str(row.version)
+                work_order_id=row.work_order_id,
+                proposal_version=str(row.version),
+                case_id=row.case_id,
+                turbine_id=row.turbine_id,
+                evidence_snapshot_id=row.evidence_snapshot_id,
+                submitted_by=row.submitted_by,
+                drafted_by=row.drafted_by,
+                drafted_by_agent=row.drafted_by_agent,
             ),
             producer=SERVICE_NAME,
         )

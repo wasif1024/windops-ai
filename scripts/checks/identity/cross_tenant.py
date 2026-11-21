@@ -46,9 +46,9 @@ TENANT, OTHER = "north-sea", "atlas-wind"
 # Every service that stores data so far. A new one must be added here; a repository test holds
 # this to the services with migrations.
 DATABASES = (
-    "agent_runtime", "alarm", "asset", "audit", "authorization", "external_intelligence",
-    "fault_detection", "identity", "inventory", "investigation", "knowledge", "maintenance",
-    "policy", "production_impact", "telemetry", "tenant", "weather",
+    "agent_runtime", "alarm", "approval", "asset", "audit", "authorization",
+    "external_intelligence", "fault_detection", "identity", "inventory", "investigation",
+    "knowledge", "maintenance", "policy", "production_impact", "telemetry", "tenant", "weather",
 )  # fmt: skip
 # Tables with a tenant that need no policy, and why. The repository test exempts the same.
 # Only the service itself reads these, across tenants, never a request: the relay its outbox, and

@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+package windops.approval.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Human decisions on submitted work orders (SRS 4.8, FR-APR-001, FR-APR-002, FR-APR-003).
+//
+// Each workorder.submitted opens one approval request for that work order's proposal version. A
+// Maintenance Manager decides it. No agent, and no service, ever decides (FR-APR-001, SEC-009):
+// this service refuses any identity with an agent behind it, or with no person, before it asks
+// the Authorization Service anything.
+//
+// When a decision arrives, the work order and its case are read again, as the decider. The
+// decision goes ahead only if the work order is still submitted at the same proposal version and
+// evidence snapshot, and the case is still active on that snapshot (EVD-009). Anything that
+// cannot be checked refuses the decision (EVD-010). A request whose proposal or snapshot has
+// moved on is superseded, and can never be decided (FR-APR-003).
+//
+// Deciding needs maintenance.approve for the work order's turbine, its wind farm or the tenant.
+// Reading needs investigation.read. A request the caller may not read is not found. The tenant
+// comes from the caller's verified identity (GRP-004). A decision is announced as
+// approval.decided in the same transaction that records it (EVT-002, EVT-004), and may be
+// retried with the same idempotency_key (GRP-007).
+service ApprovalService {
+  // With its decision, if any.
+  rpc GetApproval(GetApprovalRequest) returns (GetApprovalResponse);
+  // Oldest first, so the queue is worked in the order requests arrived.
+  rpc ListApprovals(ListApprovalsRequest) returns (ListApprovalsResponse);
+  // Approves or rejects a pending request, after rechecking it. Only a person, never an agent.
+  rpc DecideApproval(DecideApprovalRequest) returns (DecideApprovalResponse);
+}
+
+// What the decision was made against, besides the proposal and its snapshot (FR-APR-002).
+message PolicyContext {
+  // The Policy Service's result for the work order when it was last validated: "pass" or
+  // "escalate". A blocked one could not have been submitted.
+  string policy_result_id = 1;
+  string policy_outcome = 2;
+  google.protobuf.Timestamp validated_at = 3;
+  // The case's status and evidence version when it was rechecked.
+  string case_status = 4;
+  int64 evidence_version = 5;
+  // The Maintenance Service's revision of the work order when it was rechecked.
+  int64 work_order_revision = 6;
+}
+
+message Decision {
+  // "approved" or "rejected".
+  string outcome = 1;
+  // The person who decided.
+  string decided_by = 2;
+  google.protobuf.Timestamp decided_at = 3;
+  string reason = 4;
+  // What was decided on, as rechecked.
+  int64 proposal_version = 5;
+  string evidence_snapshot_id = 6;
+  PolicyContext policy = 7;
+}
+
+message Approval {
+  // "apr_" and 20 lowercase letters and digits.
+  string approval_id = 1;
+  string work_order_id = 2;
+  // The work order's version that was submitted. A new version is a new request.
+  int64 proposal_version = 3;
+  string case_id = 4;
+  string turbine_id = 5;
+  string evidence_snapshot_id = 6;
+  // "pending", "approved", "rejected" or "superseded".
+  string status = 7;
+  string submitted_by = 8;
+  // The person, or principal, it was drafted for, and the agent that drafted it, if any.
+  string drafted_by = 9;
+  string drafted_by_agent = 10;
+  // When workorder.submitted was announced, and when this service opened the request.
+  google.protobuf.Timestamp submitted_at = 11;
+  google.protobuf.Timestamp requested_at = 12;
+  // Set once decided.
+  Decision decision = 13;
+  // Why a superseded request can no longer be decided, such as "The work order is now at
+  // version 2".
+  string superseded_reason = 14;
+  google.protobuf.Timestamp superseded_at = 15;
+}
+
+message GetApprovalRequest {
+  string approval_id = 1;
+}
+
+message GetApprovalResponse {
+  Approval approval = 1;
+}
+
+message ListApprovalsRequest {
+  // Empty means every status.
+  repeated string statuses = 1;
+  string work_order_id = 2;
+  string case_id = 3;
+  string turbine_id = 4;
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+message ListApprovalsResponse {
+  repeated Approval approvals = 1;
+  string next_page_token = 2;
+}
+
+message DecideApprovalRequest {
+  string approval_id = 1;
+  // "approve" or "reject".
+  string decision = 2;
+  // Why, in the decider's words. Required for a rejection.
+  string reason = 3;
+  // What the decider reviewed. A request that no longer matches is refused, so nobody decides on
+  // something they did not see.
+  int64 expected_proposal_version = 4;
+  string expected_evidence_snapshot_id = 5;
+  string idempotency_key = 6;
+}
+
+message DecideApprovalResponse {
+  Approval approval = 1;
+}

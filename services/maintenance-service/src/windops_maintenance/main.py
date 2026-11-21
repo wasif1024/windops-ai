@@ -1,4 +1,4 @@
-"""Start the Maintenance Service: its API, and the relay that publishes its outbox."""
+"""Start the Maintenance Service: its API, its approval.decided consumer and its relay."""
 
 import asyncio
 import contextlib
@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 import grpc
+from nats.errors import Error as NatsError
+from nats.js.errors import APIError
 from opentelemetry import metrics
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -18,13 +20,14 @@ from windops.investigation.v1 import investigation_pb2_grpc
 from windops.maintenance.v1 import maintenance_pb2_grpc
 from windops.policy.v1 import policy_pb2_grpc
 from windops_auth import current_identity_token
-from windops_events import Events, EventsUnavailableError, open_events
+from windops_events import Event, Events, EventsUnavailableError, open_events
 from windops_grpc import ServiceClient, create_channel, run_service
 from windops_migrations import create_service_engine
 from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, CircuitBreaker
 
+from windops_maintenance import decisions
 from windops_maintenance.service import MaintenanceService
 from windops_maintenance.store import SERVICE_NAME
 from windops_maintenance.validation import AuthorizationClient, ServiceSources
@@ -33,9 +36,9 @@ logger = logging.getLogger("windops.service")
 RECONNECT_SECONDS = 5
 
 
-async def relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
-    """Publish the outbox: audit requests and workorder.submitted. An outage must not restart
-    this service (RES-006), so it keeps trying to connect."""
+async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
+    """Apply each approval.decided, and publish the outbox: audit requests and
+    workorder.submitted. An outage must not restart this service (RES-006), so it keeps trying."""
     events: Events | None = None
     while events is None:
         if stop.is_set():
@@ -48,9 +51,29 @@ async def relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
             )
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), timeout=RECONNECT_SECONDS)
+
+    async def handler(event: Event) -> None:
+        await decisions.handle(engine, event)
+
+    consumer = events.consumer(subject=decisions.SUBJECT, durable=SERVICE_NAME, handler=handler)
+    relay = asyncio.create_task(OutboxRelay(engine, events.publisher).run_forever(stop))
+    started = False
     try:
-        await OutboxRelay(engine, events.publisher).run_forever(stop)
+        while not stop.is_set():
+            try:
+                if not started:
+                    await consumer.start()
+                    started = True
+                await consumer.run_once()
+            except (NatsError, APIError, EventsUnavailableError, TimeoutError, OSError) as error:
+                logger.warning(
+                    "Cannot read decisions yet", extra={"error_type": type(error).__name__}
+                )
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(stop.wait(), timeout=RECONNECT_SECONDS)
     finally:
+        stop.set()
+        await relay
         await events.close()
 
 
@@ -112,7 +135,7 @@ def main() -> None:
         )
 
     async def publish(stop: asyncio.Event) -> None:
-        await relay(engine, stop)
+        await consume_and_relay(engine, stop)
 
     asyncio.run(
         run_service(

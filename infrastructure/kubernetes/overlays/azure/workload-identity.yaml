@@ -125,6 +125,52 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: windops-approval
+  namespace: windops-application
+  labels:
+    app.kubernetes.io/name: windops-approval
+    app.kubernetes.io/part-of: windops
+  annotations:
+    azure.workload.identity/client-id: ${AZURE_CLIENT_ID_WINDOPS_APPROVAL}
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: windops-approval
+  namespace: windops-application
+spec:
+  provider: azure
+  parameters:
+    clientID: ${AZURE_CLIENT_ID_WINDOPS_APPROVAL}
+    keyvaultName: ${AZURE_KEYVAULT_NAME}
+    tenantId: ${AZURE_TENANT_ID}
+    objects: "array:\n- 'objectName: windops-approval-database--database\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-approval-database--host\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-approval-database--port\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-approval-database--username\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-internal-identity--signing-key\n\n \
+      \ objectType: secret\n\n  '\n"
+  secretObjects:
+  - secretName: windops-approval-database
+    type: Opaque
+    data:
+    - key: database
+      objectName: windops-approval-database--database
+    - key: host
+      objectName: windops-approval-database--host
+    - key: port
+      objectName: windops-approval-database--port
+    - key: username
+      objectName: windops-approval-database--username
+  - secretName: windops-internal-identity
+    type: Opaque
+    data:
+    - key: signing-key
+      objectName: windops-internal-identity--signing-key
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: windops-asset
   namespace: windops-application
   labels:

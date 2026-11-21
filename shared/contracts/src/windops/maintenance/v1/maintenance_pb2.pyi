@@ -269,8 +269,9 @@ class WorkOrder(_message.Message):
     evidence_snapshot_id: _builtins.str
     """The case's evidence when it was drafted."""
     status: _builtins.str
-    """"draft", "submitted" or "withdrawn"; "approved", "rejected", "stale", "completed" and
-    "verified" come with Phase 10.
+    """"draft", "submitted", "withdrawn", "approved" or "rejected": a person's decision through the
+    Approval Service, from its approval.decided. "stale", "completed" and "verified" come later in
+    Phase 10.
     """
     drafted_by: _builtins.str
     """The person, or principal, it was drafted for."""
@@ -326,7 +327,7 @@ class WorkOrderEvent(_message.Message):
     REVISION_FIELD_NUMBER: _builtins.int
     NOTE_FIELD_NUMBER: _builtins.int
     action: _builtins.str
-    """"drafted", "updated", "validated", "submitted" or "withdrawn"."""
+    """"drafted", "updated", "validated", "submitted", "withdrawn", "approved" or "rejected"."""
     actor_type: _builtins.str
     """"user", "agent" or "service"."""
     actor_id: _builtins.str

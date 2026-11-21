@@ -101,6 +101,8 @@ SUBSCRIPTIONS = (
     SubscriptionSpec("alarm.reported", "alarm"),
     SubscriptionSpec("telemetry.received", "fault-detection"),
     SubscriptionSpec("fault.detected", "investigation"),
+    SubscriptionSpec("workorder.submitted", "approval"),
+    SubscriptionSpec("approval.decided", "maintenance"),
 )
 
 

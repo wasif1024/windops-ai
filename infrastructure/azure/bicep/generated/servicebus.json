@@ -47,6 +47,20 @@
       "filter": "sys.Label = 'fault.detected'",
       "maxDeliveryCount": 100,
       "lockDuration": "PT30S"
+    },
+    {
+      "topic": "windops-events",
+      "name": "approval",
+      "filter": "sys.Label = 'workorder.submitted'",
+      "maxDeliveryCount": 100,
+      "lockDuration": "PT30S"
+    },
+    {
+      "topic": "windops-events",
+      "name": "maintenance",
+      "filter": "sys.Label = 'approval.decided'",
+      "maxDeliveryCount": 100,
+      "lockDuration": "PT30S"
     }
   ]
 }

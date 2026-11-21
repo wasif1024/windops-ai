@@ -58,6 +58,8 @@ def test_only_consumers_may_receive_and_each_only_its_own_subscription() -> None
             {"topic": "windops-telemetry", "subscription": "fault-detection"}
         ],
         "windops-investigation": [{"topic": "windops-events", "subscription": "investigation"}],
+        "windops-approval": [{"topic": "windops-events", "subscription": "approval"}],
+        "windops-maintenance": [{"topic": "windops-events", "subscription": "maintenance"}],
     }
     # A workload that never reads the events settings gets no Service Bus role at all.
     assert not workloads["windops-web-bff"]["events"]

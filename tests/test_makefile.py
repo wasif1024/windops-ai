@@ -92,6 +92,7 @@ BUILT_TARGETS = {
     "phase-9-gate",
     "maintenance-check",
     "inventory-check",
+    "approval-check",
     "claude-check",
     "claude-policy-lock",
     "frontend-test",
