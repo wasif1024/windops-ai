@@ -29,6 +29,19 @@
     ]
   },
   {
+    "name": "windops-approval",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": [
+      {
+        "topic": "windops-events",
+        "subscription": "approval"
+      }
+    ]
+  },
+  {
     "name": "windops-asset",
     "namespace": "windops-application",
     "events": true,
@@ -129,7 +142,12 @@
     "events": true,
     "database": true,
     "keyVault": true,
-    "receives": []
+    "receives": [
+      {
+        "topic": "windops-events",
+        "subscription": "maintenance"
+      }
+    ]
   },
   {
     "name": "windops-mcp-documentation",

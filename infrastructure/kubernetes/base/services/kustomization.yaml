@@ -13,6 +13,7 @@ resources:
   - ../../../../services/agent-sandbox-adapter/deploy
   - ../../../../services/alarm-service/deploy
   - ../../../../services/api-gateway/deploy
+  - ../../../../services/approval-service/deploy
   - ../../../../services/asset-service/deploy
   - ../../../../services/audit-service/deploy
   - ../../../../services/authorization-service/deploy

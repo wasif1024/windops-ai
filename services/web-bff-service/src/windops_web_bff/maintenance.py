@@ -24,7 +24,7 @@ from windops_web_bff.tokens import Caller
 WorkOrderId = Annotated[str, Path(pattern=r"^wo_[a-z0-9]{20}$")]
 PART_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._/-]{1,63}$"
 ACTION_PATTERN = r"^(inspection|repair|replacement|adjustment|monitoring)$"
-STATUSES = ("draft", "submitted", "withdrawn")
+STATUSES = ("draft", "submitted", "withdrawn", "approved", "rejected")
 
 
 # --- What the browser sends
@@ -135,7 +135,7 @@ class WorkOrder(BaseModel):
     turbine_id: str
     evidence_snapshot_id: str
     plan: Plan
-    # "draft", "submitted" or "withdrawn".
+    # "draft", "submitted", "withdrawn", "approved" or "rejected".
     status: str
     drafted_by: str
     # "agent:maintenance-planner" when an agent drafted it; "" for a person.

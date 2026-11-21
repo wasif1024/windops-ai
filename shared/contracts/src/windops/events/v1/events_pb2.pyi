@@ -401,17 +401,39 @@ class WorkOrderSubmitted(_message.Message):
 
     WORK_ORDER_ID_FIELD_NUMBER: _builtins.int
     PROPOSAL_VERSION_FIELD_NUMBER: _builtins.int
+    CASE_ID_FIELD_NUMBER: _builtins.int
+    TURBINE_ID_FIELD_NUMBER: _builtins.int
+    EVIDENCE_SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    SUBMITTED_BY_FIELD_NUMBER: _builtins.int
+    DRAFTED_BY_FIELD_NUMBER: _builtins.int
+    DRAFTED_BY_AGENT_FIELD_NUMBER: _builtins.int
     work_order_id: _builtins.str
     proposal_version: _builtins.str
+    case_id: _builtins.str
+    """What the Approval Service needs to open a request without calling back (M10.1). It still
+    rechecks the work order and the case when a decision arrives (EVD-009).
+    """
+    turbine_id: _builtins.str
+    evidence_snapshot_id: _builtins.str
+    submitted_by: _builtins.str
+    drafted_by: _builtins.str
+    """The person, or principal, it was drafted for, and the agent that drafted it, if any."""
+    drafted_by_agent: _builtins.str
     def __init__(
         self,
         *,
         work_order_id: _builtins.str = ...,
         proposal_version: _builtins.str = ...,
+        case_id: _builtins.str = ...,
+        turbine_id: _builtins.str = ...,
+        evidence_snapshot_id: _builtins.str = ...,
+        submitted_by: _builtins.str = ...,
+        drafted_by: _builtins.str = ...,
+        drafted_by_agent: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["proposal_version", b"proposal_version", "work_order_id", b"work_order_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "drafted_by", b"drafted_by", "drafted_by_agent", b"drafted_by_agent", "evidence_snapshot_id", b"evidence_snapshot_id", "proposal_version", b"proposal_version", "submitted_by", b"submitted_by", "turbine_id", b"turbine_id", "work_order_id", b"work_order_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -426,11 +448,14 @@ class ApprovalDecided(_message.Message):
     PROPOSAL_VERSION_FIELD_NUMBER: _builtins.int
     EVIDENCE_SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
     DECISION_FIELD_NUMBER: _builtins.int
+    DECIDED_BY_FIELD_NUMBER: _builtins.int
     approval_id: _builtins.str
     work_order_id: _builtins.str
     proposal_version: _builtins.str
     evidence_snapshot_id: _builtins.str
     decision: Global___ApprovalDecision.ValueType
+    decided_by: _builtins.str
+    """The person who decided. Never an agent (FR-APR-001)."""
     def __init__(
         self,
         *,
@@ -439,10 +464,11 @@ class ApprovalDecided(_message.Message):
         proposal_version: _builtins.str = ...,
         evidence_snapshot_id: _builtins.str = ...,
         decision: Global___ApprovalDecision.ValueType = ...,
+        decided_by: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["approval_id", b"approval_id", "decision", b"decision", "evidence_snapshot_id", b"evidence_snapshot_id", "proposal_version", b"proposal_version", "work_order_id", b"work_order_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["approval_id", b"approval_id", "decided_by", b"decided_by", "decision", b"decision", "evidence_snapshot_id", b"evidence_snapshot_id", "proposal_version", b"proposal_version", "work_order_id", b"work_order_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

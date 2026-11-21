@@ -20,6 +20,7 @@ members = [
     "services/agent-runtime-service",
     "services/agent-sandbox-adapter",
     "services/alarm-service",
+    "services/approval-service",
     "services/asset-service",
     "services/audit-service",
     "services/authorization-service",
@@ -94,6 +95,7 @@ windops-agent-sandbox = { workspace = true }
 windops-external-intelligence = { workspace = true }
 windops-maintenance = { workspace = true }
 windops-inventory = { workspace = true }
+windops-approval = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -134,6 +136,8 @@ files = [
     "services/agent-sandbox-adapter/tests",
     "services/alarm-service/src",
     "services/alarm-service/tests",
+    "services/approval-service/src",
+    "services/approval-service/tests",
     "services/asset-service/src",
     "services/asset-service/tests",
     "services/audit-service/src",
@@ -216,6 +220,8 @@ mypy_path = [
     "services/agent-sandbox-adapter/tests",
     "services/alarm-service/src",
     "services/alarm-service/tests",
+    "services/approval-service/src",
+    "services/approval-service/tests",
     "services/asset-service/src",
     "services/asset-service/tests",
     "services/audit-service/src",
@@ -377,4 +383,5 @@ dev = [
     "windops-web-bff",
     "windops-maintenance",
     "windops-inventory",
+    "windops-approval",
 ]

@@ -30,7 +30,7 @@ class MaintenanceServiceStub:
 
     A work order is planned against a case: its tasks, crew, window, parts, procedures and expected
     downtime. A person or an agent drafts it; only a person submits it, and another person decides
-    on it (Phase 10). An agent can never take a work order past draft (SEC-009): the Authorization
+    on it through the Approval Service. An agent can never take a work order past draft (SEC-009): the Authorization
     Service refuses it anything but reading and drafting, and this service refuses any identity
     with an agent behind it, whatever Authorization says.
 
@@ -89,7 +89,7 @@ class MaintenanceServiceServicer:
 
     A work order is planned against a case: its tasks, crew, window, parts, procedures and expected
     downtime. A person or an agent drafts it; only a person submits it, and another person decides
-    on it (Phase 10). An agent can never take a work order past draft (SEC-009): the Authorization
+    on it through the Approval Service. An agent can never take a work order past draft (SEC-009): the Authorization
     Service refuses it anything but reading and drafting, and this service refuses any identity
     with an agent behind it, whatever Authorization says.
 
@@ -202,7 +202,7 @@ class MaintenanceService:
 
     A work order is planned against a case: its tasks, crew, window, parts, procedures and expected
     downtime. A person or an agent drafts it; only a person submits it, and another person decides
-    on it (Phase 10). An agent can never take a work order past draft (SEC-009): the Authorization
+    on it through the Approval Service. An agent can never take a work order past draft (SEC-009): the Authorization
     Service refuses it anything but reading and drafting, and this service refuses any identity
     with an agent behind it, whatever Authorization says.
 

@@ -17,12 +17,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import StaticPool
 from windops.asset.v1 import asset_pb2
+from windops.events.v1 import events_pb2
 from windops.inventory.v1 import inventory_pb2
 from windops.investigation.v1 import investigation_pb2
 from windops.maintenance.v1 import maintenance_pb2 as pb
 from windops.maintenance.v1 import maintenance_pb2_grpc
 from windops.policy.v1 import policy_pb2
-from windops_events import parse_event
+from windops_events import Event, InvalidEventError, parse_event
 from windops_grpc import (
     NotFoundError,
     ServiceRuntime,
@@ -32,7 +33,7 @@ from windops_grpc import (
     current_identity,
     sign_identity,
 )
-from windops_maintenance import plans
+from windops_maintenance import decisions, plans
 from windops_maintenance.service import MaintenanceService
 from windops_maintenance.store import METADATA, SERVICE_NAME
 from windops_outbox import OUTBOX_TABLE, create_outbox_table
@@ -446,3 +447,50 @@ def test_each_part_is_checked_against_inventory() -> None:
         assert (await world.draft()).validation.passed
 
     with_service(unreachable, sources=FakeSources(stock=None))
+
+
+def decided(order: Any, decision: int, version: str = "1", producer: str = "approval") -> Any:
+    payload = events_pb2.ApprovalDecided(
+        approval_id="apr_" + "d" * 20, work_order_id=order.work_order_id,
+        proposal_version=version, evidence_snapshot_id=order.evidence_snapshot_id,
+        decision=decision, decided_by="u-manager",  # type: ignore[arg-type]
+    )  # fmt: skip
+    return Event("approval.decided", f"e-{decision}-{version}", TENANT, NOW, producer, payload,
+                 "", "")  # fmt: skip
+
+
+def test_a_submission_names_what_approval_needs_and_a_decision_moves_the_work_order() -> None:
+    """SRS 5.5: the Approval Service decides; this service applies it to its work order, once,
+    and only for the version still submitted (EVT-003)."""
+
+    async def scenario(world: World) -> None:
+        order = (await world.submit(await world.draft())).work_order
+        [announced] = await world.events("workorder.submitted")
+        assert (announced.case_id, announced.turbine_id, announced.evidence_snapshot_id,
+                announced.submitted_by, announced.drafted_by) == (
+            CASE, TURBINE, order.evidence_snapshot_id, PLANNER, PLANNER)  # fmt: skip
+        with pytest.raises(InvalidEventError):
+            await decisions.handle(world.engine, decided(order, 1, producer="maintenance"))
+        assert not await decisions.handle(
+            world.engine, decided(order, events_pb2.APPROVAL_DECISION_APPROVED, version="2")
+        )
+        assert await decisions.handle(
+            world.engine, decided(order, events_pb2.APPROVAL_DECISION_APPROVED)
+        )
+        assert not await decisions.handle(
+            world.engine, decided(order, events_pb2.APPROVAL_DECISION_REJECTED)
+        )
+        got = await world.stub.GetWorkOrder(
+            pb.GetWorkOrderRequest(work_order_id=order.work_order_id),
+            metadata=as_caller(OPERATOR), timeout=5,
+        )  # fmt: skip
+        assert got.work_order.status == "approved"
+        last = got.history[-1]
+        assert (last.action, last.actor_type, last.actor_id) == ("approved", "user", "u-manager")
+        listed = await world.stub.ListWorkOrders(
+            pb.ListWorkOrdersRequest(statuses=["approved"]), metadata=as_caller(OPERATOR),
+            timeout=5,
+        )  # fmt: skip
+        assert [w.work_order_id for w in listed.work_orders] == [order.work_order_id]
+
+    with_service(scenario)

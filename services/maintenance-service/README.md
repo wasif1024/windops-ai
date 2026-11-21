@@ -10,8 +10,9 @@ against an active case; only a person submits it ([ADR 0029](../../docs/adr/0029
 | `draft` | `CreateDraft`, with `maintenance.draft`, by a person or an agent. `UpdateDraft` replaces its plan, from the revision the caller saw |
 | `submitted` | `SubmitWorkOrder`, with `maintenance.submit`, by a person only, once nothing blocks it. Announced as `workorder.submitted` |
 | `withdrawn` | `WithdrawDraft`, by a person, with a reason |
+| `approved`, `rejected` | A person's decision through the Approval Service, applied from its `approval.decided` to the version still submitted ([ADR 0032](../../docs/adr/0032-approvals-decided-by-a-person-on-what-is-current.md)) |
 
-Approval, rejection, staleness, completion and verification come with Phase 10.
+Staleness, completion and verification come later in Phase 10.
 
 ## Validation (FR-MNT-002)
 

@@ -8,6 +8,7 @@ members = [
     "windops-agent-sandbox",
     "windops-ai",
     "windops-alarm",
+    "windops-approval",
     "windops-asset",
     "windops-audit",
     "windops-auth",
@@ -2370,6 +2371,7 @@ dev = [
     { name = "windops-agent-runtime" },
     { name = "windops-agent-sandbox" },
     { name = "windops-alarm" },
+    { name = "windops-approval" },
     { name = "windops-asset" },
     { name = "windops-audit" },
     { name = "windops-auth" },
@@ -2441,6 +2443,7 @@ dev = [
     { name = "windops-agent-runtime", editable = "services/agent-runtime-service" },
     { name = "windops-agent-sandbox", editable = "services/agent-sandbox-adapter" },
     { name = "windops-alarm", editable = "services/alarm-service" },
+    { name = "windops-approval", editable = "services/approval-service" },
     { name = "windops-asset", editable = "services/asset-service" },
     { name = "windops-audit", editable = "services/audit-service" },
     { name = "windops-auth", editable = "shared/auth" },
@@ -2484,6 +2487,33 @@ dev = [
 name = "windops-alarm"
 version = "0.1.0"
 source = { editable = "services/alarm-service" }
+dependencies = [
+    { name = "windops-auth" },
+    { name = "windops-contracts" },
+    { name = "windops-events" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-observability" },
+    { name = "windops-outbox" },
+    { name = "windops-resilience" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-events", editable = "shared/events" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-observability", editable = "shared/observability" },
+    { name = "windops-outbox", editable = "shared/outbox" },
+    { name = "windops-resilience", editable = "shared/resilience" },
+]
+
+[[package]]
+name = "windops-approval"
+version = "0.1.0"
+source = { editable = "services/approval-service" }
 dependencies = [
     { name = "windops-auth" },
     { name = "windops-contracts" },

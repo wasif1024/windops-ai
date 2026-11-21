@@ -109,7 +109,6 @@ flowchart TB
     Maintenance -.->|workorder.submitted| Notification
     Approval -->|recheck| Maintenance
     Approval -->|recheck| Investigation
-    Approval -->|recheck| Policy
     Approval -.->|approval.decided| Runtime["Agent Runtime"]
     Approval -.->|approval.decided| Maintenance
     Approval -.->|approval.decided| Notification
@@ -159,7 +158,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | Policy | Investigation, Asset and Production Impact, for the facts it judges on ([ADR 0009](adr/0009-policy-judges-a-proposal-on-facts-it-gathers.md)), and Weather, the only source of its weather (FR-POL-004) | Audit events | None |
 | Maintenance | Asset, Policy, Inventory | `workorder.submitted`, `workorder.completed`, audit events | `approval.decided` |
 | Inventory | None | `evidence.changed`, audit events | None |
-| Approval | Maintenance, Investigation, Policy | `approval.decided`, audit events | `workorder.submitted` |
+| Approval | Maintenance, Investigation, Asset | `approval.decided`, audit events | `workorder.submitted` |
 | Audit | None | `audit.recorded` | `audit.requested.*`, the audit events from every service |
 | Notification | Email provider | Audit events | `case.updated`, `workorder.submitted`, `approval.decided` |
 | Evaluation | Agent Runtime, LangSmith | Audit events | None |
@@ -181,8 +180,8 @@ servers are also separate workloads, and call only these services (SRS 6.3):
 A breaker stops a service from waiting on a dependency that is failing. Calls fail straight away, the
 caller's workers stay free, and the struggling dependency gets time to recover.
 
-Each caller has its own breaker for each dependency. If Policy fails, Maintenance's breaker for Policy
-and Approval's breaker for Policy each open on their own evidence, and neither affects calls to any
+Each caller has its own breaker for each dependency. If Asset fails, Maintenance's breaker for Asset
+and Approval's breaker for Asset each open on their own evidence, and neither affects calls to any
 other service.
 
 ```mermaid

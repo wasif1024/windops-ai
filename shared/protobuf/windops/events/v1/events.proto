@@ -115,6 +115,15 @@ message EvidenceChanged {
 message WorkOrderSubmitted {
   string work_order_id = 1;
   string proposal_version = 2;
+  // What the Approval Service needs to open a request without calling back (M10.1). It still
+  // rechecks the work order and the case when a decision arrives (EVD-009).
+  string case_id = 3;
+  string turbine_id = 4;
+  string evidence_snapshot_id = 5;
+  string submitted_by = 6;
+  // The person, or principal, it was drafted for, and the agent that drafted it, if any.
+  string drafted_by = 7;
+  string drafted_by_agent = 8;
 }
 
 message ApprovalDecided {
@@ -123,6 +132,8 @@ message ApprovalDecided {
   string proposal_version = 3;
   string evidence_snapshot_id = 4;
   ApprovalDecision decision = 5;
+  // The person who decided. Never an agent (FR-APR-001).
+  string decided_by = 6;
 }
 
 enum ApprovalDecision {

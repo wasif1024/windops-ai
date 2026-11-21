@@ -26,7 +26,9 @@ from windops_migrations import in_tenant
 
 from windops_maintenance import plans, validation
 from windops_maintenance.store import (
+    APPROVED,
     DRAFT,
+    REJECTED,
     SUBMITTED,
     WITHDRAWN,
     WORK_ORDER_HISTORY,
@@ -41,7 +43,7 @@ from windops_maintenance.validation import Authorizer, Sources
 
 READ, DRAFT_PERMISSION, SUBMIT = "investigation.read", "maintenance.draft", "maintenance.submit"
 ACTIVE_CASES = ("open", "investigating", "pending_review")
-STATUSES = (DRAFT, SUBMITTED, WITHDRAWN)
+STATUSES = (DRAFT, SUBMITTED, WITHDRAWN, APPROVED, REJECTED)
 DEFAULT_PAGE, MAXIMUM_PAGE, MAXIMUM_KEY, MAXIMUM_REASON = 50, 200, 64, 500
 
 

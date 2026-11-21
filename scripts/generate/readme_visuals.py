@@ -259,7 +259,7 @@ HOP_CONTROLS = (
         (
             Control("Agents reach services only through allowlisted MCP tools"),
             Control("An agent that reads web content has no write tools"),
-            Control("Agents can only draft, and can never approve", "M9.5, M10.1"),
+            Control("Agents can only draft, and can never approve"),
             Control("Web research goes out redacted and logged, and comes back flagged"),
         ),
     ),

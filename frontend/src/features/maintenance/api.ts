@@ -3,7 +3,7 @@
 import { getJson, sendJson } from "../../api/client";
 
 export type Action = "inspection" | "repair" | "replacement" | "adjustment" | "monitoring";
-export type WorkOrderStatus = "draft" | "submitted" | "withdrawn";
+export type WorkOrderStatus = "draft" | "submitted" | "withdrawn" | "approved" | "rejected";
 export type PartStatus = "available" | "short" | "incompatible" | "retired" | "unknown";
 
 export const ACTIONS: Action[] = ["inspection", "repair", "replacement", "adjustment", "monitoring"];
@@ -134,6 +134,8 @@ export const STATUS_STYLE: Record<WorkOrderStatus, string> = {
   draft: "bg-amber-50 text-amber-900 ring-1 ring-amber-200",
   submitted: "bg-sky-50 text-sky-800 ring-1 ring-sky-200",
   withdrawn: "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
+  approved: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200",
+  rejected: "bg-red-50 text-red-800 ring-1 ring-red-200",
 };
 
 export const PART_STYLE: Record<PartStatus, string> = {

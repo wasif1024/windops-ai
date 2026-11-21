@@ -18,6 +18,7 @@ interface View {
 const VIEWS: View[] = [
   { id: "draft", label: "Drafts", statuses: ["draft"] },
   { id: "submitted", label: "Submitted", statuses: ["submitted"] },
+  { id: "decided", label: "Decided", statuses: ["approved", "rejected"] },
   { id: "withdrawn", label: "Withdrawn", statuses: ["withdrawn"] },
   { id: "all", label: "All", statuses: [] },
 ];
