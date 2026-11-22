@@ -28,7 +28,18 @@ test("a Tenant Administrator manages users, roles and permissions, with step-up"
 
   await openScreen(page, isMobile, "Administration");
   const tabs = page.getByRole("navigation", { name: "Administration" });
-  await expect(tabs.getByRole("link")).toHaveText(["Users", "Role permissions", "Access denials", "Branding"]);
+  await expect(tabs.getByRole("link")).toHaveText([
+    "Users",
+    "Role permissions",
+    "Approval policy changes",
+    "Access denials",
+    "Branding",
+  ]);
+  // Changes to who may approve wait here for a second administrator (RBAC-007).
+  await tabs.getByRole("link", { name: "Approval policy changes" }).click();
+  await expect(page.getByRole("region", { name: "Approval policy changes" })).toBeVisible();
+  await noSidewaysScroll(page);
+  await tabs.getByRole("link", { name: "Users" }).click();
   const users = page.getByRole("list", { name: "Users" });
   await expect(users.getByRole("link", { name: operator })).toBeVisible();
   await noSidewaysScroll(page);

@@ -1,6 +1,6 @@
 import { useCallback, useId, useState } from "react";
 import { Button } from "../../../components/Button";
-import type { AdminApi, RolePermissions } from "../api";
+import { type AdminApi, isHeld, type PendingChange, type RolePermissions } from "../api";
 import { FIRST_ROLE, TENANT_PERMISSIONS, TENANT_ROLES } from "../catalog";
 import { ChangeStatus } from "../../../components/ChangeStatus";
 import { INPUT, LABEL, Loading, Panel } from "../../../components/Panel";
@@ -10,6 +10,7 @@ import { useLoad } from "../../../api/useLoad";
 function Editor({ api, mapping }: { api: AdminApi; mapping: RolePermissions }) {
   const [chosen, setChosen] = useState(() => new Set(mapping.permissions));
   const [saved, setSaved] = useState(mapping);
+  const [held, setHeld] = useState<PendingChange | null>(null);
   const change = useChange();
   const changed =
     chosen.size !== saved.permissions.length || saved.permissions.some((permission) => !chosen.has(permission));
@@ -23,7 +24,12 @@ function Editor({ api, mapping }: { api: AdminApi; mapping: RolePermissions }) {
     });
   const save = async () => {
     const result = await change.run((key) => api.setRolePermissions(key, mapping.role, [...chosen].sort()));
-    if (result) {
+    if (result && isHeld(result)) {
+      // It changes who may approve: it waits for a second administrator (RBAC-007).
+      setHeld(result);
+      setChosen(new Set(saved.permissions));
+    } else if (result) {
+      setHeld(null);
       setSaved(result);
       setChosen(new Set(result.permissions));
     }
@@ -32,7 +38,7 @@ function Editor({ api, mapping }: { api: AdminApi; mapping: RolePermissions }) {
   return (
     <>
       <p className="text-sm text-slate-500">
-        {saved.customized ? "Changed for this tenant." : "The standard permissions (SRS 3.2)."} Each takes effect at once.
+        {saved.customized ? "Changed for this tenant." : "The standard permissions (SRS 3.2)."} Each takes effect at once, except giving or taking maintenance.approve, which a second administrator confirms.
       </p>
       <fieldset className="mt-3">
         <legend className="sr-only">Permissions</legend>
@@ -65,6 +71,12 @@ function Editor({ api, mapping }: { api: AdminApi; mapping: RolePermissions }) {
           Undo changes
         </Button>
       </div>
+      {held && (
+        <p role="status" className="mt-3 break-words rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Waiting for a second administrator: {held.summary}. It takes effect once another Tenant Administrator confirms it
+          under Approval policy changes.
+        </p>
+      )}
       <ChangeStatus state={change.state} onDismiss={change.reset} />
     </>
   );

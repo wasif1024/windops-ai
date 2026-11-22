@@ -119,7 +119,6 @@ It is safe to repeat, and recorded in the audit trail as by `bootstrap`.
 
 ## Still to come
 
-- **A second Tenant Administrator for approval policy changes** (RBAC-007) arrives in M10.2b.
 
 ## Separation of duties for approvals
 
@@ -130,3 +129,8 @@ From M10.2 ([ADR 0033](adr/0033-separation-of-duties-at-decision-time.md)):
 - **Eligibility at decision time** (RBAC-005, RBAC-006): `maintenance.approve` is checked as held now, but not by a
   role the decider granted themselves after the request, nor by their own change to role permissions since then.
   Each role-permission change is kept as a version, and the decision records the version it was made on.
+- **A second administrator for a change to who may approve** (RBAC-007, from M10.2b,
+  [ADR 0035](adr/0035-approval-policy-changes-need-a-second-administrator.md)): granting or revoking a role that
+  holds `maintenance.approve`, or giving or taking that permission from a role, waits for another Tenant
+  Administrator to confirm it, never its proposer. Where the tenant has no other, a Platform Administrator
+  confirms it. The bootstrap command, used before anyone can manage roles, is the one exception.

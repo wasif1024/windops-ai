@@ -456,16 +456,24 @@ class GrantRoleResponse(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
     GRANT_FIELD_NUMBER: _builtins.int
+    PENDING_FIELD_NUMBER: _builtins.int
     @_builtins.property
-    def grant(self) -> Global___RoleGrant: ...
+    def grant(self) -> Global___RoleGrant:
+        """Unset while the change waits for a second Tenant Administrator."""
+
+    @_builtins.property
+    def pending(self) -> Global___PendingChange:
+        """Set instead when it changes who may approve maintenance (RBAC-007)."""
+
     def __init__(
         self,
         *,
         grant: Global___RoleGrant | None = ...,
+        pending: Global___PendingChange | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["grant", b"grant"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["grant", b"grant", "pending", b"pending"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["grant", b"grant"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["grant", b"grant", "pending", b"pending"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -476,16 +484,20 @@ class RevokeRoleResponse(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
     GRANT_FIELD_NUMBER: _builtins.int
+    PENDING_FIELD_NUMBER: _builtins.int
     @_builtins.property
     def grant(self) -> Global___RoleGrant: ...
+    @_builtins.property
+    def pending(self) -> Global___PendingChange: ...
     def __init__(
         self,
         *,
         grant: Global___RoleGrant | None = ...,
+        pending: Global___PendingChange | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["grant", b"grant"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["grant", b"grant", "pending", b"pending"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["grant", b"grant"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["grant", b"grant", "pending", b"pending"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -516,20 +528,247 @@ class SetRolePermissionsResponse(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
     ROLE_PERMISSIONS_FIELD_NUMBER: _builtins.int
+    PENDING_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def role_permissions(self) -> Global___RolePermissions: ...
+    @_builtins.property
+    def pending(self) -> Global___PendingChange: ...
+    def __init__(
+        self,
+        *,
+        role_permissions: Global___RolePermissions | None = ...,
+        pending: Global___PendingChange | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["pending", b"pending", "role_permissions", b"role_permissions"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["pending", b"pending", "role_permissions", b"role_permissions"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SetRolePermissionsResponse: _TypeAlias = SetRolePermissionsResponse  # noqa: Y015
+
+@_typing.final
+class PendingChange(_message.Message):
+    """A change to who may approve maintenance, waiting for a second person (RBAC-007)."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CHANGE_ID_FIELD_NUMBER: _builtins.int
+    TENANT_ID_FIELD_NUMBER: _builtins.int
+    KIND_FIELD_NUMBER: _builtins.int
+    SUMMARY_FIELD_NUMBER: _builtins.int
+    PROPOSED_BY_FIELD_NUMBER: _builtins.int
+    PROPOSED_AT_FIELD_NUMBER: _builtins.int
+    EXPIRES_AT_FIELD_NUMBER: _builtins.int
+    STATUS_FIELD_NUMBER: _builtins.int
+    DECIDED_BY_FIELD_NUMBER: _builtins.int
+    DECIDED_AT_FIELD_NUMBER: _builtins.int
+    DECLINE_REASON_FIELD_NUMBER: _builtins.int
+    ESCALATED_FIELD_NUMBER: _builtins.int
+    ROLE_FIELD_NUMBER: _builtins.int
+    GRANTEE_ID_FIELD_NUMBER: _builtins.int
+    GRANT_ID_FIELD_NUMBER: _builtins.int
+    PERMISSIONS_FIELD_NUMBER: _builtins.int
+    change_id: _builtins.str
+    tenant_id: _builtins.str
+    kind: _builtins.str
+    """"grant", "revoke" or "role_permissions"."""
+    summary: _builtins.str
+    """What it does, in words, such as "Give u-1 the maintenance-manager role, in the whole tenant"."""
+    proposed_by: _builtins.str
+    status: _builtins.str
+    """"pending", "confirmed", "declined" or "expired"."""
+    decided_by: _builtins.str
+    decline_reason: _builtins.str
+    escalated: _builtins.bool
+    """The tenant had no other Tenant Administrator when it was proposed, so a Platform
+    Administrator may confirm it.
+    """
+    role: _builtins.str
+    """The request it applies once confirmed: the role, the user and the grant it concerns."""
+    grantee_id: _builtins.str
+    grant_id: _builtins.str
+    @_builtins.property
+    def proposed_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def expires_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def decided_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def permissions(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
+    def __init__(
+        self,
+        *,
+        change_id: _builtins.str = ...,
+        tenant_id: _builtins.str = ...,
+        kind: _builtins.str = ...,
+        summary: _builtins.str = ...,
+        proposed_by: _builtins.str = ...,
+        proposed_at: _timestamp_pb2.Timestamp | None = ...,
+        expires_at: _timestamp_pb2.Timestamp | None = ...,
+        status: _builtins.str = ...,
+        decided_by: _builtins.str = ...,
+        decided_at: _timestamp_pb2.Timestamp | None = ...,
+        decline_reason: _builtins.str = ...,
+        escalated: _builtins.bool = ...,
+        role: _builtins.str = ...,
+        grantee_id: _builtins.str = ...,
+        grant_id: _builtins.str = ...,
+        permissions: _abc.Iterable[_builtins.str] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["decided_at", b"decided_at", "expires_at", b"expires_at", "proposed_at", b"proposed_at"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["change_id", b"change_id", "decided_at", b"decided_at", "decided_by", b"decided_by", "decline_reason", b"decline_reason", "escalated", b"escalated", "expires_at", b"expires_at", "grant_id", b"grant_id", "grantee_id", b"grantee_id", "kind", b"kind", "permissions", b"permissions", "proposed_at", b"proposed_at", "proposed_by", b"proposed_by", "role", b"role", "status", b"status", "summary", b"summary", "tenant_id", b"tenant_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___PendingChange: _TypeAlias = PendingChange  # noqa: Y015
+
+@_typing.final
+class ListPendingChangesRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TARGET_TENANT_ID_FIELD_NUMBER: _builtins.int
+    INCLUDE_DECIDED_FIELD_NUMBER: _builtins.int
+    target_tenant_id: _builtins.str
+    include_decided: _builtins.bool
+    """Also those confirmed, declined or expired."""
+    def __init__(
+        self,
+        *,
+        target_tenant_id: _builtins.str = ...,
+        include_decided: _builtins.bool = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["include_decided", b"include_decided", "target_tenant_id", b"target_tenant_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListPendingChangesRequest: _TypeAlias = ListPendingChangesRequest  # noqa: Y015
+
+@_typing.final
+class ListPendingChangesResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CHANGES_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def changes(self) -> _containers.RepeatedCompositeFieldContainer[Global___PendingChange]: ...
+    def __init__(
+        self,
+        *,
+        changes: _abc.Iterable[Global___PendingChange] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["changes", b"changes"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListPendingChangesResponse: _TypeAlias = ListPendingChangesResponse  # noqa: Y015
+
+@_typing.final
+class ConfirmChangeRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TARGET_TENANT_ID_FIELD_NUMBER: _builtins.int
+    CHANGE_ID_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    target_tenant_id: _builtins.str
+    change_id: _builtins.str
+    idempotency_key: _builtins.str
+    def __init__(
+        self,
+        *,
+        target_tenant_id: _builtins.str = ...,
+        change_id: _builtins.str = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["change_id", b"change_id", "idempotency_key", b"idempotency_key", "target_tenant_id", b"target_tenant_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ConfirmChangeRequest: _TypeAlias = ConfirmChangeRequest  # noqa: Y015
+
+@_typing.final
+class ConfirmChangeResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CHANGE_FIELD_NUMBER: _builtins.int
+    GRANT_FIELD_NUMBER: _builtins.int
+    ROLE_PERMISSIONS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def change(self) -> Global___PendingChange: ...
+    @_builtins.property
+    def grant(self) -> Global___RoleGrant:
+        """What it applied: a grant, a revocation, or the role's new permissions."""
+
     @_builtins.property
     def role_permissions(self) -> Global___RolePermissions: ...
     def __init__(
         self,
         *,
+        change: Global___PendingChange | None = ...,
+        grant: Global___RoleGrant | None = ...,
         role_permissions: Global___RolePermissions | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["role_permissions", b"role_permissions"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["change", b"change", "grant", b"grant", "role_permissions", b"role_permissions"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["role_permissions", b"role_permissions"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["change", b"change", "grant", b"grant", "role_permissions", b"role_permissions"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
-Global___SetRolePermissionsResponse: _TypeAlias = SetRolePermissionsResponse  # noqa: Y015
+Global___ConfirmChangeResponse: _TypeAlias = ConfirmChangeResponse  # noqa: Y015
+
+@_typing.final
+class DeclineChangeRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TARGET_TENANT_ID_FIELD_NUMBER: _builtins.int
+    CHANGE_ID_FIELD_NUMBER: _builtins.int
+    REASON_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    target_tenant_id: _builtins.str
+    change_id: _builtins.str
+    reason: _builtins.str
+    idempotency_key: _builtins.str
+    def __init__(
+        self,
+        *,
+        target_tenant_id: _builtins.str = ...,
+        change_id: _builtins.str = ...,
+        reason: _builtins.str = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["change_id", b"change_id", "idempotency_key", b"idempotency_key", "reason", b"reason", "target_tenant_id", b"target_tenant_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___DeclineChangeRequest: _TypeAlias = DeclineChangeRequest  # noqa: Y015
+
+@_typing.final
+class DeclineChangeResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CHANGE_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def change(self) -> Global___PendingChange: ...
+    def __init__(
+        self,
+        *,
+        change: Global___PendingChange | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["change", b"change"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["change", b"change"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___DeclineChangeResponse: _TypeAlias = DeclineChangeResponse  # noqa: Y015
 
 @_typing.final
 class StartBreakGlassResponse(_message.Message):

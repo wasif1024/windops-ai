@@ -28,6 +28,7 @@ flowchart LR
 | A Platform Administrator lists only their own active break-glass grants, in every tenant | `ListMyBreakGlassGrants` |
 | Each change to a role's permissions is kept as a version, never changed, and `Check` names the version it decided on (RBAC-005) | `store.ROLE_PERMISSION_CHANGES` |
 | With `eligible_since`, a role the caller granted themselves after it, or their own change to role permissions after it, does not count (RBAC-006) | `AuthorizationService._decide` |
+| A change to who may approve is held until a second Tenant Administrator, never its proposer, confirms it, or a Platform Administrator where the tenant has no other (RBAC-007) | `changes.py`, `ConfirmChange` |
 
 Ended grants stay, with who ended them and when, so the Approval Service can check the roles someone held
 at the time of a decision (RBAC-005, RBAC-006).

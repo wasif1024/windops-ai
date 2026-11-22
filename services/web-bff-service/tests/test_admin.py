@@ -403,3 +403,54 @@ def test_someone_without_the_permission_is_refused_in_our_own_words() -> None:
         assert "internal detail" not in response.text
 
     run({"audit": audit}, scenario)
+
+
+CHANGE = authz.PendingChange(
+    change_id="0f8b2c1e-1111-4222-8333-444455556666", tenant_id="north-sea", kind="grant",
+    summary="Give m-1 the maintenance-manager role, in the whole tenant", proposed_by="u-1",
+    status="pending", role="maintenance-manager", grantee_id=MEMBER,
+    proposed_at=stamp(1_767_225_600), expires_at=stamp(1_767_830_400),
+)  # fmt: skip
+
+
+def test_a_change_to_who_may_approve_is_answered_as_held_and_confirmed_by_another() -> None:
+    """RBAC-007: 202 with the held change; listed, confirmed and declined as the signed-in user."""
+    confirmed = authz.PendingChange()
+    confirmed.CopyFrom(CHANGE)
+    confirmed.status, confirmed.decided_by = "confirmed", "u-1"
+    authorization = FakeService({
+        "GrantRole": authz.GrantRoleResponse(pending=CHANGE),
+        "ListPendingChanges": authz.ListPendingChangesResponse(changes=[CHANGE]),
+        "ConfirmChange": authz.ConfirmChangeResponse(change=confirmed, grant=GRANT),
+        "DeclineChange": authz.DeclineChangeResponse(change=CHANGE),
+    })  # fmt: skip
+
+    async def scenario(world: World) -> None:
+        held = await world.client.post(
+            f"{PREFIX}/admin/role-grants",
+            json={"user_id": MEMBER, "role": "maintenance-manager"},
+            headers={**auth(token()), **KEY},
+        )
+        assert held.status_code == 202
+        assert (held.json()["status"], held.json()["kind"]) == ("pending", "grant")
+        listed = await world.client.get(f"{PREFIX}/admin/policy-changes", headers=auth(token()))
+        assert [c["change_id"] for c in listed.json()["changes"]] == [CHANGE.change_id]
+        done = await world.client.post(
+            f"{PREFIX}/admin/policy-changes/{CHANGE.change_id}/confirm",
+            headers={**auth(token()), "Idempotency-Key": "c-1"},
+        )
+        assert done.json()["status"] == "confirmed"
+        refused = await world.client.post(
+            f"{PREFIX}/admin/policy-changes/{CHANGE.change_id}/decline",
+            headers={**auth(token()), "Idempotency-Key": "c-2"}, json={"reason": ""},
+        )  # fmt: skip
+        assert refused.status_code == 422
+        escalated = await world.client.post(
+            f"{PREFIX}/platform/tenants/north-sea/policy-changes/{CHANGE.change_id}/confirm",
+            headers={**auth(token()), "Idempotency-Key": "c-3"},
+        )
+        assert escalated.status_code == 200
+        sent = authorization.calls[-1]
+        assert (sent.request.target_tenant_id, sent.retry) == ("north-sea", False)
+
+    run({"authorization": authorization}, scenario)

@@ -51,6 +51,22 @@ class AuthorizationServiceStub:
     """Needs permissions.manage."""
     SetRolePermissions: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.SetRolePermissionsRequest, _authorization_pb2.SetRolePermissionsResponse]
     """Needs permissions.manage and a recent second factor. Replaces the role's permissions in one tenant."""
+    ListPendingChanges: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.ListPendingChangesRequest, _authorization_pb2.ListPendingChangesResponse]
+    """Approval policy changes (RBAC-007): granting or revoking a role that holds maintenance.approve,
+    or giving or taking that permission from a role, is not applied at once. GrantRole,
+    RevokeRole and SetRolePermissions answer with a pending change instead, which a second Tenant
+    Administrator confirms, never its proposer. When the tenant has no other, the escalation is a
+    Platform Administrator, signed in to the platform tenant. Confirming needs the same permission
+    as the change, or the Platform Administrator role, and a recent second factor (SEC-003). A
+    pending change expires after 7 days.
+
+    The tenant's pending changes, newest first. A Platform Administrator naming no tenant sees the
+    escalated ones in every tenant.
+    """
+    ConfirmChange: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.ConfirmChangeRequest, _authorization_pb2.ConfirmChangeResponse]
+    """Applies a pending change, as its proposer's, confirmed by the caller."""
+    DeclineChange: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.DeclineChangeRequest, _authorization_pb2.DeclineChangeResponse]
+    """Withdraws it (its proposer) or refuses it (one who could confirm it), with a reason."""
     StartBreakGlass: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.StartBreakGlassRequest, _authorization_pb2.StartBreakGlassResponse]
     """A Platform Administrator's time-limited, reasoned access to one tenant's data (RBAC-003)."""
     EndBreakGlass: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.EndBreakGlassRequest, _authorization_pb2.EndBreakGlassResponse]
@@ -82,6 +98,22 @@ class AuthorizationServiceAsyncStub(AuthorizationServiceStub):
     """Needs permissions.manage."""
     SetRolePermissions: _aio.UnaryUnaryMultiCallable[_authorization_pb2.SetRolePermissionsRequest, _authorization_pb2.SetRolePermissionsResponse]  # type: ignore[assignment]
     """Needs permissions.manage and a recent second factor. Replaces the role's permissions in one tenant."""
+    ListPendingChanges: _aio.UnaryUnaryMultiCallable[_authorization_pb2.ListPendingChangesRequest, _authorization_pb2.ListPendingChangesResponse]  # type: ignore[assignment]
+    """Approval policy changes (RBAC-007): granting or revoking a role that holds maintenance.approve,
+    or giving or taking that permission from a role, is not applied at once. GrantRole,
+    RevokeRole and SetRolePermissions answer with a pending change instead, which a second Tenant
+    Administrator confirms, never its proposer. When the tenant has no other, the escalation is a
+    Platform Administrator, signed in to the platform tenant. Confirming needs the same permission
+    as the change, or the Platform Administrator role, and a recent second factor (SEC-003). A
+    pending change expires after 7 days.
+
+    The tenant's pending changes, newest first. A Platform Administrator naming no tenant sees the
+    escalated ones in every tenant.
+    """
+    ConfirmChange: _aio.UnaryUnaryMultiCallable[_authorization_pb2.ConfirmChangeRequest, _authorization_pb2.ConfirmChangeResponse]  # type: ignore[assignment]
+    """Applies a pending change, as its proposer's, confirmed by the caller."""
+    DeclineChange: _aio.UnaryUnaryMultiCallable[_authorization_pb2.DeclineChangeRequest, _authorization_pb2.DeclineChangeResponse]  # type: ignore[assignment]
+    """Withdraws it (its proposer) or refuses it (one who could confirm it), with a reason."""
     StartBreakGlass: _aio.UnaryUnaryMultiCallable[_authorization_pb2.StartBreakGlassRequest, _authorization_pb2.StartBreakGlassResponse]  # type: ignore[assignment]
     """A Platform Administrator's time-limited, reasoned access to one tenant's data (RBAC-003)."""
     EndBreakGlass: _aio.UnaryUnaryMultiCallable[_authorization_pb2.EndBreakGlassRequest, _authorization_pb2.EndBreakGlassResponse]  # type: ignore[assignment]
@@ -152,6 +184,40 @@ class AuthorizationServiceServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_authorization_pb2.SetRolePermissionsResponse, _abc.Awaitable[_authorization_pb2.SetRolePermissionsResponse]]:
         """Needs permissions.manage and a recent second factor. Replaces the role's permissions in one tenant."""
+
+    @_abc_1.abstractmethod
+    def ListPendingChanges(
+        self,
+        request: _authorization_pb2.ListPendingChangesRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_authorization_pb2.ListPendingChangesResponse, _abc.Awaitable[_authorization_pb2.ListPendingChangesResponse]]:
+        """Approval policy changes (RBAC-007): granting or revoking a role that holds maintenance.approve,
+        or giving or taking that permission from a role, is not applied at once. GrantRole,
+        RevokeRole and SetRolePermissions answer with a pending change instead, which a second Tenant
+        Administrator confirms, never its proposer. When the tenant has no other, the escalation is a
+        Platform Administrator, signed in to the platform tenant. Confirming needs the same permission
+        as the change, or the Platform Administrator role, and a recent second factor (SEC-003). A
+        pending change expires after 7 days.
+
+        The tenant's pending changes, newest first. A Platform Administrator naming no tenant sees the
+        escalated ones in every tenant.
+        """
+
+    @_abc_1.abstractmethod
+    def ConfirmChange(
+        self,
+        request: _authorization_pb2.ConfirmChangeRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_authorization_pb2.ConfirmChangeResponse, _abc.Awaitable[_authorization_pb2.ConfirmChangeResponse]]:
+        """Applies a pending change, as its proposer's, confirmed by the caller."""
+
+    @_abc_1.abstractmethod
+    def DeclineChange(
+        self,
+        request: _authorization_pb2.DeclineChangeRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_authorization_pb2.DeclineChangeResponse, _abc.Awaitable[_authorization_pb2.DeclineChangeResponse]]:
+        """Withdraws it (its proposer) or refuses it (one who could confirm it), with a reason."""
 
     @_abc_1.abstractmethod
     def StartBreakGlass(

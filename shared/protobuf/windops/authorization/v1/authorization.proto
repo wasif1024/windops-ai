@@ -24,6 +24,22 @@ service AuthorizationService {
   // Needs permissions.manage and a recent second factor. Replaces the role's permissions in one tenant.
   rpc SetRolePermissions(SetRolePermissionsRequest) returns (SetRolePermissionsResponse);
 
+  // Approval policy changes (RBAC-007): granting or revoking a role that holds maintenance.approve,
+  // or giving or taking that permission from a role, is not applied at once. GrantRole,
+  // RevokeRole and SetRolePermissions answer with a pending change instead, which a second Tenant
+  // Administrator confirms, never its proposer. When the tenant has no other, the escalation is a
+  // Platform Administrator, signed in to the platform tenant. Confirming needs the same permission
+  // as the change, or the Platform Administrator role, and a recent second factor (SEC-003). A
+  // pending change expires after 7 days.
+  //
+  // The tenant's pending changes, newest first. A Platform Administrator naming no tenant sees the
+  // escalated ones in every tenant.
+  rpc ListPendingChanges(ListPendingChangesRequest) returns (ListPendingChangesResponse);
+  // Applies a pending change, as its proposer's, confirmed by the caller.
+  rpc ConfirmChange(ConfirmChangeRequest) returns (ConfirmChangeResponse);
+  // Withdraws it (its proposer) or refuses it (one who could confirm it), with a reason.
+  rpc DeclineChange(DeclineChangeRequest) returns (DeclineChangeResponse);
+
   // A Platform Administrator's time-limited, reasoned access to one tenant's data (RBAC-003).
   rpc StartBreakGlass(StartBreakGlassRequest) returns (StartBreakGlassResponse);
   rpc EndBreakGlass(EndBreakGlassRequest) returns (EndBreakGlassResponse);
@@ -154,11 +170,15 @@ message BreakGlassGrant {
 }
 
 message GrantRoleResponse {
+  // Unset while the change waits for a second Tenant Administrator.
   RoleGrant grant = 1;
+  // Set instead when it changes who may approve maintenance (RBAC-007).
+  PendingChange pending = 2;
 }
 
 message RevokeRoleResponse {
   RoleGrant grant = 1;
+  PendingChange pending = 2;
 }
 
 message GetRolePermissionsResponse {
@@ -167,6 +187,67 @@ message GetRolePermissionsResponse {
 
 message SetRolePermissionsResponse {
   RolePermissions role_permissions = 1;
+  PendingChange pending = 2;
+}
+
+// A change to who may approve maintenance, waiting for a second person (RBAC-007).
+message PendingChange {
+  string change_id = 1;
+  string tenant_id = 2;
+  // "grant", "revoke" or "role_permissions".
+  string kind = 3;
+  // What it does, in words, such as "Give u-1 the maintenance-manager role, in the whole tenant".
+  string summary = 4;
+  string proposed_by = 5;
+  google.protobuf.Timestamp proposed_at = 6;
+  google.protobuf.Timestamp expires_at = 7;
+  // "pending", "confirmed", "declined" or "expired".
+  string status = 8;
+  string decided_by = 9;
+  google.protobuf.Timestamp decided_at = 10;
+  string decline_reason = 11;
+  // The tenant had no other Tenant Administrator when it was proposed, so a Platform
+  // Administrator may confirm it.
+  bool escalated = 12;
+  // The request it applies once confirmed: the role, the user and the grant it concerns.
+  string role = 13;
+  string grantee_id = 14;
+  string grant_id = 15;
+  repeated string permissions = 16;
+}
+
+message ListPendingChangesRequest {
+  string target_tenant_id = 1;
+  // Also those confirmed, declined or expired.
+  bool include_decided = 2;
+}
+
+message ListPendingChangesResponse {
+  repeated PendingChange changes = 1;
+}
+
+message ConfirmChangeRequest {
+  string target_tenant_id = 1;
+  string change_id = 2;
+  string idempotency_key = 3;
+}
+
+message ConfirmChangeResponse {
+  PendingChange change = 1;
+  // What it applied: a grant, a revocation, or the role's new permissions.
+  RoleGrant grant = 2;
+  RolePermissions role_permissions = 3;
+}
+
+message DeclineChangeRequest {
+  string target_tenant_id = 1;
+  string change_id = 2;
+  string reason = 3;
+  string idempotency_key = 4;
+}
+
+message DeclineChangeResponse {
+  PendingChange change = 1;
 }
 
 message StartBreakGlassResponse {

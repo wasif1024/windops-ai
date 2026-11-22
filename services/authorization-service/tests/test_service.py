@@ -105,6 +105,26 @@ def _now() -> Any:
     return datetime.now(UTC)
 
 
+ADMIN_2 = "u-admin-2"
+
+
+async def seed_grant(engine: AsyncEngine, user: str, role: str) -> None:
+    """A grant made outside the API, as the bootstrap command makes one."""
+    async with engine.begin() as connection:
+        await add_grant(connection, TENANT, user, role, policy.Scope(), actor="test",
+                        now=_now())  # fmt: skip
+
+
+async def confirmed(stub: Any, held: Any, who: str = ADMIN_2) -> Any:
+    """A second Tenant Administrator confirms a held change (RBAC-007)."""
+    assert held.change_id, "it was held for a second person"
+    return await stub.ConfirmChange(
+        authorization_pb2.ConfirmChangeRequest(change_id=held.change_id),
+        metadata=as_user(who),
+        timeout=5,
+    )
+
+
 async def check(stub: Any, metadata: Any, permission: str, **scope: str) -> bool:
     request = authorization_pb2.CheckRequest(
         permission=permission, scope=authorization_pb2.Scope(**scope)
@@ -518,10 +538,7 @@ def test_an_agent_acting_for_a_user_may_only_read_and_draft_and_is_audited_as_th
 
     async def scenario(stub: Any, engine: AsyncEngine) -> None:
         for role in (policy.MAINTENANCE_PLANNER, policy.MAINTENANCE_MANAGER):
-            await stub.GrantRole(
-                authorization_pb2.GrantRoleRequest(grantee_id=OPERATOR, role=role),
-                metadata=as_user(ADMIN), timeout=5,
-            )  # fmt: skip
+            await seed_grant(engine, OPERATOR, role)
         person = as_user(OPERATOR)
         assert await check(stub, person, "maintenance.approve")
         assert await check(stub, person, "maintenance.submit")
@@ -588,21 +605,25 @@ def test_a_role_you_granted_yourself_after_a_request_does_not_make_you_eligible(
     from datetime import timedelta
 
     async def scenario(stub: Any, engine: AsyncEngine) -> None:
+        await seed_grant(engine, ADMIN_2, policy.TENANT_ADMINISTRATOR)
         before = _now()
-        await stub.GrantRole(
+        held = await stub.GrantRole(
             authorization_pb2.GrantRoleRequest(grantee_id=ADMIN, role=policy.MAINTENANCE_MANAGER),
             metadata=as_user(ADMIN), timeout=5,
         )  # fmt: skip
+        # Confirmed by another, it is still the administrator's own change (RBAC-006).
+        await confirmed(stub, held.pending)
         assert await check(stub, as_user(ADMIN), "maintenance.approve")
         refused = await eligible(stub, ADMIN, before)
         assert not refused.allowed and "RBAC-006" in refused.reason
         assert (await eligible(stub, ADMIN, _now() + timedelta(seconds=1))).allowed
         # Granted by someone else after the request, it counts.
-        await stub.GrantRole(
+        held = await stub.GrantRole(
             authorization_pb2.GrantRoleRequest(grantee_id=OPERATOR,
                                                role=policy.MAINTENANCE_MANAGER),
             metadata=as_user(ADMIN), timeout=5,
         )  # fmt: skip
+        await confirmed(stub, held.pending)
         assert (await eligible(stub, OPERATOR, before)).allowed
 
     with_service(scenario)
@@ -613,19 +634,121 @@ def test_a_permission_you_gave_your_own_role_after_a_request_does_not_count() ->
     the request is undone for that request."""
 
     async def scenario(stub: Any, engine: AsyncEngine) -> None:
+        await seed_grant(engine, ADMIN_2, policy.TENANT_ADMINISTRATOR)
         assert (await eligible(stub, ADMIN, _now())).permissions_version == 0
         before = _now()
         admin = policy.permissions_of(policy.TENANT_ADMINISTRATOR, None)
-        await stub.SetRolePermissions(
+        held = await stub.SetRolePermissions(
             authorization_pb2.SetRolePermissionsRequest(
                 role=policy.TENANT_ADMINISTRATOR,
                 permissions=sorted(admin | {"maintenance.approve"}),
             ),
             metadata=as_user(ADMIN), timeout=5,
         )  # fmt: skip
+        assert not await check(stub, as_user(ADMIN), "maintenance.approve"), "held, not applied"
+        await confirmed(stub, held.pending)
         assert await check(stub, as_user(ADMIN), "maintenance.approve")
         refused = await eligible(stub, ADMIN, before)
         assert not refused.allowed and refused.permissions_version == 1
         assert (await eligible(stub, ADMIN, _now())).allowed
+
+    with_service(scenario)
+
+
+def test_a_change_to_who_may_approve_waits_for_a_second_administrator() -> None:
+    """RBAC-007: held, not applied; never confirmed by its proposer; confirmed by another, it is
+    applied as the proposer's; a role that cannot approve is granted at once, as before."""
+
+    async def scenario(stub: Any, engine: AsyncEngine) -> None:
+        await seed_grant(engine, ADMIN_2, policy.TENANT_ADMINISTRATOR)
+        plain = await stub.GrantRole(
+            authorization_pb2.GrantRoleRequest(grantee_id=OPERATOR,
+                                               role=policy.CONTROL_ROOM_OPERATOR),
+            metadata=as_user(ADMIN), timeout=5,
+        )  # fmt: skip
+        assert plain.grant.grant_id and not plain.HasField("pending")
+        held = (await stub.GrantRole(
+            authorization_pb2.GrantRoleRequest(grantee_id=OPERATOR,
+                                               role=policy.MAINTENANCE_MANAGER),
+            metadata=as_user(ADMIN), timeout=5,
+        )).pending  # fmt: skip
+        assert (held.kind, held.status, held.escalated) == ("grant", "pending", False)
+        assert "maintenance-manager" in held.summary
+        assert not await check(stub, as_user(OPERATOR), "maintenance.approve")
+        own = await code_of(confirmed(stub, held, ADMIN))
+        assert own is grpc.StatusCode.PERMISSION_DENIED
+        listed = await stub.ListPendingChanges(
+            authorization_pb2.ListPendingChangesRequest(), metadata=as_user(ADMIN_2), timeout=5
+        )
+        assert [c.change_id for c in listed.changes] == [held.change_id]
+        done = await confirmed(stub, held)
+        assert (done.change.status, done.change.decided_by) == ("confirmed", ADMIN_2)
+        assert done.grant.granted_by == ADMIN, "the proposer's change"
+        assert await check(stub, as_user(OPERATOR), "maintenance.approve")
+        again = await code_of(confirmed(stub, held))
+        assert again is grpc.StatusCode.FAILED_PRECONDITION
+        # Ending it waits too; the proposer may withdraw their own.
+        revoke = (await stub.RevokeRole(
+            authorization_pb2.RevokeRoleRequest(grant_id=done.grant.grant_id),
+            metadata=as_user(ADMIN), timeout=5,
+        )).pending  # fmt: skip
+        withdrawn = await stub.DeclineChange(
+            authorization_pb2.DeclineChangeRequest(change_id=revoke.change_id,
+                                                   reason="Changed my mind"),
+            metadata=as_user(ADMIN), timeout=5,
+        )  # fmt: skip
+        assert withdrawn.change.status == "declined"
+        assert await check(stub, as_user(OPERATOR), "maintenance.approve"), "still held"
+        actions = {action for _, action, _ in await audit_actions(engine)}
+        assert {"authorization.approval_policy.proposed", "authorization.approval_policy.confirmed",
+                "authorization.approval_policy.declined"} <= actions  # fmt: skip
+
+    with_service(scenario)
+
+
+def test_a_lone_administrator_is_escalated_to_a_platform_administrator() -> None:
+    """RBAC-007: with no second Tenant Administrator, a Platform Administrator confirms; while
+    there is one, the Platform Administrator may not."""
+
+    async def scenario(stub: Any, engine: AsyncEngine) -> None:
+        held = (await stub.SetRolePermissions(
+            authorization_pb2.SetRolePermissionsRequest(
+                role=policy.OPERATIONS_MANAGER,
+                permissions=sorted(policy.permissions_of(policy.OPERATIONS_MANAGER, None)
+                                   | {"maintenance.approve"}),
+            ),
+            metadata=as_user(ADMIN), timeout=5,
+        )).pending  # fmt: skip
+        assert held.escalated and held.kind == "role_permissions"
+        platform = as_user(PLATFORM, policy.PLATFORM_TENANT)
+        listed = await stub.ListPendingChanges(
+            authorization_pb2.ListPendingChangesRequest(), metadata=platform, timeout=5
+        )
+        assert [c.change_id for c in listed.changes] == [held.change_id]
+        stranger = await code_of(stub.ConfirmChange(
+            authorization_pb2.ConfirmChangeRequest(target_tenant_id=TENANT,
+                                                   change_id=held.change_id),
+            metadata=as_user(OPERATOR), timeout=5))  # fmt: skip
+        assert stranger is grpc.StatusCode.PERMISSION_DENIED
+        done = await stub.ConfirmChange(
+            authorization_pb2.ConfirmChangeRequest(target_tenant_id=TENANT,
+                                                   change_id=held.change_id),
+            metadata=platform, timeout=5,
+        )  # fmt: skip
+        assert "maintenance.approve" in done.role_permissions.permissions
+        # Once the tenant has a second administrator, nothing more is escalated to the platform.
+        await seed_grant(engine, ADMIN_2, policy.TENANT_ADMINISTRATOR)
+        second = (await stub.SetRolePermissions(
+            authorization_pb2.SetRolePermissionsRequest(
+                role=policy.OPERATIONS_MANAGER,
+                permissions=sorted(policy.permissions_of(policy.OPERATIONS_MANAGER, None))),
+            metadata=as_user(ADMIN), timeout=5,
+        )).pending  # fmt: skip
+        assert not second.escalated
+        refused = await code_of(stub.ConfirmChange(
+            authorization_pb2.ConfirmChangeRequest(target_tenant_id=TENANT,
+                                                   change_id=second.change_id),
+            metadata=platform, timeout=5))  # fmt: skip
+        assert refused is grpc.StatusCode.PERMISSION_DENIED
 
     with_service(scenario)

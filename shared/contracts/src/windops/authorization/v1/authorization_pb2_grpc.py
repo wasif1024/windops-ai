@@ -71,6 +71,21 @@ class AuthorizationServiceStub:
                 request_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.SetRolePermissionsRequest.SerializeToString,
                 response_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.SetRolePermissionsResponse.FromString,
                 _registered_method=True)
+        self.ListPendingChanges = channel.unary_unary(
+                '/windops.authorization.v1.AuthorizationService/ListPendingChanges',
+                request_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListPendingChangesRequest.SerializeToString,
+                response_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListPendingChangesResponse.FromString,
+                _registered_method=True)
+        self.ConfirmChange = channel.unary_unary(
+                '/windops.authorization.v1.AuthorizationService/ConfirmChange',
+                request_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ConfirmChangeRequest.SerializeToString,
+                response_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ConfirmChangeResponse.FromString,
+                _registered_method=True)
+        self.DeclineChange = channel.unary_unary(
+                '/windops.authorization.v1.AuthorizationService/DeclineChange',
+                request_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.DeclineChangeRequest.SerializeToString,
+                response_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.DeclineChangeResponse.FromString,
+                _registered_method=True)
         self.StartBreakGlass = channel.unary_unary(
                 '/windops.authorization.v1.AuthorizationService/StartBreakGlass',
                 request_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.StartBreakGlassRequest.SerializeToString,
@@ -143,6 +158,36 @@ class AuthorizationServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListPendingChanges(self, request, context):
+        """Approval policy changes (RBAC-007): granting or revoking a role that holds maintenance.approve,
+        or giving or taking that permission from a role, is not applied at once. GrantRole,
+        RevokeRole and SetRolePermissions answer with a pending change instead, which a second Tenant
+        Administrator confirms, never its proposer. When the tenant has no other, the escalation is a
+        Platform Administrator, signed in to the platform tenant. Confirming needs the same permission
+        as the change, or the Platform Administrator role, and a recent second factor (SEC-003). A
+        pending change expires after 7 days.
+
+        The tenant's pending changes, newest first. A Platform Administrator naming no tenant sees the
+        escalated ones in every tenant.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ConfirmChange(self, request, context):
+        """Applies a pending change, as its proposer's, confirmed by the caller.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeclineChange(self, request, context):
+        """Withdraws it (its proposer) or refuses it (one who could confirm it), with a reason.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def StartBreakGlass(self, request, context):
         """A Platform Administrator's time-limited, reasoned access to one tenant's data (RBAC-003).
         """
@@ -201,6 +246,21 @@ def add_AuthorizationServiceServicer_to_server(servicer, server):
                     servicer.SetRolePermissions,
                     request_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.SetRolePermissionsRequest.FromString,
                     response_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.SetRolePermissionsResponse.SerializeToString,
+            ),
+            'ListPendingChanges': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListPendingChanges,
+                    request_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListPendingChangesRequest.FromString,
+                    response_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListPendingChangesResponse.SerializeToString,
+            ),
+            'ConfirmChange': grpc.unary_unary_rpc_method_handler(
+                    servicer.ConfirmChange,
+                    request_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ConfirmChangeRequest.FromString,
+                    response_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ConfirmChangeResponse.SerializeToString,
+            ),
+            'DeclineChange': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeclineChange,
+                    request_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.DeclineChangeRequest.FromString,
+                    response_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.DeclineChangeResponse.SerializeToString,
             ),
             'StartBreakGlass': grpc.unary_unary_rpc_method_handler(
                     servicer.StartBreakGlass,
@@ -409,6 +469,87 @@ class AuthorizationService:
             '/windops.authorization.v1.AuthorizationService/SetRolePermissions',
             windops_dot_authorization_dot_v1_dot_authorization__pb2.SetRolePermissionsRequest.SerializeToString,
             windops_dot_authorization_dot_v1_dot_authorization__pb2.SetRolePermissionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListPendingChanges(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.authorization.v1.AuthorizationService/ListPendingChanges',
+            windops_dot_authorization_dot_v1_dot_authorization__pb2.ListPendingChangesRequest.SerializeToString,
+            windops_dot_authorization_dot_v1_dot_authorization__pb2.ListPendingChangesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ConfirmChange(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.authorization.v1.AuthorizationService/ConfirmChange',
+            windops_dot_authorization_dot_v1_dot_authorization__pb2.ConfirmChangeRequest.SerializeToString,
+            windops_dot_authorization_dot_v1_dot_authorization__pb2.ConfirmChangeResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeclineChange(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.authorization.v1.AuthorizationService/DeclineChange',
+            windops_dot_authorization_dot_v1_dot_authorization__pb2.DeclineChangeRequest.SerializeToString,
+            windops_dot_authorization_dot_v1_dot_authorization__pb2.DeclineChangeResponse.FromString,
             options,
             channel_credentials,
             insecure,

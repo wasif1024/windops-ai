@@ -871,6 +871,21 @@
         "title": "DecisionIn",
         "type": "object"
       },
+      "Decline": {
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "Decline",
+        "type": "object"
+      },
       "DomainChange": {
         "properties": {
           "domain": {
@@ -1623,6 +1638,129 @@
           "next_page_token"
         ],
         "title": "PartSearch",
+        "type": "object"
+      },
+      "PendingChange": {
+        "properties": {
+          "change_id": {
+            "title": "Change Id",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by": {
+            "title": "Decided By",
+            "type": "string"
+          },
+          "decline_reason": {
+            "title": "Decline Reason",
+            "type": "string"
+          },
+          "escalated": {
+            "title": "Escalated",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "grantee_id": {
+            "title": "Grantee Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "proposed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed At"
+          },
+          "proposed_by": {
+            "title": "Proposed By",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "change_id",
+          "tenant_id",
+          "kind",
+          "summary",
+          "proposed_by",
+          "proposed_at",
+          "expires_at",
+          "status",
+          "decided_by",
+          "decided_at",
+          "decline_reason",
+          "escalated",
+          "role",
+          "grantee_id",
+          "permissions"
+        ],
+        "title": "PendingChange",
+        "type": "object"
+      },
+      "PendingChanges": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/PendingChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changes"
+        ],
+        "title": "PendingChanges",
         "type": "object"
       },
       "PermissionList": {
@@ -3681,6 +3819,138 @@
         "summary": "Change one email's subject and text"
       }
     },
+    "/api/v1/admin/policy-changes": {
+      "get": {
+        "operationId": "tenant_changes_api_v1_admin_policy_changes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingChanges"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Changes to who may approve maintenance, newest first, pending or decided"
+      }
+    },
+    "/api/v1/admin/policy-changes/{change_id}/confirm": {
+      "post": {
+        "operationId": "tenant_confirm_api_v1_admin_policy_changes__change_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "change_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f-]{36}$",
+              "title": "Change Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingChange"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm another administrator's change. Never one's own"
+      }
+    },
+    "/api/v1/admin/policy-changes/{change_id}/decline": {
+      "post": {
+        "operationId": "tenant_decline_api_v1_admin_policy_changes__change_id__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "change_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f-]{36}$",
+              "title": "Change Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Decline"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingChange"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw one's own change, or refuse another's, with a reason"
+      }
+    },
     "/api/v1/admin/role-grants": {
       "get": {
         "operationId": "list_grants_api_v1_admin_role_grants_get",
@@ -3768,6 +4038,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingChange"
+                }
+              }
+            },
+            "description": "Held for a second administrator"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -3819,6 +4099,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingChange"
+                }
+              }
+            },
+            "description": "Held for a second administrator"
           },
           "422": {
             "content": {
@@ -3919,6 +4209,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingChange"
+                }
+              }
+            },
+            "description": "Held for a second administrator"
           },
           "422": {
             "content": {
@@ -5431,6 +5731,24 @@
         "summary": "End a break-glass grant early"
       }
     },
+    "/api/v1/platform/policy-changes": {
+      "get": {
+        "operationId": "escalations_api_v1_platform_policy_changes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingChanges"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Changes escalated from tenants with no second Tenant Administrator"
+      }
+    },
     "/api/v1/platform/tenants": {
       "get": {
         "operationId": "list_tenants_api_v1_platform_tenants_get",
@@ -5612,6 +5930,140 @@
           }
         },
         "summary": "A tenant's branding and custom domain, to view"
+      }
+    },
+    "/api/v1/platform/tenants/{tenant_id}/policy-changes/{change_id}/confirm": {
+      "post": {
+        "operationId": "platform_confirm_api_v1_platform_tenants__tenant_id__policy_changes__change_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "change_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f-]{36}$",
+              "title": "Change Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingChange"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm an escalated change in a tenant with no second Tenant Administrator"
+      }
+    },
+    "/api/v1/platform/tenants/{tenant_id}/policy-changes/{change_id}/decline": {
+      "post": {
+        "operationId": "platform_decline_api_v1_platform_tenants__tenant_id__policy_changes__change_id__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "change_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f-]{36}$",
+              "title": "Change Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Decline"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingChange"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refuse an escalated change, with a reason"
       }
     },
     "/api/v1/platform/tenants/{tenant_id}/reactivate": {

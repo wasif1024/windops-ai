@@ -7,6 +7,7 @@ Every change also needs a recent second factor, which comes back as a step-up ch
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Path, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from windops.audit.v1 import audit_pb2
 from windops.authorization.v1 import authorization_pb2
@@ -15,6 +16,7 @@ from windops.identity.v1 import identity_pb2
 from windops_web_bff.common import ID_PATTERN as _ID
 from windops_web_bff.common import Call, Key, MemberId
 from windops_web_bff.common import time_of as _time
+from windops_web_bff.policy_changes import PendingChange, pending_change
 from windops_web_bff.tokens import Caller
 
 DENIED = "authorization.denied"
@@ -125,6 +127,19 @@ def _user(message: Any) -> User:
         enabled=message.enabled,
         created_at=_time(message, "created_at"),
     )
+
+
+# A change to who may approve maintenance is held for a second administrator (RBAC-007): 202,
+# with the held change, instead of what it would have made.
+HELD: dict[int | str, dict[str, Any]] = {
+    202: {"model": PendingChange, "description": "Held for a second administrator"}
+}
+
+
+def _held(answer: Any) -> JSONResponse | None:
+    if not answer.HasField("pending"):
+        return None
+    return JSONResponse(pending_change(answer.pending).model_dump(), status_code=202)
 
 
 def _grant(message: Any) -> RoleGrant:
@@ -277,8 +292,9 @@ def add_admin_routes(router: APIRouter, caller: Any, call: Call) -> None:
         response_model=RoleGrant,
         status_code=201,
         summary="Give a user a role, in the whole tenant, a wind farm or a turbine",
+        responses=HELD,
     )
-    async def grant_role(who: Who, body: NewGrant, key: Key) -> RoleGrant:
+    async def grant_role(who: Who, body: NewGrant, key: Key) -> Any:
         request = authorization_pb2.GrantRoleRequest(
             grantee_id=body.user_id,
             role=body.role,
@@ -288,19 +304,18 @@ def add_admin_routes(router: APIRouter, caller: Any, call: Call) -> None:
             idempotency_key=key,
         )
         answer = await call("authorization", "GrantRole", request, who, retry=False)
-        return _grant(answer.grant)
+        return _held(answer) or _grant(answer.grant)
 
     @router.post(
         "/admin/role-grants/{grant_id}/revoke",
         response_model=RoleGrant,
         summary="End a grant. It is kept, marked as ended",
+        responses=HELD,
     )
-    async def revoke_role(
-        who: Who, grant_id: Annotated[str, Path(pattern=_ID)], key: Key
-    ) -> RoleGrant:
+    async def revoke_role(who: Who, grant_id: Annotated[str, Path(pattern=_ID)], key: Key) -> Any:
         request = authorization_pb2.RevokeRoleRequest(grant_id=grant_id, idempotency_key=key)
         answer = await call("authorization", "RevokeRole", request, who, retry=False)
-        return _grant(answer.grant)
+        return _held(answer) or _grant(answer.grant)
 
     @router.get(
         "/admin/roles/{role}/permissions",
@@ -322,15 +337,16 @@ def add_admin_routes(router: APIRouter, caller: Any, call: Call) -> None:
         "/admin/roles/{role}/permissions",
         response_model=RolePermissions,
         summary="Replace the permissions a role gives in this tenant",
+        responses=HELD,
     )
     async def set_role_permissions(
         who: Who, role: Annotated[str, Path(pattern=_ID)], body: PermissionList, key: Key
-    ) -> RolePermissions:
+    ) -> Any:
         request = authorization_pb2.SetRolePermissionsRequest(
             role=role, permissions=body.permissions, idempotency_key=key
         )
         answer = await call("authorization", "SetRolePermissions", request, who, retry=False)
-        return _role_permissions(answer.role_permissions)
+        return _held(answer) or _role_permissions(answer.role_permissions)
 
     @router.get(
         "/admin/access-denials",

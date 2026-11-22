@@ -100,7 +100,32 @@ export interface EmailTemplate {
   placeholders: string[];
 }
 
+/** A change to who may approve maintenance, held for a second administrator (RBAC-007). */
+export interface PendingChange {
+  change_id: string;
+  tenant_id: string;
+  kind: "grant" | "revoke" | "role_permissions";
+  summary: string;
+  proposed_by: string;
+  proposed_at: string | null;
+  expires_at: string | null;
+  status: "pending" | "confirmed" | "declined" | "expired";
+  decided_by: string;
+  decided_at: string | null;
+  decline_reason: string;
+  escalated: boolean;
+  role: string;
+  grantee_id: string;
+  permissions: string[];
+}
+
+/** Whether a change was held for a second administrator, instead of made. */
+export function isHeld(result: unknown): result is PendingChange {
+  return typeof result === "object" && result !== null && "change_id" in result;
+}
+
 const user = (id: string) => `/admin/users/${encodeURIComponent(id)}`;
+const change = (id: string) => `/admin/policy-changes/${encodeURIComponent(id)}`;
 
 /** Every call, bound to the signed-in user's token. */
 export function adminApi(token: string) {
@@ -122,15 +147,25 @@ export function adminApi(token: string) {
         token,
       ),
     grant: (key: string, body: { user_id: string; role: string; wind_farm_id: string; turbine_id: string }) =>
-      sendJson<RoleGrant>("POST", "/admin/role-grants", token, key, body),
+      sendJson<RoleGrant | PendingChange>("POST", "/admin/role-grants", token, key, body),
     revoke: (key: string, grantId: string) =>
-      sendJson<RoleGrant>("POST", `/admin/role-grants/${encodeURIComponent(grantId)}/revoke`, token, key),
+      sendJson<RoleGrant | PendingChange>(
+        "POST",
+        `/admin/role-grants/${encodeURIComponent(grantId)}/revoke`,
+        token,
+        key,
+      ),
     rolePermissions: (role: string) =>
       getJson<RolePermissions>(`/admin/roles/${encodeURIComponent(role)}/permissions`, token),
     setRolePermissions: (key: string, role: string, permissions: string[]) =>
-      sendJson<RolePermissions>("PUT", `/admin/roles/${encodeURIComponent(role)}/permissions`, token, key, {
+      sendJson<RolePermissions | PendingChange>("PUT", `/admin/roles/${encodeURIComponent(role)}/permissions`, token, key, {
         permissions,
       }),
+    policyChanges: () => getJson<{ changes: PendingChange[] }>("/admin/policy-changes", token),
+    confirmChange: (key: string, item: PendingChange) =>
+      sendJson<PendingChange>("POST", `${change(item.change_id)}/confirm`, token, key),
+    declineChange: (key: string, item: PendingChange, reason: string) =>
+      sendJson<PendingChange>("POST", `${change(item.change_id)}/decline`, token, key, { reason }),
     branding: () => getJson<OwnBranding>("/admin/branding", token),
     updateBranding: (key: string, fields: BrandingFields) =>
       sendJson<OwnBranding>("PUT", "/admin/branding", token, key, fields),

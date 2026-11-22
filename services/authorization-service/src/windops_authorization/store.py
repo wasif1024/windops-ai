@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from google.protobuf.message import Message
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     DateTime,
     LargeBinary,
@@ -30,6 +31,7 @@ from windops_authorization.policy import (
     DEFAULT_MATRIX,
     PLATFORM_ADMINISTRATOR,
     ROLES,
+    TENANT_ADMINISTRATOR,
     Grant,
     Scope,
     permissions_of,
@@ -80,6 +82,29 @@ ROLE_PERMISSION_CHANGES = Table(
     Column("permissions", Text, nullable=False),
     Column("changed_by", Text, nullable=False),
     Column("changed_at", DateTime(timezone=True), nullable=False),
+)
+# Changes to who may approve maintenance, waiting for a second person (RBAC-007). The request is
+# the serialized GrantRoleRequest, RevokeRoleRequest or SetRolePermissionsRequest it applies.
+PENDING_CHANGES = Table(
+    "pending_changes",
+    METADATA,
+    Column("change_id", Text, primary_key=True),
+    Column("tenant_id", Text, nullable=False),
+    Column("kind", Text, nullable=False),
+    Column("summary", Text, nullable=False),
+    Column("request", LargeBinary, nullable=False),
+    Column("role", Text, nullable=False),
+    Column("grantee_id", Text, nullable=False, server_default=""),
+    Column("grant_id", Text, nullable=False, server_default=""),
+    Column("permissions", Text, nullable=False, server_default=""),
+    Column("proposed_by", Text, nullable=False),
+    Column("proposed_at", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("status", Text, nullable=False),
+    Column("escalated", Boolean, nullable=False),
+    Column("decided_by", Text, nullable=False, server_default=""),
+    Column("decided_at", DateTime(timezone=True)),
+    Column("decline_reason", Text, nullable=False, server_default=""),
 )
 BREAK_GLASS_GRANTS = Table(
     "break_glass_grants",
@@ -342,6 +367,21 @@ async def add_grant(
         )
     )
     return grant_id
+
+
+async def tenant_administrators(
+    connection: AsyncConnection, tenant_id: str, *, besides: str = ""
+) -> int:
+    """How many people hold the Tenant Administrator role for the whole tenant, besides one."""
+    await in_tenant(connection, tenant_id)
+    g = ROLE_GRANTS.c
+    found = await connection.scalar(
+        select(func.count(func.distinct(g.user_id))).where(
+            g.tenant_id == tenant_id, g.role == TENANT_ADMINISTRATOR, g.wind_farm_id == "",
+            g.turbine_id == "", g.revoked_at.is_(None), g.user_id != besides,
+        )
+    )  # fmt: skip
+    return int(found or 0)
 
 
 async def other_whole_tenant_holders(
