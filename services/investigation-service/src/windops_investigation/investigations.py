@@ -36,7 +36,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
 import grpc
-from sqlalchemy import func, select, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from windops.agent_runtime.v1 import agent_runtime_pb2
 from windops.identity.v1 import identity_pb2
@@ -51,15 +51,16 @@ from windops_grpc import (
 from windops_migrations import across_tenants, in_tenant
 from windops_resilience import BreakerOpenError
 
-from windops_investigation import cases
+from windops_investigation import cases, decisions
+from windops_investigation.progress import add_progress
 from windops_investigation.store import (
     CANCELLED,
+    CASE_DECISIONS,
     CASES,
     INVESTIGATING,
     INVESTIGATIONS,
     OPEN,
     PENDING_REVIEW,
-    PROGRESS,
     SERVICE_NAME,
 )
 
@@ -83,7 +84,7 @@ class Runtime(Protocol):
 
     async def start_run(
         self, *, case_id: str, snapshot_id: str, parameters: dict[str, str], requested_by: str,
-        delegation_id: str, key: str, cost_budget_usd: str = "",
+        delegation_id: str, key: str, cost_budget_usd: str = "", workflow: str = "investigation",
     ) -> Any: ...  # fmt: skip
 
     async def get_run(self, run_id: str) -> Any: ...
@@ -111,28 +112,6 @@ def parameters_for(mode: str, turbine_id: str) -> dict[str, str]:
 
 def _utc(value: datetime) -> datetime:
     return value if value.tzinfo else value.replace(tzinfo=UTC)
-
-
-async def add_progress(
-    connection: AsyncConnection, case: Any, *, key: str, kind: str, at: datetime, **values: Any
-) -> bool:
-    """Add one event, after the case's last, unless one with this key is there. The caller holds
-    the case's row lock, so two replicas never take the same sequence."""
-    p = PROGRESS.c
-    seen = await connection.execute(
-        select(p.sequence).where(p.tenant_id == case.tenant_id, p.case_id == case.case_id,
-                                 p.event_key == key)
-    )  # fmt: skip
-    if seen.first() is not None:
-        return False
-    last = (await connection.execute(
-        select(func.max(p.sequence)).where(p.tenant_id == case.tenant_id, p.case_id == case.case_id)
-    )).scalar()  # fmt: skip
-    await connection.execute(PROGRESS.insert().values(
-        tenant_id=case.tenant_id, case_id=case.case_id, sequence=(last or 0) + 1, at=at,
-        kind=kind, event_key=key, **values,
-    ))  # fmt: skip
-    return True
 
 
 async def request(
@@ -201,11 +180,20 @@ class Keeper:
             running = (await connection.execute(
                 select(i.tenant_id, i.case_id).where(i.status == RUNNING).order_by(i.started_at)
             )).all()  # fmt: skip
+            k = CASE_DECISIONS.c
+            decided = (await connection.execute(
+                select(k.tenant_id, k.approval_id, k.status)
+                .where(k.status.in_((decisions.WAITING, decisions.RUNNING)))
+                .order_by(k.received_at)
+            )).all()  # fmt: skip
         changed = 0
         for tenant, case_id in ready:
             changed += await self._guarded(self.start, tenant, case_id)
         for tenant, case_id in running:
             changed += await self._guarded(self.follow, tenant, case_id)
+        for tenant, approval_id, status in decided:
+            step = self.resume if status == decisions.WAITING else self.follow_decision
+            changed += await self._guarded(step, tenant, approval_id)
         return changed
 
     async def _guarded(self, step: Any, tenant: str, case_id: str) -> int:
@@ -332,6 +320,93 @@ class Keeper:
                                    kind="case_status", at=now, status=moved.status)  # fmt: skip
         return True
 
+    async def resume(self, tenant: str, approval_id: str) -> bool:
+        """Step 14: resume the investigation the decision was made on, or record the decision
+        where there is none to resume (ADR 0036)."""
+        async with self.engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            decision = await decisions.load(connection, tenant, approval_id)
+            if decision is None or decision.status != decisions.WAITING:
+                return False
+            wanted = await load(connection, tenant, decision.case_id)
+        if wanted is not None and wanted.status in (WAITING, RUNNING):
+            # Its investigation is still going: the decision waits for it to end.
+            return False
+        if (wanted is None or wanted.status != COMPLETED or not wanted.run_id
+                or wanted.snapshot_id != decision.evidence_snapshot_id):  # fmt: skip
+            return await self._record_only(tenant, decision)
+        run = await self.runtime.start_run(
+            case_id=decision.case_id, snapshot_id=decision.evidence_snapshot_id,
+            parameters=decisions.run_parameters(decision, wanted.run_id),
+            requested_by=REQUESTED_BY_SERVICE, delegation_id="",
+            key=f"decide-{approval_id}", workflow="decision",
+        )  # fmt: skip
+        now = self.clock()
+        async with self.engine.begin() as connection:
+            locked = await _locked_case(connection, tenant, decision.case_id)
+            await decisions.set_status(connection, decision, now, status=decisions.RUNNING,
+                                       resumes_run_id=wanted.run_id, run_id=run.run_id)  # fmt: skip
+            await add_progress(connection, locked, key=f"started:{run.run_id}", kind="started",
+                               at=now, run_id=run.run_id, total_steps=run.total_steps,
+                               note=f"Resuming {wanted.run_id} on {approval_id}")  # fmt: skip
+        return True
+
+    async def _record_only(self, tenant: str, decision: Any) -> bool:
+        """No investigation run on the decision's snapshot, as for a person's own proposal: the
+        decision is kept on the case, and moves it, with nothing to resume."""
+        now = self.clock()
+        async with self.engine.begin() as connection:
+            locked = await _locked_case(connection, tenant, decision.case_id)
+            await decisions.set_status(
+                connection, decision, now, status=decisions.RECORDED,
+                note="No investigation run on its snapshot to resume",
+            )  # fmt: skip
+            await self._moved(connection, locked, decision, now, resumed=True)
+        return True
+
+    async def follow_decision(self, tenant: str, approval_id: str) -> bool:
+        async with self.engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            decision = await decisions.load(connection, tenant, approval_id)
+        if decision is None or decision.status != decisions.RUNNING:
+            return False
+        run = await self.runtime.get_run(decision.run_id)
+        now = self.clock()
+        added = False
+        async with self.engine.begin() as connection:
+            locked = await _locked_case(connection, tenant, decision.case_id)
+            for step in run.steps:
+                added |= await add_progress(
+                    connection, locked, key=f"step:{run.run_id}:{step.position}", kind="step",
+                    at=step.finished_at.ToDatetime(tzinfo=UTC) if step.HasField("finished_at")
+                    else now,
+                    run_id=run.run_id, position=step.position, total_steps=run.total_steps,
+                    step=step.name,
+                )  # fmt: skip
+            if run.status not in RUN_TERMINAL:
+                return added
+            done = run.status == "completed"
+            await add_progress(connection, locked, key=f"ended:{run.run_id}", kind="run_ended",
+                               at=now, run_id=run.run_id, status=run.status,
+                               note=run.reason[:500])  # fmt: skip
+            await decisions.set_status(
+                connection, decision, now, status=decisions.COMPLETED if done else decisions.ENDED,
+                note=run.reason[:1000], references_json=run.result_json if done else "",
+            )  # fmt: skip
+            await self._moved(connection, locked, decision, now, resumed=done,
+                              why=f"{run.status}: {run.reason}")  # fmt: skip
+        return True
+
+    async def _moved(
+        self, connection: AsyncConnection, case: Any, decision: Any, now: datetime, *,
+        resumed: bool, why: str = "",
+    ) -> None:  # fmt: skip
+        moved = await decisions.move_case(connection, case, decision, now=now, actor_id=KEEPER,
+                                          resumed=resumed, why=why)  # fmt: skip
+        if moved is not None:
+            await add_progress(connection, moved, key=f"case:{moved.version}",
+                               kind="case_status", at=now, status=moved.status)  # fmt: skip
+
 
 async def keep_investigating(
     keeper: Keeper, stop: asyncio.Event, every_seconds: float = 2.0
@@ -369,10 +444,10 @@ class RuntimeClient:
 
     async def start_run(
         self, *, case_id: str, snapshot_id: str, parameters: dict[str, str], requested_by: str,
-        delegation_id: str, key: str, cost_budget_usd: str = "",
+        delegation_id: str, key: str, cost_budget_usd: str = "", workflow: str = "investigation",
     ) -> Any:  # fmt: skip
         request = agent_runtime_pb2.StartRunRequest(
-            case_id=case_id, snapshot_id=snapshot_id, workflow="investigation",
+            case_id=case_id, snapshot_id=snapshot_id, workflow=workflow,
             parameters=parameters, requested_by=requested_by, idempotency_key=key,
             delegation_id=delegation_id, cost_budget_usd=cost_budget_usd,
         )  # fmt: skip

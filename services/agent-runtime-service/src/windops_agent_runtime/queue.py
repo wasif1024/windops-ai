@@ -312,6 +312,14 @@ class Queue:
             used.setdefault(role, []).append(model)
         return {role: sorted(models) for role, models in sorted(used.items())}
 
+    async def run_of(self, claim: Claim, run_id: str) -> Any | None:
+        """Another run in the claim's tenant, as it is kept, or None (M10.4)."""
+        r = RUNS.c
+        async with self.reading(claim) as connection:
+            return (await connection.execute(
+                select(RUNS).where(r.tenant_id == claim.tenant_id, r.run_id == run_id)
+            )).one_or_none()  # fmt: skip
+
     async def save_result(self, claim: Claim, result: dict[str, Any]) -> None:
         r = RUNS.c
         async with self.holding(claim) as connection:

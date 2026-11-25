@@ -10,7 +10,7 @@ newest checkpoint, and LangGraph skips every node it has passed.
 **Human decisions:** the graph never waits on one. There is no `interrupt()` and no interrupt
 point, because a LangGraph interrupt is not the system of record for a decision (AGT-003). The
 graph ends at step 13. The decision arrives later as a durable event, and starts a run of its
-own (step 14, Phase 10).
+own that resumes this one (step 14, decision.py, ADR 0036).
 
 **Pins:** a run pins the graph's version and shape, and the prompt, tool and skill versions it
 uses (AGT-004). A resume under different pins ends the run as stale (AGT-005).

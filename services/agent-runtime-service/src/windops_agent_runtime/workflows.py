@@ -24,6 +24,7 @@ from windops_grpc import InvalidRequestError
 if TYPE_CHECKING:
     from langgraph.checkpoint.base import BaseCheckpointSaver
 
+    from windops_agent_runtime.decision import Resumed
     from windops_agent_runtime.identity import AgentTokens
     from windops_agent_runtime.team.run import TeamRunner
 
@@ -55,6 +56,13 @@ class Context(Protocol):
 
     async def save_result(self, result: dict[str, Any]) -> None:
         """Keep the run's structured result, only while the run's lease is held."""
+
+    # The Claude policy now in force, to check a resumed run against (AGT-004). None when the
+    # runtime has none loaded.
+    policy_hash: str | None
+
+    async def resumed_run(self, run_id: str) -> "Resumed | None":
+        """Another run of this tenant, with its newest checkpoint's state: read, never written."""
 
 
 class Workflow(Protocol):

@@ -64,6 +64,7 @@ def test_only_consumers_may_receive_and_each_only_its_own_subscription() -> None
                 "investigation-alarms",
                 "investigation-evidence",
                 "investigation-proposals",
+                "investigation-decisions",
             )
         ],
         "windops-approval": [{"topic": "windops-events", "subscription": "approval"}],

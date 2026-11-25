@@ -46,6 +46,10 @@ service InvestigationService {
   // the run, keeps each step as an event, and sets the case to "investigating", then
   // "pending_review" when the run completes, or back to "open" if it ends otherwise.
   //
+  // A person's decision on the case's work order, from approval.decided, resumes it in a run of
+  // its own (SRS 5.4 step 14): approved, the case is "approved"; rejected, it waits for a revised
+  // proposal; a resume that cannot carry on sends it back to "open", to restart from the snapshot.
+  //
   // The stream sends a heartbeat when nothing has happened for a while, ends with "finished"
   // once the investigation is over, and ends without it after a few minutes, to be called again.
   rpc WatchInvestigation(WatchInvestigationRequest) returns (stream WatchInvestigationResponse);
@@ -58,7 +62,7 @@ message Case {
   // or a detection whose rule the case rules do not know.
   string component_group = 3;
   string title = 4;
-  // "open", "investigating", "pending_review", "closed" or "cancelled".
+  // "open", "investigating", "pending_review", "approved", "closed" or "cancelled".
   string status = 5;
   // "low", "medium", "high" or "critical": the highest of its detections, or a person's choice
   // for a case they open by hand.
@@ -136,7 +140,7 @@ message CreateCaseResponse {
 }
 
 message ListCasesRequest {
-  // Empty means open, investigating and pending_review.
+  // Empty means open, investigating, pending_review and approved.
   repeated string statuses = 1;
   string turbine_id = 2;
   int32 page_size = 3;
@@ -246,7 +250,8 @@ message ProgressEvent {
   // From 1 in the case, never reused.
   int64 sequence = 1;
   google.protobuf.Timestamp at = 2;
-  // "requested", "started", "step", "run_ended" or "case_status".
+  // "requested", "started", "step", "run_ended", "case_status", or "decided" for a person's
+  // decision, whose status is "approved" or "rejected".
   string kind = 3;
   string run_id = 4;
   // For "step": its position from 1, of total_steps, and its name.

@@ -166,6 +166,10 @@ class InvestigationServiceServicer:
         the run, keeps each step as an event, and sets the case to "investigating", then
         "pending_review" when the run completes, or back to "open" if it ends otherwise.
 
+        A person's decision on the case's work order, from approval.decided, resumes it in a run of
+        its own (SRS 5.4 step 14): approved, the case is "approved"; rejected, it waits for a revised
+        proposal; a resume that cannot carry on sends it back to "open", to restart from the snapshot.
+
         The stream sends a heartbeat when nothing has happened for a while, ends with "finished"
         once the investigation is over, and ends without it after a few minutes, to be called again.
         """

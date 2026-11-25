@@ -508,6 +508,7 @@ class ApprovalDecided(_message.Message):
     EVIDENCE_SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
     DECISION_FIELD_NUMBER: _builtins.int
     DECIDED_BY_FIELD_NUMBER: _builtins.int
+    CASE_ID_FIELD_NUMBER: _builtins.int
     approval_id: _builtins.str
     work_order_id: _builtins.str
     proposal_version: _builtins.str
@@ -515,6 +516,8 @@ class ApprovalDecided(_message.Message):
     decision: Global___ApprovalDecision.ValueType
     decided_by: _builtins.str
     """The person who decided. Never an agent (FR-APR-001)."""
+    case_id: _builtins.str
+    """The case the proposal was made for, whose workflow resumes on the decision (SRS 5.4 step 14)."""
     def __init__(
         self,
         *,
@@ -524,10 +527,11 @@ class ApprovalDecided(_message.Message):
         evidence_snapshot_id: _builtins.str = ...,
         decision: Global___ApprovalDecision.ValueType = ...,
         decided_by: _builtins.str = ...,
+        case_id: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["approval_id", b"approval_id", "decided_by", b"decided_by", "decision", b"decision", "evidence_snapshot_id", b"evidence_snapshot_id", "proposal_version", b"proposal_version", "work_order_id", b"work_order_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["approval_id", b"approval_id", "case_id", b"case_id", "decided_by", b"decided_by", "decision", b"decision", "evidence_snapshot_id", b"evidence_snapshot_id", "proposal_version", b"proposal_version", "work_order_id", b"work_order_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

@@ -3,7 +3,7 @@
 Agent runs, as queued jobs on worker replicas (ARC-006, ARC-007). A replica can stop at any moment, and its runs carry
 on elsewhere. The decisions behind it are in [ADR 0016](../../docs/adr/0016-agent-runs-as-leased-jobs-in-postgresql.md).
 
-There are three workflows:
+There are four workflows:
 - **`investigation`:** SRS 5.4's steps 1 to 13 as a LangGraph graph, checkpointed after every node
   ([ADR 0018](../../docs/adr/0018-the-investigation-graph-and-its-checkpoints.md)). Step 5 runs the team: the
   Supervisor and its five specialists on restricted Deep Agents
@@ -17,6 +17,11 @@ There are three workflows:
   team on a scripted model, at no cost. Investigation starts these runs for its cases, follows them, and sets the
   case to `pending_review` when one completes
   ([ADR 0025](../../docs/adr/0025-investigations-started-and-followed-by-their-case-owner.md)).
+- **`decision`:** SRS 5.4's step 14. A person's decision resumes the case's completed investigation in a run of
+  its own, which Investigation asks for when it hears `approval.decided`. It checks the investigation's pins and
+  Claude policy, restores its checkpoint without writing to it, and keeps the references as its result. An
+  incompatible resume ends `stale`, for a person to restart from the snapshot (AGT-005). No agent acts and nothing
+  calls Claude ([ADR 0036](../../docs/adr/0036-step-14-a-decision-resumes-the-case-in-a-run-of-its-own.md)).
 - **`rehearsal`:** timed steps with no model and no tools, so the queue and its recovery can be proved without
   spending anything.
 - **`model-check`:** one short call per role, a structured answer and a cached prompt, a few cents of synthetic
@@ -32,7 +37,7 @@ There are three workflows:
 | `completed` | Every step is done |
 | `failed` | An attempt failed with none left, or the last attempt's worker stopped. The reason is kept |
 | `cancelled` | Cancelled while queued, at once, or while running, at the worker's next heartbeat |
-| `stale` | Not started within a day, or its workflow version is gone (AGT-005): start it again |
+| `stale` | Not started within a day, its workflow version is gone, or the run it resumes is incompatible (AGT-005): start it again |
 | `budget_exhausted` | Its token or cost budget ran out (LLM-010, from M8.3) |
 
 The terminal states are SRS 5.6's, and a run in one never changes again.

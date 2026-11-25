@@ -1,4 +1,4 @@
-"""Start the Investigation Service: its API, its fault.detected consumer and its relay."""
+"""Start the Investigation Service: its API, its event consumers, its keepers and its relay."""
 
 import asyncio
 import contextlib
@@ -29,7 +29,7 @@ from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, BreakerOpenError, CircuitBreaker
 
-from windops_investigation import stale
+from windops_investigation import decisions, stale
 from windops_investigation.consumer import SUBJECT, handle
 from windops_investigation.evidence import Builder, keep_building
 from windops_investigation.investigations import (
@@ -242,6 +242,9 @@ def main() -> None:
             (stale.EVIDENCE_SUBJECT, f"{SERVICE_NAME}-evidence", evidence_changed),
             (stale.SUBMITTED_SUBJECT, f"{SERVICE_NAME}-proposals",
              lambda e: stale.on_submitted(engine, e)),
+            # A person's decision, which resumes the case's workflow (SRS 5.4 step 14, M10.4).
+            (decisions.SUBJECT, f"{SERVICE_NAME}-decisions",
+             lambda e: decisions.on_decided(engine, e)),
         ])  # fmt: skip
 
     async def sweep(stop: asyncio.Event) -> None:

@@ -137,6 +137,10 @@
       {
         "topic": "windops-events",
         "subscription": "investigation-proposals"
+      },
+      {
+        "topic": "windops-events",
+        "subscription": "investigation-decisions"
       }
     ]
   },

@@ -44,7 +44,7 @@ from windops_maintenance.store import (
 from windops_maintenance.validation import Authorizer, Sources
 
 READ, DRAFT_PERMISSION, SUBMIT = "investigation.read", "maintenance.draft", "maintenance.submit"
-ACTIVE_CASES = ("open", "investigating", "pending_review")
+ACTIVE_CASES = ("open", "investigating", "pending_review", "approved")
 STATUSES = (DRAFT, SUBMITTED, WITHDRAWN, APPROVED, REJECTED, STALE)
 # What is revised as a new version (EVD-008).
 REVISABLE = (STALE, REJECTED)

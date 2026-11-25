@@ -55,7 +55,7 @@ class Case(_message.Message):
     """
     title: _builtins.str
     status: _builtins.str
-    """"open", "investigating", "pending_review", "closed" or "cancelled"."""
+    """"open", "investigating", "pending_review", "approved", "closed" or "cancelled"."""
     severity: _builtins.str
     """"low", "medium", "high" or "critical": the highest of its detections, or a person's choice
     for a case they open by hand.
@@ -280,7 +280,7 @@ class ListCasesRequest(_message.Message):
     page_token: _builtins.str
     @_builtins.property
     def statuses(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
-        """Empty means open, investigating and pending_review."""
+        """Empty means open, investigating, pending_review and approved."""
 
     def __init__(
         self,
@@ -698,7 +698,9 @@ class ProgressEvent(_message.Message):
     sequence: _builtins.int
     """From 1 in the case, never reused."""
     kind: _builtins.str
-    """"requested", "started", "step", "run_ended" or "case_status"."""
+    """"requested", "started", "step", "run_ended", "case_status", or "decided" for a person's
+    decision, whose status is "approved" or "rejected".
+    """
     run_id: _builtins.str
     position: _builtins.int
     """For "step": its position from 1, of total_steps, and its name."""

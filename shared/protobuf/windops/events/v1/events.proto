@@ -154,6 +154,8 @@ message ApprovalDecided {
   ApprovalDecision decision = 5;
   // The person who decided. Never an agent (FR-APR-001).
   string decided_by = 6;
+  // The case the proposal was made for, whose workflow resumes on the decision (SRS 5.4 step 14).
+  string case_id = 7;
 }
 
 enum ApprovalDecision {

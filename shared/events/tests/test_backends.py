@@ -96,6 +96,7 @@ def test_a_subscription_keeps_only_its_consumers_subjects() -> None:
         ("windops-events", "investigation-alarms"),
         ("windops-events", "investigation-evidence"),
         ("windops-events", "investigation-proposals"),
+        ("windops-events", "investigation-decisions"),
         ("windops-events", "maintenance-cases"),
     ]
     assert _matches("audit.requested.*", "audit.requested.alarm")

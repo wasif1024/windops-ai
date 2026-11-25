@@ -8,12 +8,13 @@ another replica need not wait for the lease to run out.
 import asyncio
 import contextlib
 import functools
+import json
 import logging
 import random
 import socket
 import time
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -35,6 +36,7 @@ from windops_claude import (
 )
 
 from windops_agent_runtime.checkpoints import RunCheckpointer
+from windops_agent_runtime.decision import IncompatibleResumeError, Resumed
 from windops_agent_runtime.identity import AgentTokens, Identity
 from windops_agent_runtime.investigation import canonical_pins
 from windops_agent_runtime.queue import Claim, LeaseLostError, Queue
@@ -113,8 +115,10 @@ class _Steps:
         claude: Claude | None,
         tokens: AgentTokens | None = None,
         team: TeamRunner | None = None,
+        policy_hash: str | None = None,
     ) -> None:
         self._queue, self._claim, self._position = queue, claim, 0
+        self.policy_hash = policy_hash
         self.claude = claude
         # Its agents' tool tokens, under the run's delegation (ADR 0019).
         self.tokens = tokens
@@ -131,6 +135,21 @@ class _Steps:
 
     async def save_result(self, result: dict[str, Any]) -> None:
         await self._queue.save_result(self._claim, result)
+
+    async def resumed_run(self, run_id: str) -> Resumed | None:
+        row = await self._queue.run_of(self._claim, run_id)
+        if row is None:
+            return None
+        # Its own thread, read through a checkpointer that serves only it, and writes nothing.
+        reader = RunCheckpointer(self._queue, replace(self._claim, run_id=run_id))
+        saved = await reader.aget_tuple({"configurable": {"thread_id": run_id}})
+        return Resumed(
+            run_id=row.run_id, case_id=row.case_id, snapshot_id=row.snapshot_id,
+            workflow=row.workflow, workflow_version=row.workflow_version, status=row.status,
+            parameters=json.loads(row.parameters), pins=json.loads(row.pins or "{}"),
+            policy_hash=row.policy_hash,
+            state=dict(saved.checkpoint["channel_values"]) if saved is not None else None,
+        )  # fmt: skip
 
     async def record(self, position: int, name: str, started_at: datetime) -> None:
         if position in self._claim.completed:
@@ -244,7 +263,14 @@ class Worker:
             else None
         )
         claude = self._claude_for(claim)
-        context = _Steps(self._queue, claim, claude, tokens, self._team_for(claim, claude, tokens))
+        context = _Steps(
+            self._queue,
+            claim,
+            claude,
+            tokens,
+            self._team_for(claim, claude, tokens),
+            self._policy.content_hash if self._policy is not None else None,
+        )
         context.trace_metadata = run_metadata(
             run_id=claim.run_id, case_id=claim.case_id, snapshot_id=claim.snapshot_id,
             tenant_id=claim.tenant_id, requested_by=claim.requested_by,
@@ -350,6 +376,9 @@ class Worker:
             return "lost"
         if error is None:
             return await self._end(claim, COMPLETED, "")
+        if isinstance(error, IncompatibleResumeError):
+            # A resume that cannot carry on stops safely, for a person to restart (AGT-005).
+            return await self._end(claim, STALE, str(error))
         if isinstance(error, BudgetExhaustedError):
             # LLM-010. WindopsAgentBudgetExhausted alerts a person, until Notification (M10.5).
             return await self._end(claim, BUDGET_EXHAUSTED, str(error))

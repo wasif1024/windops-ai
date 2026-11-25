@@ -1,6 +1,7 @@
 """How a case lives: opened by a person or by detections, grouped by the case rules, cancelled.
 
     detection (medium or above, nothing active) ──> open ──> investigating ──> pending_review
+                                                    approved, by a person's decision <──┘
     a person ───────────────────────────────────> open    (its investigation: investigations.py)
     any active case ──cancel──> cancelled
 
