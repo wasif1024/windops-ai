@@ -172,6 +172,8 @@ SERVICE_GRANTS: dict[str, frozenset[str]] = {
     ),
     # It reads each turbine's coordinates and hub height, for the forecast at its site.
     "weather": frozenset({"turbine.read"}),
+    # It reads a turbine's wind farm, to find whom to tell in that scope (M10.5).
+    "notification": frozenset({"turbine.read"}),
     # Not a service but the tenant's principal for fault-triggered investigations (SRS 9.2): it
     # reads the evidence and may create drafts, the one change any identity without a person
     # behind it may make, and never submits, reserves or approves (SEC-009, M8.5).
@@ -189,6 +191,9 @@ SERVICE_GRANTS: dict[str, frozenset[str]] = {
         }
     ),
 }
+# The services that may ask who holds a permission, as themselves, in their own tenant: user IDs
+# only, to find whom to tell (M10.5, ADR 0037). Never an agent.
+HOLDER_READERS = frozenset({"notification"})
 # What an agent may do, acting for anyone: read, and draft (SEC-009). Never submit, reserve,
 # approve, review, manage or configure, whatever the person or principal behind it may do.
 AGENT_PERMISSIONS = frozenset(

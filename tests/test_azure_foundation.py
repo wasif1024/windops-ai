@@ -72,6 +72,10 @@ def test_only_consumers_may_receive_and_each_only_its_own_subscription() -> None
             {"topic": "windops-events", "subscription": s}
             for s in ("maintenance", "maintenance-cases")
         ],
+        "windops-notification": [
+            {"topic": "windops-events", "subscription": s}
+            for s in ("notification-submissions", "notification-decisions", "notification-cases")
+        ],
     }
     # A workload that never reads the events settings gets no Service Bus role at all.
     assert not workloads["windops-web-bff"]["events"]

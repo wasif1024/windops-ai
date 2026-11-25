@@ -348,6 +348,7 @@ class CaseUpdated(_message.Message):
     STALE_RULE_FIELD_NUMBER: _builtins.int
     STALE_DETAIL_FIELD_NUMBER: _builtins.int
     STALE_RULES_VERSION_FIELD_NUMBER: _builtins.int
+    REQUESTED_BY_FIELD_NUMBER: _builtins.int
     case_id: _builtins.str
     status: _builtins.str
     turbine_id: _builtins.str
@@ -367,6 +368,10 @@ class CaseUpdated(_message.Message):
     """
     stale_detail: _builtins.str
     stale_rules_version: _builtins.str
+    requested_by: _builtins.str
+    """The person who opened the case, by user ID, to be told how it goes (M10.5). Empty for a case
+    from detections.
+    """
     def __init__(
         self,
         *,
@@ -380,10 +385,11 @@ class CaseUpdated(_message.Message):
         stale_rule: _builtins.str = ...,
         stale_detail: _builtins.str = ...,
         stale_rules_version: _builtins.str = ...,
+        requested_by: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "case_id", b"case_id", "evidence_snapshot_id", b"evidence_snapshot_id", "severity", b"severity", "stale_detail", b"stale_detail", "stale_rule", b"stale_rule", "stale_rules_version", b"stale_rules_version", "status", b"status", "turbine_id", b"turbine_id", "version", b"version"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "case_id", b"case_id", "evidence_snapshot_id", b"evidence_snapshot_id", "requested_by", b"requested_by", "severity", b"severity", "stale_detail", b"stale_detail", "stale_rule", b"stale_rule", "stale_rules_version", b"stale_rules_version", "status", b"status", "turbine_id", b"turbine_id", "version", b"version"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

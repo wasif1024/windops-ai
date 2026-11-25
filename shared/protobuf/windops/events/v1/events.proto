@@ -112,6 +112,9 @@ message CaseUpdated {
   string stale_rule = 8;
   string stale_detail = 9;
   string stale_rules_version = 10;
+  // The person who opened the case, by user ID, to be told how it goes (M10.5). Empty for a case
+  // from detections.
+  string requested_by = 11;
 }
 
 // A source record changed, which can make a recommendation stale (SRS 8.5).

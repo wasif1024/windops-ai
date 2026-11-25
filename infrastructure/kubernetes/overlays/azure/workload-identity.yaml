@@ -864,6 +864,52 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: windops-notification
+  namespace: windops-application
+  labels:
+    app.kubernetes.io/name: windops-notification
+    app.kubernetes.io/part-of: windops
+  annotations:
+    azure.workload.identity/client-id: ${AZURE_CLIENT_ID_WINDOPS_NOTIFICATION}
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: windops-notification
+  namespace: windops-application
+spec:
+  provider: azure
+  parameters:
+    clientID: ${AZURE_CLIENT_ID_WINDOPS_NOTIFICATION}
+    keyvaultName: ${AZURE_KEYVAULT_NAME}
+    tenantId: ${AZURE_TENANT_ID}
+    objects: "array:\n- 'objectName: windops-internal-identity--signing-key\n\n  objectType:\
+      \ secret\n\n  '\n- 'objectName: windops-notification-database--database\n\n\
+      \  objectType: secret\n\n  '\n- 'objectName: windops-notification-database--host\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-notification-database--port\n\
+      \n  objectType: secret\n\n  '\n- 'objectName: windops-notification-database--username\n\
+      \n  objectType: secret\n\n  '\n"
+  secretObjects:
+  - secretName: windops-internal-identity
+    type: Opaque
+    data:
+    - key: signing-key
+      objectName: windops-internal-identity--signing-key
+  - secretName: windops-notification-database
+    type: Opaque
+    data:
+    - key: database
+      objectName: windops-notification-database--database
+    - key: host
+      objectName: windops-notification-database--host
+    - key: port
+      objectName: windops-notification-database--port
+    - key: username
+      objectName: windops-notification-database--username
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: windops-policy
   namespace: windops-application
   labels:

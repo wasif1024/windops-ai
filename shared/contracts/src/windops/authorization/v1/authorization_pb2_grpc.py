@@ -61,6 +61,11 @@ class AuthorizationServiceStub:
                 request_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListRoleGrantsRequest.SerializeToString,
                 response_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListRoleGrantsResponse.FromString,
                 _registered_method=True)
+        self.ListPermissionHolders = channel.unary_unary(
+                '/windops.authorization.v1.AuthorizationService/ListPermissionHolders',
+                request_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListPermissionHoldersRequest.SerializeToString,
+                response_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListPermissionHoldersResponse.FromString,
+                _registered_method=True)
         self.GetRolePermissions = channel.unary_unary(
                 '/windops.authorization.v1.AuthorizationService/GetRolePermissions',
                 request_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.GetRolePermissionsRequest.SerializeToString,
@@ -139,6 +144,15 @@ class AuthorizationServiceServicer:
 
     def ListRoleGrants(self, request, context):
         """Needs roles.manage.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListPermissionHolders(self, request, context):
+        """Who in the caller's tenant holds a permission now, in a scope: user IDs only, never names or
+        addresses. For the Notification Service, acting as itself, to find whom to tell (M10.5); or a
+        person with roles.manage. Read only, and never across tenants.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -236,6 +250,11 @@ def add_AuthorizationServiceServicer_to_server(servicer, server):
                     servicer.ListRoleGrants,
                     request_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListRoleGrantsRequest.FromString,
                     response_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListRoleGrantsResponse.SerializeToString,
+            ),
+            'ListPermissionHolders': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListPermissionHolders,
+                    request_deserializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListPermissionHoldersRequest.FromString,
+                    response_serializer=windops_dot_authorization_dot_v1_dot_authorization__pb2.ListPermissionHoldersResponse.SerializeToString,
             ),
             'GetRolePermissions': grpc.unary_unary_rpc_method_handler(
                     servicer.GetRolePermissions,
@@ -415,6 +434,33 @@ class AuthorizationService:
             '/windops.authorization.v1.AuthorizationService/ListRoleGrants',
             windops_dot_authorization_dot_v1_dot_authorization__pb2.ListRoleGrantsRequest.SerializeToString,
             windops_dot_authorization_dot_v1_dot_authorization__pb2.ListRoleGrantsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListPermissionHolders(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.authorization.v1.AuthorizationService/ListPermissionHolders',
+            windops_dot_authorization_dot_v1_dot_authorization__pb2.ListPermissionHoldersRequest.SerializeToString,
+            windops_dot_authorization_dot_v1_dot_authorization__pb2.ListPermissionHoldersResponse.FromString,
             options,
             channel_credentials,
             insecure,

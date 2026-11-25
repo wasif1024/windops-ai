@@ -31,6 +31,7 @@ members = [
     "services/investigation-service",
     "services/knowledge-service",
     "services/maintenance-service",
+    "services/notification-service",
     "services/policy-service",
     "services/production-impact-service",
     "services/sample-caller-service",
@@ -96,6 +97,7 @@ windops-external-intelligence = { workspace = true }
 windops-maintenance = { workspace = true }
 windops-inventory = { workspace = true }
 windops-approval = { workspace = true }
+windops-notification = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -158,6 +160,8 @@ files = [
     "services/knowledge-service/tests",
     "services/maintenance-service/src",
     "services/maintenance-service/tests",
+    "services/notification-service/src",
+    "services/notification-service/tests",
     "services/policy-service/src",
     "services/policy-service/tests",
     "services/production-impact-service/src",
@@ -242,6 +246,8 @@ mypy_path = [
     "services/knowledge-service/tests",
     "services/maintenance-service/src",
     "services/maintenance-service/tests",
+    "services/notification-service/src",
+    "services/notification-service/tests",
     "services/policy-service/src",
     "services/policy-service/tests",
     "services/production-impact-service/src",
@@ -384,4 +390,5 @@ dev = [
     "windops-maintenance",
     "windops-inventory",
     "windops-approval",
+    "windops-notification",
 ]

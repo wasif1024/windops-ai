@@ -19,6 +19,11 @@ service AuthorizationService {
   // Needs roles.manage.
   rpc ListRoleGrants(ListRoleGrantsRequest) returns (ListRoleGrantsResponse);
 
+  // Who in the caller's tenant holds a permission now, in a scope: user IDs only, never names or
+  // addresses. For the Notification Service, acting as itself, to find whom to tell (M10.5); or a
+  // person with roles.manage. Read only, and never across tenants.
+  rpc ListPermissionHolders(ListPermissionHoldersRequest) returns (ListPermissionHoldersResponse);
+
   // Needs permissions.manage.
   rpc GetRolePermissions(GetRolePermissionsRequest) returns (GetRolePermissionsResponse);
   // Needs permissions.manage and a recent second factor. Replaces the role's permissions in one tenant.
@@ -122,6 +127,19 @@ message RoleGrant {
   // Empty while the grant is active.
   string revoked_by = 8;
   google.protobuf.Timestamp revoked_at = 9;
+}
+
+message ListPermissionHoldersRequest {
+  // For example "maintenance.approve", from SRS 3.2.
+  string permission = 1;
+  // As for Check: a wind farm grant covers a turbine only when both are given. Empty for the
+  // whole tenant, which only tenant-wide grants cover.
+  Scope scope = 2;
+}
+
+message ListPermissionHoldersResponse {
+  // Sorted, each once.
+  repeated string user_ids = 1;
 }
 
 message GetRolePermissionsRequest {

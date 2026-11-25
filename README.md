@@ -368,6 +368,8 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0033](docs/adr/0033-separation-of-duties-at-decision-time.md) | Separation of duties at decision time: nobody decides what they had a hand in, or by their own change since the request |
 | [0034](docs/adr/0034-stale-evidence-rules-and-new-versions.md) | Stale evidence by versioned rules, shown at approval, and re-evaluated as a new snapshot and proposal version |
 | [0035](docs/adr/0035-approval-policy-changes-need-a-second-administrator.md) | Changes to who may approve wait for a second administrator, or a Platform Administrator where there is none |
+| [0036](docs/adr/0036-step-14-a-decision-resumes-the-case-in-a-run-of-its-own.md) | A person's decision resumes the case's investigation from its checkpoint, in a run of its own, and moves the case |
+| [0037](docs/adr/0037-notifications-from-events-by-tenant-rules-with-email-recorded.md) | Notifications from events, by tenant rules, in the app and by recorded email, with identifiers only |
 
 ## Repository layout
 

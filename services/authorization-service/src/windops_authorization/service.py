@@ -392,6 +392,38 @@ class AuthorizationService(authorization_pb2_grpc.AuthorizationServiceServicer):
             rows = (await connection.execute(query.order_by(ROLE_GRANTS.c.granted_at))).all()
         return authorization_pb2.ListRoleGrantsResponse(grants=[_grant_message(r) for r in rows])
 
+    async def ListPermissionHolders(  # noqa: N802  # The name comes from the contract.
+        self, request: authorization_pb2.ListPermissionHoldersRequest, context: Any
+    ) -> authorization_pb2.ListPermissionHoldersResponse:
+        identity = current_identity()
+        if identity.user_id:
+            _, _, tenant = await self._require("roles.manage", "", step_up=False)
+        else:
+            tenant = identity.tenant_id
+            if identity.actor or policy.service_of(identity.subject) not in policy.HOLDER_READERS:
+                await self._refuse(identity, "roles.read", "Only the Notification Service may ask")
+        if request.permission not in policy.PERMISSIONS:
+            raise InvalidRequestError("Unknown permission")
+        wanted = _scope(request.scope)
+        g = ROLE_GRANTS.c
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            custom = await custom_mapping(connection, tenant)
+            rows = (await connection.execute(
+                select(g.user_id, g.role, g.wind_farm_id, g.turbine_id)
+                .where(g.tenant_id == tenant, g.revoked_at.is_(None))
+            )).all()  # fmt: skip
+        grants: dict[str, list[policy.Grant]] = {}
+        for row in rows:
+            grants.setdefault(row.user_id, []).append(
+                policy.Grant(row.role, policy.Scope(row.wind_farm_id, row.turbine_id))
+            )
+        holders = sorted(
+            user for user, held in grants.items()
+            if policy.decide_in_tenant(request.permission, wanted, held, custom).allowed
+        )  # fmt: skip
+        return authorization_pb2.ListPermissionHoldersResponse(user_ids=holders)
+
     async def GetRolePermissions(  # noqa: N802  # The name comes from the contract.
         self, request: authorization_pb2.GetRolePermissionsRequest, context: Any
     ) -> authorization_pb2.GetRolePermissionsResponse:
