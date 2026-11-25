@@ -195,6 +195,55 @@ class PartAvailability(_message.Message):
 Global___PartAvailability: _TypeAlias = PartAvailability  # noqa: Y015
 
 @_typing.final
+class Completion(_message.Message):
+    """What was done, as the person who recorded it said (FR-MNT-004). Never changed once recorded."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    STARTED_AT_FIELD_NUMBER: _builtins.int
+    COMPLETED_AT_FIELD_NUMBER: _builtins.int
+    SUMMARY_FIELD_NUMBER: _builtins.int
+    PARTS_USED_FIELD_NUMBER: _builtins.int
+    ACTUAL_DOWNTIME_HOURS_FIELD_NUMBER: _builtins.int
+    RECORDED_BY_FIELD_NUMBER: _builtins.int
+    RECORDED_AT_FIELD_NUMBER: _builtins.int
+    summary: _builtins.str
+    """What was done and found, at most 2000 characters."""
+    actual_downtime_hours: _builtins.float
+    recorded_by: _builtins.str
+    """Set by the service."""
+    @_builtins.property
+    def started_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def completed_at(self) -> _timestamp_pb2.Timestamp:
+        """When the turbine was handed back: verification watches its telemetry from then."""
+
+    @_builtins.property
+    def parts_used(self) -> _containers.RepeatedCompositeFieldContainer[Global___PartLine]:
+        """The parts used, which may differ from those planned."""
+
+    @_builtins.property
+    def recorded_at(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        started_at: _timestamp_pb2.Timestamp | None = ...,
+        completed_at: _timestamp_pb2.Timestamp | None = ...,
+        summary: _builtins.str = ...,
+        parts_used: _abc.Iterable[Global___PartLine] | None = ...,
+        actual_downtime_hours: _builtins.float = ...,
+        recorded_by: _builtins.str = ...,
+        recorded_at: _timestamp_pb2.Timestamp | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["completed_at", b"completed_at", "recorded_at", b"recorded_at", "started_at", b"started_at"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["actual_downtime_hours", b"actual_downtime_hours", "completed_at", b"completed_at", "parts_used", b"parts_used", "recorded_at", b"recorded_at", "recorded_by", b"recorded_by", "started_at", b"started_at", "summary", b"summary"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___Completion: _TypeAlias = Completion  # noqa: Y015
+
+@_typing.final
 class Validation(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -260,6 +309,8 @@ class WorkOrder(_message.Message):
     VALIDATION_FIELD_NUMBER: _builtins.int
     STALE_RULE_FIELD_NUMBER: _builtins.int
     STALE_DETAIL_FIELD_NUMBER: _builtins.int
+    COMPLETION_FIELD_NUMBER: _builtins.int
+    VERIFICATION_OUTCOME_FIELD_NUMBER: _builtins.int
     work_order_id: _builtins.str
     """"wo_" and 20 lowercase letters and digits."""
     version: _builtins.int
@@ -271,10 +322,12 @@ class WorkOrder(_message.Message):
     evidence_snapshot_id: _builtins.str
     """The case's evidence when it was drafted."""
     status: _builtins.str
-    """"draft", "submitted", "withdrawn", "approved", "rejected" or "stale". Approved and rejected
-    are a person's decision through the Approval Service, from its approval.decided; stale is
-    the Investigation Service's rules finding its evidence snapshot stale (SRS 8.5). A rejected
-    or stale one is revised as a new version. "completed" and "verified" come later in Phase 10.
+    """"draft", "submitted", "withdrawn", "approved", "rejected", "stale", "completed" or
+    "verified". Approved and rejected are a person's decision through the Approval Service, from
+    its approval.decided; stale is the Investigation Service's rules finding its evidence
+    snapshot stale (SRS 8.5). A rejected or stale one is revised as a new version. Completed is a
+    person recording the work done; verified, the Investigation Service reporting how the
+    turbine ran afterwards (M10.6).
     """
     drafted_by: _builtins.str
     """The person, or principal, it was drafted for."""
@@ -284,6 +337,8 @@ class WorkOrder(_message.Message):
     stale_rule: _builtins.str
     """Why it is stale: the rule that fired, such as "inventory", and what it found (EVD-007)."""
     stale_detail: _builtins.str
+    verification_outcome: _builtins.str
+    """Once verified: "resolved", "not_resolved" or "inconclusive". The case holds the comparison."""
     @_builtins.property
     def plan(self) -> Global___Plan: ...
     @_builtins.property
@@ -294,6 +349,10 @@ class WorkOrder(_message.Message):
     def submitted_at(self) -> _timestamp_pb2.Timestamp: ...
     @_builtins.property
     def validation(self) -> Global___Validation: ...
+    @_builtins.property
+    def completion(self) -> Global___Completion:
+        """Set once completed."""
+
     def __init__(
         self,
         *,
@@ -314,10 +373,12 @@ class WorkOrder(_message.Message):
         validation: Global___Validation | None = ...,
         stale_rule: _builtins.str = ...,
         stale_detail: _builtins.str = ...,
+        completion: Global___Completion | None = ...,
+        verification_outcome: _builtins.str = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "plan", b"plan", "submitted_at", b"submitted_at", "updated_at", b"updated_at", "validation", b"validation"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["completion", b"completion", "created_at", b"created_at", "plan", b"plan", "submitted_at", b"submitted_at", "updated_at", b"updated_at", "validation", b"validation"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "created_at", b"created_at", "drafted_by", b"drafted_by", "drafted_by_agent", b"drafted_by_agent", "evidence_snapshot_id", b"evidence_snapshot_id", "plan", b"plan", "revision", b"revision", "stale_detail", b"stale_detail", "stale_rule", b"stale_rule", "status", b"status", "submitted_at", b"submitted_at", "submitted_by", b"submitted_by", "turbine_id", b"turbine_id", "updated_at", b"updated_at", "validation", b"validation", "version", b"version", "work_order_id", b"work_order_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "completion", b"completion", "created_at", b"created_at", "drafted_by", b"drafted_by", "drafted_by_agent", b"drafted_by_agent", "evidence_snapshot_id", b"evidence_snapshot_id", "plan", b"plan", "revision", b"revision", "stale_detail", b"stale_detail", "stale_rule", b"stale_rule", "status", b"status", "submitted_at", b"submitted_at", "submitted_by", b"submitted_by", "turbine_id", b"turbine_id", "updated_at", b"updated_at", "validation", b"validation", "verification_outcome", b"verification_outcome", "version", b"version", "work_order_id", b"work_order_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -335,8 +396,8 @@ class WorkOrderEvent(_message.Message):
     REVISION_FIELD_NUMBER: _builtins.int
     NOTE_FIELD_NUMBER: _builtins.int
     action: _builtins.str
-    """"drafted", "updated", "validated", "submitted", "withdrawn", "approved", "rejected", "stale"
-    or "revised".
+    """"drafted", "updated", "validated", "submitted", "withdrawn", "approved", "rejected", "stale",
+    "revised", "completed" or "verified".
     """
     actor_type: _builtins.str
     """"user", "agent" or "service"."""
@@ -659,6 +720,57 @@ class ReviseWorkOrderResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___ReviseWorkOrderResponse: _TypeAlias = ReviseWorkOrderResponse  # noqa: Y015
+
+@_typing.final
+class CompleteWorkOrderRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    WORK_ORDER_ID_FIELD_NUMBER: _builtins.int
+    EXPECTED_REVISION_FIELD_NUMBER: _builtins.int
+    COMPLETION_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    work_order_id: _builtins.str
+    expected_revision: _builtins.int
+    idempotency_key: _builtins.str
+    @_builtins.property
+    def completion(self) -> Global___Completion:
+        """recorded_by and recorded_at are set by the service."""
+
+    def __init__(
+        self,
+        *,
+        work_order_id: _builtins.str = ...,
+        expected_revision: _builtins.int = ...,
+        completion: Global___Completion | None = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["completion", b"completion"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["completion", b"completion", "expected_revision", b"expected_revision", "idempotency_key", b"idempotency_key", "work_order_id", b"work_order_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___CompleteWorkOrderRequest: _TypeAlias = CompleteWorkOrderRequest  # noqa: Y015
+
+@_typing.final
+class CompleteWorkOrderResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    WORK_ORDER_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def work_order(self) -> Global___WorkOrder: ...
+    def __init__(
+        self,
+        *,
+        work_order: Global___WorkOrder | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["work_order", b"work_order"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["work_order", b"work_order"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___CompleteWorkOrderResponse: _TypeAlias = CompleteWorkOrderResponse  # noqa: Y015
 
 @_typing.final
 class GetWorkOrderResponse(_message.Message):

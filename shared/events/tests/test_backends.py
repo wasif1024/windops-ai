@@ -97,6 +97,7 @@ def test_a_subscription_keeps_only_its_consumers_subjects() -> None:
         ("windops-events", "investigation-evidence"),
         ("windops-events", "investigation-proposals"),
         ("windops-events", "investigation-decisions"),
+        ("windops-events", "investigation-completions"),
         ("windops-events", "maintenance-cases"),
         ("windops-events", "notification-submissions"),
         ("windops-events", "notification-decisions"),

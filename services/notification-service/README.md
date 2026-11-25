@@ -11,7 +11,7 @@ notification carries identifiers and a link, never evidence, a decision's reason
 | --- | --- | --- |
 | `approval_requested` | `workorder.submitted` | Holders of `maintenance.approve` where the turbine is, never its drafter or submitter |
 | `decision_made` | `approval.decided` | Its drafter and submitter, when people |
-| `case_pending_review`, `case_approved`, `case_rejected`, `case_needs_attention` | `case.updated` | The person who opened the case, or for one from detections, holders of `finding.review` there |
+| `case_pending_review`, `case_approved`, `case_rejected`, `case_needs_attention`, `case_verified` | `case.updated` | The person who opened the case, or for one from detections, holders of `finding.review` there |
 
 A tenant's administrator (`users.manage`) may replace the defaults with `SetNotificationRules`; an empty list goes back
 to them.

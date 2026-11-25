@@ -9,6 +9,7 @@
 | `case_pending_review` | `case.updated`, its investigation completed (SRS 5.4 step 13) |
 | `case_approved`, `case_rejected` | `case.updated`, a decision resumed it (step 14) |
 | `case_needs_attention` | `case.updated`: its run ended otherwise (LLM-010), or a resume stopped |
+| `case_verified` | `case.updated`: the work was verified, with its outcome (step 15, M10.6) |
 
 **Audiences:** `requester` is the person who opened the case; a case from detections has none, so
 it is everyone who may review findings on that turbine. `drafter` and `submitter` are the work
@@ -27,9 +28,10 @@ from windops_notification.store import CHANNELS, EMAIL, IN_APP
 APPROVAL_REQUESTED, DECISION_MADE = "approval_requested", "decision_made"
 CASE_PENDING_REVIEW, CASE_APPROVED = "case_pending_review", "case_approved"
 CASE_REJECTED, CASE_NEEDS_ATTENTION = "case_rejected", "case_needs_attention"
+CASE_VERIFIED = "case_verified"
 KINDS = (
     APPROVAL_REQUESTED, DECISION_MADE, CASE_PENDING_REVIEW, CASE_APPROVED, CASE_REJECTED,
-    CASE_NEEDS_ATTENTION,
+    CASE_NEEDS_ATTENTION, CASE_VERIFIED,
 )  # fmt: skip
 # case.updated's actions that tell someone something, and the kind each makes.
 CASE_ACTIONS = {
@@ -38,6 +40,13 @@ CASE_ACTIONS = {
     "rejected": CASE_REJECTED,
     "investigation_ended": CASE_NEEDS_ATTENTION,
     "decision_not_resumed": CASE_NEEDS_ATTENTION,
+    "verification_reported": CASE_VERIFIED,
+}
+# A verification's outcome, as a notification says it.
+OUTCOMES = {
+    "resolved": "the fault rules no longer find it",
+    "not_resolved": "the fault rules still find it",
+    "inconclusive": "there was too little data to say",
 }
 REQUESTER, DRAFTER, SUBMITTER, HOLDERS = "requester", "drafter", "submitter", "holders:"
 # Who may review a case's findings: a detection case's requester (SRS 3.2).
@@ -63,6 +72,8 @@ DEFAULTS = (
     Rule(CASE_APPROVED, REQUESTER, BOTH),
     Rule(CASE_REJECTED, REQUESTER, BOTH),
     Rule(CASE_NEEDS_ATTENTION, REQUESTER, BOTH),
+    # The outcome is reported to a person, who closes or reopens the case (FR-MNT-005).
+    Rule(CASE_VERIFIED, REQUESTER, BOTH),
 )
 
 
@@ -113,6 +124,12 @@ def message(kind: str, facts: Mapping[str, str]) -> Message:
         return Message(f"Work order {order} v{version} was {decided}",
                        f"A Maintenance Manager decided on it, for {on}.",
                        "/screens/maintenance")  # fmt: skip
+    if kind == CASE_VERIFIED:
+        outcome = facts.get("outcome", "")
+        said = OUTCOMES.get(outcome, "see the case")
+        return Message(f"Case {case}: work verified, {outcome.replace('_', ' ') or 'reported'}",
+                       f"After work order {order}, {said}. Close the case or reopen it, for "
+                       f"{on}.", "/screens/investigations")  # fmt: skip
     text = {
         CASE_PENDING_REVIEW: ("is ready for review", "Its investigation completed."),
         CASE_APPROVED: ("was approved", "Its work order was approved, and waits for the work."),

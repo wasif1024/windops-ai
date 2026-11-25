@@ -23,6 +23,10 @@ service InvestigationService {
   // With its detections and its history.
   rpc GetCase(GetCaseRequest) returns (GetCaseResponse);
   rpc CancelCase(CancelCaseRequest) returns (CancelCaseResponse);
+  // A person's answer to a verification report (SRS 5.4 step 15, FR-MNT-005): close the case, or
+  // reopen it to be investigated again. Only a verified case, on its newest verification. Needs
+  // finding.review for its turbine, and a person: never an agent.
+  rpc ReviewVerification(ReviewVerificationRequest) returns (ReviewVerificationResponse);
 
   // A case's evidence, frozen (FR-INV-002, EVD-001 to 004): the turbine, its telemetry window,
   // its alarms, each detection and the exact rule version behind it, each item hashed, and the
@@ -50,6 +54,11 @@ service InvestigationService {
   // its own (SRS 5.4 step 14): approved, the case is "approved"; rejected, it waits for a revised
   // proposal; a resume that cannot carry on sends it back to "open", to restart from the snapshot.
   //
+  // Once a person records the approved work done, from workorder.completed, the case is
+  // "verifying" while the turbine runs for the verification window. Then this service compares
+  // the telemetry after the work with the case's evidence, runs the fault rules again, and
+  // reports the outcome: the case is "verified" until a person closes or reopens it (M10.6).
+  //
   // The stream sends a heartbeat when nothing has happened for a while, ends with "finished"
   // once the investigation is over, and ends without it after a few minutes, to be called again.
   rpc WatchInvestigation(WatchInvestigationRequest) returns (stream WatchInvestigationResponse);
@@ -62,7 +71,8 @@ message Case {
   // or a detection whose rule the case rules do not know.
   string component_group = 3;
   string title = 4;
-  // "open", "investigating", "pending_review", "approved", "closed" or "cancelled".
+  // "open", "investigating", "pending_review", "approved", "verifying", "verified", "closed" or
+  // "cancelled". All but the last two are active.
   string status = 5;
   // "low", "medium", "high" or "critical": the highest of its detections, or a person's choice
   // for a case they open by hand.
@@ -111,8 +121,9 @@ message CaseDetection {
 message CaseEvent {
   google.protobuf.Timestamp at = 1;
   // "created", "detection_attached", "severity_raised", "evidence_frozen", "cancelled",
-  // "investigation_started", "investigation_completed", "investigation_ended" or
-  // "investigation_not_started".
+  // "investigation_started", "investigation_completed", "investigation_ended",
+  // "investigation_not_started", "approved", "rejected", "decision_not_resumed",
+  // "maintenance_completed", "verification_reported", "closed" or "reopened".
   string action = 2;
   // "user" or "service".
   string actor_type = 3;
@@ -140,7 +151,7 @@ message CreateCaseResponse {
 }
 
 message ListCasesRequest {
-  // Empty means open, investigating, pending_review and approved.
+  // Empty means every active status.
   repeated string statuses = 1;
   string turbine_id = 2;
   int32 page_size = 3;
@@ -161,6 +172,78 @@ message GetCaseResponse {
   repeated CaseDetection detections = 2;
   // Oldest first.
   repeated CaseEvent history = 3;
+  // Each verification of the case's completed work, newest first (M10.6).
+  repeated Verification verifications = 4;
+}
+
+// How one metric ran before and after the work: before from the case's evidence, after from
+// the verification window. Each figure is unset when there was no reading with a value.
+message MetricComparison {
+  // As the Telemetry Service names it, such as "METRIC_BEARING_TEMPERATURE".
+  string metric = 1;
+  string unit = 2;
+  optional double before_mean = 3;
+  optional double after_mean = 4;
+  optional double before_maximum = 5;
+  optional double after_maximum = 6;
+  int64 before_readings = 7;
+  int64 after_readings = 8;
+}
+
+// What a fault rule found at the end of the verification window.
+message RuleResult {
+  string rule_id = 1;
+  int64 version = 2;
+  string severity = 3;
+  string summary = 4;
+  // One of the case's own rules, or any rule for a case a person opened.
+  bool counts = 5;
+}
+
+// The check after the work (SRS 5.4 step 15, FR-MNT-005): worked out, never judged by a model.
+message Verification {
+  string work_order_id = 1;
+  int64 proposal_version = 2;
+  string completed_by = 3;
+  google.protobuf.Timestamp completed_at = 4;
+  // "waiting" for the window to pass, "reported", or "not_started" when the case was no longer
+  // approved: note says why.
+  string status = 5;
+  // Once reported: "resolved", when none of the case's rules finds anything; "not_resolved",
+  // when one does; "inconclusive", when there was too little data, or a data gap, to say.
+  string outcome = 6;
+  // The window watched after the work, from its completion.
+  google.protobuf.Timestamp window_start = 7;
+  google.protobuf.Timestamp window_end = 8;
+  // The telemetry compared: the case's evidence, and the window, frozen with its own hash.
+  string before_telemetry_snapshot_id = 9;
+  string after_telemetry_snapshot_id = 10;
+  int64 after_samples = 11;
+  repeated MetricComparison metrics = 12;
+  repeated RuleResult rules = 13;
+  string note = 14;
+  google.protobuf.Timestamp reported_at = 15;
+  // A person's answer: "closed" or "reopened", empty until then.
+  string review = 16;
+  string reviewed_by = 17;
+  google.protobuf.Timestamp reviewed_at = 18;
+  string review_reason = 19;
+}
+
+message ReviewVerificationRequest {
+  string case_id = 1;
+  // "close" or "reopen".
+  string decision = 2;
+  // Why. Required to reopen, at most 500 characters.
+  string reason = 3;
+  // The case version the person saw.
+  int64 expected_version = 4;
+  string idempotency_key = 5;
+}
+
+message ReviewVerificationResponse {
+  Case case = 1;
+  Verification verification = 2;
 }
 
 message CancelCaseRequest {

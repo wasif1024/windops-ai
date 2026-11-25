@@ -115,6 +115,8 @@ flowchart TB
     Approval -.->|approval.decided| Notification
     Maintenance -.->|workorder.completed| Investigation
     Investigation -->|compare after the work| Telemetry
+    Investigation -->|run the rules again| Fault["Fault Detection"]
+    Investigation -.->|case.updated, verified| Maintenance
     Investigation -.->|case.updated| BFF
     Investigation -.->|case.updated| Notification
 ```
@@ -149,7 +151,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | Telemetry | Asset | `telemetry.received`, `telemetry.quality`, and `alarm.reported` for each alarm a device sends | None |
 | Alarm | Asset, for a reader's wind farms | `alarm.changed`, audit events | `alarm.reported` |
 | Fault Detection | Telemetry, Alarm and Asset, for a turbine's window | `fault.detected`, audit events | `telemetry.received`, `telemetry.quality`, `alarm.changed` |
-| Investigation | Telemetry, Alarm, Asset | `case.updated`, queued runs, audit events | `fault.detected`, `alarm.changed`, `evidence.changed`, `workorder.submitted`, `approval.decided` ([ADR 0036](adr/0036-step-14-a-decision-resumes-the-case-in-a-run-of-its-own.md)), `workorder.completed` |
+| Investigation | Telemetry, Alarm, Asset, and Fault Detection to run the rules again after the work ([ADR 0038](adr/0038-step-15-completed-work-verified-by-the-fault-rules.md)) | `case.updated`, queued runs, audit events | `fault.detected`, `alarm.changed`, `evidence.changed`, `workorder.submitted`, `approval.decided` ([ADR 0036](adr/0036-step-14-a-decision-resumes-the-case-in-a-run-of-its-own.md)), `workorder.completed` |
 | Agent Runtime | MCP servers, Agent Sandbox Adapter, Claude | Audit events | Queued runs, including the decision runs that resume a case |
 | Agent Sandbox Adapter | LangSmith Sandbox | None. Agent Runtime records sandbox use | None |
 | Knowledge | Qdrant, the embedding provider | `evidence.changed`, audit events | None |
@@ -157,7 +159,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | External Intelligence | Tavily | Audit events | None |
 | Production Impact | Investigation, Asset, Telemetry and Weather, for the case, the turbine, its observed wind and power, and the forecast wind | Audit events | None |
 | Policy | Investigation, Asset and Production Impact, for the facts it judges on ([ADR 0009](adr/0009-policy-judges-a-proposal-on-facts-it-gathers.md)), and Weather, the only source of its weather (FR-POL-004) | Audit events | None |
-| Maintenance | Asset, Policy, Inventory | `workorder.submitted`, `workorder.completed`, audit events | `approval.decided` |
+| Maintenance | Asset, Policy, Inventory | `workorder.submitted`, `workorder.completed`, audit events | `approval.decided`, `case.updated` for stale evidence and verification |
 | Inventory | None | `evidence.changed`, audit events | None |
 | Approval | Maintenance, Investigation, Asset | `approval.decided`, audit events | `workorder.submitted` |
 | Audit | None | `audit.recorded` | `audit.requested.*`, the audit events from every service |

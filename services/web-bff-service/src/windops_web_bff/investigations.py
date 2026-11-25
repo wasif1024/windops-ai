@@ -49,7 +49,8 @@ class Investigation(BaseModel):
     case_id: str
     turbine_id: str
     title: str
-    # "open", "investigating", "pending_review", "approved", "closed" or "cancelled".
+    # "open", "investigating", "pending_review", "approved", "verifying", "verified", "closed" or
+    # "cancelled".
     status: str
     severity: str
     # "waiting" for its evidence, "running", "completed", "ended" or "not_started"; "" for a case

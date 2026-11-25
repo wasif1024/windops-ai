@@ -13,10 +13,11 @@ against an active case; only a person submits it ([ADR 0029](../../docs/adr/0029
 | `approved`, `rejected` | A person's decision through the Approval Service, applied from its `approval.decided` to the version still submitted ([ADR 0032](../../docs/adr/0032-approvals-decided-by-a-person-on-what-is-current.md)) |
 
 | `stale` | The Investigation Service's rules found its evidence snapshot stale, from its `case.updated`, with the rule kept ([ADR 0034](../../docs/adr/0034-stale-evidence-rules-and-new-versions.md)) |
+| `completed` | `CompleteWorkOrder`, with `maintenance.complete`, by a person only, on approved work: when it started and ended, a summary, the parts used and the downtime (FR-MNT-004). Announced as `workorder.completed`, with identifiers and times only |
+| `verified` | The Investigation Service's verification of the work, from its `case.updated`, with the outcome kept ([ADR 0038](../../docs/adr/0038-step-15-completed-work-verified-by-the-fault-rules.md)) |
 
 A stale or rejected work order is revised with `ReviseWorkOrder` as its next version, a draft on the case's current
-snapshot, once the case is re-evaluated. Each earlier version is kept as it was. Completion and verification come
-later in Phase 10.
+snapshot, once the case is re-evaluated. Each earlier version is kept as it was.
 
 ## Validation (FR-MNT-002)
 

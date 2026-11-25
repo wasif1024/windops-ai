@@ -51,6 +51,11 @@ class InvestigationServiceStub:
     GetCase: _grpc.UnaryUnaryMultiCallable[_investigation_pb2.GetCaseRequest, _investigation_pb2.GetCaseResponse]
     """With its detections and its history."""
     CancelCase: _grpc.UnaryUnaryMultiCallable[_investigation_pb2.CancelCaseRequest, _investigation_pb2.CancelCaseResponse]
+    ReviewVerification: _grpc.UnaryUnaryMultiCallable[_investigation_pb2.ReviewVerificationRequest, _investigation_pb2.ReviewVerificationResponse]
+    """A person's answer to a verification report (SRS 5.4 step 15, FR-MNT-005): close the case, or
+    reopen it to be investigated again. Only a verified case, on its newest verification. Needs
+    finding.review for its turbine, and a person: never an agent.
+    """
     CreateEvidenceSnapshot: _grpc.UnaryUnaryMultiCallable[_investigation_pb2.CreateEvidenceSnapshotRequest, _investigation_pb2.CreateEvidenceSnapshotResponse]
     """A case's evidence, frozen (FR-INV-002, EVD-001 to 004): the turbine, its telemetry window,
     its alarms, each detection and the exact rule version behind it, each item hashed, and the
@@ -77,6 +82,11 @@ class InvestigationServiceStub:
     A person's decision on the case's work order, from approval.decided, resumes it in a run of
     its own (SRS 5.4 step 14): approved, the case is "approved"; rejected, it waits for a revised
     proposal; a resume that cannot carry on sends it back to "open", to restart from the snapshot.
+
+    Once a person records the approved work done, from workorder.completed, the case is
+    "verifying" while the turbine runs for the verification window. Then this service compares
+    the telemetry after the work with the case's evidence, runs the fault rules again, and
+    reports the outcome: the case is "verified" until a person closes or reopens it (M10.6).
 
     The stream sends a heartbeat when nothing has happened for a while, ends with "finished"
     once the investigation is over, and ends without it after a few minutes, to be called again.
@@ -105,6 +115,11 @@ class InvestigationServiceAsyncStub(InvestigationServiceStub):
     GetCase: _aio.UnaryUnaryMultiCallable[_investigation_pb2.GetCaseRequest, _investigation_pb2.GetCaseResponse]  # type: ignore[assignment]
     """With its detections and its history."""
     CancelCase: _aio.UnaryUnaryMultiCallable[_investigation_pb2.CancelCaseRequest, _investigation_pb2.CancelCaseResponse]  # type: ignore[assignment]
+    ReviewVerification: _aio.UnaryUnaryMultiCallable[_investigation_pb2.ReviewVerificationRequest, _investigation_pb2.ReviewVerificationResponse]  # type: ignore[assignment]
+    """A person's answer to a verification report (SRS 5.4 step 15, FR-MNT-005): close the case, or
+    reopen it to be investigated again. Only a verified case, on its newest verification. Needs
+    finding.review for its turbine, and a person: never an agent.
+    """
     CreateEvidenceSnapshot: _aio.UnaryUnaryMultiCallable[_investigation_pb2.CreateEvidenceSnapshotRequest, _investigation_pb2.CreateEvidenceSnapshotResponse]  # type: ignore[assignment]
     """A case's evidence, frozen (FR-INV-002, EVD-001 to 004): the turbine, its telemetry window,
     its alarms, each detection and the exact rule version behind it, each item hashed, and the
@@ -131,6 +146,11 @@ class InvestigationServiceAsyncStub(InvestigationServiceStub):
     A person's decision on the case's work order, from approval.decided, resumes it in a run of
     its own (SRS 5.4 step 14): approved, the case is "approved"; rejected, it waits for a revised
     proposal; a resume that cannot carry on sends it back to "open", to restart from the snapshot.
+
+    Once a person records the approved work done, from workorder.completed, the case is
+    "verifying" while the turbine runs for the verification window. Then this service compares
+    the telemetry after the work with the case's evidence, runs the fault rules again, and
+    reports the outcome: the case is "verified" until a person closes or reopens it (M10.6).
 
     The stream sends a heartbeat when nothing has happened for a while, ends with "finished"
     once the investigation is over, and ends without it after a few minutes, to be called again.
@@ -182,6 +202,17 @@ class InvestigationServiceServicer(metaclass=_abc_1.ABCMeta):
     ) -> _typing.Union[_investigation_pb2.CancelCaseResponse, _abc.Awaitable[_investigation_pb2.CancelCaseResponse]]: ...
 
     @_abc_1.abstractmethod
+    def ReviewVerification(
+        self,
+        request: _investigation_pb2.ReviewVerificationRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_investigation_pb2.ReviewVerificationResponse, _abc.Awaitable[_investigation_pb2.ReviewVerificationResponse]]:
+        """A person's answer to a verification report (SRS 5.4 step 15, FR-MNT-005): close the case, or
+        reopen it to be investigated again. Only a verified case, on its newest verification. Needs
+        finding.review for its turbine, and a person: never an agent.
+        """
+
+    @_abc_1.abstractmethod
     def CreateEvidenceSnapshot(
         self,
         request: _investigation_pb2.CreateEvidenceSnapshotRequest,
@@ -230,6 +261,11 @@ class InvestigationServiceServicer(metaclass=_abc_1.ABCMeta):
         A person's decision on the case's work order, from approval.decided, resumes it in a run of
         its own (SRS 5.4 step 14): approved, the case is "approved"; rejected, it waits for a revised
         proposal; a resume that cannot carry on sends it back to "open", to restart from the snapshot.
+
+        Once a person records the approved work done, from workorder.completed, the case is
+        "verifying" while the turbine runs for the verification window. Then this service compares
+        the telemetry after the work with the case's evidence, runs the fault rules again, and
+        reports the outcome: the case is "verified" until a person closes or reopens it (M10.6).
 
         The stream sends a heartbeat when nothing has happened for a while, ends with "finished"
         once the investigation is over, and ends without it after a few minutes, to be called again.

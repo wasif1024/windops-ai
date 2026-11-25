@@ -53,8 +53,14 @@ def _facts(subject: str, payload: Any) -> tuple[str, dict[str, str]] | None:
     kind = rules.CASE_ACTIONS.get(payload.action)
     if kind is None:
         return None
-    return kind, {"case_id": payload.case_id, "turbine_id": payload.turbine_id,
-                  "requested_by": payload.requested_by}  # fmt: skip
+    facts = {"case_id": payload.case_id, "turbine_id": payload.turbine_id,
+             "requested_by": payload.requested_by}  # fmt: skip
+    if kind == rules.CASE_VERIFIED:
+        if payload.verification_outcome not in rules.OUTCOMES or not payload.work_order_id:
+            raise InvalidEventError("A verification names its work order and outcome")
+        facts |= {"work_order_id": payload.work_order_id,
+                  "outcome": payload.verification_outcome}  # fmt: skip
+    return kind, facts
 
 
 async def _remember_work_order(connection: AsyncConnection, tenant: str, s: Any) -> None:

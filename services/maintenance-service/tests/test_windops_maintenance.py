@@ -35,7 +35,7 @@ from windops_grpc import (
 )
 from windops_maintenance import decisions, plans
 from windops_maintenance.service import MaintenanceService
-from windops_maintenance.store import METADATA, SERVICE_NAME
+from windops_maintenance.store import METADATA, SERVICE_NAME, WORK_ORDER_HISTORY
 from windops_outbox import OUTBOX_TABLE, create_outbox_table
 
 SECRET = "x" * 32
@@ -183,7 +183,8 @@ class World:
 
 GRANTS = {
     (PLANNER, "investigation.read"), (PLANNER, "maintenance.draft"),
-    (PLANNER, "maintenance.submit"), (OPERATOR, "investigation.read"),
+    (PLANNER, "maintenance.submit"), (PLANNER, "maintenance.complete"),
+    (OPERATOR, "investigation.read"),
     ("service:fault-investigator", "investigation.read"),
     ("service:fault-investigator", "maintenance.draft"),
 }  # fmt: skip
@@ -611,3 +612,143 @@ def test_a_stale_work_order_is_revised_as_a_new_version_on_fresh_evidence() -> N
         assert resubmitted.version == 2
 
     with_service(scenario, sources=sources)
+
+
+def completion(**changes: Any) -> pb.Completion:
+    done = pb.Completion(
+        started_at=stamp(NOW - timedelta(hours=3)), completed_at=stamp(NOW - timedelta(hours=1)),
+        summary="Replaced the bearing; ran up and checked temperatures",
+        parts_used=[pb.PartLine(part_number="GBX-BRG-22", quantity=1)],
+        actual_downtime_hours=2.5,
+    )  # fmt: skip
+    for name, value in changes.items():
+        if name in ("started_at", "completed_at"):
+            getattr(done, name).CopyFrom(value)
+        elif name == "parts_used":
+            del done.parts_used[:]
+            done.parts_used.extend(value)
+        else:
+            setattr(done, name, value)
+    return done
+
+
+async def approved_order(world: World) -> Any:
+    """Submitted and approved, its approval kept as made a day before the clock."""
+    order = (await world.submit(await world.draft())).work_order
+    await decisions.handle(world.engine, decided(order, events_pb2.APPROVAL_DECISION_APPROVED))
+    h = WORK_ORDER_HISTORY.c
+    async with world.engine.begin() as connection:
+        await connection.execute(WORK_ORDER_HISTORY.update().where(h.action == "approved")
+                                 .values(at=NOW - timedelta(days=1)))  # fmt: skip
+    got = await world.stub.GetWorkOrder(pb.GetWorkOrderRequest(work_order_id=order.work_order_id),
+                                        metadata=as_caller(PLANNER), timeout=5)  # fmt: skip
+    return got.work_order
+
+
+def complete(order: Any, done: pb.Completion | None = None, key: str = "",
+             revision: int | None = None) -> pb.CompleteWorkOrderRequest:  # fmt: skip
+    return pb.CompleteWorkOrderRequest(
+        work_order_id=order.work_order_id, completion=done or completion(), idempotency_key=key,
+        expected_revision=order.revision if revision is None else revision,
+    )  # fmt: skip
+
+
+def test_a_person_records_the_approved_work_done_and_it_is_announced() -> None:
+    """FR-MNT-004: completion data, kept with the work order; workorder.completed starts its
+    verification (SRS 5.4 step 15)."""
+
+    async def scenario(world: World) -> None:
+        drafted = await world.draft()
+        assert await code_of(world.stub.CompleteWorkOrder(
+            complete(drafted), metadata=as_caller(PLANNER), timeout=5
+        )) == grpc.StatusCode.FAILED_PRECONDITION, "only approved work"  # fmt: skip
+        order = await approved_order(world)
+        for refused in (as_caller(PLANNER, actor=AGENT), as_caller(OPERATOR)):
+            assert await code_of(world.stub.CompleteWorkOrder(
+                complete(order), metadata=refused, timeout=5
+            )) == grpc.StatusCode.PERMISSION_DENIED, "a person who may complete"  # fmt: skip
+        assert await code_of(world.stub.CompleteWorkOrder(
+            complete(order, revision=order.revision - 1), metadata=as_caller(PLANNER), timeout=5
+        )) == grpc.StatusCode.FAILED_PRECONDITION, "on the revision the person saw"  # fmt: skip
+
+        answer = await world.stub.CompleteWorkOrder(
+            complete(order, key="done-1"), metadata=as_caller(PLANNER), timeout=5
+        )
+        done = answer.work_order
+        assert done.status == "completed" and done.completion.recorded_by == PLANNER
+        assert done.completion.recorded_at == stamp(NOW)
+        assert [p.part_number for p in done.completion.parts_used] == ["GBX-BRG-22"]
+        again = await world.stub.CompleteWorkOrder(
+            complete(order, key="done-1"), metadata=as_caller(PLANNER), timeout=5
+        )
+        assert again == answer, "a retry answers the same (GRP-007)"
+        [announced] = await world.events("workorder.completed")
+        assert (announced.work_order_id, announced.case_id, announced.turbine_id,
+                announced.proposal_version, announced.evidence_snapshot_id,
+                announced.completed_by) == (
+            order.work_order_id, CASE, TURBINE, "1", order.evidence_snapshot_id,
+            PLANNER)  # fmt: skip
+        assert announced.completed_at == done.completion.completed_at
+        assert not hasattr(announced, "summary"), "identifiers and times, not the notes"
+        got = await world.stub.GetWorkOrder(
+            pb.GetWorkOrderRequest(work_order_id=order.work_order_id),
+            metadata=as_caller(OPERATOR), timeout=5,
+        )  # fmt: skip
+        assert got.history[-1].action == "completed"
+
+    with_service(scenario)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"summary": " "},
+        {"summary": "x" * 2001},
+        {
+            "started_at": stamp(NOW - timedelta(hours=1)),
+            "completed_at": stamp(NOW - timedelta(hours=2)),
+        },
+        {"completed_at": stamp(NOW + timedelta(hours=1))},
+        {"started_at": stamp(NOW - timedelta(days=2))},
+        {"actual_downtime_hours": -1.0},
+        {"parts_used": [pb.PartLine(part_number="GBX-BRG-22", quantity=0)]},
+    ],
+)
+def test_a_completion_is_well_formed_and_after_the_approval(changes: dict[str, Any]) -> None:
+    async def scenario(world: World) -> None:
+        order = await approved_order(world)
+        assert await code_of(world.stub.CompleteWorkOrder(
+            complete(order, completion(**changes)), metadata=as_caller(PLANNER), timeout=5
+        )) == grpc.StatusCode.INVALID_ARGUMENT  # fmt: skip
+
+    with_service(scenario)
+
+
+def verified_case(order: Any, outcome: str = "resolved", work_order: str = "") -> Event:
+    payload = events_pb2.CaseUpdated(
+        case_id=CASE, status="verified", turbine_id=TURBINE, action="verification_reported",
+        version=12, work_order_id=work_order or order.work_order_id,
+        verification_outcome=outcome,
+    )  # fmt: skip
+    return Event("case.updated", f"v-{outcome}", TENANT, NOW, "investigation", payload, "", "")
+
+
+def test_a_reported_verification_makes_the_completed_work_order_verified() -> None:
+    async def scenario(world: World) -> None:
+        order = await approved_order(world)
+        assert await decisions.on_case(world.engine, verified_case(order)) == 0, "not completed"
+        await world.stub.CompleteWorkOrder(complete(order), metadata=as_caller(PLANNER), timeout=5)
+        with pytest.raises(InvalidEventError):
+            await decisions.on_case(world.engine, verified_case(order, outcome="fine"))
+        assert await decisions.on_case(world.engine, verified_case(order, "not_resolved")) == 1
+        assert await decisions.on_case(world.engine, verified_case(order)) == 0, "a repeat"
+        got = await world.stub.GetWorkOrder(
+            pb.GetWorkOrderRequest(work_order_id=order.work_order_id),
+            metadata=as_caller(OPERATOR), timeout=5,
+        )  # fmt: skip
+        assert (got.work_order.status, got.work_order.verification_outcome) == (
+            "verified", "not_resolved")  # fmt: skip
+        assert (got.history[-1].action, got.history[-1].actor_id) == (
+            "verified", "service:investigation")  # fmt: skip
+
+    with_service(scenario)

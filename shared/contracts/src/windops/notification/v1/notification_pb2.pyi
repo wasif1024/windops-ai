@@ -76,7 +76,7 @@ class Notification(_message.Message):
     notification_id: _builtins.str
     kind: _builtins.str
     """"approval_requested", "decision_made", "case_pending_review", "case_approved",
-    "case_rejected" or "case_needs_attention".
+    "case_rejected", "case_needs_attention" or "case_verified".
     """
     title: _builtins.str
     body: _builtins.str

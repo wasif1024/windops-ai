@@ -115,6 +115,10 @@ message CaseUpdated {
   // The person who opened the case, by user ID, to be told how it goes (M10.5). Empty for a case
   // from detections.
   string requested_by = 11;
+  // The work order a verification is about, and its outcome: "resolved", "not_resolved" or
+  // "inconclusive" (SRS 5.4 step 15, M10.6). Empty for any other change.
+  string work_order_id = 12;
+  string verification_outcome = 13;
 }
 
 // A source record changed, which can make a recommendation stale (SRS 8.5).
@@ -167,9 +171,19 @@ enum ApprovalDecision {
   APPROVAL_DECISION_REJECTED = 2;
 }
 
+// A person recorded the approved work as done (FR-MNT-004), which starts its verification
+// (SRS 5.4 step 15). Identifiers and times only: the completion's notes stay with the work order.
 message WorkOrderCompleted {
   string work_order_id = 1;
+  // When the work ended on site, as the person recorded it.
   google.protobuf.Timestamp completed_at = 2;
+  string case_id = 3;
+  string turbine_id = 4;
+  string proposal_version = 5;
+  // The evidence snapshot the approved version stood on.
+  string evidence_snapshot_id = 6;
+  string completed_by = 7;
+  google.protobuf.Timestamp started_at = 8;
 }
 
 // Asks the Audit Service to record something (FR-AUD-001). Sent on `audit.requested.<service>`, so a

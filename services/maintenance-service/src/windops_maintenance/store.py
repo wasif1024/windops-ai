@@ -23,9 +23,11 @@ from windops_events import audit_request_subject
 from windops_outbox import add_event
 
 SERVICE_NAME = "maintenance"
-SUBMITTED_SUBJECT = "workorder.submitted"
+SUBMITTED_SUBJECT, COMPLETED_SUBJECT = "workorder.submitted", "workorder.completed"
 DRAFT, SUBMITTED, WITHDRAWN = "draft", "submitted", "withdrawn"
 APPROVED, REJECTED, STALE = "approved", "rejected", "stale"
+# The work recorded done (FR-MNT-004), then its verification reported (M10.6).
+COMPLETED, VERIFIED = "completed", "verified"
 METADATA = MetaData()
 
 # One row a work order: its current state. Every change is also kept in its history.
@@ -52,6 +54,10 @@ WORK_ORDERS = Table(
     # Why it is stale: the rule that fired and what it found (SRS 8.5, EVD-007).
     Column("stale_rule", Text, nullable=False, server_default=""),
     Column("stale_detail", Text, nullable=False, server_default=""),
+    # What was done, a serialized windops.maintenance.v1.Completion, once completed (M10.6).
+    Column("completion", LargeBinary),
+    # Once verified: "resolved", "not_resolved" or "inconclusive".
+    Column("verification_outcome", Text, nullable=False, server_default=""),
 )
 # Each earlier version of a work order, as it was when revised, never changed (EVD-008): the
 # serialized windops.maintenance.v1.WorkOrder.
@@ -155,7 +161,8 @@ async def record(
     actor_id: str, agent: str = "", note: str = "",
 ) -> None:  # fmt: skip
     """Keep the change in the work order's history and audit it, in the same transaction
-    (EVT-002). A submission is also announced, for Approval and Notification."""
+    (EVT-002). A submission is also announced, for Approval and Notification, and a completion
+    for the Investigation Service, which verifies it (SRS 5.4 step 15)."""
     h = WORK_ORDER_HISTORY.c
     last = (await connection.execute(
         select(h.position).where(h.tenant_id == row.tenant_id,
@@ -202,3 +209,16 @@ async def record(
             ),
             producer=SERVICE_NAME,
         )
+    if action == "completed":
+        done = pb.Completion.FromString(row.completion)
+        await add_event(
+            connection, COMPLETED_SUBJECT, tenant_id=row.tenant_id,
+            payload=events_pb2.WorkOrderCompleted(
+                work_order_id=row.work_order_id, completed_at=done.completed_at,
+                case_id=row.case_id, turbine_id=row.turbine_id,
+                proposal_version=str(row.version),
+                evidence_snapshot_id=row.evidence_snapshot_id, completed_by=done.recorded_by,
+                started_at=done.started_at,
+            ),
+            producer=SERVICE_NAME,
+        )  # fmt: skip

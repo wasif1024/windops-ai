@@ -35,8 +35,9 @@ RECONNECT_SECONDS = 5
 
 
 async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
-    """Apply each approval.decided and stale case, and publish the outbox: audit requests and
-    workorder.submitted. An outage must not restart this service (RES-006), so it keeps trying."""
+    """Apply each approval.decided, stale case and verification, and publish the outbox: audit
+    requests, workorder.submitted and workorder.completed. An outage must not restart this
+    service (RES-006), so it keeps trying."""
     events: Events | None = None
     while events is None:
         if stop.is_set():
@@ -62,7 +63,8 @@ async def consume_and_relay(engine: AsyncEngine, stop: asyncio.Event) -> None:
             events.consumer(subject=decisions.SUBJECT, durable=SERVICE_NAME, handler=decided),
             stop, "decisions",
         )),
-        # Work orders on a snapshot the stale rules found stale (SRS 8.5, M10.3).
+        # Work orders on a snapshot the stale rules found stale (SRS 8.5, M10.3), and completed
+        # ones verified (M10.6).
         asyncio.create_task(keep_consuming(
             events.consumer(subject=decisions.CASE_SUBJECT, durable=f"{SERVICE_NAME}-cases",
                             handler=case_changed),
