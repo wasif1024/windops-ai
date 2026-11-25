@@ -5,10 +5,12 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 import yaml
 from windops_auth import LEVEL_MFA, LEVEL_PASSWORD
 
+from scripts.setup import identity_seed
 from scripts.setup.identity_seed import (
     ADMIN_REQUIRED_ACTIONS,
     TENANTS,
@@ -286,3 +288,28 @@ def test_the_diagnostics_login_can_only_read_statistics() -> None:
     assert sql.count("GRANT ") == 1
     assert "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS" in sql
     assert PLATFORM_DATABASES[DIAGNOSTICS] == "windops-mcp"
+
+
+def test_the_admin_client_takes_a_new_token_when_keycloak_refuses_the_old(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """admin-cli tokens last a minute; a check under load outlives one."""
+    issued: list[str] = []
+
+    def token(url: str, **_: Any) -> httpx.Response:
+        issued.append(f"t{len(issued) + 1}")
+        return httpx.Response(200, json={"access_token": issued[-1]},
+                              request=httpx.Request("POST", url))  # fmt: skip
+
+    monkeypatch.setattr(identity_seed.httpx, "post", token)
+    seen: list[str] = []
+
+    def keycloak(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers["Authorization"])
+        return httpx.Response(401 if seen[-1] == "Bearer t1" and len(seen) > 1 else 200)
+
+    api = identity_seed.admin_client("https://keycloak.test/auth", "secret")
+    api._transport = httpx.MockTransport(keycloak)
+    assert api.get("/windops").status_code == 200
+    assert api.get("/windops").status_code == 200, "a refused token is taken again, once"
+    assert seen == ["Bearer t1", "Bearer t1", "Bearer t2"]

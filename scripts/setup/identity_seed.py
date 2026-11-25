@@ -375,24 +375,41 @@ def strong_password() -> str:
     return f"Wo1!{secrets.token_urlsafe(24)}"
 
 
+class _AdminLogin(httpx.Auth):
+    """The master realm's admin token, taken again when Keycloak refuses it: admin-cli tokens
+    last a minute, and a check under load can outlive one."""
+
+    def __init__(self, base: str, password: str) -> None:
+        self._url = f"{base}/realms/master/protocol/openid-connect/token"
+        self._password, self._token = password, ""
+
+    def _fresh(self) -> str:
+        response = httpx.post(
+            self._url,
+            data={
+                "grant_type": "password",
+                "client_id": "admin-cli",
+                "username": ADMIN_USER,
+                "password": self._password,
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        self._token = str(response.json()["access_token"])
+        return self._token
+
+    def auth_flow(self, request: httpx.Request) -> Any:
+        request.headers["Authorization"] = f"Bearer {self._token or self._fresh()}"
+        response = yield request
+        if response.status_code == 401:
+            request.headers["Authorization"] = f"Bearer {self._fresh()}"
+            yield request
+
+
 def admin_client(base: str, password: str) -> httpx.Client:
-    response = httpx.post(
-        f"{base}/realms/master/protocol/openid-connect/token",
-        data={
-            "grant_type": "password",
-            "client_id": "admin-cli",
-            "username": ADMIN_USER,
-            "password": password,
-        },
-        timeout=30,
-    )
-    response.raise_for_status()
-    token = response.json()["access_token"]
-    return httpx.Client(
-        base_url=f"{base}/admin/realms",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=30,
-    )
+    login = _AdminLogin(base, password)
+    login._fresh()  # Fails here, at once, if the password is wrong.
+    return httpx.Client(base_url=f"{base}/admin/realms", auth=login, timeout=30)
 
 
 def ensure_realm(api: httpx.Client) -> None:
