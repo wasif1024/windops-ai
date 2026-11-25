@@ -7,7 +7,7 @@ permission table could ever let an agent submit.
 
 import secrets
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -27,10 +27,12 @@ from windops_migrations import in_tenant
 from windops_maintenance import plans, validation
 from windops_maintenance.store import (
     APPROVED,
+    COMPLETED,
     DRAFT,
     REJECTED,
     STALE,
     SUBMITTED,
+    VERIFIED,
     WITHDRAWN,
     WORK_ORDER_HISTORY,
     WORK_ORDER_VERSIONS,
@@ -44,8 +46,13 @@ from windops_maintenance.store import (
 from windops_maintenance.validation import Authorizer, Sources
 
 READ, DRAFT_PERMISSION, SUBMIT = "investigation.read", "maintenance.draft", "maintenance.submit"
-ACTIVE_CASES = ("open", "investigating", "pending_review", "approved")
-STATUSES = (DRAFT, SUBMITTED, WITHDRAWN, APPROVED, REJECTED, STALE)
+COMPLETE = "maintenance.complete"
+ACTIVE_CASES = ("open", "investigating", "pending_review", "approved", "verifying", "verified")
+STATUSES = (DRAFT, SUBMITTED, WITHDRAWN, APPROVED, REJECTED, STALE, COMPLETED, VERIFIED)
+# A completion's limits: its summary, its parts, a part's quantity, and its downtime in hours.
+MAXIMUM_SUMMARY, MAXIMUM_PARTS, MAXIMUM_QUANTITY, MAXIMUM_DOWNTIME = 2000, 50, 1000, 8760.0
+# How far ahead of this service's clock a completion's time may be, for a device's clock.
+CLOCK_SKEW = timedelta(minutes=5)
 # What is revised as a new version (EVD-008).
 REVISABLE = (STALE, REJECTED)
 DEFAULT_PAGE, MAXIMUM_PAGE, MAXIMUM_KEY, MAXIMUM_REASON = 50, 200, 64, 500
@@ -78,6 +85,8 @@ def to_message(row: Any) -> pb.WorkOrder:
         validation=pb.Validation.FromString(row.validation),
         stale_rule=row.stale_rule,
         stale_detail=row.stale_detail,
+        completion=pb.Completion.FromString(row.completion) if row.completion else None,
+        verification_outcome=row.verification_outcome,
     )
 
 
@@ -544,6 +553,61 @@ class MaintenanceService(maintenance_pb2_grpc.MaintenanceServiceServicer):
                 f"It changed since you read it: revision {row.revision}, not {expected_revision}"
             )
 
+    async def CompleteWorkOrder(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.CompleteWorkOrderRequest, context: Any
+    ) -> pb.CompleteWorkOrderResponse:
+        """Record the approved work done (FR-MNT-004). Only a person (SEC-009)."""
+        await self._person(COMPLETE)
+        tenant, who, kind, _ = self._caller()
+        now = self._now()
+        completion = _completion(request.completion, now)
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            first = await self._first(
+                connection, tenant, who, request.idempotency_key, "CompleteWorkOrder", request,
+                pb.CompleteWorkOrderResponse,
+            )  # fmt: skip
+            if first is not None:
+                return first  # type: ignore[no-any-return]
+            row = await self._load(connection, tenant, request.work_order_id)
+        await self._require(COMPLETE, row.turbine_id)
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, tenant)
+            row = await self._load(connection, tenant, request.work_order_id)
+            if row.status != APPROVED:
+                raise ConflictError(f"Only approved work is completed; this is {row.status}")
+            if request.expected_revision != row.revision:
+                raise ConflictError(f"It changed since you read it: revision {row.revision}, "
+                                    f"not {request.expected_revision}")  # fmt: skip
+            approved_at = await self._approved_at(connection, row)
+            if completion.started_at.ToDatetime(tzinfo=UTC) < approved_at:
+                raise InvalidRequestError("The work cannot start before it was approved")
+            completion.recorded_by = who
+            completion.recorded_at.FromDatetime(now)
+            row = await self._change(connection, row, now, status=COMPLETED,
+                                     completion=completion.SerializeToString())  # fmt: skip
+            await record(connection, row, action="completed", at=now, actor_type=kind,
+                         actor_id=who)  # fmt: skip
+            response = pb.CompleteWorkOrderResponse(work_order=to_message(row))
+            await remember(connection, tenant_id=tenant, caller=who,
+                           key=request.idempotency_key, method="CompleteWorkOrder",
+                           request=request, response=response, now=now)  # fmt: skip
+        return response
+
+    @staticmethod
+    async def _approved_at(connection: AsyncConnection, row: Any) -> datetime:
+        """When this version was approved here, from its history."""
+        h = WORK_ORDER_HISTORY.c
+        at = (await connection.execute(
+            select(h.at).where(h.tenant_id == row.tenant_id, h.work_order_id == row.work_order_id,
+                               h.action == APPROVED)
+            .order_by(h.position.desc()).limit(1)
+        )).scalar()  # fmt: skip
+        if at is None:
+            raise ConflictError("Its approval is not in its history")
+        moment: datetime = at
+        return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+
     async def GetWorkOrder(  # noqa: N802  # The name comes from the contract.
         self, request: pb.GetWorkOrderRequest, context: Any
     ) -> pb.GetWorkOrderResponse:
@@ -619,3 +683,30 @@ class MaintenanceService(maintenance_pb2_grpc.MaintenanceServiceServicer):
             work_orders=[to_message(r) for r in rows[:size]],
             next_page_token=str(offset + size) if len(rows) > size else "",
         )
+
+
+def _completion(given: pb.Completion, now: datetime) -> pb.Completion:
+    """A copy of a well-formed completion, or InvalidRequestError saying what is wrong."""
+    if not given.HasField("started_at") or not given.HasField("completed_at"):
+        raise InvalidRequestError("completion needs started_at and completed_at")
+    started = given.started_at.ToDatetime(tzinfo=UTC)
+    ended = given.completed_at.ToDatetime(tzinfo=UTC)
+    if not started < ended <= now + CLOCK_SKEW:
+        raise InvalidRequestError("The work starts before it is completed, and is not yet to come")
+    summary = given.summary.strip()
+    if not summary or len(summary) > MAXIMUM_SUMMARY:
+        raise InvalidRequestError(f"A summary is needed, of at most {MAXIMUM_SUMMARY} characters")
+    if not 0 <= given.actual_downtime_hours <= MAXIMUM_DOWNTIME:
+        raise InvalidRequestError(f"actual_downtime_hours is from 0 to {MAXIMUM_DOWNTIME:.0f}")
+    if len(given.parts_used) > MAXIMUM_PARTS or any(
+        not p.part_number.strip() or not 0 < p.quantity <= MAXIMUM_QUANTITY
+        for p in given.parts_used
+    ):
+        raise InvalidRequestError(f"At most {MAXIMUM_PARTS} parts used, each named, with a "
+                                  f"quantity from 1 to {MAXIMUM_QUANTITY}")  # fmt: skip
+    return pb.Completion(
+        started_at=given.started_at, completed_at=given.completed_at, summary=summary,
+        parts_used=[pb.PartLine(part_number=p.part_number.strip(), quantity=p.quantity)
+                    for p in given.parts_used],
+        actual_downtime_hours=given.actual_downtime_hours,
+    )  # fmt: skip

@@ -55,7 +55,9 @@ class Case(_message.Message):
     """
     title: _builtins.str
     status: _builtins.str
-    """"open", "investigating", "pending_review", "approved", "closed" or "cancelled"."""
+    """"open", "investigating", "pending_review", "approved", "verifying", "verified", "closed" or
+    "cancelled". All but the last two are active.
+    """
     severity: _builtins.str
     """"low", "medium", "high" or "critical": the highest of its detections, or a person's choice
     for a case they open by hand.
@@ -179,8 +181,9 @@ class CaseEvent(_message.Message):
     NOTE_FIELD_NUMBER: _builtins.int
     action: _builtins.str
     """"created", "detection_attached", "severity_raised", "evidence_frozen", "cancelled",
-    "investigation_started", "investigation_completed", "investigation_ended" or
-    "investigation_not_started".
+    "investigation_started", "investigation_completed", "investigation_ended",
+    "investigation_not_started", "approved", "rejected", "decision_not_resumed",
+    "maintenance_completed", "verification_reported", "closed" or "reopened".
     """
     actor_type: _builtins.str
     """"user" or "service"."""
@@ -280,7 +283,7 @@ class ListCasesRequest(_message.Message):
     page_token: _builtins.str
     @_builtins.property
     def statuses(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
-        """Empty means open, investigating, pending_review and approved."""
+        """Empty means every active status."""
 
     def __init__(
         self,
@@ -347,6 +350,7 @@ class GetCaseResponse(_message.Message):
     CASE_FIELD_NUMBER: _builtins.int
     DETECTIONS_FIELD_NUMBER: _builtins.int
     HISTORY_FIELD_NUMBER: _builtins.int
+    VERIFICATIONS_FIELD_NUMBER: _builtins.int
     @_builtins.property
     def case(self) -> Global___Case: ...
     @_builtins.property
@@ -355,20 +359,269 @@ class GetCaseResponse(_message.Message):
     def history(self) -> _containers.RepeatedCompositeFieldContainer[Global___CaseEvent]:
         """Oldest first."""
 
+    @_builtins.property
+    def verifications(self) -> _containers.RepeatedCompositeFieldContainer[Global___Verification]:
+        """Each verification of the case's completed work, newest first (M10.6)."""
+
     def __init__(
         self,
         *,
         case: Global___Case | None = ...,
         detections: _abc.Iterable[Global___CaseDetection] | None = ...,
         history: _abc.Iterable[Global___CaseEvent] | None = ...,
+        verifications: _abc.Iterable[Global___Verification] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["case", b"case"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["case", b"case", "detections", b"detections", "history", b"history"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case", b"case", "detections", b"detections", "history", b"history", "verifications", b"verifications"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___GetCaseResponse: _TypeAlias = GetCaseResponse  # noqa: Y015
+
+@_typing.final
+class MetricComparison(_message.Message):
+    """How one metric ran before and after the work: before from the case's evidence, after from
+    the verification window. Each figure is unset when there was no reading with a value.
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    METRIC_FIELD_NUMBER: _builtins.int
+    UNIT_FIELD_NUMBER: _builtins.int
+    BEFORE_MEAN_FIELD_NUMBER: _builtins.int
+    AFTER_MEAN_FIELD_NUMBER: _builtins.int
+    BEFORE_MAXIMUM_FIELD_NUMBER: _builtins.int
+    AFTER_MAXIMUM_FIELD_NUMBER: _builtins.int
+    BEFORE_READINGS_FIELD_NUMBER: _builtins.int
+    AFTER_READINGS_FIELD_NUMBER: _builtins.int
+    metric: _builtins.str
+    """As the Telemetry Service names it, such as "METRIC_BEARING_TEMPERATURE"."""
+    unit: _builtins.str
+    before_mean: _builtins.float
+    after_mean: _builtins.float
+    before_maximum: _builtins.float
+    after_maximum: _builtins.float
+    before_readings: _builtins.int
+    after_readings: _builtins.int
+    def __init__(
+        self,
+        *,
+        metric: _builtins.str = ...,
+        unit: _builtins.str = ...,
+        before_mean: _builtins.float | None = ...,
+        after_mean: _builtins.float | None = ...,
+        before_maximum: _builtins.float | None = ...,
+        after_maximum: _builtins.float | None = ...,
+        before_readings: _builtins.int = ...,
+        after_readings: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_after_maximum", b"_after_maximum", "_after_mean", b"_after_mean", "_before_maximum", b"_before_maximum", "_before_mean", b"_before_mean", "after_maximum", b"after_maximum", "after_mean", b"after_mean", "before_maximum", b"before_maximum", "before_mean", b"before_mean"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_after_maximum", b"_after_maximum", "_after_mean", b"_after_mean", "_before_maximum", b"_before_maximum", "_before_mean", b"_before_mean", "after_maximum", b"after_maximum", "after_mean", b"after_mean", "after_readings", b"after_readings", "before_maximum", b"before_maximum", "before_mean", b"before_mean", "before_readings", b"before_readings", "metric", b"metric", "unit", b"unit"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__after_maximum: _TypeAlias = _typing.Literal["after_maximum"]  # noqa: Y015
+    _WhichOneofArgType__after_maximum: _TypeAlias = _typing.Literal["_after_maximum", b"_after_maximum"]  # noqa: Y015
+    _WhichOneofReturnType__after_mean: _TypeAlias = _typing.Literal["after_mean"]  # noqa: Y015
+    _WhichOneofArgType__after_mean: _TypeAlias = _typing.Literal["_after_mean", b"_after_mean"]  # noqa: Y015
+    _WhichOneofReturnType__before_maximum: _TypeAlias = _typing.Literal["before_maximum"]  # noqa: Y015
+    _WhichOneofArgType__before_maximum: _TypeAlias = _typing.Literal["_before_maximum", b"_before_maximum"]  # noqa: Y015
+    _WhichOneofReturnType__before_mean: _TypeAlias = _typing.Literal["before_mean"]  # noqa: Y015
+    _WhichOneofArgType__before_mean: _TypeAlias = _typing.Literal["_before_mean", b"_before_mean"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__after_maximum) -> _WhichOneofReturnType__after_maximum | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__after_mean) -> _WhichOneofReturnType__after_mean | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__before_maximum) -> _WhichOneofReturnType__before_maximum | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__before_mean) -> _WhichOneofReturnType__before_mean | None: ...
+
+Global___MetricComparison: _TypeAlias = MetricComparison  # noqa: Y015
+
+@_typing.final
+class RuleResult(_message.Message):
+    """What a fault rule found at the end of the verification window."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    RULE_ID_FIELD_NUMBER: _builtins.int
+    VERSION_FIELD_NUMBER: _builtins.int
+    SEVERITY_FIELD_NUMBER: _builtins.int
+    SUMMARY_FIELD_NUMBER: _builtins.int
+    COUNTS_FIELD_NUMBER: _builtins.int
+    rule_id: _builtins.str
+    version: _builtins.int
+    severity: _builtins.str
+    summary: _builtins.str
+    counts: _builtins.bool
+    """One of the case's own rules, or any rule for a case a person opened."""
+    def __init__(
+        self,
+        *,
+        rule_id: _builtins.str = ...,
+        version: _builtins.int = ...,
+        severity: _builtins.str = ...,
+        summary: _builtins.str = ...,
+        counts: _builtins.bool = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["counts", b"counts", "rule_id", b"rule_id", "severity", b"severity", "summary", b"summary", "version", b"version"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___RuleResult: _TypeAlias = RuleResult  # noqa: Y015
+
+@_typing.final
+class Verification(_message.Message):
+    """The check after the work (SRS 5.4 step 15, FR-MNT-005): worked out, never judged by a model."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    WORK_ORDER_ID_FIELD_NUMBER: _builtins.int
+    PROPOSAL_VERSION_FIELD_NUMBER: _builtins.int
+    COMPLETED_BY_FIELD_NUMBER: _builtins.int
+    COMPLETED_AT_FIELD_NUMBER: _builtins.int
+    STATUS_FIELD_NUMBER: _builtins.int
+    OUTCOME_FIELD_NUMBER: _builtins.int
+    WINDOW_START_FIELD_NUMBER: _builtins.int
+    WINDOW_END_FIELD_NUMBER: _builtins.int
+    BEFORE_TELEMETRY_SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    AFTER_TELEMETRY_SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    AFTER_SAMPLES_FIELD_NUMBER: _builtins.int
+    METRICS_FIELD_NUMBER: _builtins.int
+    RULES_FIELD_NUMBER: _builtins.int
+    NOTE_FIELD_NUMBER: _builtins.int
+    REPORTED_AT_FIELD_NUMBER: _builtins.int
+    REVIEW_FIELD_NUMBER: _builtins.int
+    REVIEWED_BY_FIELD_NUMBER: _builtins.int
+    REVIEWED_AT_FIELD_NUMBER: _builtins.int
+    REVIEW_REASON_FIELD_NUMBER: _builtins.int
+    work_order_id: _builtins.str
+    proposal_version: _builtins.int
+    completed_by: _builtins.str
+    status: _builtins.str
+    """"waiting" for the window to pass, "reported", or "not_started" when the case was no longer
+    approved: note says why.
+    """
+    outcome: _builtins.str
+    """Once reported: "resolved", when none of the case's rules finds anything; "not_resolved",
+    when one does; "inconclusive", when there was too little data, or a data gap, to say.
+    """
+    before_telemetry_snapshot_id: _builtins.str
+    """The telemetry compared: the case's evidence, and the window, frozen with its own hash."""
+    after_telemetry_snapshot_id: _builtins.str
+    after_samples: _builtins.int
+    note: _builtins.str
+    review: _builtins.str
+    """A person's answer: "closed" or "reopened", empty until then."""
+    reviewed_by: _builtins.str
+    review_reason: _builtins.str
+    @_builtins.property
+    def completed_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def window_start(self) -> _timestamp_pb2.Timestamp:
+        """The window watched after the work, from its completion."""
+
+    @_builtins.property
+    def window_end(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def metrics(self) -> _containers.RepeatedCompositeFieldContainer[Global___MetricComparison]: ...
+    @_builtins.property
+    def rules(self) -> _containers.RepeatedCompositeFieldContainer[Global___RuleResult]: ...
+    @_builtins.property
+    def reported_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def reviewed_at(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        work_order_id: _builtins.str = ...,
+        proposal_version: _builtins.int = ...,
+        completed_by: _builtins.str = ...,
+        completed_at: _timestamp_pb2.Timestamp | None = ...,
+        status: _builtins.str = ...,
+        outcome: _builtins.str = ...,
+        window_start: _timestamp_pb2.Timestamp | None = ...,
+        window_end: _timestamp_pb2.Timestamp | None = ...,
+        before_telemetry_snapshot_id: _builtins.str = ...,
+        after_telemetry_snapshot_id: _builtins.str = ...,
+        after_samples: _builtins.int = ...,
+        metrics: _abc.Iterable[Global___MetricComparison] | None = ...,
+        rules: _abc.Iterable[Global___RuleResult] | None = ...,
+        note: _builtins.str = ...,
+        reported_at: _timestamp_pb2.Timestamp | None = ...,
+        review: _builtins.str = ...,
+        reviewed_by: _builtins.str = ...,
+        reviewed_at: _timestamp_pb2.Timestamp | None = ...,
+        review_reason: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["completed_at", b"completed_at", "reported_at", b"reported_at", "reviewed_at", b"reviewed_at", "window_end", b"window_end", "window_start", b"window_start"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["after_samples", b"after_samples", "after_telemetry_snapshot_id", b"after_telemetry_snapshot_id", "before_telemetry_snapshot_id", b"before_telemetry_snapshot_id", "completed_at", b"completed_at", "completed_by", b"completed_by", "metrics", b"metrics", "note", b"note", "outcome", b"outcome", "proposal_version", b"proposal_version", "reported_at", b"reported_at", "review", b"review", "review_reason", b"review_reason", "reviewed_at", b"reviewed_at", "reviewed_by", b"reviewed_by", "rules", b"rules", "status", b"status", "window_end", b"window_end", "window_start", b"window_start", "work_order_id", b"work_order_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___Verification: _TypeAlias = Verification  # noqa: Y015
+
+@_typing.final
+class ReviewVerificationRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CASE_ID_FIELD_NUMBER: _builtins.int
+    DECISION_FIELD_NUMBER: _builtins.int
+    REASON_FIELD_NUMBER: _builtins.int
+    EXPECTED_VERSION_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    case_id: _builtins.str
+    decision: _builtins.str
+    """"close" or "reopen"."""
+    reason: _builtins.str
+    """Why. Required to reopen, at most 500 characters."""
+    expected_version: _builtins.int
+    """The case version the person saw."""
+    idempotency_key: _builtins.str
+    def __init__(
+        self,
+        *,
+        case_id: _builtins.str = ...,
+        decision: _builtins.str = ...,
+        reason: _builtins.str = ...,
+        expected_version: _builtins.int = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "decision", b"decision", "expected_version", b"expected_version", "idempotency_key", b"idempotency_key", "reason", b"reason"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ReviewVerificationRequest: _TypeAlias = ReviewVerificationRequest  # noqa: Y015
+
+@_typing.final
+class ReviewVerificationResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CASE_FIELD_NUMBER: _builtins.int
+    VERIFICATION_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def case(self) -> Global___Case: ...
+    @_builtins.property
+    def verification(self) -> Global___Verification: ...
+    def __init__(
+        self,
+        *,
+        case: Global___Case | None = ...,
+        verification: Global___Verification | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["case", b"case", "verification", b"verification"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case", b"case", "verification", b"verification"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ReviewVerificationResponse: _TypeAlias = ReviewVerificationResponse  # noqa: Y015
 
 @_typing.final
 class CancelCaseRequest(_message.Message):

@@ -34,6 +34,12 @@ service MaintenanceService {
   // evidence snapshot, validated at once (EVD-008). The earlier version is kept as it was.
   // Refused while the case's evidence is itself stale: re-evaluate it first.
   rpc ReviseWorkOrder(ReviseWorkOrderRequest) returns (ReviseWorkOrderResponse);
+  // Records an approved work order as done, with what was done (FR-MNT-004), announcing
+  // workorder.completed, which starts its verification (SRS 5.4 step 15). Needs
+  // maintenance.complete for its turbine, and a person: never an agent. The work ends after the
+  // approval and no later than now. It becomes "verified" once the Investigation Service reports
+  // how the turbine ran afterwards.
+  rpc CompleteWorkOrder(CompleteWorkOrderRequest) returns (CompleteWorkOrderResponse);
   // With its history.
   rpc GetWorkOrder(GetWorkOrderRequest) returns (GetWorkOrderResponse);
   // Newest first.
@@ -92,6 +98,21 @@ message PartAvailability {
   int64 available = 4;
 }
 
+// What was done, as the person who recorded it said (FR-MNT-004). Never changed once recorded.
+message Completion {
+  google.protobuf.Timestamp started_at = 1;
+  // When the turbine was handed back: verification watches its telemetry from then.
+  google.protobuf.Timestamp completed_at = 2;
+  // What was done and found, at most 2000 characters.
+  string summary = 3;
+  // The parts used, which may differ from those planned.
+  repeated PartLine parts_used = 4;
+  double actual_downtime_hours = 5;
+  // Set by the service.
+  string recorded_by = 6;
+  google.protobuf.Timestamp recorded_at = 7;
+}
+
 message Validation {
   google.protobuf.Timestamp checked_at = 1;
   // No blocking problem.
@@ -118,10 +139,12 @@ message WorkOrder {
   // The case's evidence when it was drafted.
   string evidence_snapshot_id = 6;
   Plan plan = 7;
-  // "draft", "submitted", "withdrawn", "approved", "rejected" or "stale". Approved and rejected
-  // are a person's decision through the Approval Service, from its approval.decided; stale is
-  // the Investigation Service's rules finding its evidence snapshot stale (SRS 8.5). A rejected
-  // or stale one is revised as a new version. "completed" and "verified" come later in Phase 10.
+  // "draft", "submitted", "withdrawn", "approved", "rejected", "stale", "completed" or
+  // "verified". Approved and rejected are a person's decision through the Approval Service, from
+  // its approval.decided; stale is the Investigation Service's rules finding its evidence
+  // snapshot stale (SRS 8.5). A rejected or stale one is revised as a new version. Completed is a
+  // person recording the work done; verified, the Investigation Service reporting how the
+  // turbine ran afterwards (M10.6).
   string status = 8;
   // The person, or principal, it was drafted for.
   string drafted_by = 9;
@@ -135,12 +158,16 @@ message WorkOrder {
   // Why it is stale: the rule that fired, such as "inventory", and what it found (EVD-007).
   string stale_rule = 16;
   string stale_detail = 17;
+  // Set once completed.
+  Completion completion = 18;
+  // Once verified: "resolved", "not_resolved" or "inconclusive". The case holds the comparison.
+  string verification_outcome = 19;
 }
 
 message WorkOrderEvent {
   google.protobuf.Timestamp at = 1;
-  // "drafted", "updated", "validated", "submitted", "withdrawn", "approved", "rejected", "stale"
-  // or "revised".
+  // "drafted", "updated", "validated", "submitted", "withdrawn", "approved", "rejected", "stale",
+  // "revised", "completed" or "verified".
   string action = 2;
   // "user", "agent" or "service".
   string actor_type = 3;
@@ -213,6 +240,18 @@ message ReviseWorkOrderRequest {
 }
 
 message ReviseWorkOrderResponse {
+  WorkOrder work_order = 1;
+}
+
+message CompleteWorkOrderRequest {
+  string work_order_id = 1;
+  int64 expected_revision = 2;
+  // recorded_by and recorded_at are set by the service.
+  Completion completion = 3;
+  string idempotency_key = 4;
+}
+
+message CompleteWorkOrderResponse {
   WorkOrder work_order = 1;
 }
 

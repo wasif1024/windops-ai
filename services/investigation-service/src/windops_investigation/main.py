@@ -29,7 +29,7 @@ from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, BreakerOpenError, CircuitBreaker
 
-from windops_investigation import decisions, stale
+from windops_investigation import decisions, stale, verification
 from windops_investigation.consumer import SUBJECT, handle
 from windops_investigation.evidence import Builder, keep_building
 from windops_investigation.investigations import (
@@ -182,6 +182,9 @@ def main() -> None:
     )  # fmt: skip
     secret = os.environ["WINDOPS_IDENTITY_SECRET"]
     builder = Builder(engine, sources, secret)
+    # Step 15: completed work, verified once the turbine has run for this long (M10.6).
+    window = verification.window_setting()
+    verifier = verification.Verifier(engine, sources, secret)
     # How a case's agents run (ADR 0025). Anything unknown is refused at start.
     agents = os.environ.get("WINDOPS_INVESTIGATION_AGENTS", "rehearse")
     if agents not in MODES:
@@ -245,6 +248,9 @@ def main() -> None:
             # A person's decision, which resumes the case's workflow (SRS 5.4 step 14, M10.4).
             (decisions.SUBJECT, f"{SERVICE_NAME}-decisions",
              lambda e: decisions.on_decided(engine, e)),
+            # Completed work, verified once its window passes (SRS 5.4 step 15, M10.6).
+            (verification.SUBJECT, f"{SERVICE_NAME}-completions",
+             lambda e: verification.on_completed(engine, e, window)),
         ])  # fmt: skip
 
     async def sweep(stop: asyncio.Event) -> None:
@@ -256,12 +262,15 @@ def main() -> None:
     async def investigate(stop: asyncio.Event) -> None:
         await keep_investigating(keeper, stop)
 
+    async def verify(stop: asyncio.Event) -> None:
+        await verification.keep_verifying(verifier, stop)
+
     asyncio.run(
         run_service(
             SERVICE_NAME,
             register,
             readiness_checks=(database_ready,),
-            background=(consume, build, investigate, sweep),
+            background=(consume, build, investigate, sweep, verify),
         )
     )
 

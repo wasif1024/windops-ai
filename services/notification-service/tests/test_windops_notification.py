@@ -273,6 +273,25 @@ def test_a_detection_case_reaches_who_may_review_its_findings_there() -> None:
     with_service(scenario)
 
 
+def test_a_verification_reaches_the_person_who_asked_with_its_outcome() -> None:
+    """FR-MNT-005: the outcome is reported to a person, who closes or reopens the case."""
+
+    async def scenario(world: World) -> None:
+        reported = case_updated("verification_reported", requested_by="u-operator")
+        reported.work_order_id, reported.verification_outcome = "wo_" + "9" * 20, "not_resolved"
+        await world.hear(consumer.CASES, reported)
+        await world.dispatcher.run_once()
+        told = (await world.told())["u-operator"]
+        assert told.kind == rules.CASE_VERIFIED and told.work_order_id == "wo_" + "9" * 20
+        assert told.title == f"Case {CASE}: work verified, not resolved"
+        assert "still find it" in told.body and told.link == "/screens/investigations"
+        unsaid = case_updated("verification_reported")
+        with pytest.raises(InvalidEventError):
+            await world.hear(consumer.CASES, unsaid, "e-unsaid")
+
+    with_service(scenario)
+
+
 def test_other_case_changes_tell_nobody() -> None:
     async def scenario(world: World) -> None:
         for n, action in enumerate(

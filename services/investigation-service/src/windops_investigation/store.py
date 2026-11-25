@@ -28,10 +28,12 @@ UPDATED_SUBJECT = "case.updated"
 OPEN, INVESTIGATING, PENDING_REVIEW = "open", "investigating", "pending_review"
 # A person approved the case's work order; it waits for the maintenance (SRS 5.4 step 14, M10.4).
 APPROVED = "approved"
+# Its work is done and the turbine is watched, then its outcome waits for a person (M10.6).
+VERIFYING, VERIFIED = "verifying", "verified"
 CLOSED, CANCELLED = "closed", "cancelled"
-ACTIVE = (OPEN, INVESTIGATING, PENDING_REVIEW, APPROVED)
+ACTIVE = (OPEN, INVESTIGATING, PENDING_REVIEW, APPROVED, VERIFYING, VERIFIED)
 METADATA = MetaData()
-_ACTIVE_SQL = "('open', 'investigating', 'pending_review', 'approved')"
+_ACTIVE_SQL = "('open', 'investigating', 'pending_review', 'approved', 'verifying', 'verified')"
 
 CASES = Table(
     "cases",
@@ -63,7 +65,7 @@ CASES = Table(
     Column("stale_rules_version", Text, nullable=False, server_default=""),
     # At most one active case from detections for a component of a turbine.
     Index(
-        "cases_one_active_or_approved", "tenant_id", "turbine_id", "component_group", unique=True,
+        "cases_one_active", "tenant_id", "turbine_id", "component_group", unique=True,
         postgresql_where=text(f"origin = 'detection' AND status IN {_ACTIVE_SQL}"),
         sqlite_where=text(f"origin = 'detection' AND status IN {_ACTIVE_SQL}"),
     ),
@@ -214,6 +216,47 @@ CASE_DECISIONS = Table(
     Column("updated_at", DateTime(timezone=True), nullable=False),
     Index("case_decisions_by_case", "tenant_id", "case_id"),
 )
+# Each completed work order's verification (SRS 5.4 step 15, FR-MNT-005, M10.6): the telemetry
+# after the work, compared with the case's evidence, and the fault rules run again. One for each
+# version completed.
+VERIFICATIONS = Table(
+    "case_verifications",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("work_order_id", Text, primary_key=True),
+    Column("proposal_version", BigInteger, primary_key=True),
+    Column("case_id", Text, nullable=False),
+    Column("turbine_id", Text, nullable=False),
+    # The snapshot the approved version stood on, whose telemetry is the condition before.
+    Column("evidence_snapshot_id", Text, nullable=False),
+    Column("completed_by", Text, nullable=False),
+    Column("started_at", DateTime(timezone=True), nullable=False),
+    Column("completed_at", DateTime(timezone=True), nullable=False),
+    # "waiting", "reported" or "not_started".
+    Column("status", Text, nullable=False),
+    # Once reported: "resolved", "not_resolved" or "inconclusive".
+    Column("outcome", Text, nullable=False, server_default=""),
+    Column("window_start", DateTime(timezone=True), nullable=False),
+    Column("window_end", DateTime(timezone=True), nullable=False),
+    Column("attempts", BigInteger, nullable=False, server_default="0"),
+    Column("next_attempt_at", DateTime(timezone=True), nullable=False),
+    Column("before_telemetry_snapshot_id", Text, nullable=False, server_default=""),
+    Column("after_telemetry_snapshot_id", Text, nullable=False, server_default=""),
+    Column("after_samples", BigInteger, nullable=False, server_default="0"),
+    # The comparison and the rules' results, as JSON lists of MetricComparison and RuleResult.
+    Column("metrics_json", Text, nullable=False, server_default="[]"),
+    Column("rules_json", Text, nullable=False, server_default="[]"),
+    Column("note", Text, nullable=False, server_default=""),
+    Column("received_at", DateTime(timezone=True), nullable=False),
+    Column("reported_at", DateTime(timezone=True)),
+    # A person's answer: "closed" or "reopened".
+    Column("review", Text, nullable=False, server_default=""),
+    Column("reviewed_by", Text, nullable=False, server_default=""),
+    Column("reviewed_at", DateTime(timezone=True)),
+    Column("review_reason", Text, nullable=False, server_default=""),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    Index("case_verifications_by_case", "tenant_id", "case_id"),
+)
 # A retry with the same key returns the first answer, and changes nothing (GRP-007).
 IDEMPOTENCY_KEYS = Table(
     "idempotency_keys",
@@ -229,6 +272,7 @@ IDEMPOTENCY_KEYS = Table(
 TENANT_TABLES = (
     "cases", "case_detections", "case_history", "idempotency_keys", "evidence_snapshots",
     "evidence_items", "case_investigations", "case_progress", "case_proposals", "case_decisions",
+    "case_verifications",
 )  # fmt: skip
 
 
@@ -280,9 +324,10 @@ async def remember(
 
 async def record(
     connection: AsyncConnection, case: Any, *, action: str, at: datetime, actor_type: str,
-    actor_id: str, note: str = "",
+    actor_id: str, note: str = "", work_order_id: str = "", outcome: str = "",
 ) -> None:  # fmt: skip
-    """Keep the change in the case's history, announce it and audit it, with it (EVT-002)."""
+    """Keep the change in the case's history, announce it and audit it, with it (EVT-002). A
+    verification also names its work order and outcome (M10.6)."""
     await connection.execute(
         insert(CASE_HISTORY).values(
             tenant_id=case.tenant_id, case_id=case.case_id, version=case.version, at=at,
@@ -299,6 +344,7 @@ async def record(
             evidence_snapshot_id=case.evidence_snapshot_id, stale_rule=case.stale_rule,
             stale_detail=case.stale_detail, stale_rules_version=case.stale_rules_version,
             requested_by=case.created_by if case.origin == "user" else "",
+            work_order_id=work_order_id, verification_outcome=outcome,
         ),
         producer=SERVICE_NAME,
     )  # fmt: skip

@@ -66,6 +66,11 @@ class InvestigationServiceStub:
                 request_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CancelCaseRequest.SerializeToString,
                 response_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CancelCaseResponse.FromString,
                 _registered_method=True)
+        self.ReviewVerification = channel.unary_unary(
+                '/windops.investigation.v1.InvestigationService/ReviewVerification',
+                request_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewVerificationRequest.SerializeToString,
+                response_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewVerificationResponse.FromString,
+                _registered_method=True)
         self.CreateEvidenceSnapshot = channel.unary_unary(
                 '/windops.investigation.v1.InvestigationService/CreateEvidenceSnapshot',
                 request_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CreateEvidenceSnapshotRequest.SerializeToString,
@@ -129,6 +134,15 @@ class InvestigationServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ReviewVerification(self, request, context):
+        """A person's answer to a verification report (SRS 5.4 step 15, FR-MNT-005): close the case, or
+        reopen it to be investigated again. Only a verified case, on its newest verification. Needs
+        finding.review for its turbine, and a person: never an agent.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def CreateEvidenceSnapshot(self, request, context):
         """A case's evidence, frozen (FR-INV-002, EVD-001 to 004): the turbine, its telemetry window,
         its alarms, each detection and the exact rule version behind it, each item hashed, and the
@@ -170,6 +184,11 @@ class InvestigationServiceServicer:
         its own (SRS 5.4 step 14): approved, the case is "approved"; rejected, it waits for a revised
         proposal; a resume that cannot carry on sends it back to "open", to restart from the snapshot.
 
+        Once a person records the approved work done, from workorder.completed, the case is
+        "verifying" while the turbine runs for the verification window. Then this service compares
+        the telemetry after the work with the case's evidence, runs the fault rules again, and
+        reports the outcome: the case is "verified" until a person closes or reopens it (M10.6).
+
         The stream sends a heartbeat when nothing has happened for a while, ends with "finished"
         once the investigation is over, and ends without it after a few minutes, to be called again.
         """
@@ -199,6 +218,11 @@ def add_InvestigationServiceServicer_to_server(servicer, server):
                     servicer.CancelCase,
                     request_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CancelCaseRequest.FromString,
                     response_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CancelCaseResponse.SerializeToString,
+            ),
+            'ReviewVerification': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReviewVerification,
+                    request_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewVerificationRequest.FromString,
+                    response_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewVerificationResponse.SerializeToString,
             ),
             'CreateEvidenceSnapshot': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateEvidenceSnapshot,
@@ -341,6 +365,33 @@ class InvestigationService:
             '/windops.investigation.v1.InvestigationService/CancelCase',
             windops_dot_investigation_dot_v1_dot_investigation__pb2.CancelCaseRequest.SerializeToString,
             windops_dot_investigation_dot_v1_dot_investigation__pb2.CancelCaseResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReviewVerification(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.investigation.v1.InvestigationService/ReviewVerification',
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewVerificationRequest.SerializeToString,
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewVerificationResponse.FromString,
             options,
             channel_credentials,
             insecure,

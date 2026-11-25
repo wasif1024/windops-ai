@@ -118,6 +118,7 @@ def with_service(
         authorizer = FakeAuthorizer({
             ("u-operator", "investigation.read", ""), ("u-operator", "investigation.create", ""),
             ("u-engineer", "investigation.read", ""), ("u-engineer", "investigation.cancel", ""),
+            ("u-engineer", "finding.review", ""),
             ("u-auditor", "investigation.read", ""),
             ("u-dogger", "investigation.read", "dogger-east"),
         })  # fmt: skip

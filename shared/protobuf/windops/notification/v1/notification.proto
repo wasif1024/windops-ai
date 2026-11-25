@@ -41,7 +41,7 @@ message Delivery {
 message Notification {
   string notification_id = 1;
   // "approval_requested", "decision_made", "case_pending_review", "case_approved",
-  // "case_rejected" or "case_needs_attention".
+  // "case_rejected", "case_needs_attention" or "case_verified".
   string kind = 2;
   string title = 3;
   string body = 4;

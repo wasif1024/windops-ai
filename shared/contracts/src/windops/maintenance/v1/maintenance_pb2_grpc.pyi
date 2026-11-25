@@ -65,6 +65,13 @@ class MaintenanceServiceStub:
     evidence snapshot, validated at once (EVD-008). The earlier version is kept as it was.
     Refused while the case's evidence is itself stale: re-evaluate it first.
     """
+    CompleteWorkOrder: _grpc.UnaryUnaryMultiCallable[_maintenance_pb2.CompleteWorkOrderRequest, _maintenance_pb2.CompleteWorkOrderResponse]
+    """Records an approved work order as done, with what was done (FR-MNT-004), announcing
+    workorder.completed, which starts its verification (SRS 5.4 step 15). Needs
+    maintenance.complete for its turbine, and a person: never an agent. The work ends after the
+    approval and no later than now. It becomes "verified" once the Investigation Service reports
+    how the turbine ran afterwards.
+    """
     GetWorkOrder: _grpc.UnaryUnaryMultiCallable[_maintenance_pb2.GetWorkOrderRequest, _maintenance_pb2.GetWorkOrderResponse]
     """With its history."""
     ListWorkOrders: _grpc.UnaryUnaryMultiCallable[_maintenance_pb2.ListWorkOrdersRequest, _maintenance_pb2.ListWorkOrdersResponse]
@@ -106,6 +113,13 @@ class MaintenanceServiceAsyncStub(MaintenanceServiceStub):
     """Revises a stale or rejected work order as its next version, a draft on the case's current
     evidence snapshot, validated at once (EVD-008). The earlier version is kept as it was.
     Refused while the case's evidence is itself stale: re-evaluate it first.
+    """
+    CompleteWorkOrder: _aio.UnaryUnaryMultiCallable[_maintenance_pb2.CompleteWorkOrderRequest, _maintenance_pb2.CompleteWorkOrderResponse]  # type: ignore[assignment]
+    """Records an approved work order as done, with what was done (FR-MNT-004), announcing
+    workorder.completed, which starts its verification (SRS 5.4 step 15). Needs
+    maintenance.complete for its turbine, and a person: never an agent. The work ends after the
+    approval and no later than now. It becomes "verified" once the Investigation Service reports
+    how the turbine ran afterwards.
     """
     GetWorkOrder: _aio.UnaryUnaryMultiCallable[_maintenance_pb2.GetWorkOrderRequest, _maintenance_pb2.GetWorkOrderResponse]  # type: ignore[assignment]
     """With its history."""
@@ -181,6 +195,19 @@ class MaintenanceServiceServicer(metaclass=_abc_1.ABCMeta):
         """Revises a stale or rejected work order as its next version, a draft on the case's current
         evidence snapshot, validated at once (EVD-008). The earlier version is kept as it was.
         Refused while the case's evidence is itself stale: re-evaluate it first.
+        """
+
+    @_abc_1.abstractmethod
+    def CompleteWorkOrder(
+        self,
+        request: _maintenance_pb2.CompleteWorkOrderRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_maintenance_pb2.CompleteWorkOrderResponse, _abc.Awaitable[_maintenance_pb2.CompleteWorkOrderResponse]]:
+        """Records an approved work order as done, with what was done (FR-MNT-004), announcing
+        workorder.completed, which starts its verification (SRS 5.4 step 15). Needs
+        maintenance.complete for its turbine, and a person: never an agent. The work ends after the
+        approval and no later than now. It becomes "verified" once the Investigation Service reports
+        how the turbine ran afterwards.
         """
 
     @_abc_1.abstractmethod

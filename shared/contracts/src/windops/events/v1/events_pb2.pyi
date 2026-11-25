@@ -349,6 +349,8 @@ class CaseUpdated(_message.Message):
     STALE_DETAIL_FIELD_NUMBER: _builtins.int
     STALE_RULES_VERSION_FIELD_NUMBER: _builtins.int
     REQUESTED_BY_FIELD_NUMBER: _builtins.int
+    WORK_ORDER_ID_FIELD_NUMBER: _builtins.int
+    VERIFICATION_OUTCOME_FIELD_NUMBER: _builtins.int
     case_id: _builtins.str
     status: _builtins.str
     turbine_id: _builtins.str
@@ -372,6 +374,11 @@ class CaseUpdated(_message.Message):
     """The person who opened the case, by user ID, to be told how it goes (M10.5). Empty for a case
     from detections.
     """
+    work_order_id: _builtins.str
+    """The work order a verification is about, and its outcome: "resolved", "not_resolved" or
+    "inconclusive" (SRS 5.4 step 15, M10.6). Empty for any other change.
+    """
+    verification_outcome: _builtins.str
     def __init__(
         self,
         *,
@@ -386,10 +393,12 @@ class CaseUpdated(_message.Message):
         stale_detail: _builtins.str = ...,
         stale_rules_version: _builtins.str = ...,
         requested_by: _builtins.str = ...,
+        work_order_id: _builtins.str = ...,
+        verification_outcome: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "case_id", b"case_id", "evidence_snapshot_id", b"evidence_snapshot_id", "requested_by", b"requested_by", "severity", b"severity", "stale_detail", b"stale_detail", "stale_rule", b"stale_rule", "stale_rules_version", b"stale_rules_version", "status", b"status", "turbine_id", b"turbine_id", "version", b"version"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "case_id", b"case_id", "evidence_snapshot_id", b"evidence_snapshot_id", "requested_by", b"requested_by", "severity", b"severity", "stale_detail", b"stale_detail", "stale_rule", b"stale_rule", "stale_rules_version", b"stale_rules_version", "status", b"status", "turbine_id", b"turbine_id", "verification_outcome", b"verification_outcome", "version", b"version", "work_order_id", b"work_order_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -545,22 +554,48 @@ Global___ApprovalDecided: _TypeAlias = ApprovalDecided  # noqa: Y015
 
 @_typing.final
 class WorkOrderCompleted(_message.Message):
+    """A person recorded the approved work as done (FR-MNT-004), which starts its verification
+    (SRS 5.4 step 15). Identifiers and times only: the completion's notes stay with the work order.
+    """
+
     DESCRIPTOR: _descriptor.Descriptor
 
     WORK_ORDER_ID_FIELD_NUMBER: _builtins.int
     COMPLETED_AT_FIELD_NUMBER: _builtins.int
+    CASE_ID_FIELD_NUMBER: _builtins.int
+    TURBINE_ID_FIELD_NUMBER: _builtins.int
+    PROPOSAL_VERSION_FIELD_NUMBER: _builtins.int
+    EVIDENCE_SNAPSHOT_ID_FIELD_NUMBER: _builtins.int
+    COMPLETED_BY_FIELD_NUMBER: _builtins.int
+    STARTED_AT_FIELD_NUMBER: _builtins.int
     work_order_id: _builtins.str
+    case_id: _builtins.str
+    turbine_id: _builtins.str
+    proposal_version: _builtins.str
+    evidence_snapshot_id: _builtins.str
+    """The evidence snapshot the approved version stood on."""
+    completed_by: _builtins.str
     @_builtins.property
-    def completed_at(self) -> _timestamp_pb2.Timestamp: ...
+    def completed_at(self) -> _timestamp_pb2.Timestamp:
+        """When the work ended on site, as the person recorded it."""
+
+    @_builtins.property
+    def started_at(self) -> _timestamp_pb2.Timestamp: ...
     def __init__(
         self,
         *,
         work_order_id: _builtins.str = ...,
         completed_at: _timestamp_pb2.Timestamp | None = ...,
+        case_id: _builtins.str = ...,
+        turbine_id: _builtins.str = ...,
+        proposal_version: _builtins.str = ...,
+        evidence_snapshot_id: _builtins.str = ...,
+        completed_by: _builtins.str = ...,
+        started_at: _timestamp_pb2.Timestamp | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["completed_at", b"completed_at"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["completed_at", b"completed_at", "started_at", b"started_at"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["completed_at", b"completed_at", "work_order_id", b"work_order_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "completed_at", b"completed_at", "completed_by", b"completed_by", "evidence_snapshot_id", b"evidence_snapshot_id", "proposal_version", b"proposal_version", "started_at", b"started_at", "turbine_id", b"turbine_id", "work_order_id", b"work_order_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

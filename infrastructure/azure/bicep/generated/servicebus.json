@@ -92,6 +92,13 @@
     },
     {
       "topic": "windops-events",
+      "name": "investigation-completions",
+      "filter": "sys.Label = 'workorder.completed'",
+      "maxDeliveryCount": 100,
+      "lockDuration": "PT30S"
+    },
+    {
+      "topic": "windops-events",
       "name": "maintenance-cases",
       "filter": "sys.Label = 'case.updated'",
       "maxDeliveryCount": 100,

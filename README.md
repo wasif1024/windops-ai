@@ -370,6 +370,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0035](docs/adr/0035-approval-policy-changes-need-a-second-administrator.md) | Changes to who may approve wait for a second administrator, or a Platform Administrator where there is none |
 | [0036](docs/adr/0036-step-14-a-decision-resumes-the-case-in-a-run-of-its-own.md) | A person's decision resumes the case's investigation from its checkpoint, in a run of its own, and moves the case |
 | [0037](docs/adr/0037-notifications-from-events-by-tenant-rules-with-email-recorded.md) | Notifications from events, by tenant rules, in the app and by recorded email, with identifiers only |
+| [0038](docs/adr/0038-step-15-completed-work-verified-by-the-fault-rules.md) | Step 15: completed work verified by the fault rules after a window, and a person closes the case |
 
 ## Repository layout
 

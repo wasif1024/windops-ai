@@ -5,6 +5,7 @@ for a wind farm (RBAC-002). A caller who may act across the whole tenant needs n
 """
 
 import asyncio
+import json
 import time
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
@@ -34,7 +35,7 @@ from windops_grpc import (
 from windops_migrations import in_tenant
 from windops_resilience import BreakerOpenError
 
-from windops_investigation import case_rules, cases, evidence, investigations
+from windops_investigation import case_rules, cases, evidence, investigations, verification
 from windops_investigation.store import (
     ACTIVE,
     CASE_DETECTIONS,
@@ -44,12 +45,15 @@ from windops_investigation.store import (
     EVIDENCE_SNAPSHOTS,
     INVESTIGATIONS,
     PROGRESS,
+    VERIFIED,
     KeyReusedError,
     remember,
     remembered,
 )
 
 READ, CREATE, CANCEL = "investigation.read", "investigation.create", "investigation.cancel"
+# Answering a verification report is reviewing a finding (M10.6).
+REVIEW = "finding.review"
 DEADLINE_SECONDS = 3.0
 # Freezing a day of telemetry reads and hashes it all.
 SNAPSHOT_DEADLINE_SECONDS = 60.0
@@ -175,6 +179,20 @@ class EvidenceSources:
             raise NotFoundError(f"Fault rule {rule_id} has no version {version}")
         return found[0]
 
+    async def summarize(self, snapshot_id: str) -> list[Any]:
+        """A telemetry snapshot's metrics, summarized over the whole window (M10.6)."""
+        request = telemetry_pb2.SummarizeTelemetrySnapshotRequest(snapshot_id=snapshot_id,
+                                                                  buckets=1)  # fmt: skip
+        answer = await self._ask("telemetry", "SummarizeTelemetrySnapshot", request, "Telemetry",
+                                 SNAPSHOT_DEADLINE_SECONDS)  # fmt: skip
+        return list(answer.metrics)
+
+    async def evaluate(self, turbine_id: str, at: datetime) -> Any:
+        """Every enabled fault rule, run on the turbine at that moment, recording nothing."""
+        request = fault_detection_pb2.EvaluateTurbineRequest(turbine_id=turbine_id, at=_ts(at))
+        return await self._ask("fault-detection", "EvaluateTurbine", request, "Fault Detection",
+                               SNAPSHOT_DEADLINE_SECONDS)  # fmt: skip
+
 
 def _timestamp(value: datetime | None) -> Timestamp | None:
     if value is None:
@@ -199,6 +217,31 @@ def to_message(row: Any, detection_count: int = 0, investigation: Any = None) ->
         evidence_status="pending" if row.evidence_wanted_at is not None else "ready",
         stale_rule=row.stale_rule, stale_detail=row.stale_detail,
         stale_at=_timestamp(row.stale_at), stale_rules_version=row.stale_rules_version,
+    )  # fmt: skip
+
+
+def to_verification(row: Any) -> pb.Verification:
+    metrics = [
+        pb.MetricComparison(
+            metric=m["metric"], unit=m["unit"], before_readings=m["before_readings"],
+            after_readings=m["after_readings"],
+            **{name: m[name] for name in ("before_mean", "after_mean", "before_maximum",
+                                          "after_maximum") if m.get(name) is not None},
+        )
+        for m in json.loads(row.metrics_json or "[]")
+    ]  # fmt: skip
+    return pb.Verification(
+        work_order_id=row.work_order_id, proposal_version=row.proposal_version,
+        completed_by=row.completed_by, completed_at=_timestamp(row.completed_at),
+        status=row.status, outcome=row.outcome, window_start=_timestamp(row.window_start),
+        window_end=_timestamp(row.window_end),
+        before_telemetry_snapshot_id=row.before_telemetry_snapshot_id,
+        after_telemetry_snapshot_id=row.after_telemetry_snapshot_id,
+        after_samples=row.after_samples, metrics=metrics,
+        rules=[pb.RuleResult(**r) for r in json.loads(row.rules_json or "[]")],
+        note=row.note, reported_at=_timestamp(row.reported_at), review=row.review,
+        reviewed_by=row.reviewed_by, reviewed_at=_timestamp(row.reviewed_at),
+        review_reason=row.review_reason,
     )  # fmt: skip
 
 
@@ -402,7 +445,9 @@ class InvestigationService(investigation_pb2_grpc.InvestigationServiceServicer):
                 .order_by(CASE_HISTORY.c.version)
             )).all()  # fmt: skip
             investigation = await investigations.load(connection, tenant, case.case_id)
+            checked = await verification.of_case(connection, tenant, case.case_id)
         return pb.GetCaseResponse(
+            verifications=[to_verification(v) for v in checked],
             case=to_message(case, len(detections), investigation),
             detections=[
                 pb.CaseDetection(
@@ -451,6 +496,65 @@ class InvestigationService(investigation_pb2_grpc.InvestigationServiceServicer):
             await remember(
                 connection, tenant_id=tenant, user_id=user, key=request.idempotency_key,
                 method="CancelCase", request=request, response=response, now=now,
+            )  # fmt: skip
+        return response
+
+    async def ReviewVerification(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.ReviewVerificationRequest, context: Any
+    ) -> pb.ReviewVerificationResponse:
+        """A person closes a verified case, or reopens it to be investigated again (M10.6)."""
+        if request.decision not in verification.REVIEWS:
+            raise InvalidRequestError("decision is close or reopen")
+        reason = request.reason.strip()
+        if len(reason) > MAXIMUM_TEXT or (request.decision == verification.REOPEN and not reason):
+            raise InvalidRequestError(
+                f"A reason of at most {MAXIMUM_TEXT} characters, needed to reopen"
+            )
+        if len(request.idempotency_key) > MAXIMUM_KEY:
+            raise InvalidRequestError(f"idempotency_key is at most {MAXIMUM_KEY} characters")
+        if current_identity().actor:
+            # An agent may read and draft, and never review (SEC-009).
+            raise PermissionDeniedError("Only a person may answer a verification")
+        tenant, user = self._user()
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            try:
+                first = await remembered(connection, tenant, user, request.idempotency_key,
+                                         "ReviewVerification", request)  # fmt: skip
+            except KeyReusedError as error:
+                raise InvalidRequestError(str(error)) from error
+            if first is not None:
+                return pb.ReviewVerificationResponse.FromString(first)
+            case = await cases.load(connection, tenant, request.case_id)
+        if case is None:
+            raise NotFoundError("No such case")
+        await self._require(REVIEW, case.turbine_id)
+        now = self._now()
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, tenant)
+            case = (await connection.execute(
+                select(CASES).where(CASES.c.tenant_id == tenant, CASES.c.case_id == case.case_id)
+                .with_for_update()
+            )).one()  # fmt: skip
+            if case.status != VERIFIED:
+                raise ConflictError(f"Only a verified case is reviewed; it is {case.status}")
+            if request.expected_version != case.version:
+                raise ConflictError(f"It changed since you read it: version {case.version}, "
+                                    f"not {request.expected_version}")  # fmt: skip
+            newest = await verification.newest(connection, tenant, case.case_id)
+            if newest is None:
+                raise ConflictError("It has no verification to answer")
+            case = await verification.review(connection, case, newest, decision=request.decision,
+                                             by=user, reason=reason, now=now)  # fmt: skip
+            reviewed = [v for v in await verification.of_case(connection, tenant, case.case_id)
+                        if v.work_order_id == newest.work_order_id
+                        and v.proposal_version == newest.proposal_version]  # fmt: skip
+            response = pb.ReviewVerificationResponse(
+                case=to_message(case), verification=to_verification(reviewed[0])
+            )
+            await remember(
+                connection, tenant_id=tenant, user_id=user, key=request.idempotency_key,
+                method="ReviewVerification", request=request, response=response, now=now,
             )  # fmt: skip
         return response
 

@@ -33,7 +33,9 @@ ID, so `fault.detected` sent twice changes nothing. Each case records the case r
 | `investigating` | This service, when the case's investigation starts |
 | `pending_review` | This service, when its run completes (SRS 5.4 step 13). A run that ends otherwise puts the case back to `open` |
 | `approved` | This service, when a person approves the case's work order and the decision run resuming the investigation completes (SRS 5.4 step 14). A rejection leaves the case waiting for a revised proposal; a resume that cannot carry on puts it back to `open`, to restart from the snapshot ([ADR 0036](../../docs/adr/0036-step-14-a-decision-resumes-the-case-in-a-run-of-its-own.md)) |
-| `closed` | Post-maintenance verification, in M10.6 |
+| `verifying` | This service, when a person records the approved work done, from `workorder.completed` (SRS 5.4 step 15) |
+| `verified` | This service, once the window after the work has passed: the telemetry after it is compared with the evidence, the fault rules run again, and the outcome reported, resolved, not resolved or inconclusive ([ADR 0038](../../docs/adr/0038-step-15-completed-work-verified-by-the-fault-rules.md)) |
+| `closed` | A person with `finding.review` closing a verified case with `ReviewVerification`. Reopening it puts it back to `open` |
 | `cancelled` | A person with `investigation.cancel`, with a reason |
 
 ## Evidence snapshots (FR-INV-002, EVD-001 to 004)

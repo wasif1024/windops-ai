@@ -2,6 +2,8 @@
 
     detection (medium or above, nothing active) ──> open ──> investigating ──> pending_review
                                                     approved, by a person's decision <──┘
+          the work completed ──> verifying ──outcome reported──> verified ──a person──> closed,
+                                              (verification.py)              or reopened: open
     a person ───────────────────────────────────> open    (its investigation: investigations.py)
     any active case ──cancel──> cancelled
 
@@ -46,8 +48,10 @@ async def load(connection: AsyncConnection, tenant: str, case_id: str) -> Any | 
 
 async def change(
     connection: AsyncConnection, case: Any, *, now: datetime, action: str, actor_type: str,
-    actor_id: str, note: str = "", **values: Any,
+    actor_id: str, note: str = "", work_order_id: str = "", outcome: str = "", **values: Any,
 ) -> Any:  # fmt: skip
+    """Change the case's columns as one new version, kept, announced and audited. A verification
+    names its work order and outcome on the announcement (M10.6)."""
     await connection.execute(
         update(CASES)
         .where(CASES.c.tenant_id == case.tenant_id, CASES.c.case_id == case.case_id)
@@ -55,7 +59,8 @@ async def change(
     )
     changed = await load(connection, case.tenant_id, case.case_id)
     await record(connection, changed, action=action, at=now, actor_type=actor_type,
-                 actor_id=actor_id, note=note)  # fmt: skip
+                 actor_id=actor_id, note=note, work_order_id=work_order_id,
+                 outcome=outcome)  # fmt: skip
     return changed
 
 
