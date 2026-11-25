@@ -476,6 +476,8 @@ def test_a_submission_names_what_approval_needs_and_a_decision_moves_the_work_or
         assert (announced.case_id, announced.turbine_id, announced.evidence_snapshot_id,
                 announced.submitted_by, announced.drafted_by) == (
             CASE, TURBINE, order.evidence_snapshot_id, PLANNER, PLANNER)  # fmt: skip
+        # What the weather rule asks Policy about again (M10.3b).
+        assert announced.policy_result_id == order.validation.policy_result_id != ""
         with pytest.raises(InvalidEventError):
             await decisions.handle(world.engine, decided(order, 1, producer="maintenance"))
         assert not await decisions.handle(

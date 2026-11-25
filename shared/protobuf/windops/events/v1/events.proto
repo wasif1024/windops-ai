@@ -144,6 +144,10 @@ message WorkOrderSubmitted {
   // parts, with what the Inventory Service found at submission, and the procedures it cites.
   repeated ProposedPart parts = 9;
   repeated string procedures = 10;
+  // The Policy Service's result at submission, and the impact estimate it judged: what the
+  // weather rule compares a newer forecast with (SRS 8.5, M10.3b).
+  string policy_result_id = 11;
+  string impact_result_id = 12;
 }
 
 message ProposedPart {

@@ -186,6 +186,10 @@ CASE_PROPOSALS = Table(
     Column("parts", Text, nullable=False),
     Column("procedures", Text, nullable=False),
     Column("submitted_at", DateTime(timezone=True), nullable=False),
+    # The Policy Service's result at submission, and the impact estimate it judged, which the
+    # weather rule asks about again (M10.3b). Empty for a proposal submitted before.
+    Column("policy_result_id", Text, nullable=False, server_default=""),
+    Column("impact_result_id", Text, nullable=False, server_default=""),
     Index("case_proposals_by_case", "tenant_id", "case_id"),
 )
 # Each person's decision on a case's work order, from approval.decided, and the run that resumes

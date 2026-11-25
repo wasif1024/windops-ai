@@ -148,7 +148,7 @@ def test_a_raised_severity_makes_frozen_evidence_stale_and_says_so() -> None:
         stale_case = await bench.case()
         assert (stale_case.stale_rule, stale_case.stale_rules_version) == (
             "severity",
-            "stale-rules-1",
+            staleness.VERSION,
         )
         [event] = await announced(bench)
         assert (event.stale_rule, event.evidence_snapshot_id) == (

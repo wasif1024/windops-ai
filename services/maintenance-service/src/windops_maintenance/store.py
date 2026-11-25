@@ -206,6 +206,8 @@ async def record(
                     for p in pb.Validation.FromString(row.validation).parts
                 ],
                 procedures=list(pb.Plan.FromString(row.plan).procedures),
+                policy_result_id=pb.Validation.FromString(row.validation).policy_result_id,
+                impact_result_id=pb.Plan.FromString(row.plan).impact_result_id,
             ),
             producer=SERVICE_NAME,
         )

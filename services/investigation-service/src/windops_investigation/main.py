@@ -20,6 +20,7 @@ from windops.fault_detection.v1 import fault_detection_pb2_grpc
 from windops.identity.v1 import identity_pb2_grpc
 from windops.inventory.v1 import inventory_pb2, inventory_pb2_grpc
 from windops.investigation.v1 import investigation_pb2_grpc
+from windops.policy.v1 import policy_pb2, policy_pb2_grpc
 from windops.telemetry.v1 import telemetry_pb2_grpc
 from windops_auth import current_identity_token
 from windops_events import Event, Events, EventsUnavailableError, keep_consuming, open_events
@@ -29,7 +30,7 @@ from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, BreakerOpenError, CircuitBreaker
 
-from windops_investigation import decisions, stale, verification
+from windops_investigation import decisions, stale, verification, watch
 from windops_investigation.consumer import SUBJECT, handle
 from windops_investigation.evidence import Builder, keep_building
 from windops_investigation.investigations import (
@@ -115,6 +116,40 @@ class StaleOwners:
         except (BreakerOpenError, TimeoutError) as error:
             raise UnavailableError("The Inventory Service cannot be asked right now") from error
         return list(answer.checks)
+
+
+class WatchOwners:
+    """The fault rules and the Policy Service, for drift and weather, asked as this service."""
+
+    def __init__(self, sources: Any, policy: Any, client: ServiceClient) -> None:
+        self._sources, self._policy, self._client = sources, policy, client
+
+    async def evaluate(self, turbine_id: str, at: Any) -> Any:
+        return await self._sources.evaluate(turbine_id, at)
+
+    async def _ask(self, method: str, request: Any) -> Any:
+        try:
+            return await self._client.call(getattr(self._policy(), method), request,
+                                           idempotent=True, deadline_seconds=15.0)  # fmt: skip
+        except grpc.aio.AioRpcError as error:
+            raise UnavailableError("The Policy Service cannot be asked right now") from error
+        except (BreakerOpenError, TimeoutError) as error:
+            raise UnavailableError("The Policy Service cannot be asked right now") from error
+
+    async def policy_rules(self) -> list[Any]:
+        return list((await self._ask("ListPolicyRules", policy_pb2.ListPolicyRulesRequest())).rules)
+
+    async def policy_result(self, result_id: str) -> Any:
+        request = policy_pb2.GetPolicyResultRequest(result_id=result_id)
+        return (await self._ask("GetPolicyResult", request)).result
+
+    async def evaluate_proposal(self, case_id: str, proposal: Any, impact_result_id: str,
+                                key: str) -> Any:  # fmt: skip
+        request = policy_pb2.EvaluateProposalRequest(
+            case_id=case_id, proposal=proposal, impact_result_id=impact_result_id,
+            idempotency_key=key,
+        )  # fmt: skip
+        return (await self._ask("EvaluateProposal", request)).result
 
 
 class _Lazy:
@@ -230,6 +265,13 @@ def main() -> None:
         _client("inventory"),
     )
     investigate_cases = agents != "off"
+    # Condition drift and weather, the stale rules that are polled (SRS 8.5, M10.3b).
+    watcher = watch.Watcher(engine, WatchOwners(
+        sources,
+        lambda: policy_pb2_grpc.PolicyServiceStub(channel("WINDOPS_POLICY_ADDRESS")),
+        # The Policy Service gathers a case's facts and a forecast: a long call, not a slow one.
+        _client("policy", slow_call_seconds=12.0),
+    ), secret)  # fmt: skip
 
     async def detected(event: Event) -> None:
         await handle(engine, event, investigate_cases)
@@ -265,12 +307,15 @@ def main() -> None:
     async def verify(stop: asyncio.Event) -> None:
         await verification.keep_verifying(verifier, stop)
 
+    async def keep_watch(stop: asyncio.Event) -> None:
+        await watch.keep_watching(watcher, stop)
+
     asyncio.run(
         run_service(
             SERVICE_NAME,
             register,
             readiness_checks=(database_ready,),
-            background=(consume, build, investigate, sweep, verify),
+            background=(consume, build, investigate, sweep, verify, keep_watch),
         )
     )
 
