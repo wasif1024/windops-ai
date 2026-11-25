@@ -12,8 +12,17 @@ case's newest evidence snapshot and the proposals submitted on it:
   not, or it is retired, incompatible or unknown.
 - age: the snapshot is older than its severity's limit, 24 hours for critical and high, 72 for
   medium and 168 for low.
+- drift (M10.3b): one of the case's fault rules, run again, finds a figure more than half away
+  from the one its detection froze, and at least 1 in the rule's units. The figure is what the
+  rule judges, such as the temperature above what the load explains, so load alone never moves
+  it. Only threshold, residual and z-score rules have one; a rule that no longer finds anything
+  is not drift, as a fault that clears is judged once the work is verified. A case a person
+  opened, with no detections, is never stale by drift.
+- weather (M10.3b): asked again, the Policy Service's work-window rules give a worse outcome for
+  a submitted proposal than at submission: a newer forecast breaches the window, or the forecast
+  expired, which those rules block on.
 
-Condition drift and forecast revisions come in M10.3b. A change to any rule is a new version.
+A change to any rule is a new version.
 """
 
 from collections.abc import Iterable, Mapping
@@ -23,10 +32,17 @@ from typing import Any
 
 from windops.events.v1 import events_pb2
 
-VERSION = "stale-rules-1"
+VERSION = "stale-rules-2"
 SEVERITY, ALARM, PROCEDURE, ASSET, INVENTORY, AGE = (
     "severity", "alarm", "procedure", "asset", "inventory", "age",
 )  # fmt: skip
+DRIFT, WEATHER = "drift", "weather"
+# The fault rules with a figure that drifts, and how far it may.
+DRIFT_KINDS = ("threshold", "residual", "rolling_zscore")
+DRIFT_SHARE, DRIFT_FLOOR = 0.5, 1.0
+# The Policy Service's work-window rules, and how bad each outcome is.
+WEATHER_CATEGORY = "weather_window"
+OUTCOME_RANK = {"not_applicable": 0, "pass": 0, "escalate": 1, "block": 2}
 # The alarms that matter to a case: those that become active at these severities.
 CORRELATED_SEVERITIES = ("high", "critical")
 AGE_LIMITS = {
@@ -120,3 +136,37 @@ def age(severity: str, frozen_at: datetime, now: datetime) -> Stale | None:
         return None
     hours = int(limit.total_seconds() // 3600)
     return Stale(AGE, f"The evidence is older than {hours} hours, the limit for {severity} cases")
+
+
+@dataclass(frozen=True)
+class Figure:
+    """What a fault rule found: its kind and figure."""
+
+    kind: str
+    amount: float
+
+
+def drift(frozen: Mapping[str, Figure], now: Mapping[str, Figure]) -> Stale | None:
+    """Each is by rule ID: what the snapshot's detections found, and what the rules find now."""
+    for rule_id in sorted(frozen):
+        then = frozen[rule_id]
+        found = now.get(rule_id)
+        if then.kind not in DRIFT_KINDS or found is None:
+            continue
+        tolerance = max(DRIFT_SHARE * abs(then.amount), DRIFT_FLOOR)
+        if abs(found.amount - then.amount) > tolerance:
+            return Stale(DRIFT, f"Rule {rule_id} found {then.amount:.2f} when frozen and "
+                                f"{found.amount:.2f} now, beyond {tolerance:.2f}")  # fmt: skip
+    return None
+
+
+def weather(before: Mapping[str, str], after: Iterable[tuple[str, str, str]],
+            work_order_id: str) -> Stale | None:  # fmt: skip
+    """`before` maps each work-window rule to its outcome at submission; `after` is each one's
+    (rule, outcome, reason) asked again."""
+    for rule_id, outcome, reason in sorted(after):
+        was = before.get(rule_id, "pass")
+        if OUTCOME_RANK.get(outcome, 2) > OUTCOME_RANK.get(was, 2):
+            return Stale(WEATHER, f"Rule {rule_id} for {work_order_id}: {was} when submitted, "
+                                  f"{outcome} now. {reason}"[:1000])  # fmt: skip
+    return None

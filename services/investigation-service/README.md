@@ -67,7 +67,7 @@ the caller. A case the caller may not read is not found.
 
 ## Stale evidence (SRS 8.5, EVD-007, EVD-008)
 
-The rules, `stale-rules-1` in `staleness.py`, judge the case's newest snapshot and the proposals submitted on it.
+The rules, `stale-rules-2` in `staleness.py`, judge the case's newest snapshot and the proposals submitted on it.
 The first to fire marks the snapshot stale, with the rule, what it found and when, announced on `case.updated`:
 
 | Rule | Fires when | From |
@@ -78,10 +78,13 @@ The first to fire marks the snapshot stale, with the rule, what it found and whe
 | asset | The turbine's status, wind farm, model or serial number changes | `evidence.changed` from Asset |
 | inventory | A proposed part is no longer available | `evidence.changed` from Inventory |
 | age | The snapshot passes 24 hours (critical, high), 72 (medium) or 168 (low) | A sweep every five minutes |
+| drift | One of the case's fault rules, run again, finds a figure more than half away from the one its detection froze, and at least 1 | The watcher, every five minutes, asking Fault Detection |
+| weather | Asked again, the Policy Service's work-window rules do worse for a submitted proposal with work at height than at submission: a newer forecast breaches the window, or it expired | The watcher, asking Policy at most once an hour for each proposal, or when those rules change |
 
 `workorder.submitted` tells it what each proposal names. A new snapshot clears the mark: the case is re-evaluated
-([ADR 0034](../../docs/adr/0034-stale-evidence-rules-and-new-versions.md)). Condition drift and weather come in
-M10.3b.
+([ADR 0034](../../docs/adr/0034-stale-evidence-rules-and-new-versions.md)). The watcher judges a case only until its
+work is done, and an owner it cannot reach only delays it
+([ADR 0039](../../docs/adr/0039-drift-by-the-cases-fault-figures-and-weather-by-policy.md)).
 
 ## Investigations (API-003)
 

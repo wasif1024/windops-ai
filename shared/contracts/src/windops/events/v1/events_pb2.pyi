@@ -445,6 +445,8 @@ class WorkOrderSubmitted(_message.Message):
     DRAFTED_BY_AGENT_FIELD_NUMBER: _builtins.int
     PARTS_FIELD_NUMBER: _builtins.int
     PROCEDURES_FIELD_NUMBER: _builtins.int
+    POLICY_RESULT_ID_FIELD_NUMBER: _builtins.int
+    IMPACT_RESULT_ID_FIELD_NUMBER: _builtins.int
     work_order_id: _builtins.str
     proposal_version: _builtins.str
     case_id: _builtins.str
@@ -457,6 +459,11 @@ class WorkOrderSubmitted(_message.Message):
     drafted_by: _builtins.str
     """The person, or principal, it was drafted for, and the agent that drafted it, if any."""
     drafted_by_agent: _builtins.str
+    policy_result_id: _builtins.str
+    """The Policy Service's result at submission, and the impact estimate it judged: what the
+    weather rule compares a newer forecast with (SRS 8.5, M10.3b).
+    """
+    impact_result_id: _builtins.str
     @_builtins.property
     def parts(self) -> _containers.RepeatedCompositeFieldContainer[Global___ProposedPart]:
         """What the Investigation Service watches to know when it goes stale (SRS 8.5, M10.3): its
@@ -478,10 +485,12 @@ class WorkOrderSubmitted(_message.Message):
         drafted_by_agent: _builtins.str = ...,
         parts: _abc.Iterable[Global___ProposedPart] | None = ...,
         procedures: _abc.Iterable[_builtins.str] | None = ...,
+        policy_result_id: _builtins.str = ...,
+        impact_result_id: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "drafted_by", b"drafted_by", "drafted_by_agent", b"drafted_by_agent", "evidence_snapshot_id", b"evidence_snapshot_id", "parts", b"parts", "procedures", b"procedures", "proposal_version", b"proposal_version", "submitted_by", b"submitted_by", "turbine_id", b"turbine_id", "work_order_id", b"work_order_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "drafted_by", b"drafted_by", "drafted_by_agent", b"drafted_by_agent", "evidence_snapshot_id", b"evidence_snapshot_id", "impact_result_id", b"impact_result_id", "parts", b"parts", "policy_result_id", b"policy_result_id", "procedures", b"procedures", "proposal_version", b"proposal_version", "submitted_by", b"submitted_by", "turbine_id", b"turbine_id", "work_order_id", b"work_order_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

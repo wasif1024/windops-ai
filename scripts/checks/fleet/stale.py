@@ -162,7 +162,7 @@ def inventory_rule(bench: Bench, case_id: str, order: Any) -> Any:
     bench.stock(-2)
     case = until("the inventory rule", lambda: (c := bench.case(case_id)).stale_rule and c)
     check(case.stale_rule == "inventory" and PART in case.stale_detail
-          and case.stale_rules_version == "stale-rules-1",
+          and case.stale_rules_version == "stale-rules-2",
           f"The part's stock gone, the case is stale by {case.stale_rules_version}: "
           f"{case.stale_rule}, {case.stale_detail}")  # fmt: skip
     got = until("the work order to go stale",

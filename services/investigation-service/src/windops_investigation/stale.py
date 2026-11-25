@@ -111,7 +111,9 @@ async def on_submitted(engine: AsyncEngine, event: Event) -> bool:
     version, p = int(s.proposal_version), CASE_PROPOSALS.c
     values = {"version": version, "case_id": s.case_id,
               "evidence_snapshot_id": s.evidence_snapshot_id, "parts": format_parts(s.parts),
-              "procedures": ",".join(s.procedures), "submitted_at": event.occurred_at}  # fmt: skip
+              "procedures": ",".join(s.procedures), "submitted_at": event.occurred_at,
+              "policy_result_id": s.policy_result_id,
+              "impact_result_id": s.impact_result_id}  # fmt: skip
     try:
         async with engine.begin() as connection:
             await in_tenant(connection, event.tenant_id)
