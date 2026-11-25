@@ -109,7 +109,8 @@ flowchart TB
     Maintenance -.->|workorder.submitted| Notification
     Approval -->|recheck| Maintenance
     Approval -->|recheck| Investigation
-    Approval -.->|approval.decided| Runtime["Agent Runtime"]
+    Approval -.->|approval.decided| Investigation
+    Investigation -->|resume run| Runtime["Agent Runtime"]
     Approval -.->|approval.decided| Maintenance
     Approval -.->|approval.decided| Notification
     Maintenance -.->|workorder.completed| Investigation
@@ -148,8 +149,8 @@ Investigation listens for changes because they can make a recommendation stale (
 | Telemetry | Asset | `telemetry.received`, `telemetry.quality`, and `alarm.reported` for each alarm a device sends | None |
 | Alarm | Asset, for a reader's wind farms | `alarm.changed`, audit events | `alarm.reported` |
 | Fault Detection | Telemetry, Alarm and Asset, for a turbine's window | `fault.detected`, audit events | `telemetry.received`, `telemetry.quality`, `alarm.changed` |
-| Investigation | Telemetry, Alarm, Asset | `case.updated`, queued runs, audit events | `fault.detected`, `alarm.changed`, `evidence.changed`, `workorder.completed` |
-| Agent Runtime | MCP servers, Agent Sandbox Adapter, Claude | Audit events | Queued runs, `approval.decided` |
+| Investigation | Telemetry, Alarm, Asset | `case.updated`, queued runs, audit events | `fault.detected`, `alarm.changed`, `evidence.changed`, `workorder.submitted`, `approval.decided` ([ADR 0036](adr/0036-step-14-a-decision-resumes-the-case-in-a-run-of-its-own.md)), `workorder.completed` |
+| Agent Runtime | MCP servers, Agent Sandbox Adapter, Claude | Audit events | Queued runs, including the decision runs that resume a case |
 | Agent Sandbox Adapter | LangSmith Sandbox | None. Agent Runtime records sandbox use | None |
 | Knowledge | Qdrant, the embedding provider | `evidence.changed`, audit events | None |
 | Weather | Asset, for each turbine's coordinates and hub height, and Open-Meteo ([ADR 0010](adr/0010-open-meteo-as-the-forecast-provider.md)) | None | None |

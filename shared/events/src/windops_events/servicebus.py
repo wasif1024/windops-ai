@@ -114,6 +114,8 @@ SUBSCRIPTIONS = (
     SubscriptionSpec("alarm.changed", "investigation-alarms", "investigation"),
     SubscriptionSpec("evidence.changed", "investigation-evidence", "investigation"),
     SubscriptionSpec("workorder.submitted", "investigation-proposals", "investigation"),
+    # A person's decision resumes the case's workflow (SRS 5.4 step 14, M10.4).
+    SubscriptionSpec("approval.decided", "investigation-decisions", "investigation"),
     SubscriptionSpec("case.updated", "maintenance-cases", "maintenance"),
 )
 

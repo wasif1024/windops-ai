@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 SUBMITTED, STALE = "submitted", "stale"
-ACTIVE_CASES = ("open", "investigating", "pending_review")
+ACTIVE_CASES = ("open", "investigating", "pending_review", "approved")
 # What a submitted work order's policy result may be. A blocked one could not be submitted.
 DECIDABLE_POLICY = ("pass", "escalate")
 

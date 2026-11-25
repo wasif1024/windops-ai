@@ -32,7 +32,8 @@ ID, so `fault.detected` sent twice changes nothing. Each case records the case r
 | `open` | Created, waiting for its investigation |
 | `investigating` | This service, when the case's investigation starts |
 | `pending_review` | This service, when its run completes (SRS 5.4 step 13). A run that ends otherwise puts the case back to `open` |
-| `closed` | Approval and closure, in Phase 10 |
+| `approved` | This service, when a person approves the case's work order and the decision run resuming the investigation completes (SRS 5.4 step 14). A rejection leaves the case waiting for a revised proposal; a resume that cannot carry on puts it back to `open`, to restart from the snapshot ([ADR 0036](../../docs/adr/0036-step-14-a-decision-resumes-the-case-in-a-run-of-its-own.md)) |
+| `closed` | Post-maintenance verification, in M10.6 |
 | `cancelled` | A person with `investigation.cancel`, with a reason |
 
 ## Evidence snapshots (FR-INV-002, EVD-001 to 004)

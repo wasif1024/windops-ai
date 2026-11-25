@@ -126,7 +126,7 @@ async def announce(connection: AsyncConnection, tenant_id: str, row: Any, decisi
             evidence_snapshot_id=row.evidence_snapshot_id,
             decision=(events_pb2.APPROVAL_DECISION_APPROVED if decision.outcome == APPROVED
                       else events_pb2.APPROVAL_DECISION_REJECTED),
-            decided_by=decision.decided_by,
+            decided_by=decision.decided_by, case_id=row.case_id,
         ),
         producer=SERVICE_NAME,
     )  # fmt: skip

@@ -26,9 +26,12 @@ from windops_outbox import add_event
 SERVICE_NAME = "investigation"
 UPDATED_SUBJECT = "case.updated"
 OPEN, INVESTIGATING, PENDING_REVIEW = "open", "investigating", "pending_review"
+# A person approved the case's work order; it waits for the maintenance (SRS 5.4 step 14, M10.4).
+APPROVED = "approved"
 CLOSED, CANCELLED = "closed", "cancelled"
-ACTIVE = (OPEN, INVESTIGATING, PENDING_REVIEW)
+ACTIVE = (OPEN, INVESTIGATING, PENDING_REVIEW, APPROVED)
 METADATA = MetaData()
+_ACTIVE_SQL = "('open', 'investigating', 'pending_review', 'approved')"
 
 CASES = Table(
     "cases",
@@ -60,13 +63,9 @@ CASES = Table(
     Column("stale_rules_version", Text, nullable=False, server_default=""),
     # At most one active case from detections for a component of a turbine.
     Index(
-        "cases_one_active", "tenant_id", "turbine_id", "component_group", unique=True,
-        postgresql_where=text(
-            "origin = 'detection' AND status IN ('open', 'investigating', 'pending_review')"
-        ),
-        sqlite_where=text(
-            "origin = 'detection' AND status IN ('open', 'investigating', 'pending_review')"
-        ),
+        "cases_one_active_or_approved", "tenant_id", "turbine_id", "component_group", unique=True,
+        postgresql_where=text(f"origin = 'detection' AND status IN {_ACTIVE_SQL}"),
+        sqlite_where=text(f"origin = 'detection' AND status IN {_ACTIVE_SQL}"),
     ),
 )  # fmt: skip
 # Each detection, in exactly one case (EVT-003: a repeat of fault.detected changes nothing).
@@ -187,6 +186,34 @@ CASE_PROPOSALS = Table(
     Column("submitted_at", DateTime(timezone=True), nullable=False),
     Index("case_proposals_by_case", "tenant_id", "case_id"),
 )
+# Each person's decision on a case's work order, from approval.decided, and the run that resumes
+# the case's workflow from it (SRS 5.4 step 14, M10.4, ADR 0036). One a decision.
+CASE_DECISIONS = Table(
+    "case_decisions",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("approval_id", Text, primary_key=True),
+    Column("case_id", Text, nullable=False),
+    Column("work_order_id", Text, nullable=False),
+    Column("proposal_version", BigInteger, nullable=False),
+    Column("evidence_snapshot_id", Text, nullable=False),
+    # "approved" or "rejected".
+    Column("decision", Text, nullable=False),
+    Column("decided_by", Text, nullable=False),
+    Column("decided_at", DateTime(timezone=True), nullable=False),
+    # "waiting" to be resumed, "running", "completed", "ended" (stale, failed or cancelled), or
+    # "recorded" with nothing to resume, as for a proposal no investigation made.
+    Column("status", Text, nullable=False),
+    # The investigation run it resumes, and the decision run that resumes it.
+    Column("resumes_run_id", Text, nullable=False, server_default=""),
+    Column("run_id", Text, nullable=False, server_default=""),
+    Column("note", Text, nullable=False, server_default=""),
+    # What the decision run recorded: identifiers, never evidence.
+    Column("references_json", Text, nullable=False, server_default=""),
+    Column("received_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    Index("case_decisions_by_case", "tenant_id", "case_id"),
+)
 # A retry with the same key returns the first answer, and changes nothing (GRP-007).
 IDEMPOTENCY_KEYS = Table(
     "idempotency_keys",
@@ -201,7 +228,7 @@ IDEMPOTENCY_KEYS = Table(
 )
 TENANT_TABLES = (
     "cases", "case_detections", "case_history", "idempotency_keys", "evidence_snapshots",
-    "evidence_items", "case_investigations", "case_progress", "case_proposals",
+    "evidence_items", "case_investigations", "case_progress", "case_proposals", "case_decisions",
 )  # fmt: skip
 
 
