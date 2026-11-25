@@ -1,0 +1,127 @@
+syntax = "proto3";
+package windops.notification.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Tells people what needs them, in the app and by email, and keeps whether each was delivered
+// (FR-NOT-001). A notification carries identifiers and a link, never evidence, reasons, secrets
+// or anyone's personal details (FR-NOT-002).
+//
+// It hears of work orders submitted and decided, and of cases moving, on their events. Whom to
+// tell is a tenant's rules, with defaults (M10.5, ADR 0037).
+service NotificationService {
+  // The caller's own notifications, newest first, with each one's delivery status. A person only:
+  // an agent or a service has none.
+  rpc ListMyNotifications(ListMyNotificationsRequest) returns (ListMyNotificationsResponse);
+  // Marks the caller's own notifications read. Marking one twice, or one not theirs, changes
+  // nothing.
+  rpc MarkNotificationsRead(MarkNotificationsReadRequest) returns (MarkNotificationsReadResponse);
+  // Every delivery in the caller's tenant, newest first, to see what reached whom. Needs
+  // audit.read.
+  rpc ListDeliveries(ListDeliveriesRequest) returns (ListDeliveriesResponse);
+  // The tenant's rules: whom each kind of notification goes to, and how. Needs users.manage.
+  rpc GetNotificationRules(GetNotificationRulesRequest) returns (GetNotificationRulesResponse);
+  // Replaces the tenant's rules. Needs users.manage. An empty list goes back to the defaults.
+  rpc SetNotificationRules(SetNotificationRulesRequest) returns (SetNotificationRulesResponse);
+}
+
+message Delivery {
+  // "in_app" or "email".
+  string channel = 1;
+  // "delivered", "pending", "recorded" (rendered and kept, with no email provider configured)
+  // or "failed".
+  string status = 2;
+  // Which sender took it, such as "in_app" or "record".
+  string provider = 3;
+  int32 attempts = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  string last_error = 6;
+}
+
+message Notification {
+  string notification_id = 1;
+  // "approval_requested", "decision_made", "case_pending_review", "case_approved",
+  // "case_rejected" or "case_needs_attention".
+  string kind = 2;
+  string title = 3;
+  string body = 4;
+  // A path in the console, such as "/screens/approvals".
+  string link = 5;
+  string case_id = 6;
+  string work_order_id = 7;
+  google.protobuf.Timestamp created_at = 8;
+  // Unset while unread.
+  google.protobuf.Timestamp read_at = 9;
+  repeated Delivery deliveries = 10;
+}
+
+message ListMyNotificationsRequest {
+  bool unread_only = 1;
+  // 50 when unset, at most 200.
+  int32 page_size = 2;
+}
+
+message ListMyNotificationsResponse {
+  repeated Notification notifications = 1;
+  int64 unread_count = 2;
+}
+
+message MarkNotificationsReadRequest {
+  // Empty marks every one of the caller's notifications read.
+  repeated string notification_ids = 1;
+}
+
+message MarkNotificationsReadResponse {
+  int64 marked = 1;
+}
+
+message DeliveryRecord {
+  string notification_id = 1;
+  string kind = 2;
+  // The recipient's user ID: never their name or address.
+  string user_id = 3;
+  string case_id = 4;
+  Delivery delivery = 5;
+}
+
+message ListDeliveriesRequest {
+  // Empty for every case.
+  string case_id = 1;
+  // Empty for every status.
+  string status = 2;
+  int32 page_size = 3;
+}
+
+message ListDeliveriesResponse {
+  repeated DeliveryRecord deliveries = 1;
+}
+
+message Rule {
+  // A kind, as in Notification.
+  string kind = 1;
+  // "requester", "drafter", "submitter", or "holders:<permission>" for everyone who holds it
+  // where it happened. A case from detections has no requester: its requester is everyone who
+  // may review its findings.
+  string audience = 2;
+  // "in_app", "email", or both.
+  repeated string channels = 3;
+}
+
+message GetNotificationRulesRequest {}
+
+message GetNotificationRulesResponse {
+  repeated Rule rules = 1;
+  // False while the tenant uses the defaults.
+  bool customized = 2;
+}
+
+message SetNotificationRulesRequest {
+  repeated Rule rules = 1;
+  // A retry with the same key and rules changes nothing more (GRP-007).
+  string idempotency_key = 2;
+}
+
+message SetNotificationRulesResponse {
+  repeated Rule rules = 1;
+  bool customized = 2;
+}

@@ -107,6 +107,8 @@ def test_an_approval_resumes_the_investigation_and_the_case_is_approved() -> Non
         # Notification hears of it on case.updated (M10.5).
         updated = await world.events("case.updated")
         assert (updated[-1].action, updated[-1].status) == ("approved", "approved")
+        # Who to tell: the person who opened the case (M10.5).
+        assert updated[-1].requested_by == "u-operator"
 
     setup.run(scenario)
 

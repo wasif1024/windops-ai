@@ -161,7 +161,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | Inventory | None | `evidence.changed`, audit events | None |
 | Approval | Maintenance, Investigation, Asset | `approval.decided`, audit events | `workorder.submitted` |
 | Audit | None | `audit.recorded` | `audit.requested.*`, the audit events from every service |
-| Notification | Email provider | Audit events | `case.updated`, `workorder.submitted`, `approval.decided` |
+| Notification | Authorization, for who holds a permission, and Asset, for a turbine's wind farm ([ADR 0037](adr/0037-notifications-from-events-by-tenant-rules-with-email-recorded.md)). An email provider once one is chosen | Audit events | `case.updated`, `workorder.submitted`, `approval.decided` |
 | Evaluation | Agent Runtime, LangSmith | Audit events | None |
 
 The telemetry simulator is a separate workload and reaches Telemetry through the gateway. The MCP

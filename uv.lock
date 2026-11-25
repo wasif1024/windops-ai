@@ -33,6 +33,7 @@ members = [
     "windops-mcp-weather",
     "windops-mcp-windops",
     "windops-migrations",
+    "windops-notification",
     "windops-observability",
     "windops-outbox",
     "windops-policy",
@@ -2396,6 +2397,7 @@ dev = [
     { name = "windops-mcp-weather" },
     { name = "windops-mcp-windops" },
     { name = "windops-migrations" },
+    { name = "windops-notification" },
     { name = "windops-observability" },
     { name = "windops-outbox" },
     { name = "windops-policy" },
@@ -2468,6 +2470,7 @@ dev = [
     { name = "windops-mcp-weather", editable = "mcp-servers/weather-mcp" },
     { name = "windops-mcp-windops", editable = "mcp-servers/windops-mcp" },
     { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-notification", editable = "services/notification-service" },
     { name = "windops-observability", editable = "shared/observability" },
     { name = "windops-outbox", editable = "shared/outbox" },
     { name = "windops-policy", editable = "services/policy-service" },
@@ -3082,6 +3085,33 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.8" },
     { name = "sqlalchemy", specifier = ">=2.1.8" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1.8" },
+]
+
+[[package]]
+name = "windops-notification"
+version = "0.1.0"
+source = { editable = "services/notification-service" }
+dependencies = [
+    { name = "windops-auth" },
+    { name = "windops-contracts" },
+    { name = "windops-events" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-observability" },
+    { name = "windops-outbox" },
+    { name = "windops-resilience" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-events", editable = "shared/events" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-observability", editable = "shared/observability" },
+    { name = "windops-outbox", editable = "shared/outbox" },
+    { name = "windops-resilience", editable = "shared/resilience" },
 ]
 
 [[package]]

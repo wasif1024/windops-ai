@@ -752,3 +752,50 @@ def test_a_lone_administrator_is_escalated_to_a_platform_administrator() -> None
         assert refused is grpc.StatusCode.PERMISSION_DENIED
 
     with_service(scenario)
+
+
+def as_service(name: str, tenant: str = TENANT, actor: str = "") -> Any:
+    identity = VerifiedIdentity(subject=f"service:{name}", tenant_id=tenant, actor=actor or None)
+    return (("x-windops-identity", sign_identity(identity, SECRET)),)
+
+
+def test_the_notification_service_finds_who_holds_a_permission_in_a_scope() -> None:
+    """M10.5: user IDs only, scoped as Check is, in its own tenant; nobody else but an admin."""
+
+    async def scenario(stub: Any, engine: AsyncEngine) -> None:
+        async with engine.begin() as connection:
+            for user, scope in (("u-manager", policy.Scope()),
+                                ("u-farm-manager", policy.Scope("farm-a", "")),
+                                ("u-other-farm", policy.Scope("farm-b", ""))):  # fmt: skip
+                await add_grant(connection, TENANT, user, policy.MAINTENANCE_MANAGER, scope,
+                                actor="test", now=_now())  # fmt: skip
+            await add_grant(connection, OTHER, "u-stranger", policy.MAINTENANCE_MANAGER,
+                            policy.Scope(), actor="test", now=_now())  # fmt: skip
+
+        async def holders(metadata: Any, **scope: str) -> list[str]:
+            answer = await stub.ListPermissionHolders(
+                authorization_pb2.ListPermissionHoldersRequest(
+                    permission="maintenance.approve", scope=authorization_pb2.Scope(**scope)
+                ),
+                metadata=metadata, timeout=5,
+            )  # fmt: skip
+            return list(answer.user_ids)
+
+        notification = as_service("notification")
+        assert await holders(notification) == ["u-manager"]
+        assert await holders(notification, wind_farm_id="farm-a", turbine_id="t1") == [
+            "u-farm-manager", "u-manager",
+        ]  # fmt: skip
+        assert await holders(as_user(ADMIN)) == ["u-manager"], "an admin may ask too"
+        for refused in (as_service("approval"), as_service("notification", actor="agent:x"),
+                        as_user(OPERATOR)):  # fmt: skip
+            code = await code_of(stub.ListPermissionHolders(
+                authorization_pb2.ListPermissionHoldersRequest(permission="maintenance.approve"),
+                metadata=refused, timeout=5,
+            ))  # fmt: skip
+            assert code is grpc.StatusCode.PERMISSION_DENIED
+        unknown = authorization_pb2.ListPermissionHoldersRequest(permission="nothing.at_all")
+        code = await code_of(stub.ListPermissionHolders(unknown, metadata=notification, timeout=5))
+        assert code is grpc.StatusCode.INVALID_ARGUMENT
+
+    with_service(scenario)

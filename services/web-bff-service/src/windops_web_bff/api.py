@@ -30,6 +30,7 @@ from windops_web_bff.fleet import add_fleet_routes
 from windops_web_bff.investigations import Watch, add_investigation_routes
 from windops_web_bff.limits import LimitUnavailableError, RateLimiter, traffic_class
 from windops_web_bff.maintenance import add_maintenance_routes
+from windops_web_bff.notifications import add_notification_routes
 from windops_web_bff.platform import add_platform_routes
 from windops_web_bff.policy_changes import add_policy_change_routes
 from windops_web_bff.security_metrics import SecurityCounters
@@ -114,6 +115,8 @@ class Dependencies:
     inventory: Callable[..., Awaitable[Any]] | None = None
     # The approval queue (M10.2).
     approval: Callable[..., Awaitable[Any]] | None = None
+    # The user's own notifications (M10.5).
+    notification: Callable[..., Awaitable[Any]] | None = None
     # For the Security dashboard. main.py starts them as the service starts.
     counters: SecurityCounters | None = None
     # Only for tests, when there are no counters: the global provider when unset.
@@ -217,6 +220,7 @@ def create_router(deps: Dependencies) -> APIRouter:
         **({"maintenance": deps.maintenance} if deps.maintenance else {}),
         **({"inventory": deps.inventory} if deps.inventory else {}),
         **({"approval": deps.approval} if deps.approval else {}),
+        **({"notification": deps.notification} if deps.notification else {}),
     }
 
     async def call_as(
@@ -338,6 +342,7 @@ def create_router(deps: Dependencies) -> APIRouter:
     add_alarm_routes(router, caller, call_as)
     add_maintenance_routes(router, caller, call_as)
     add_approval_routes(router, caller, call_as, ApiError)
+    add_notification_routes(router, caller, call_as)
     add_investigation_routes(
         router, caller, call_as, deps.investigation_watch,
         identity_for=lambda who: identity_for(who, deps.identity_secret),

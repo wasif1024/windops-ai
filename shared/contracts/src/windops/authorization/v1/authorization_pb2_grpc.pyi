@@ -47,6 +47,11 @@ class AuthorizationServiceStub:
     """Needs roles.manage and a recent second factor. A grant is ended, never deleted."""
     ListRoleGrants: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.ListRoleGrantsRequest, _authorization_pb2.ListRoleGrantsResponse]
     """Needs roles.manage."""
+    ListPermissionHolders: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.ListPermissionHoldersRequest, _authorization_pb2.ListPermissionHoldersResponse]
+    """Who in the caller's tenant holds a permission now, in a scope: user IDs only, never names or
+    addresses. For the Notification Service, acting as itself, to find whom to tell (M10.5); or a
+    person with roles.manage. Read only, and never across tenants.
+    """
     GetRolePermissions: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.GetRolePermissionsRequest, _authorization_pb2.GetRolePermissionsResponse]
     """Needs permissions.manage."""
     SetRolePermissions: _grpc.UnaryUnaryMultiCallable[_authorization_pb2.SetRolePermissionsRequest, _authorization_pb2.SetRolePermissionsResponse]
@@ -94,6 +99,11 @@ class AuthorizationServiceAsyncStub(AuthorizationServiceStub):
     """Needs roles.manage and a recent second factor. A grant is ended, never deleted."""
     ListRoleGrants: _aio.UnaryUnaryMultiCallable[_authorization_pb2.ListRoleGrantsRequest, _authorization_pb2.ListRoleGrantsResponse]  # type: ignore[assignment]
     """Needs roles.manage."""
+    ListPermissionHolders: _aio.UnaryUnaryMultiCallable[_authorization_pb2.ListPermissionHoldersRequest, _authorization_pb2.ListPermissionHoldersResponse]  # type: ignore[assignment]
+    """Who in the caller's tenant holds a permission now, in a scope: user IDs only, never names or
+    addresses. For the Notification Service, acting as itself, to find whom to tell (M10.5); or a
+    person with roles.manage. Read only, and never across tenants.
+    """
     GetRolePermissions: _aio.UnaryUnaryMultiCallable[_authorization_pb2.GetRolePermissionsRequest, _authorization_pb2.GetRolePermissionsResponse]  # type: ignore[assignment]
     """Needs permissions.manage."""
     SetRolePermissions: _aio.UnaryUnaryMultiCallable[_authorization_pb2.SetRolePermissionsRequest, _authorization_pb2.SetRolePermissionsResponse]  # type: ignore[assignment]
@@ -168,6 +178,17 @@ class AuthorizationServiceServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_authorization_pb2.ListRoleGrantsResponse, _abc.Awaitable[_authorization_pb2.ListRoleGrantsResponse]]:
         """Needs roles.manage."""
+
+    @_abc_1.abstractmethod
+    def ListPermissionHolders(
+        self,
+        request: _authorization_pb2.ListPermissionHoldersRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_authorization_pb2.ListPermissionHoldersResponse, _abc.Awaitable[_authorization_pb2.ListPermissionHoldersResponse]]:
+        """Who in the caller's tenant holds a permission now, in a scope: user IDs only, never names or
+        addresses. For the Notification Service, acting as itself, to find whom to tell (M10.5); or a
+        person with roles.manage. Read only, and never across tenants.
+        """
 
     @_abc_1.abstractmethod
     def GetRolePermissions(

@@ -24,6 +24,7 @@ resources:
   - ../../../../services/investigation-service/deploy
   - ../../../../services/knowledge-service/deploy
   - ../../../../services/maintenance-service/deploy
+  - ../../../../services/notification-service/deploy
   - ../../../../services/policy-service/deploy
   - ../../../../services/production-impact-service/deploy
   - ../../../../services/sample-caller-service/deploy

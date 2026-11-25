@@ -48,7 +48,8 @@ TENANT, OTHER = "north-sea", "atlas-wind"
 DATABASES = (
     "agent_runtime", "alarm", "approval", "asset", "audit", "authorization",
     "external_intelligence", "fault_detection", "identity", "inventory", "investigation",
-    "knowledge", "maintenance", "policy", "production_impact", "telemetry", "tenant", "weather",
+    "knowledge", "maintenance", "notification", "policy", "production_impact", "telemetry",
+    "tenant", "weather",
 )  # fmt: skip
 # Tables with a tenant that need no policy, and why. The repository test exempts the same.
 # Only the service itself reads these, across tenants, never a request: the relay its outbox, and

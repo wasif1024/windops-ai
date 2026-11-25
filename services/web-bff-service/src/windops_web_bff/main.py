@@ -18,6 +18,7 @@ from windops.identity.v1 import identity_pb2_grpc
 from windops.inventory.v1 import inventory_pb2_grpc
 from windops.investigation.v1 import investigation_pb2_grpc
 from windops.maintenance.v1 import maintenance_pb2_grpc
+from windops.notification.v1 import notification_pb2_grpc
 from windops.telemetry.v1 import telemetry_pb2_grpc
 from windops.tenant.v1 import tenant_pb2_grpc
 from windops_cache import connect as redis_connect
@@ -89,6 +90,10 @@ def main() -> None:
         ),
         "inventory": (inventory_pb2_grpc.InventoryServiceStub, "WINDOPS_INVENTORY_ADDRESS"),
         "approval": (approval_pb2_grpc.ApprovalServiceStub, "WINDOPS_APPROVAL_ADDRESS"),
+        "notification": (
+            notification_pb2_grpc.NotificationServiceStub,
+            "WINDOPS_NOTIFICATION_ADDRESS",
+        ),
     }
 
     def client_for(service: str) -> tuple[Any, ServiceClient]:
@@ -165,6 +170,7 @@ def main() -> None:
             maintenance=caller_for("maintenance"),
             inventory=caller_for("inventory"),
             approval=caller_for("approval"),
+            notification=caller_for("notification"),
             counters=counters,
         )
     )

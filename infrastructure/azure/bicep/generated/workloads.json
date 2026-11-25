@@ -202,6 +202,27 @@
     "receives": []
   },
   {
+    "name": "windops-notification",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": [
+      {
+        "topic": "windops-events",
+        "subscription": "notification-submissions"
+      },
+      {
+        "topic": "windops-events",
+        "subscription": "notification-decisions"
+      },
+      {
+        "topic": "windops-events",
+        "subscription": "notification-cases"
+      }
+    ]
+  },
+  {
     "name": "windops-policy",
     "namespace": "windops-application",
     "events": true,

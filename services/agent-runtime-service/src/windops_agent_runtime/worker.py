@@ -380,7 +380,8 @@ class Worker:
             # A resume that cannot carry on stops safely, for a person to restart (AGT-005).
             return await self._end(claim, STALE, str(error))
         if isinstance(error, BudgetExhaustedError):
-            # LLM-010. WindopsAgentBudgetExhausted alerts a person, until Notification (M10.5).
+            # LLM-010. Investigation sends the case back to open, and the Notification Service
+            # tells the person who asked (M10.5). WindopsAgentBudgetExhausted alerts too.
             return await self._end(claim, BUDGET_EXHAUSTED, str(error))
         if isinstance(error, FINAL):
             # Trying again would get the same answer, and pay for it again.

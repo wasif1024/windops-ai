@@ -277,6 +277,56 @@ class RoleGrant(_message.Message):
 Global___RoleGrant: _TypeAlias = RoleGrant  # noqa: Y015
 
 @_typing.final
+class ListPermissionHoldersRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PERMISSION_FIELD_NUMBER: _builtins.int
+    SCOPE_FIELD_NUMBER: _builtins.int
+    permission: _builtins.str
+    """For example "maintenance.approve", from SRS 3.2."""
+    @_builtins.property
+    def scope(self) -> Global___Scope:
+        """As for Check: a wind farm grant covers a turbine only when both are given. Empty for the
+        whole tenant, which only tenant-wide grants cover.
+        """
+
+    def __init__(
+        self,
+        *,
+        permission: _builtins.str = ...,
+        scope: Global___Scope | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["scope", b"scope"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["permission", b"permission", "scope", b"scope"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListPermissionHoldersRequest: _TypeAlias = ListPermissionHoldersRequest  # noqa: Y015
+
+@_typing.final
+class ListPermissionHoldersResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    USER_IDS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def user_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Sorted, each once."""
+
+    def __init__(
+        self,
+        *,
+        user_ids: _abc.Iterable[_builtins.str] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["user_ids", b"user_ids"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListPermissionHoldersResponse: _TypeAlias = ListPermissionHoldersResponse  # noqa: Y015
+
+@_typing.final
 class GetRolePermissionsRequest(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 

@@ -117,6 +117,10 @@ SUBSCRIPTIONS = (
     # A person's decision resumes the case's workflow (SRS 5.4 step 14, M10.4).
     SubscriptionSpec("approval.decided", "investigation-decisions", "investigation"),
     SubscriptionSpec("case.updated", "maintenance-cases", "maintenance"),
+    # Whom to tell, and what (M10.5).
+    SubscriptionSpec("workorder.submitted", "notification-submissions", "notification"),
+    SubscriptionSpec("approval.decided", "notification-decisions", "notification"),
+    SubscriptionSpec("case.updated", "notification-cases", "notification"),
 )
 
 

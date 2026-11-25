@@ -298,6 +298,7 @@ async def record(
             severity=case.severity, action=action, version=case.version,
             evidence_snapshot_id=case.evidence_snapshot_id, stale_rule=case.stale_rule,
             stale_detail=case.stale_detail, stale_rules_version=case.stale_rules_version,
+            requested_by=case.created_by if case.origin == "user" else "",
         ),
         producer=SERVICE_NAME,
     )  # fmt: skip
