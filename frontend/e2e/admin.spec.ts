@@ -3,6 +3,7 @@
 // authenticator first, and deletes every user afterwards.
 import { expect, test } from "@playwright/test";
 import { noSidewaysScroll, openScreen, signIn, stepUp } from "./helpers";
+import { covers, expectMenu } from "./coverage";
 
 const password = process.env.ADMIN_PASSWORD ?? "";
 const operator = process.env.OPERATOR_EMAIL ?? "";
@@ -19,12 +20,25 @@ function account(project: string) {
 
 test.describe.configure({ mode: "serial" });
 
-test("a Tenant Administrator manages users, roles and permissions, with step-up", async ({ page, isMobile }) => {
+test("a Tenant Administrator manages users, roles and permissions, with step-up", covers(
+  "tenant-administrator",
+  "audit-explorer",
+  "admin-users",
+  "admin-roles",
+  "admin-permissions",
+  "admin-mfa",
+  "admin-sessions",
+  "admin-branding",
+  "admin-approval-policies",
+  "admin-mcp-integrations",
+  "admin-gateway-policies",
+), async ({ page, isMobile }) => {
   const me = account(test.info().project.name);
   expect(me.email && me.key && password, "make frontend-check passes each administrator").toBeTruthy();
 
   await page.goto(`/?tenant=${tenant}`);
   await signIn(page, me.email, password);
+  await expectMenu(page, isMobile, "tenant-administrator");
 
   // The audit explorer (M11.6): the operator's refused attempt, which make frontend-check made,
   // then everything that actor did, and the hash chain checked again.
@@ -89,6 +103,13 @@ test("a Tenant Administrator manages users, roles and permissions, with step-up"
   await noSidewaysScroll(page);
   await page.screenshot({ path: test.info().outputPath("users.png"), fullPage: true });
 
+  // A user's page, on any screen size: their MFA, sessions and roles (SRS 9.4).
+  await users.getByRole("link", { name: operator }).click();
+  await expect(page.getByTestId("mfa-status")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("region", { name: "Sessions" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Roles" })).toBeVisible();
+  await noSidewaysScroll(page);
+
   // The operator's refused attempt, which make frontend-check made, is in the trail (SRS 9.4).
   await tabs.getByRole("link", { name: "Access denials" }).click();
   const denials = page.getByRole("list", { name: "Access denials" });
@@ -132,6 +153,11 @@ test("a Tenant Administrator manages users, roles and permissions, with step-up"
   await users.getByRole("link", { name: me.added }).click();
   await expect(page.getByTestId("user-status")).toHaveText("Active");
   await expect(page.getByTestId("mfa-status")).toContainText("Authenticator app: not set up");
+  // Ending a user's sessions is a change, made here with the second factor just given.
+  const sessions = page.getByRole("region", { name: "Sessions" });
+  await sessions.getByRole("button", { name: "End all sessions" }).click();
+  await expect(sessions).toContainText("No sessions.");
+  await expect(sessions.getByRole("alert")).toHaveCount(0);
 
   const roles = page.getByRole("region", { name: "Roles" });
   await page.getByLabel("Role", { exact: true }).selectOption("auditor");

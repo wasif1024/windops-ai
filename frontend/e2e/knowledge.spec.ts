@@ -6,6 +6,7 @@
 // afterwards. Nothing may scroll sideways (UX-001).
 import { expect, test } from "@playwright/test";
 import { noSidewaysScroll, openScreen, signIn, stepUp } from "./helpers";
+import { covers, expectMenu } from "./coverage";
 
 const tenant = process.env.TENANT ?? "north-sea";
 
@@ -41,11 +42,12 @@ Check the yaw brake pads at the next visit.
 
 test.describe.configure({ mode: "serial" });
 
-test("an engineer browses, searches and reads the library", async ({ page, isMobile }) => {
+test("an engineer browses, searches and reads the library", covers("reliability-engineer", "knowledge-library"), async ({ page, isMobile }) => {
   const [email, password] = [setting("ENGINEER_EMAIL"), process.env.PLANNER_PASSWORD ?? ""];
   expect(email && password, "make frontend-check passes the engineer").toBeTruthy();
   await page.goto(`/?tenant=${tenant}`);
   await signIn(page, email, password);
+  await expectMenu(page, isMobile, "reliability-engineer");
 
   await openScreen(page, isMobile, "Knowledge library");
   const documents = page.getByTestId("documents");
@@ -75,12 +77,13 @@ test("an engineer browses, searches and reads the library", async ({ page, isMob
   await expect(page.getByText("This change needs your second factor.")).toBeVisible();
 });
 
-test("a Tenant Administrator uploads a document addressed to an AI, and it is held", async ({ page, isMobile }) => {
+test("a Tenant Administrator uploads a document addressed to an AI, and it is held", covers("tenant-administrator", "knowledge-library"), async ({ page, isMobile }) => {
   const [email, key, password] = [setting("ADMIN_EMAIL"), setting("ADMIN_TOTP_KEY"), process.env.ADMIN_PASSWORD ?? ""];
   const id = setting("KNOWLEDGE_DOCUMENT");
   expect(email && key && password && id, "make frontend-check passes the administrator and document").toBeTruthy();
   await page.goto(`/?tenant=${tenant}`);
   await signIn(page, email, password);
+  await expectMenu(page, isMobile, "tenant-administrator");
 
   await openScreen(page, isMobile, "Knowledge library");
   await expect(page.getByText(/managing the library, not reading it/)).toBeVisible();

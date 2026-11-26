@@ -5,6 +5,7 @@
 // rules it was held to. Nothing may scroll sideways (UX-001).
 import { expect, test } from "@playwright/test";
 import { noSidewaysScroll, openScreen, signIn } from "./helpers";
+import { covers, expectMenu } from "./coverage";
 
 const tenant = process.env.TENANT ?? "north-sea";
 const password = process.env.PLANNER_PASSWORD ?? "";
@@ -13,11 +14,12 @@ function setting(name: string): string {
   return process.env[`${name}_${test.info().project.name.toUpperCase()}`] ?? "";
 }
 
-test("a manager reviews a submitted work order and approves it", async ({ page, isMobile }) => {
+test("a manager reviews a submitted work order and approves it", covers("maintenance-manager", "approval-queue", "notification-center"), async ({ page, isMobile }) => {
   const [email, workOrder] = [setting("MANAGER_EMAIL"), setting("MANAGER_WORK_ORDER")];
   expect(email && password && workOrder, "make frontend-check passes the manager and work order").toBeTruthy();
   await page.goto(`/?tenant=${tenant}`);
   await signIn(page, email, password);
+  await expectMenu(page, isMobile, "maintenance-manager");
 
   // The submission told the manager (M10.5). From the notification center (M11.6), it leads to
   // the approval queue, and opening it marks it read.

@@ -4,6 +4,7 @@
 // tenant platform-check, which make platform-api-check also uses, and leaves it active.
 import { expect, test } from "@playwright/test";
 import { noSidewaysScroll, openScreen, signIn, stepUp } from "./helpers";
+import { covers, expectMenu } from "./coverage";
 
 const password = process.env.ADMIN_PASSWORD ?? "";
 const CHECK_TENANT = "platform-check";
@@ -17,12 +18,18 @@ function account(project: string) {
   };
 }
 
-test("a Platform Administrator manages tenants and break-glass access, with step-up", async ({ page, isMobile }) => {
+test("a Platform Administrator manages tenants and break-glass access, with step-up", covers(
+  "platform-administrator",
+  "platform-tenants",
+  "platform-branding-domains",
+  "platform-break-glass",
+), async ({ page, isMobile }) => {
   const me = account(test.info().project.name);
   expect(me.email && me.key && password, "make frontend-check passes each Platform Administrator").toBeTruthy();
 
   await page.goto("/");
   await signIn(page, me.email, password);
+  await expectMenu(page, isMobile, "platform-administrator");
   await openScreen(page, isMobile, "Platform");
   const tabs = page.getByRole("navigation", { name: "Platform" });
   const tenants = page.getByRole("list", { name: "Tenants" });
@@ -35,6 +42,7 @@ test("a Platform Administrator manages tenants and break-glass access, with step
   await tenants.getByRole("link", { name: /north-sea/ }).click();
   await expect(page.getByTestId("tenant-status")).toHaveText("Active");
   await expect(page.getByRole("region", { name: "Branding" })).toContainText("Only the tenant's own administrators");
+  await expect(page.getByTestId("tenant-domain")).toBeVisible();
   await expect(page.getByRole("button", { name: /Save/ })).toHaveCount(0);
   await noSidewaysScroll(page);
 

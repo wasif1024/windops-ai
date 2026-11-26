@@ -5,6 +5,7 @@
 // (UX-001).
 import { expect, test } from "@playwright/test";
 import { noSidewaysScroll, openScreen, signIn } from "./helpers";
+import { covers, expectMenu } from "./coverage";
 
 const tenant = process.env.TENANT ?? "north-sea";
 const turbine = process.env.PLANNER_TURBINE ?? "";
@@ -13,12 +14,13 @@ function setting(name: string): string {
   return process.env[`${name}_${test.info().project.name.toUpperCase()}`] ?? "";
 }
 
-test("an operator reads the forecast and its freshness, then estimates a case's impact", async ({ page, isMobile }) => {
+test("an operator reads the forecast and its freshness, then estimates a case's impact", covers("control-room-operator", "production-impact", "weather-freshness"), async ({ page, isMobile }) => {
   test.setTimeout(120_000);
   const [email, password, caseTitle] = [process.env.OPERATOR_EMAIL ?? "", process.env.OPERATOR_PASSWORD ?? "", setting("PLANNER_CASE")];
   expect(email && password && turbine && caseTitle, "make frontend-check passes the operator, turbine and case").toBeTruthy();
   await page.goto(`/?tenant=${tenant}`);
   await signIn(page, email, password);
+  await expectMenu(page, isMobile, "control-room-operator");
 
   await openScreen(page, isMobile, "Weather and sources");
   await page.getByRole("combobox", { name: "Turbine" }).selectOption(turbine);
