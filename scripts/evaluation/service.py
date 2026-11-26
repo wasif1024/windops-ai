@@ -9,7 +9,6 @@ It calls the service over mutual TLS as a Platform Administrator of its own, the
 holds evaluation.manage (SRS 3.2).
 """
 
-import json
 import secrets
 import socket
 import subprocess
@@ -23,6 +22,7 @@ from windops.evaluation.v1 import evaluation_pb2_grpc
 
 from scripts.checks.fleet.asset import Caller, bootstrap, signing_key
 from scripts.evaluation.evaluators import Observed, Score
+from scripts.evaluation.pipeline import to_message
 from scripts.evaluation.scenarios import Scenario
 from scripts.lib.settings import KUBE_CONTEXT
 from scripts.lib.tls_client import blocking_channel, client_bundle
@@ -48,14 +48,6 @@ def mode_now() -> str:
     if found.returncode not in (0, 1):
         raise RuntimeError(f"Investigation's mode cannot be read: {found.stderr.strip()}")
     return "claude" if found.stdout.strip() == "claude" else "rehearse"
-
-
-def to_message(scenario: Scenario) -> pb.Scenario:
-    return pb.Scenario(
-        scenario_id=scenario.case_id, family=scenario.family, split=scenario.split,
-        severity=scenario.severity, runs_required=scenario.runs_required,
-        definition_json=json.dumps(scenario.model_dump(mode="json"), sort_keys=True),
-    )  # fmt: skip
 
 
 def scores_of(scores: Sequence[Score]) -> list[pb.Score]:

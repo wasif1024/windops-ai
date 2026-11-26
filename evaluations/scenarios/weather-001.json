@@ -1,11 +1,11 @@
 {
   "case_id": "weather-001",
-  "dataset_version": "1.0",
+  "dataset_version": "1.1",
   "family": "weather_impact",
   "split": "validation",
   "scenario": "A weather window for a gearbox repair",
   "input_fixture": "simulator:gearbox-temp-001",
-  "simulator_seed": 1001,
+  "simulator_seed": 1201,
   "ground_truth": "gearbox_oil_overheating",
   "recorded_external_sources": null,
   "case": {

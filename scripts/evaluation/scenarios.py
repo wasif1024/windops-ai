@@ -6,9 +6,11 @@ the agents see only the case and what their tools return. Loading checks every f
 schema, the simulator and the agents' allowlists, so a scenario cannot drift from what it tests.
 """
 
+import dataclasses
 import json
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from windops_identity.targets import AGENT_TOOLS
@@ -50,7 +52,7 @@ class Scenario(BaseModel):
     scenario: str
     # "simulator:<scenario ID>": the telemetry replayed for it.
     input_fixture: str = Field(pattern=r"^simulator:[a-z0-9-]+$")
-    simulator_seed: int
+    simulator_seed: int = Field(ge=1)
     ground_truth: str
     # EVL-001's recorded Tavily and weather answers come with the full evaluation (Phase 12).
     recorded_external_sources: str | None = None
@@ -69,6 +71,11 @@ class Scenario(BaseModel):
     def simulator_scenario(self) -> str:
         return self.input_fixture.removeprefix("simulator:")
 
+    @property
+    def replay(self) -> "Replay":
+        """The telemetry replayed for it: the simulator scenario, with this scenario's seed."""
+        return self.simulator_scenario, self.simulator_seed
+
 
 def tool_names() -> set[str]:
     """Every tool an agent can see, by the name it sees: "windops_get_case", "sandbox_trend_fit"."""
@@ -78,6 +85,17 @@ def tool_names() -> set[str]:
             parts = scope.split(".")
             names.add("_".join(parts[1:]) if parts[0] == "mcp" else "_".join(parts))
     return names
+
+
+# A simulator scenario and the seed it is run with. A seed other than the simulator's own is a
+# variant: the same fault at the same time, with its own noise and link trouble (M12.2).
+Replay = tuple[str, int]
+
+
+def simulated(scenario: Scenario) -> Any:
+    """The simulator scenario this one replays, with its seed."""
+    return dataclasses.replace(SCENARIOS[scenario.simulator_scenario],
+                               seed=scenario.simulator_seed)  # fmt: skip
 
 
 class ScenarioError(ValueError):
@@ -90,8 +108,12 @@ def check(scenario: Scenario, file_name: str) -> None:
     simulated = SCENARIOS.get(scenario.simulator_scenario)
     if simulated is None:
         raise ScenarioError(f"{scenario.case_id}: no simulator scenario {scenario.input_fixture}")
-    if simulated.seed != scenario.simulator_seed:
-        raise ScenarioError(f"{scenario.case_id}: the simulator's seed is {simulated.seed}")
+    variants = {s.seed for s in SCENARIOS.values()} - {simulated.seed}
+    if scenario.simulator_seed in variants:
+        raise ScenarioError(
+            f"{scenario.case_id}: seed {scenario.simulator_seed} is another simulator scenario's "
+            "own: a variant needs a seed of its own"
+        )
     label = next((f.label for f in simulated.faults if f.label != "no_fault"), "no_fault")
     if label != scenario.ground_truth:
         raise ScenarioError(f"{scenario.case_id}: the simulator's ground truth is {label}")
@@ -105,6 +127,26 @@ def check(scenario: Scenario, file_name: str) -> None:
         raise ScenarioError(f"{scenario.case_id}: its case and its severity differ")
     if scenario.family in REPEATED and scenario.runs_required < 5:
         raise ScenarioError(f"{scenario.case_id}: {scenario.family} runs at least 5 times")
+
+
+def check_set(scenarios: Sequence[Scenario]) -> None:
+    """Train, validation and held-out scenarios stay apart, so prompts are not tuned to the final
+    test (EVL-006): each replay, a simulator scenario with its seed, belongs to one split, and no
+    two scenarios share a case title."""
+    split_of: dict[Replay, tuple[str, str]] = {}
+    titles: dict[str, str] = {}
+    for s in scenarios:
+        split, first = split_of.setdefault(s.replay, (s.split, s.case_id))
+        if split != s.split:
+            raise ScenarioError(
+                f"{s.case_id} ({s.split}) replays {s.simulator_scenario} with seed "
+                f"{s.simulator_seed}, as {first} does in {split}: each replay belongs to one split "
+                "(EVL-006). Give one a variant seed"
+            )
+        title = " ".join(s.case.title.lower().split())
+        if title in titles:
+            raise ScenarioError(f"{s.case_id}: {titles[title]} has the same case title")
+        titles[title] = s.case_id
 
 
 def load(root: Path = ROOT) -> list[Scenario]:
@@ -126,5 +168,7 @@ def dataset(
     missing = [i for i in manifest["scenarios"] if i not in by_id]
     if missing:
         raise ScenarioError(f"{name} names scenarios that do not exist: {missing}")
-    header = {k: str(v) for k, v in manifest.items() if k != "scenarios"}
-    return header, [by_id[i] for i in manifest["scenarios"]]
+    chosen = [by_id[i] for i in manifest["scenarios"]]
+    check_set(chosen)
+    header = {k: str(v) for k, v in manifest.items() if k not in ("scenarios", "versions")}
+    return header, chosen

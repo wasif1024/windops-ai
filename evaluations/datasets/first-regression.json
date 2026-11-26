@@ -1,7 +1,7 @@
 {
   "dataset": "windops-first-regression",
-  "version": "1.0",
-  "description": "M8.12's first regression set: six simulator replays, twelve investigations, across nine of the SRS 10.5 families. Phase 12 grows it to 100 to 200.",
+  "version": "1.1",
+  "description": "M8.12's first regression set: twelve investigations across nine of the SRS 10.5 families. 1.1 gives three train and validation scenarios variant seeds, so no held-out telemetry is replayed in another split (EVL-006). Phase 12 grows it to 100 to 200.",
   "scenarios": [
     "gearbox-temp-001",
     "bearing-wear-001",
@@ -15,5 +15,9 @@
     "impact-001",
     "grounding-001",
     "weather-001"
-  ]
+  ],
+  "versions": {
+    "1.0": "00e5f4cc25b39c8a6965b2bf3d79c5b3175160c806a9d3de4e0ad66c116a2271",
+    "1.1": "8e99175e057ae985fcdb1e6d5fed26e545af00232f145fbfc48c401cedcb4e59"
+  }
 }
