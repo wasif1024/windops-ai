@@ -22,6 +22,16 @@ from windops_grpc.settings import Settings
 from windops_grpc.tls import SERVER_OPTIONS, server_credentials, stop_when_certificate_changes
 
 logger = logging.getLogger("windops.service")
+LOOPBACK = "127.0.0.1"
+
+
+def _host(port: int, everywhere: str) -> str:
+    """Where to listen. A random port, port 0, is known only to whoever started the server, as a
+    test does, so it listens on loopback alone. Listening everywhere, macOS could give it a port
+    another program held on loopback, such as an editor's helper on 127.0.0.1, and a client on
+    127.0.0.1 then reached that program instead: "Trying to connect an http1.x server"."""
+    return LOOPBACK if port == 0 else everywhere
+
 
 ReadinessCheck = Callable[[], Awaitable[bool]]
 Register = Callable[[grpc.aio.Server], None]
@@ -157,7 +167,7 @@ class ServiceRuntime:
         health_pb2_grpc.add_HealthServicer_to_server(self._health, server)
         await self._set_serving(False)
         self._register(server)
-        address = f"[::]:{settings.grpc_port}"
+        address = f"{_host(settings.grpc_port, '[::]')}:{settings.grpc_port}"
         if settings.tls_dir is None:
             logger.warning("gRPC is running without TLS, which only tests may do")
             self.grpc_port = server.add_insecure_port(address)
@@ -168,7 +178,8 @@ class ServiceRuntime:
 
         config = uvicorn.Config(
             self._http_app(with_api=not self._api_over_https),
-            host="0.0.0.0",  # noqa: S104  # Kubernetes probes and Prometheus reach the pod address.
+            # Kubernetes probes and Prometheus reach the pod address.
+            host=_host(settings.http_port, "0.0.0.0"),  # noqa: S104
             port=settings.http_port,
             log_config=None,
             access_log=False,
@@ -177,7 +188,7 @@ class ServiceRuntime:
         if self._api_over_https and settings.tls_dir is not None:
             secure = uvicorn.Config(
                 self._http_app(),
-                host="0.0.0.0",  # noqa: S104  # The gateway reaches the pod address.
+                host=_host(settings.https_port, "0.0.0.0"),  # noqa: S104  # The gateway's way in.
                 port=settings.https_port,
                 log_config=None,
                 access_log=False,
