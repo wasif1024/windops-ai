@@ -69,6 +69,24 @@ export async function getJson<T>(path: string, token?: string, fetcher: typeof f
 }
 
 /** A new random key for one change, which the BFF and services use to recognise a resend (GRP-007). */
+/** Whether a read failed for an outage, which may pass, not because it was refused. */
+export function mightPass(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return true;
+  return ["unavailable", "bad_gateway"].includes(error.problem.code ?? "");
+}
+
+/** A read, tried again a few times when it failed for an outage. A refusal fails at once. */
+export async function readPatiently<T>(read: () => Promise<T>, tries = 3, pauseMs = 1000): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await read();
+    } catch (error) {
+      if (attempt >= tries || !mightPass(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, pauseMs));
+    }
+  }
+}
+
 export function newIdempotencyKey(): string {
   return crypto.randomUUID();
 }

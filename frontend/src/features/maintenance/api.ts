@@ -3,7 +3,15 @@
 import { getJson, sendJson } from "../../api/client";
 
 export type Action = "inspection" | "repair" | "replacement" | "adjustment" | "monitoring";
-export type WorkOrderStatus = "draft" | "submitted" | "withdrawn" | "approved" | "rejected" | "stale";
+export type WorkOrderStatus =
+  | "draft"
+  | "submitted"
+  | "withdrawn"
+  | "approved"
+  | "rejected"
+  | "stale"
+  | "completed"
+  | "verified";
 export type PartStatus = "available" | "short" | "incompatible" | "retired" | "unknown";
 
 export const ACTIONS: Action[] = ["inspection", "repair", "replacement", "adjustment", "monitoring"];
@@ -78,6 +86,29 @@ export interface WorkOrder {
   /** Why it is stale: the rule that fired, and what it found (SRS 8.5). */
   stale_rule: string;
   stale_detail: string;
+  /** What was done, once a person recorded it (FR-MNT-004). */
+  completion: Completion | null;
+  /** Once verified: "resolved", "not_resolved" or "inconclusive". */
+  verification_outcome: string;
+}
+
+export interface Completion {
+  started_at: string | null;
+  completed_at: string | null;
+  summary: string;
+  parts_used: PartLine[];
+  actual_downtime_hours: number;
+  recorded_by: string;
+  recorded_at: string | null;
+}
+
+/** What a person records as done: times as ISO 8601. */
+export interface CompletionIn {
+  started_at: string;
+  completed_at: string;
+  summary: string;
+  parts_used: PartLine[];
+  actual_downtime_hours: number;
 }
 
 export interface WorkOrderEvent {
@@ -132,6 +163,8 @@ export function maintenanceApi(token: string) {
       sendJson<WorkOrder>("POST", `${one(id)}/withdraw`, token, key, { reason }),
     revise: (id: string, key: string, revision: number) =>
       sendJson<WorkOrder>("POST", `${one(id)}/revise`, token, key, { expected_revision: revision }),
+    complete: (id: string, key: string, revision: number, done: CompletionIn) =>
+      sendJson<WorkOrder>("POST", `${one(id)}/complete`, token, key, { expected_revision: revision, ...done }),
   };
 }
 
@@ -144,6 +177,8 @@ export const STATUS_STYLE: Record<WorkOrderStatus, string> = {
   approved: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200",
   rejected: "bg-red-50 text-red-800 ring-1 ring-red-200",
   stale: "bg-orange-50 text-orange-900 ring-1 ring-orange-200",
+  completed: "bg-teal-50 text-teal-800 ring-1 ring-teal-200",
+  verified: "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-300",
 };
 
 export const PART_STYLE: Record<PartStatus, string> = {

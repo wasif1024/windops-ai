@@ -9,6 +9,8 @@ import { StatusBadge } from "../../fleet/Freshness";
 import { titleCase } from "../../fleet/format";
 import { maintenanceApi, type MaintenanceApi, POLICY_STYLE } from "../../maintenance/api";
 import { History, PlanView, ValidationView } from "../../maintenance/pages/WorkOrderPage";
+import { type InvestigationApi, investigationApi } from "../../investigations/api";
+import { Concerns } from "../../investigations/pages/Concerns";
 import { type Approval, type ApprovalApi, approvalApi, APPROVAL_STYLE, type ApprovalStatus, draftedByOf } from "../api";
 
 interface View {
@@ -205,11 +207,14 @@ export function ApprovalPage({
   maintenance,
   approvalId,
   canDecide,
+  investigations,
 }: {
   api: ApprovalApi;
   maintenance: MaintenanceApi;
   approvalId: string;
   canDecide: boolean;
+  /** To show the findings reviewers questioned, beside the proposal (FR-INV-006). */
+  investigations?: InvestigationApi;
 }) {
   const load = useCallback(() => api.get(approvalId), [api, approvalId]);
   const [state, reload] = useLoad(load);
@@ -241,6 +246,7 @@ export function ApprovalPage({
                 Superseded {when(approval.superseded_at)}: {approval.superseded_reason}. It can no longer be decided.
               </p>
             )}
+            {investigations && approval.status === "pending" && <Concerns api={investigations} caseId={approval.case_id} />}
             <Panel title={approval.decision ? "Decision" : "Decide"}>
               {approval.decision ? (
                 <DecisionView approval={approval} />
@@ -264,10 +270,19 @@ export function ApprovalPage({
 export function ApprovalScreen({ token, held }: { token: string; held: ReadonlySet<string> }) {
   const api = useMemo(() => approvalApi(token), [token]);
   const maintenance = useMemo(() => maintenanceApi(token), [token]);
+  const investigations = useMemo(() => investigationApi(token), [token]);
   const [params] = useSearchParams();
   const approval = params.get("approval");
   if (approval) {
-    return <ApprovalPage api={api} maintenance={maintenance} approvalId={approval} canDecide={held.has("maintenance.approve")} />;
+    return (
+      <ApprovalPage
+        api={api}
+        maintenance={maintenance}
+        approvalId={approval}
+        canDecide={held.has("maintenance.approve")}
+        investigations={investigations}
+      />
+    );
   }
   return <ApprovalQueue api={api} />;
 }

@@ -591,6 +591,122 @@
         "title": "BreakGlassGrants",
         "type": "object"
       },
+      "CaseDetail": {
+        "properties": {
+          "created_by": {
+            "title": "Created By",
+            "type": "string"
+          },
+          "detections": {
+            "items": {
+              "$ref": "#/components/schemas/Detection"
+            },
+            "title": "Detections",
+            "type": "array"
+          },
+          "evidence_snapshot_id": {
+            "title": "Evidence Snapshot Id",
+            "type": "string"
+          },
+          "evidence_status": {
+            "title": "Evidence Status",
+            "type": "string"
+          },
+          "evidence_version": {
+            "title": "Evidence Version",
+            "type": "integer"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/CaseEvent"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "investigation": {
+            "$ref": "#/components/schemas/Investigation"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "stale_detail": {
+            "title": "Stale Detail",
+            "type": "string"
+          },
+          "stale_rule": {
+            "title": "Stale Rule",
+            "type": "string"
+          },
+          "verifications": {
+            "items": {
+              "$ref": "#/components/schemas/Verification"
+            },
+            "title": "Verifications",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "investigation",
+          "origin",
+          "created_by",
+          "version",
+          "evidence_snapshot_id",
+          "evidence_version",
+          "evidence_status",
+          "stale_rule",
+          "stale_detail",
+          "detections",
+          "history",
+          "verifications"
+        ],
+        "title": "CaseDetail",
+        "type": "object"
+      },
+      "CaseEvent": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "action",
+          "actor_type",
+          "actor_id",
+          "note"
+        ],
+        "title": "CaseEvent",
+        "type": "object"
+      },
       "Catalog": {
         "properties": {
           "entries": {
@@ -638,6 +754,122 @@
           "component"
         ],
         "title": "CatalogEntry",
+        "type": "object"
+      },
+      "Completion": {
+        "properties": {
+          "actual_downtime_hours": {
+            "title": "Actual Downtime Hours",
+            "type": "number"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "parts_used": {
+            "items": {
+              "$ref": "#/components/schemas/PartLine"
+            },
+            "title": "Parts Used",
+            "type": "array"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded At"
+          },
+          "recorded_by": {
+            "title": "Recorded By",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "started_at",
+          "completed_at",
+          "summary",
+          "parts_used",
+          "actual_downtime_hours",
+          "recorded_by",
+          "recorded_at"
+        ],
+        "title": "Completion",
+        "type": "object"
+      },
+      "CompletionIn": {
+        "description": "What was done, by the person recording it (FR-MNT-004).",
+        "properties": {
+          "actual_downtime_hours": {
+            "maximum": 8760.0,
+            "minimum": 0.0,
+            "title": "Actual Downtime Hours",
+            "type": "number"
+          },
+          "completed_at": {
+            "format": "date-time",
+            "title": "Completed At",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "parts_used": {
+            "items": {
+              "$ref": "#/components/schemas/PartLineIn"
+            },
+            "maxItems": 50,
+            "title": "Parts Used",
+            "type": "array"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "started_at",
+          "completed_at",
+          "summary",
+          "actual_downtime_hours"
+        ],
+        "title": "CompletionIn",
         "type": "object"
       },
       "Component": {
@@ -921,6 +1153,46 @@
         "title": "Delivery",
         "type": "object"
       },
+      "Detection": {
+        "properties": {
+          "attached_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attached At"
+          },
+          "detection_id": {
+            "title": "Detection Id",
+            "type": "string"
+          },
+          "rule_id": {
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detection_id",
+          "rule_id",
+          "rule_version",
+          "severity",
+          "attached_at"
+        ],
+        "title": "Detection",
+        "type": "object"
+      },
       "DomainChange": {
         "properties": {
           "domain": {
@@ -1004,6 +1276,56 @@
           "templates"
         ],
         "title": "EmailTemplates",
+        "type": "object"
+      },
+      "FindingReview": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "finding": {
+            "title": "Finding",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "review_id": {
+            "title": "Review Id",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by": {
+            "title": "Reviewed By",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_id",
+          "run_id",
+          "finding",
+          "action",
+          "note",
+          "reviewed_by",
+          "reviewed_at"
+        ],
+        "title": "FindingReview",
         "type": "object"
       },
       "Fleet": {
@@ -1246,6 +1568,82 @@
           "auth_level"
         ],
         "title": "Me",
+        "type": "object"
+      },
+      "MetricComparison": {
+        "properties": {
+          "after_maximum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Maximum"
+          },
+          "after_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Mean"
+          },
+          "after_readings": {
+            "title": "After Readings",
+            "type": "integer"
+          },
+          "before_maximum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before Maximum"
+          },
+          "before_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before Mean"
+          },
+          "before_readings": {
+            "title": "Before Readings",
+            "type": "integer"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric",
+          "unit",
+          "before_mean",
+          "after_mean",
+          "before_maximum",
+          "after_maximum",
+          "before_readings",
+          "after_readings"
+        ],
+        "title": "MetricComparison",
         "type": "object"
       },
       "MfaStatus": {
@@ -2299,6 +2697,66 @@
         "title": "Reading",
         "type": "object"
       },
+      "Report": {
+        "properties": {
+          "report": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report"
+          },
+          "reviews": {
+            "items": {
+              "$ref": "#/components/schemas/FindingReview"
+            },
+            "title": "Reviews",
+            "type": "array"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "report",
+          "reviews"
+        ],
+        "title": "Report",
+        "type": "object"
+      },
+      "ReviewIn": {
+        "properties": {
+          "action": {
+            "pattern": "^(accept|reject|challenge|annotate)$",
+            "title": "Action",
+            "type": "string"
+          },
+          "finding": {
+            "pattern": "^[a-z_]{1,40}\\[\\d{1,4}\\]$",
+            "title": "Finding",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "finding",
+          "action"
+        ],
+        "title": "ReviewIn",
+        "type": "object"
+      },
       "Revision": {
         "properties": {
           "expected_revision": {
@@ -2430,6 +2888,39 @@
           "customized"
         ],
         "title": "RolePermissions",
+        "type": "object"
+      },
+      "RuleResult": {
+        "properties": {
+          "counts": {
+            "title": "Counts",
+            "type": "boolean"
+          },
+          "rule_id": {
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rule_id",
+          "version",
+          "severity",
+          "summary",
+          "counts"
+        ],
+        "title": "RuleResult",
         "type": "object"
       },
       "ScopedPermission": {
@@ -3294,6 +3785,166 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "Verification": {
+        "properties": {
+          "after_samples": {
+            "title": "After Samples",
+            "type": "integer"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "completed_by": {
+            "title": "Completed By",
+            "type": "string"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MetricComparison"
+            },
+            "title": "Metrics",
+            "type": "array"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "proposal_version": {
+            "title": "Proposal Version",
+            "type": "integer"
+          },
+          "reported_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported At"
+          },
+          "review": {
+            "title": "Review",
+            "type": "string"
+          },
+          "review_reason": {
+            "title": "Review Reason",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by": {
+            "title": "Reviewed By",
+            "type": "string"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RuleResult"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "window_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window End"
+          },
+          "window_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Start"
+          },
+          "work_order_id": {
+            "title": "Work Order Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_order_id",
+          "proposal_version",
+          "completed_by",
+          "completed_at",
+          "status",
+          "outcome",
+          "window_start",
+          "window_end",
+          "after_samples",
+          "metrics",
+          "rules",
+          "note",
+          "reported_at",
+          "review",
+          "reviewed_by",
+          "reviewed_at",
+          "review_reason"
+        ],
+        "title": "Verification",
+        "type": "object"
+      },
+      "VerificationAnswer": {
+        "properties": {
+          "decision": {
+            "pattern": "^(close|reopen)$",
+            "title": "Decision",
+            "type": "string"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "reason": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "expected_version"
+        ],
+        "title": "VerificationAnswer",
+        "type": "object"
+      },
       "WindFarmSummary": {
         "properties": {
           "country": {
@@ -3359,6 +4010,16 @@
           "case_id": {
             "title": "Case Id",
             "type": "string"
+          },
+          "completion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Completion"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "created_at": {
             "anyOf": [
@@ -3434,6 +4095,11 @@
           },
           "validation": {
             "$ref": "#/components/schemas/Validation"
+          },
+          "verification_outcome": {
+            "default": "",
+            "title": "Verification Outcome",
+            "type": "string"
           },
           "version": {
             "title": "Version",
@@ -5457,6 +6123,61 @@
       }
     },
     "/api/v1/investigations": {
+      "get": {
+        "operationId": "list_cases_api_v1_investigations_get",
+        "parameters": [
+          {
+            "description": "Closed and cancelled too",
+            "in": "query",
+            "name": "all",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Closed and cancelled too",
+              "title": "All",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "turbine_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "pattern": "^[A-Za-z0-9_-]{0,64}$",
+              "title": "Turbine Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Investigation"
+                  },
+                  "title": "Response List Cases Api V1 Investigations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cases the person may read: the active ones unless every status is asked for"
+      },
       "post": {
         "operationId": "start_api_v1_investigations_post",
         "parameters": [
@@ -5548,6 +6269,46 @@
         "summary": "A case and where its investigation is"
       }
     },
+    "/api/v1/investigations/{case_id}/detail": {
+      "get": {
+        "operationId": "detail_api_v1_investigations__case_id__detail_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "A case with its detections, history and verifications"
+      }
+    },
     "/api/v1/investigations/{case_id}/events": {
       "get": {
         "operationId": "events_api_v1_investigations__case_id__events_get",
@@ -5595,6 +6356,170 @@
           }
         },
         "summary": "The investigation's progress as server-sent events, resumable with Last-Event-ID"
+      }
+    },
+    "/api/v1/investigations/{case_id}/findings": {
+      "post": {
+        "operationId": "review_finding_api_v1_investigations__case_id__findings_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingReview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept, reject, challenge or annotate one finding. It decides nothing"
+      }
+    },
+    "/api/v1/investigations/{case_id}/report": {
+      "get": {
+        "operationId": "report_api_v1_investigations__case_id__report_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The investigation's report, and every review of its findings (FR-INV-006)"
+      }
+    },
+    "/api/v1/investigations/{case_id}/verification": {
+      "post": {
+        "operationId": "answer_verification_api_v1_investigations__case_id__verification_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerificationAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close a verified case, or reopen it to be investigated again"
       }
     },
     "/api/v1/me": {
@@ -6749,6 +7674,68 @@
           }
         },
         "summary": "One work order, with every change to it"
+      }
+    },
+    "/api/v1/work-orders/{work_order_id}/complete": {
+      "post": {
+        "operationId": "complete_api_v1_work_orders__work_order_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_order_id",
+            "required": true,
+            "schema": {
+              "pattern": "^wo_[a-z0-9]{20}$",
+              "title": "Work Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompletionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrder"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record approved work done, which starts its verification. Only a person"
       }
     },
     "/api/v1/work-orders/{work_order_id}/plan": {

@@ -11,7 +11,15 @@ export function MaintenanceScreen({ token, held }: { token: string; held: Readon
   const canDraft = held.has("maintenance.draft");
   const workOrder = params.get("work_order");
   if (workOrder) {
-    return <WorkOrderPage api={api} workOrderId={workOrder} canDraft={canDraft} canSubmit={held.has("maintenance.submit")} />;
+    return (
+      <WorkOrderPage
+        api={api}
+        workOrderId={workOrder}
+        canDraft={canDraft}
+        canSubmit={held.has("maintenance.submit")}
+        canComplete={held.has("maintenance.complete")}
+      />
+    );
   }
   if (params.get("new") && canDraft) return <NewDraft api={api} />;
   return <WorkOrderList api={api} canDraft={canDraft} />;

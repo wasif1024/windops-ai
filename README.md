@@ -377,6 +377,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0037](docs/adr/0037-notifications-from-events-by-tenant-rules-with-email-recorded.md) | Notifications from events, by tenant rules, in the app and by recorded email, with identifiers only |
 | [0038](docs/adr/0038-step-15-completed-work-verified-by-the-fault-rules.md) | Step 15: completed work verified by the fault rules after a window, and a person closes the case |
 | [0039](docs/adr/0039-drift-by-the-cases-fault-figures-and-weather-by-policy.md) | Condition drift by the case's own fault figures, and weather by asking Policy again |
+| [0040](docs/adr/0040-finding-reviews-recorded-and-shown-to-the-approver.md) | Finding reviews, recorded and shown to the approver, deciding nothing |
 
 ## Repository layout
 

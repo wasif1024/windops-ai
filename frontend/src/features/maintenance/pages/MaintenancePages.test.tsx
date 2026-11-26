@@ -44,6 +44,8 @@ const order: WorkOrder = {
   },
   stale_rule: "",
   stale_detail: "",
+  completion: null,
+  verification_outcome: "",
 };
 
 const detail: WorkOrderDetail = {

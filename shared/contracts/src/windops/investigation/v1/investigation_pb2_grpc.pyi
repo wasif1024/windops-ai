@@ -56,6 +56,15 @@ class InvestigationServiceStub:
     reopen it to be investigated again. Only a verified case, on its newest verification. Needs
     finding.review for its turbine, and a person: never an agent.
     """
+    GetInvestigationReport: _grpc.UnaryUnaryMultiCallable[_investigation_pb2.GetInvestigationReportRequest, _investigation_pb2.GetInvestigationReportResponse]
+    """The case's investigation report (SRS 5.7), as its run kept it, with every review of its
+    findings (FR-INV-006). Needs investigation.read. Empty until the investigation completes.
+    """
+    ReviewFinding: _grpc.UnaryUnaryMultiCallable[_investigation_pb2.ReviewFindingRequest, _investigation_pb2.ReviewFindingResponse]
+    """A person's review of one finding: accept, reject, challenge or annotate it, with a note
+    (FR-INV-006). Kept, audited and in the case's history, and shown to whoever decides on the
+    case's work order. It changes nothing else. Needs finding.review, and a person: never an agent.
+    """
     CreateEvidenceSnapshot: _grpc.UnaryUnaryMultiCallable[_investigation_pb2.CreateEvidenceSnapshotRequest, _investigation_pb2.CreateEvidenceSnapshotResponse]
     """A case's evidence, frozen (FR-INV-002, EVD-001 to 004): the turbine, its telemetry window,
     its alarms, each detection and the exact rule version behind it, each item hashed, and the
@@ -119,6 +128,15 @@ class InvestigationServiceAsyncStub(InvestigationServiceStub):
     """A person's answer to a verification report (SRS 5.4 step 15, FR-MNT-005): close the case, or
     reopen it to be investigated again. Only a verified case, on its newest verification. Needs
     finding.review for its turbine, and a person: never an agent.
+    """
+    GetInvestigationReport: _aio.UnaryUnaryMultiCallable[_investigation_pb2.GetInvestigationReportRequest, _investigation_pb2.GetInvestigationReportResponse]  # type: ignore[assignment]
+    """The case's investigation report (SRS 5.7), as its run kept it, with every review of its
+    findings (FR-INV-006). Needs investigation.read. Empty until the investigation completes.
+    """
+    ReviewFinding: _aio.UnaryUnaryMultiCallable[_investigation_pb2.ReviewFindingRequest, _investigation_pb2.ReviewFindingResponse]  # type: ignore[assignment]
+    """A person's review of one finding: accept, reject, challenge or annotate it, with a note
+    (FR-INV-006). Kept, audited and in the case's history, and shown to whoever decides on the
+    case's work order. It changes nothing else. Needs finding.review, and a person: never an agent.
     """
     CreateEvidenceSnapshot: _aio.UnaryUnaryMultiCallable[_investigation_pb2.CreateEvidenceSnapshotRequest, _investigation_pb2.CreateEvidenceSnapshotResponse]  # type: ignore[assignment]
     """A case's evidence, frozen (FR-INV-002, EVD-001 to 004): the turbine, its telemetry window,
@@ -210,6 +228,27 @@ class InvestigationServiceServicer(metaclass=_abc_1.ABCMeta):
         """A person's answer to a verification report (SRS 5.4 step 15, FR-MNT-005): close the case, or
         reopen it to be investigated again. Only a verified case, on its newest verification. Needs
         finding.review for its turbine, and a person: never an agent.
+        """
+
+    @_abc_1.abstractmethod
+    def GetInvestigationReport(
+        self,
+        request: _investigation_pb2.GetInvestigationReportRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_investigation_pb2.GetInvestigationReportResponse, _abc.Awaitable[_investigation_pb2.GetInvestigationReportResponse]]:
+        """The case's investigation report (SRS 5.7), as its run kept it, with every review of its
+        findings (FR-INV-006). Needs investigation.read. Empty until the investigation completes.
+        """
+
+    @_abc_1.abstractmethod
+    def ReviewFinding(
+        self,
+        request: _investigation_pb2.ReviewFindingRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_investigation_pb2.ReviewFindingResponse, _abc.Awaitable[_investigation_pb2.ReviewFindingResponse]]:
+        """A person's review of one finding: accept, reject, challenge or annotate it, with a note
+        (FR-INV-006). Kept, audited and in the case's history, and shown to whoever decides on the
+        case's work order. It changes nothing else. Needs finding.review, and a person: never an agent.
         """
 
     @_abc_1.abstractmethod

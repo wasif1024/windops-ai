@@ -18,6 +18,7 @@ import {
   type WorkOrderEvent,
 } from "../api";
 import { fromPlan, toPlan } from "../form";
+import { CompleteWork, CompletionView } from "./Completion";
 import { PlanEditor } from "./PlanEditor";
 
 function Fact({ label, value }: { label: string; value: string }) {
@@ -243,11 +244,13 @@ export function WorkOrderPage({
   workOrderId,
   canDraft,
   canSubmit,
+  canComplete = false,
 }: {
   api: MaintenanceApi;
   workOrderId: string;
   canDraft: boolean;
   canSubmit: boolean;
+  canComplete?: boolean;
 }) {
   const load = useCallback(() => api.get(workOrderId), [api, workOrderId]);
   const [state, reload] = useLoad(load);
@@ -285,6 +288,16 @@ export function WorkOrderPage({
                 An agent drafted this. Check every task, part and procedure before you submit it: only a person submits, and
                 another decides.
               </p>
+            )}
+            {order.status === "approved" && canComplete && (
+              <Panel title="Record the work done">
+                <CompleteWork api={api} order={order} onDone={reload} />
+              </Panel>
+            )}
+            {order.completion && (
+              <Panel title="Work done">
+                <CompletionView completion={order.completion} outcome={order.verification_outcome} />
+              </Panel>
             )}
             {editing ? (
               <Panel title="Edit plan">
