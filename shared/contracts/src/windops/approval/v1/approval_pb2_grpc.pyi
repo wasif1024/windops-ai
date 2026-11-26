@@ -59,7 +59,11 @@ class ApprovalServiceStub:
     ListApprovals: _grpc.UnaryUnaryMultiCallable[_approval_pb2.ListApprovalsRequest, _approval_pb2.ListApprovalsResponse]
     """Oldest first, so the queue is worked in the order requests arrived."""
     DecideApproval: _grpc.UnaryUnaryMultiCallable[_approval_pb2.DecideApprovalRequest, _approval_pb2.DecideApprovalResponse]
-    """Approves or rejects a pending request, after rechecking it. Only a person, never an agent."""
+    """With `explain`, each pending request also says whether the caller may decide it now, and if
+    not, why: worked out by the checks a decision runs, read-only, so listing never changes a
+    request (M11.4).
+    Approves or rejects a pending request, after rechecking it. Only a person, never an agent.
+    """
 
 @_typing.type_check_only
 class ApprovalServiceAsyncStub(ApprovalServiceStub):
@@ -92,7 +96,11 @@ class ApprovalServiceAsyncStub(ApprovalServiceStub):
     ListApprovals: _aio.UnaryUnaryMultiCallable[_approval_pb2.ListApprovalsRequest, _approval_pb2.ListApprovalsResponse]  # type: ignore[assignment]
     """Oldest first, so the queue is worked in the order requests arrived."""
     DecideApproval: _aio.UnaryUnaryMultiCallable[_approval_pb2.DecideApprovalRequest, _approval_pb2.DecideApprovalResponse]  # type: ignore[assignment]
-    """Approves or rejects a pending request, after rechecking it. Only a person, never an agent."""
+    """With `explain`, each pending request also says whether the caller may decide it now, and if
+    not, why: worked out by the checks a decision runs, read-only, so listing never changes a
+    request (M11.4).
+    Approves or rejects a pending request, after rechecking it. Only a person, never an agent.
+    """
 
 class ApprovalServiceServicer(metaclass=_abc_1.ABCMeta):
     """Human decisions on submitted work orders (SRS 4.8, FR-APR-001, FR-APR-002, FR-APR-003).
@@ -140,6 +148,10 @@ class ApprovalServiceServicer(metaclass=_abc_1.ABCMeta):
         request: _approval_pb2.DecideApprovalRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_approval_pb2.DecideApprovalResponse, _abc.Awaitable[_approval_pb2.DecideApprovalResponse]]:
-        """Approves or rejects a pending request, after rechecking it. Only a person, never an agent."""
+        """With `explain`, each pending request also says whether the caller may decide it now, and if
+        not, why: worked out by the checks a decision runs, read-only, so listing never changes a
+        request (M11.4).
+        Approves or rejects a pending request, after rechecking it. Only a person, never an agent.
+        """
 
 def add_ApprovalServiceServicer_to_server(servicer: ApprovalServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

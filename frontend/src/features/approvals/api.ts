@@ -43,6 +43,27 @@ export interface Approval {
   decision: Decision | null;
   superseded_reason: string;
   superseded_at: string | null;
+  /** For a pending request: whether you may decide it now, and if not, why (M11.4). */
+  standing: Standing | "";
+  standing_reason: string;
+}
+
+export type Standing = "decidable" | "stale" | "moved_on" | "requester" | "not_eligible" | "unknown";
+
+/** Each standing in a word, and its colour, for a request you may not decide now. */
+export const STANDING: Record<Exclude<Standing, "decidable">, { label: string; style: string }> = {
+  stale: { label: "Stale", style: "bg-orange-50 text-orange-900 ring-1 ring-orange-200" },
+  moved_on: { label: "Moved on", style: "bg-slate-100 text-slate-700 ring-1 ring-slate-200" },
+  requester: { label: "You had a hand in it", style: "bg-violet-50 text-violet-800 ring-1 ring-violet-200" },
+  not_eligible: { label: "Not yours to decide", style: "bg-slate-100 text-slate-700 ring-1 ring-slate-200" },
+  unknown: { label: "Cannot check now", style: "bg-amber-50 text-amber-900 ring-1 ring-amber-200" },
+};
+
+/** Pending requests in two: those you may decide now, and the rest. Others keep their order. */
+export function splitPending(approvals: Approval[]): { yours: Approval[]; others: Approval[] } {
+  const yours = approvals.filter((a) => a.status !== "pending" || !a.standing || a.standing === "decidable");
+  const others = approvals.filter((a) => a.status === "pending" && a.standing && a.standing !== "decidable");
+  return { yours, others };
 }
 
 export function approvalApi(token: string) {

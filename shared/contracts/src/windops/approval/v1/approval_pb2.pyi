@@ -140,6 +140,8 @@ class Approval(_message.Message):
     DECISION_FIELD_NUMBER: _builtins.int
     SUPERSEDED_REASON_FIELD_NUMBER: _builtins.int
     SUPERSEDED_AT_FIELD_NUMBER: _builtins.int
+    STANDING_FIELD_NUMBER: _builtins.int
+    STANDING_REASON_FIELD_NUMBER: _builtins.int
     approval_id: _builtins.str
     """"apr_" and 20 lowercase letters and digits."""
     work_order_id: _builtins.str
@@ -158,6 +160,15 @@ class Approval(_message.Message):
     """Why a superseded request can no longer be decided, such as "The work order is now at
     version 2".
     """
+    standing: _builtins.str
+    """Only when asked to explain, for a pending request: whether the caller may decide it now.
+    "decidable"; "stale", when its work order or case's evidence is stale, so it cannot be
+    approved (EVD-007); "moved_on", when the work order is no longer submitted at this version;
+    "requester", when the caller drafted, submitted or changed it (RBAC-004, RBAC-008);
+    "not_eligible", when they may not decide here (RBAC-005, RBAC-006); or "unknown", when it
+    cannot be checked right now. standing_reason says why, in words.
+    """
+    standing_reason: _builtins.str
     @_builtins.property
     def submitted_at(self) -> _timestamp_pb2.Timestamp:
         """When workorder.submitted was announced, and when this service opened the request."""
@@ -188,10 +199,12 @@ class Approval(_message.Message):
         decision: Global___Decision | None = ...,
         superseded_reason: _builtins.str = ...,
         superseded_at: _timestamp_pb2.Timestamp | None = ...,
+        standing: _builtins.str = ...,
+        standing_reason: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["decision", b"decision", "requested_at", b"requested_at", "submitted_at", b"submitted_at", "superseded_at", b"superseded_at"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["approval_id", b"approval_id", "case_id", b"case_id", "decision", b"decision", "drafted_by", b"drafted_by", "drafted_by_agent", b"drafted_by_agent", "evidence_snapshot_id", b"evidence_snapshot_id", "proposal_version", b"proposal_version", "requested_at", b"requested_at", "status", b"status", "submitted_at", b"submitted_at", "submitted_by", b"submitted_by", "superseded_at", b"superseded_at", "superseded_reason", b"superseded_reason", "turbine_id", b"turbine_id", "work_order_id", b"work_order_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["approval_id", b"approval_id", "case_id", b"case_id", "decision", b"decision", "drafted_by", b"drafted_by", "drafted_by_agent", b"drafted_by_agent", "evidence_snapshot_id", b"evidence_snapshot_id", "proposal_version", b"proposal_version", "requested_at", b"requested_at", "standing", b"standing", "standing_reason", b"standing_reason", "status", b"status", "submitted_at", b"submitted_at", "submitted_by", b"submitted_by", "superseded_at", b"superseded_at", "superseded_reason", b"superseded_reason", "turbine_id", b"turbine_id", "work_order_id", b"work_order_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -202,15 +215,19 @@ class GetApprovalRequest(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
     APPROVAL_ID_FIELD_NUMBER: _builtins.int
+    EXPLAIN_FIELD_NUMBER: _builtins.int
     approval_id: _builtins.str
+    explain: _builtins.bool
+    """Say, for a pending request, whether the caller may decide it now (standing)."""
     def __init__(
         self,
         *,
         approval_id: _builtins.str = ...,
+        explain: _builtins.bool = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["approval_id", b"approval_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["approval_id", b"approval_id", "explain", b"explain"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -246,11 +263,14 @@ class ListApprovalsRequest(_message.Message):
     TURBINE_ID_FIELD_NUMBER: _builtins.int
     PAGE_SIZE_FIELD_NUMBER: _builtins.int
     PAGE_TOKEN_FIELD_NUMBER: _builtins.int
+    EXPLAIN_FIELD_NUMBER: _builtins.int
     work_order_id: _builtins.str
     case_id: _builtins.str
     turbine_id: _builtins.str
     page_size: _builtins.int
     page_token: _builtins.str
+    explain: _builtins.bool
+    """Say, for each pending request, whether the caller may decide it now (standing)."""
     @_builtins.property
     def statuses(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
         """Empty means every status."""
@@ -264,10 +284,11 @@ class ListApprovalsRequest(_message.Message):
         turbine_id: _builtins.str = ...,
         page_size: _builtins.int = ...,
         page_token: _builtins.str = ...,
+        explain: _builtins.bool = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "page_size", b"page_size", "page_token", b"page_token", "statuses", b"statuses", "turbine_id", b"turbine_id", "work_order_id", b"work_order_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id", "explain", b"explain", "page_size", b"page_size", "page_token", b"page_token", "statuses", b"statuses", "turbine_id", b"turbine_id", "work_order_id", b"work_order_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

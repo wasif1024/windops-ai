@@ -44,8 +44,9 @@ IDENTITY_SECONDS = 60
 DEADLINE_SECONDS = 5.0
 # Calls that may rightly take longer: freezing a case's evidence reads and hashes up to a day of
 # telemetry, as the person (EVD-003); an impact estimate gathers the turbine, its telemetry and
-# the forecast before it works anything out, which took more than 5 seconds on the cluster.
-LONG_CALLS = frozenset({"CreateEvidenceSnapshot", "EstimateImpact"})
+# the forecast before it works anything out, which took more than 5 seconds on the cluster; and
+# the approval queue explains each pending request by the checks a decision runs (M11.4).
+LONG_CALLS = frozenset({"CreateEvidenceSnapshot", "EstimateImpact", "ListApprovals"})
 LONG_CALLS_SECONDS = 60.0
 _TENANT = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 

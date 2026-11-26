@@ -328,6 +328,16 @@
             ],
             "title": "Requested At"
           },
+          "standing": {
+            "default": "",
+            "title": "Standing",
+            "type": "string"
+          },
+          "standing_reason": {
+            "default": "",
+            "title": "Standing Reason",
+            "type": "string"
+          },
           "status": {
             "title": "Status",
             "type": "string"

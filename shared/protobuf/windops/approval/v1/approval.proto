@@ -30,6 +30,9 @@ service ApprovalService {
   rpc GetApproval(GetApprovalRequest) returns (GetApprovalResponse);
   // Oldest first, so the queue is worked in the order requests arrived.
   rpc ListApprovals(ListApprovalsRequest) returns (ListApprovalsResponse);
+  // With `explain`, each pending request also says whether the caller may decide it now, and if
+  // not, why: worked out by the checks a decision runs, read-only, so listing never changes a
+  // request (M11.4).
   // Approves or rejects a pending request, after rechecking it. Only a person, never an agent.
   rpc DecideApproval(DecideApprovalRequest) returns (DecideApprovalResponse);
 }
@@ -93,10 +96,20 @@ message Approval {
   // version 2".
   string superseded_reason = 14;
   google.protobuf.Timestamp superseded_at = 15;
+  // Only when asked to explain, for a pending request: whether the caller may decide it now.
+  // "decidable"; "stale", when its work order or case's evidence is stale, so it cannot be
+  // approved (EVD-007); "moved_on", when the work order is no longer submitted at this version;
+  // "requester", when the caller drafted, submitted or changed it (RBAC-004, RBAC-008);
+  // "not_eligible", when they may not decide here (RBAC-005, RBAC-006); or "unknown", when it
+  // cannot be checked right now. standing_reason says why, in words.
+  string standing = 16;
+  string standing_reason = 17;
 }
 
 message GetApprovalRequest {
   string approval_id = 1;
+  // Say, for a pending request, whether the caller may decide it now (standing).
+  bool explain = 2;
 }
 
 message GetApprovalResponse {
@@ -111,6 +124,8 @@ message ListApprovalsRequest {
   string turbine_id = 4;
   int32 page_size = 5;
   string page_token = 6;
+  // Say, for each pending request, whether the caller may decide it now (standing).
+  bool explain = 7;
 }
 
 message ListApprovalsResponse {

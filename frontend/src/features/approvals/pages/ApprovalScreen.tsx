@@ -11,7 +11,16 @@ import { maintenanceApi, type MaintenanceApi, POLICY_STYLE } from "../../mainten
 import { History, PlanView, ValidationView } from "../../maintenance/pages/WorkOrderPage";
 import { type InvestigationApi, investigationApi } from "../../investigations/api";
 import { Concerns } from "../../investigations/pages/Concerns";
-import { type Approval, type ApprovalApi, approvalApi, APPROVAL_STYLE, type ApprovalStatus, draftedByOf } from "../api";
+import {
+  type Approval,
+  type ApprovalApi,
+  approvalApi,
+  APPROVAL_STYLE,
+  type ApprovalStatus,
+  draftedByOf,
+  splitPending,
+  STANDING,
+} from "../api";
 
 interface View {
   id: string;
@@ -45,6 +54,9 @@ function Row({ approval }: { approval: Approval }) {
         <span className="flex shrink-0 flex-wrap items-center gap-2 sm:w-48">
           <StatusBadge status={titleCase(approval.status)} className={APPROVAL_STYLE[approval.status]} />
           {approval.drafted_by_agent && <StatusBadge status="Agent's draft" className="bg-violet-50 text-violet-800 ring-1 ring-violet-200" />}
+          {approval.status === "pending" && approval.standing && approval.standing !== "decidable" && (
+            <StatusBadge status={STANDING[approval.standing].label} className={STANDING[approval.standing].style} />
+          )}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block break-all font-medium text-slate-900">
@@ -53,6 +65,12 @@ function Row({ approval }: { approval: Approval }) {
           <span className="block break-words text-xs text-slate-500">
             {approval.turbine_id} · submitted by {approval.submitted_by}
           </span>
+          {approval.status === "pending" && approval.standing_reason && (
+            <span className="mt-1 block break-words text-xs text-slate-600">{approval.standing_reason}</span>
+          )}
+          {approval.status === "superseded" && approval.superseded_reason && (
+            <span className="mt-1 block break-words text-xs text-slate-600">{approval.superseded_reason}</span>
+          )}
         </span>
         <span className="shrink-0 text-xs text-slate-500 sm:w-40 sm:text-right">{when(approval.requested_at)}</span>
       </Link>
@@ -85,19 +103,42 @@ export function ApprovalQueue({ api }: { api: ApprovalApi }) {
           ))}
         </div>
         <Loading state={state}>
-          {(data) =>
-            data.approvals.length === 0 ? (
-              <p className="text-slate-500" data-testid="no-approvals">
-                No {view.id === "all" ? "" : `${view.label.toLowerCase()} `}requests.
-              </p>
-            ) : (
-              <ul className="space-y-2" aria-label="Requests">
-                {data.approvals.map((approval) => (
-                  <Row key={approval.approval_id} approval={approval} />
-                ))}
-              </ul>
-            )
-          }
+          {(data) => {
+            if (data.approvals.length === 0) {
+              return (
+                <p className="text-slate-500" data-testid="no-approvals">
+                  No {view.id === "all" ? "" : `${view.label.toLowerCase()} `}requests.
+                </p>
+              );
+            }
+            const { yours, others } = splitPending(data.approvals);
+            return (
+              <div className="space-y-4">
+                {yours.length > 0 && (
+                  <ul className="space-y-2" aria-label="Requests">
+                    {yours.map((approval) => (
+                      <Row key={approval.approval_id} approval={approval} />
+                    ))}
+                  </ul>
+                )}
+                {view.id === "pending" && yours.length === 0 && (
+                  <p className="text-slate-500" data-testid="none-yours">
+                    None you may decide now.
+                  </p>
+                )}
+                {others.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-semibold text-slate-700">Not yours to decide now</h4>
+                    <ul className="space-y-2" aria-label="Not yours to decide now">
+                      {others.map((approval) => (
+                        <Row key={approval.approval_id} approval={approval} />
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            );
+          }}
         </Loading>
       </Panel>
     </section>
@@ -250,6 +291,10 @@ export function ApprovalPage({
             <Panel title={approval.decision ? "Decision" : "Decide"}>
               {approval.decision ? (
                 <DecisionView approval={approval} />
+              ) : approval.status === "pending" && approval.standing && !["decidable", "unknown"].includes(approval.standing) ? (
+                <p role="note" className="break-words text-sm text-slate-700" data-testid="standing">
+                  {STANDING[approval.standing as keyof typeof STANDING].label}: {approval.standing_reason}
+                </p>
               ) : approval.status === "pending" && canDecide ? (
                 <DecideForm api={api} approval={approval} onDone={reload} />
               ) : (
