@@ -200,7 +200,9 @@ def with_service(scenario: Callable[[World], Awaitable[None]]) -> None:
                   for p in ("knowledge.read", "knowledge.manage")}  # fmt: skip
         grants |= {("u-reader", "knowledge.read", ""),
                    ("u-dogger", "knowledge.read", "dogger-east"),
-                   ("u-hornsea", "knowledge.read", "hornsea-west")}  # fmt: skip
+                   ("u-hornsea", "knowledge.read", "hornsea-west"),
+                   ("u-walney", "knowledge.read", "walney"),
+                   ("u-tenant-admin", "knowledge.manage", "")}  # fmt: skip
         clock = [NOW]
         authorizer, embedder, qdrant = FakeAuthorizer(grants), FakeEmbedder(), FakeQdrant()
 
@@ -367,6 +369,14 @@ def test_nothing_above_the_tenants_allowance_goes_to_the_provider() -> None:
             pb.GetIngestionSettingsRequest(), metadata=as_user("u-reader"), timeout=5
         )
         assert settings.settings.embedding_max_classification == "confidential"
+        managed = await world.stub.GetIngestionSettings(
+            pb.GetIngestionSettingsRequest(), metadata=as_user("u-tenant-admin"), timeout=5
+        )
+        assert managed.settings == settings.settings, "read by one who manages without reading"
+        nobody = world.stub.GetIngestionSettings(
+            pb.GetIngestionSettingsRequest(), metadata=as_user("u-stranger"), timeout=5
+        )
+        assert await code_of(nobody) == grpc.StatusCode.PERMISSION_DENIED
         site = await upload(world, SITE)
         assert site.status == "not_indexed" and "restricted" in site.status_reason
         assert await world.index() == 0
@@ -446,5 +456,74 @@ def test_the_list_gives_each_documents_newest_revision_a_page_at_a_time() -> Non
         held = await world.stub.ListDocuments(pb.ListDocumentsRequest(status="not_indexed"),
                                               metadata=as_user("u-reader"), timeout=5)  # fmt: skip
         assert [d.metadata.document_id for d in held.documents] == ["NS-SITE-OFF-001"]
+
+    with_service(scenario)
+
+
+def test_a_library_is_browsed_and_read_only_where_the_reader_may_read() -> None:
+    async def scenario(world: World) -> None:
+        for document in (GEARBOX, SITE):
+            await upload(world, document)
+
+        def listed(user: str, farm: str = "") -> Any:
+            return world.stub.ListDocuments(pb.ListDocumentsRequest(wind_farm_id=farm),
+                                            metadata=as_user(user), timeout=5)  # fmt: skip
+
+        def passages(user: str, document_id: str, farm: str = "") -> Any:
+            return world.stub.ListPassages(
+                pb.ListPassagesRequest(document_id=document_id, wind_farm_id=farm),
+                metadata=as_user(user), timeout=5)  # fmt: skip
+
+        both = ["NS-SITE-OFF-001", "WS-PRC-GBX-012"]
+        assert [d.metadata.document_id for d in (await listed("u-reader")).documents] == both
+        # Scoped to one wind farm, a reader browses there, and only there.
+        assert await code_of(listed("u-dogger")) == grpc.StatusCode.PERMISSION_DENIED
+        assert await code_of(listed("u-dogger", "walney")) == grpc.StatusCode.PERMISSION_DENIED
+        assert await code_of(listed("u-dogger", "Not A Farm")) == grpc.StatusCode.INVALID_ARGUMENT
+        dogger = await listed("u-dogger", "dogger-east")
+        assert [d.metadata.document_id for d in dogger.documents] == both
+        # The site document applies to other wind farms, so this reader never learns it exists.
+        walney = await listed("u-walney", "walney")
+        assert [d.metadata.document_id for d in walney.documents] == ["WS-PRC-GBX-012"]
+        hidden = world.stub.GetDocument(
+            pb.GetDocumentRequest(document_id="NS-SITE-OFF-001", wind_farm_id="walney"),
+            metadata=as_user("u-walney"), timeout=5)  # fmt: skip
+        assert await code_of(hidden) == grpc.StatusCode.NOT_FOUND
+        assert await code_of(passages("u-walney", "NS-SITE-OFF-001", "walney")) == \
+            grpc.StatusCode.NOT_FOUND  # fmt: skip
+        assert (await passages("u-hornsea", "NS-SITE-OFF-001", "hornsea-west")).passages
+
+    with_service(scenario)
+
+
+def test_a_documents_passages_read_in_order_with_their_citations() -> None:
+    async def scenario(world: World) -> None:
+        await upload(world, SET["oem/ws-prc-gbx-012-r2.md"])
+        await upload(world, GEARBOX)
+        await world.index()
+        read = await world.stub.ListPassages(pb.ListPassagesRequest(document_id="WS-PRC-GBX-012"),
+                                             metadata=as_user("u-reader"), timeout=5)  # fmt: skip
+        assert read.document.metadata.revision == 3
+        assert read.document.passages == len(read.passages) > 1
+        ordinals = [p.citation_id for p in read.passages]
+        assert ordinals == [f"kn:WS-PRC-GBX-012@3#{n}" for n in range(len(ordinals))]
+        assert all(p.current and p.score == 0 for p in read.passages)
+        assert [p.first_line for p in read.passages] == sorted(p.first_line for p in read.passages)
+        # Each is the same passage a citation reads.
+        cited = await world.stub.GetPassage(
+            pb.GetPassageRequest(citation_id=read.passages[0].citation_id),
+            metadata=as_user("u-reader"), timeout=5)  # fmt: skip
+        assert cited.passage.text == read.passages[0].text
+        older = await world.stub.ListPassages(
+            pb.ListPassagesRequest(document_id="WS-PRC-GBX-012", revision=2),
+            metadata=as_user("u-reader"), timeout=5)  # fmt: skip
+        assert {(p.current, p.superseded_by) for p in older.passages} == {
+            (False, "WS-PRC-GBX-012@3")}  # fmt: skip
+        missing = world.stub.ListPassages(pb.ListPassagesRequest(document_id="WS-NONE-001"),
+                                          metadata=as_user("u-reader"), timeout=5)  # fmt: skip
+        assert await code_of(missing) == grpc.StatusCode.NOT_FOUND
+        nobody = world.stub.ListPassages(pb.ListPassagesRequest(document_id="WS-PRC-GBX-012"),
+                                         metadata=as_user("u-stranger"), timeout=5)  # fmt: skip
+        assert await code_of(nobody) == grpc.StatusCode.PERMISSION_DENIED
 
     with_service(scenario)

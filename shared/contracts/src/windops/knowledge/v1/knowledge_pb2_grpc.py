@@ -30,7 +30,9 @@ class KnowledgeServiceStub:
     (FR-KNW-001), each with its tenant, source, version, publication date, ingestion date and
     access classification (FR-KNW-002), and indexed through the embedding adapter (LLM-011).
 
-    The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read.
+    The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read,
+    and a document that applies to wind farms only for a caller who may read one of them, as for
+    search: one the caller may not read is left out of a list, and not found when asked for.
     Uploading, releasing a held document and changing the ingestion settings need knowledge.manage,
     a person, and a recent second factor (SEC-003), and each is audited.
 
@@ -60,6 +62,11 @@ class KnowledgeServiceStub:
                 '/windops.knowledge.v1.KnowledgeService/ListDocuments',
                 request_serializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ListDocumentsRequest.SerializeToString,
                 response_deserializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ListDocumentsResponse.FromString,
+                _registered_method=True)
+        self.ListPassages = channel.unary_unary(
+                '/windops.knowledge.v1.KnowledgeService/ListPassages',
+                request_serializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ListPassagesRequest.SerializeToString,
+                response_deserializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ListPassagesResponse.FromString,
                 _registered_method=True)
         self.ReleaseDocument = channel.unary_unary(
                 '/windops.knowledge.v1.KnowledgeService/ReleaseDocument',
@@ -98,7 +105,9 @@ class KnowledgeServiceServicer:
     (FR-KNW-001), each with its tenant, source, version, publication date, ingestion date and
     access classification (FR-KNW-002), and indexed through the embedding adapter (LLM-011).
 
-    The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read.
+    The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read,
+    and a document that applies to wind farms only for a caller who may read one of them, as for
+    search: one the caller may not read is left out of a list, and not found when asked for.
     Uploading, releasing a held document and changing the ingestion settings need knowledge.manage,
     a person, and a recent second factor (SEC-003), and each is audited.
 
@@ -125,6 +134,13 @@ class KnowledgeServiceServicer:
 
     def ListDocuments(self, request, context):
         """The newest revision of each document, by document ID.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListPassages(self, request, context):
+        """One revision's passages in order, each with its citation, so a person can read the document.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -190,6 +206,11 @@ def add_KnowledgeServiceServicer_to_server(servicer, server):
                     request_deserializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ListDocumentsRequest.FromString,
                     response_serializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ListDocumentsResponse.SerializeToString,
             ),
+            'ListPassages': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListPassages,
+                    request_deserializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ListPassagesRequest.FromString,
+                    response_serializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ListPassagesResponse.SerializeToString,
+            ),
             'ReleaseDocument': grpc.unary_unary_rpc_method_handler(
                     servicer.ReleaseDocument,
                     request_deserializer=windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ReleaseDocumentRequest.FromString,
@@ -233,7 +254,9 @@ class KnowledgeService:
     (FR-KNW-001), each with its tenant, source, version, publication date, ingestion date and
     access classification (FR-KNW-002), and indexed through the embedding adapter (LLM-011).
 
-    The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read.
+    The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read,
+    and a document that applies to wind farms only for a caller who may read one of them, as for
+    search: one the caller may not read is left out of a list, and not found when asked for.
     Uploading, releasing a held document and changing the ingestion settings need knowledge.manage,
     a person, and a recent second factor (SEC-003), and each is audited.
 
@@ -314,6 +337,33 @@ class KnowledgeService:
             '/windops.knowledge.v1.KnowledgeService/ListDocuments',
             windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ListDocumentsRequest.SerializeToString,
             windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ListDocumentsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListPassages(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.knowledge.v1.KnowledgeService/ListPassages',
+            windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ListPassagesRequest.SerializeToString,
+            windops_dot_knowledge_dot_v1_dot_knowledge__pb2.ListPassagesResponse.FromString,
             options,
             channel_credentials,
             insecure,

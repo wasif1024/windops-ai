@@ -1,8 +1,10 @@
 """The gRPC API: ingesting documents, reading what was ingested, and the ingestion settings.
 
 Every call asks Authorization first, and stays in the caller's tenant. Reading needs
-knowledge.read; every change needs knowledge.manage, a person and a recent second factor, and is
-audited. A change with an idempotency key returns its first answer when retried.
+knowledge.read where it is read, and a document that applies to wind farms is read only by someone
+who may read one of them, as search decides (FR-KNW-004). Every change needs knowledge.manage,
+a person and a recent second factor, and is audited. A change with an idempotency key returns its
+first answer when retried.
 """
 
 import base64
@@ -136,10 +138,24 @@ class KnowledgeService(knowledge_pb2_grpc.KnowledgeServiceServicer):
 
     # --- who may do what
 
-    async def _require_read(self) -> str:
-        if not await self._authorizer.allowed(READ):
+    async def _require_read(self, wind_farm_id: str = "") -> str:
+        """knowledge.read where the caller reads: a wind farm, or the whole tenant."""
+        if wind_farm_id and not retrieval.WIND_FARM.fullmatch(wind_farm_id):
+            raise InvalidRequestError("wind_farm_id is a wind farm's ID")
+        if not await self._authorizer.allowed(READ, wind_farm_id):
             raise PermissionDeniedError("You do not have permission to do this")
         return current_identity().tenant_id
+
+    async def _readable(self, connection: AsyncConnection, tenant: str, document_id: str,
+                        revision: int, wind_farm_id: str) -> Any:  # fmt: skip
+        """One revision the caller may read. One they may not is not found, so a list and a
+        read never tell them it exists."""
+        if revision < 0:
+            raise InvalidRequestError("revision is 0, for the newest, or more")
+        row = await library.document(connection, tenant, document_id, revision)
+        if not await retrieval.may_read(row, wind_farm_id, self._authorizer.allowed, {}):
+            raise NotFoundError("No such document")
+        return row
 
     async def _require_manage(self) -> tuple[str, str]:
         """Only a person, with knowledge.manage and a recent second factor (SEC-003)."""
@@ -213,14 +229,12 @@ class KnowledgeService(knowledge_pb2_grpc.KnowledgeServiceServicer):
     async def GetDocument(  # noqa: N802  # The name comes from the contract.
         self, request: pb.GetDocumentRequest, context: Any
     ) -> pb.GetDocumentResponse:
-        tenant = await self._require_read()
-        if request.revision < 0:
-            raise InvalidRequestError("revision is 0, for the newest, or more")
+        tenant = await self._require_read(request.wind_farm_id)
         d = DOCUMENTS.c
         async with self._engine.connect() as connection:
             await in_tenant(connection, tenant)
-            row = await library.document(connection, tenant, request.document_id,
-                                         request.revision)  # fmt: skip
+            row = await self._readable(connection, tenant, request.document_id, request.revision,
+                                       request.wind_farm_id)  # fmt: skip
             count = await passage_count(connection, tenant, row.document_id, row.revision)
             revisions = (
                 await connection.execute(
@@ -234,7 +248,7 @@ class KnowledgeService(knowledge_pb2_grpc.KnowledgeServiceServicer):
     async def ListDocuments(  # noqa: N802  # The name comes from the contract.
         self, request: pb.ListDocumentsRequest, context: Any
     ) -> pb.ListDocumentsResponse:
-        tenant = await self._require_read()
+        tenant = await self._require_read(request.wind_farm_id)
         size = request.page_size or DEFAULT_PAGE
         if not 1 <= size <= MAXIMUM_PAGE:
             raise InvalidRequestError(f"page_size is from 1 to {MAXIMUM_PAGE}")
@@ -263,15 +277,42 @@ class KnowledgeService(knowledge_pb2_grpc.KnowledgeServiceServicer):
         async with self._engine.connect() as connection:
             await in_tenant(connection, tenant)
             rows = (await connection.execute(query)).all()
+            decided: dict[tuple[str, str], bool] = {}
+            # A page may hold fewer than asked for, when some are not the caller's to read; the
+            # token still moves past every row looked at.
             documents = [
                 to_message(row, await passage_count(connection, tenant, row.document_id,
                                                     row.revision))
                 for row in rows[:size]
+                if await retrieval.may_read(row, request.wind_farm_id, self._authorizer.allowed,
+                                            decided)
             ]  # fmt: skip
         token = ""
         if len(rows) > size:
             token = base64.urlsafe_b64encode(rows[size - 1].document_id.encode()).decode()
         return pb.ListDocumentsResponse(documents=documents, next_page_token=token)
+
+    async def ListPassages(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.ListPassagesRequest, context: Any
+    ) -> pb.ListPassagesResponse:
+        tenant = await self._require_read(request.wind_farm_id)
+        p = PASSAGES.c
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            row = await self._readable(connection, tenant, request.document_id, request.revision,
+                                       request.wind_farm_id)  # fmt: skip
+            found = (
+                await connection.execute(
+                    select(PASSAGES).where(p.tenant_id == tenant, p.document_id == row.document_id,
+                                           p.revision == row.revision).order_by(p.ordinal)
+                )
+            ).all()  # fmt: skip
+            key = (row.document_id, row.revision)
+            by = (await retrieval.superseded(connection, tenant, {key})).get(key, "")
+        return pb.ListPassagesResponse(
+            document=to_message(row, len(found)),
+            passages=[self._passage(retrieval.Hit(row, passage, 0.0, by)) for passage in found],
+        )
 
     async def ReleaseDocument(  # noqa: N802  # The name comes from the contract.
         self, request: pb.ReleaseDocumentRequest, context: Any
@@ -383,7 +424,11 @@ class KnowledgeService(knowledge_pb2_grpc.KnowledgeServiceServicer):
     async def GetIngestionSettings(  # noqa: N802  # The name comes from the contract.
         self, request: pb.GetIngestionSettingsRequest, context: Any
     ) -> pb.GetIngestionSettingsResponse:
-        tenant = await self._require_read()
+        # Whoever reads the library, or manages it: a Tenant Administrator manages it without
+        # reading it, and changes this setting.
+        if not (await self._authorizer.allowed(READ) or await self._authorizer.allowed(MANAGE)):
+            raise PermissionDeniedError("You do not have permission to do this")
+        tenant = current_identity().tenant_id
         async with self._engine.connect() as connection:
             await in_tenant(connection, tenant)
             found = await library.allowance(connection, tenant)

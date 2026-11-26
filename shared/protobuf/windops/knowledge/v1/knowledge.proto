@@ -8,7 +8,9 @@ import "google/protobuf/timestamp.proto";
 // (FR-KNW-001), each with its tenant, source, version, publication date, ingestion date and
 // access classification (FR-KNW-002), and indexed through the embedding adapter (LLM-011).
 //
-// The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read.
+// The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read,
+// and a document that applies to wind farms only for a caller who may read one of them, as for
+// search: one the caller may not read is left out of a list, and not found when asked for.
 // Uploading, releasing a held document and changing the ingestion settings need knowledge.manage,
 // a person, and a recent second factor (SEC-003), and each is audited.
 //
@@ -24,6 +26,8 @@ service KnowledgeService {
   rpc GetDocument(GetDocumentRequest) returns (GetDocumentResponse);
   // The newest revision of each document, by document ID.
   rpc ListDocuments(ListDocumentsRequest) returns (ListDocumentsResponse);
+  // One revision's passages in order, each with its citation, so a person can read the document.
+  rpc ListPassages(ListPassagesRequest) returns (ListPassagesResponse);
   // Release a held document for indexing. Never by the person who uploaded it.
   rpc ReleaseDocument(ReleaseDocumentRequest) returns (ReleaseDocumentResponse);
   rpc GetIngestionSettings(GetIngestionSettingsRequest) returns (GetIngestionSettingsResponse);
@@ -120,6 +124,8 @@ message GetDocumentRequest {
   string document_id = 1;
   // 0 for the newest.
   int32 revision = 2;
+  // Where it is read, as for a search. Empty for the whole tenant.
+  string wind_farm_id = 3;
 }
 
 message GetDocumentResponse {
@@ -133,11 +139,27 @@ message ListDocumentsRequest {
   string page_token = 2;
   // Only documents with this status, when set.
   string status = 3;
+  // Where the library is browsed, as for a search. Empty for the whole tenant.
+  string wind_farm_id = 4;
 }
 
 message ListDocumentsResponse {
   repeated DocumentVersion documents = 1;
   string next_page_token = 2;
+}
+
+message ListPassagesRequest {
+  string document_id = 1;
+  // 0 for the newest.
+  int32 revision = 2;
+  // Where it is read, as for a search. Empty for the whole tenant.
+  string wind_farm_id = 3;
+}
+
+message ListPassagesResponse {
+  DocumentVersion document = 1;
+  // In the document's order. Score is 0: nothing was searched.
+  repeated Passage passages = 2;
 }
 
 message ReleaseDocumentRequest {

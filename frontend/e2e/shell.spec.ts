@@ -56,8 +56,8 @@ test("a control room operator signs in to a branded, role-aware shell", async ({
   await expect(menu.getByRole("link", { name: "Approval queue" })).toHaveCount(0);
 
   // A screen still to be built says when it arrives.
-  await menu.getByRole("link", { name: "Knowledge library" }).click();
-  await expect(page.getByText("This screen arrives in Phase 7.")).toBeVisible();
+  await menu.getByRole("link", { name: "Notifications" }).click();
+  await expect(page.getByText("This screen arrives in Phase 11.")).toBeVisible();
   // For people to look at, in test-results, which git ignores.
   await page.screenshot({ path: test.info().outputPath("shell.png") });
   // On a phone, choosing a screen closes the menu, so the screen is not hidden behind it.

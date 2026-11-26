@@ -1203,6 +1203,184 @@
         "title": "Detection",
         "type": "object"
       },
+      "Document": {
+        "properties": {
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "embedding_model": {
+            "title": "Embedding Model",
+            "type": "string"
+          },
+          "embedding_provider": {
+            "title": "Embedding Provider",
+            "type": "string"
+          },
+          "embedding_version": {
+            "title": "Embedding Version",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "indexed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexed At"
+          },
+          "ingested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ingested At"
+          },
+          "ingested_by": {
+            "title": "Ingested By",
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Metadata"
+          },
+          "metadata_from_document": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Metadata From Document",
+            "type": "array"
+          },
+          "passages": {
+            "title": "Passages",
+            "type": "integer"
+          },
+          "released_by": {
+            "title": "Released By",
+            "type": "string"
+          },
+          "screening": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "title": "Screening",
+            "type": "array"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_reason": {
+            "title": "Status Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "source",
+          "filename",
+          "content_type",
+          "size_bytes",
+          "content_hash",
+          "ingested_at",
+          "ingested_by",
+          "status",
+          "status_reason",
+          "passages",
+          "embedding_provider",
+          "embedding_model",
+          "embedding_version",
+          "indexed_at",
+          "metadata_from_document",
+          "screening",
+          "released_by"
+        ],
+        "title": "Document",
+        "type": "object"
+      },
+      "DocumentPage": {
+        "properties": {
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/Document"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "next_page_token": {
+            "title": "Next Page Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documents",
+          "next_page_token"
+        ],
+        "title": "DocumentPage",
+        "type": "object"
+      },
+      "DocumentRevisions": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/Document"
+          },
+          "revisions": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Revisions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "document",
+          "revisions"
+        ],
+        "title": "DocumentRevisions",
+        "type": "object"
+      },
+      "DocumentText": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/Document"
+          },
+          "passages": {
+            "items": {
+              "$ref": "#/components/schemas/Passage"
+            },
+            "title": "Passages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "document",
+          "passages"
+        ],
+        "title": "DocumentText",
+        "type": "object"
+      },
       "DomainChange": {
         "properties": {
           "domain": {
@@ -1536,6 +1714,29 @@
           "unit"
         ],
         "title": "Figure",
+        "type": "object"
+      },
+      "Finding": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "line": {
+            "title": "Line",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "description",
+          "line"
+        ],
+        "title": "Finding",
         "type": "object"
       },
       "FindingReview": {
@@ -2287,6 +2488,67 @@
         "title": "Me",
         "type": "object"
       },
+      "Metadata": {
+        "properties": {
+          "applies_to": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Applies To",
+            "type": "array"
+          },
+          "classification": {
+            "title": "Classification",
+            "type": "string"
+          },
+          "document_id": {
+            "title": "Document Id",
+            "type": "string"
+          },
+          "issued_by": {
+            "title": "Issued By",
+            "type": "string"
+          },
+          "published": {
+            "title": "Published",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "supersedes_document_id": {
+            "title": "Supersedes Document Id",
+            "type": "string"
+          },
+          "supersedes_revision": {
+            "title": "Supersedes Revision",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_id",
+          "revision",
+          "title",
+          "type",
+          "published",
+          "issued_by",
+          "applies_to",
+          "classification",
+          "supersedes_document_id",
+          "supersedes_revision"
+        ],
+        "title": "Metadata",
+        "type": "object"
+      },
       "MetricComparison": {
         "properties": {
           "after_maximum": {
@@ -2886,6 +3148,78 @@
         "title": "PartSearch",
         "type": "object"
       },
+      "Passage": {
+        "properties": {
+          "citation_id": {
+            "title": "Citation Id",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "document": {
+            "$ref": "#/components/schemas/Metadata"
+          },
+          "embedding_model": {
+            "title": "Embedding Model",
+            "type": "string"
+          },
+          "embedding_version": {
+            "title": "Embedding Version",
+            "type": "string"
+          },
+          "first_line": {
+            "title": "First Line",
+            "type": "integer"
+          },
+          "last_line": {
+            "title": "Last Line",
+            "type": "integer"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "superseded_by": {
+            "title": "Superseded By",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "citation_id",
+          "document",
+          "source",
+          "section",
+          "text",
+          "first_line",
+          "last_line",
+          "content_hash",
+          "current",
+          "superseded_by",
+          "embedding_model",
+          "embedding_version",
+          "score"
+        ],
+        "title": "Passage",
+        "type": "object"
+      },
       "PendingChange": {
         "properties": {
           "change_id": {
@@ -3414,6 +3748,55 @@
         "title": "Reading",
         "type": "object"
       },
+      "ReasonIn": {
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReasonIn",
+        "type": "object"
+      },
+      "ReindexIn": {
+        "properties": {
+          "document_id": {
+            "default": "",
+            "pattern": "^([A-Z0-9][A-Z0-9-]{2,63})?$",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReindexIn",
+        "type": "object"
+      },
+      "Reindexed": {
+        "properties": {
+          "queued": {
+            "title": "Queued",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "queued"
+        ],
+        "title": "Reindexed",
+        "type": "object"
+      },
       "Report": {
         "properties": {
           "report": {
@@ -3686,6 +4069,32 @@
         "title": "ScopedRole",
         "type": "object"
       },
+      "SearchResult": {
+        "properties": {
+          "embedding_model": {
+            "title": "Embedding Model",
+            "type": "string"
+          },
+          "embedding_version": {
+            "title": "Embedding Version",
+            "type": "string"
+          },
+          "passages": {
+            "items": {
+              "$ref": "#/components/schemas/Passage"
+            },
+            "title": "Passages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "passages",
+          "embedding_model",
+          "embedding_version"
+        ],
+        "title": "SearchResult",
+        "type": "object"
+      },
       "Series": {
         "properties": {
           "metric": {
@@ -3789,6 +4198,57 @@
           "sessions_ended"
         ],
         "title": "SessionsEnded",
+        "type": "object"
+      },
+      "Settings": {
+        "properties": {
+          "embedding_max_classification": {
+            "title": "Embedding Max Classification",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "title": "Updated By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "embedding_max_classification",
+          "updated_at",
+          "updated_by"
+        ],
+        "title": "Settings",
+        "type": "object"
+      },
+      "SettingsIn": {
+        "properties": {
+          "embedding_max_classification": {
+            "pattern": "^(public|internal|confidential|restricted)$",
+            "title": "Embedding Max Classification",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "embedding_max_classification"
+        ],
+        "title": "SettingsIn",
         "type": "object"
       },
       "Shelve": {
@@ -4338,6 +4798,40 @@
           "latest"
         ],
         "title": "TurbineSummary",
+        "type": "object"
+      },
+      "UploadIn": {
+        "properties": {
+          "content": {
+            "maxLength": 1048576,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "content_type": {
+            "pattern": "^text/(markdown|plain)$",
+            "title": "Content Type",
+            "type": "string"
+          },
+          "filename": {
+            "pattern": "^[A-Za-z0-9._-]{1,128}\\.(md|txt)$",
+            "title": "Filename",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filename",
+          "content_type",
+          "content",
+          "source"
+        ],
+        "title": "UploadIn",
         "type": "object"
       },
       "User": {
@@ -7505,6 +7999,622 @@
           }
         },
         "summary": "Close a verified case, or reopen it to be investigated again"
+      }
+    },
+    "/api/v1/knowledge/documents": {
+      "get": {
+        "operationId": "documents_api_v1_knowledge_documents_get",
+        "parameters": [
+          {
+            "description": "Where it is read; empty for the whole tenant",
+            "in": "query",
+            "name": "wind_farm_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "Where it is read; empty for the whole tenant",
+              "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+              "title": "Wind Farm Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "",
+              "pattern": "^(pending|indexed|held|not_indexed|failed)$",
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 200,
+              "title": "Page Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The library: each document's newest revision the user may read, by ID"
+      },
+      "post": {
+        "operationId": "upload_api_v1_knowledge_documents_post",
+        "parameters": [
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Document"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload one revision of a document: screened first, and held for someone else to release when it addresses an AI"
+      }
+    },
+    "/api/v1/knowledge/documents/{document_id}": {
+      "get": {
+        "operationId": "document_api_v1_knowledge_documents__document_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Z0-9][A-Z0-9-]{2,63}$",
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "0 for the newest",
+            "in": "query",
+            "name": "revision",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "0 for the newest",
+              "maximum": 9999,
+              "minimum": 0,
+              "title": "Revision",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Where it is read; empty for the whole tenant",
+            "in": "query",
+            "name": "wind_farm_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "Where it is read; empty for the whole tenant",
+              "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+              "title": "Wind Farm Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentRevisions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One revision of a document, the newest by default, and the revisions kept"
+      }
+    },
+    "/api/v1/knowledge/documents/{document_id}/passages": {
+      "get": {
+        "operationId": "passages_api_v1_knowledge_documents__document_id__passages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Z0-9][A-Z0-9-]{2,63}$",
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "0 for the newest",
+            "in": "query",
+            "name": "revision",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "0 for the newest",
+              "maximum": 9999,
+              "minimum": 0,
+              "title": "Revision",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Where it is read; empty for the whole tenant",
+            "in": "query",
+            "name": "wind_farm_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "Where it is read; empty for the whole tenant",
+              "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+              "title": "Wind Farm Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentText"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One revision's passages in order, each with its citation, to read it"
+      }
+    },
+    "/api/v1/knowledge/documents/{document_id}/revisions/{revision}/release": {
+      "post": {
+        "operationId": "release_api_v1_knowledge_documents__document_id__revisions__revision__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Z0-9][A-Z0-9-]{2,63}$",
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision",
+            "required": true,
+            "schema": {
+              "maximum": 9999,
+              "minimum": 1,
+              "title": "Revision",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Document"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release a held revision to be indexed. Never by the person who uploaded it"
+      }
+    },
+    "/api/v1/knowledge/passage": {
+      "get": {
+        "operationId": "passage_api_v1_knowledge_passage_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "citation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^kn:[A-Z0-9][A-Z0-9-]{2,63}@\\d{1,4}#\\d{1,5}$",
+              "title": "Citation Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where it is read; empty for the whole tenant",
+            "in": "query",
+            "name": "wind_farm_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "Where it is read; empty for the whole tenant",
+              "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+              "title": "Wind Farm Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Passage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One cited passage, as it was, even once its revision is replaced"
+      }
+    },
+    "/api/v1/knowledge/reindex": {
+      "post": {
+        "operationId": "reindex_api_v1_knowledge_reindex_post",
+        "parameters": [
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReindexIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reindexed"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Index again under the same citations: one document, or all of them"
+      }
+    },
+    "/api/v1/knowledge/search": {
+      "get": {
+        "operationId": "search_api_v1_knowledge_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 1000,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where it is read; empty for the whole tenant",
+            "in": "query",
+            "name": "wind_farm_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "Where it is read; empty for the whole tenant",
+              "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+              "title": "Wind Farm Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "applies_to",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Applies To",
+              "type": "string"
+            }
+          },
+          {
+            "description": "manual, bulletin, procedure, reference or engineering",
+            "in": "query",
+            "name": "types",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 5,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "manual, bulletin, procedure, reference or engineering",
+              "title": "Types"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_superseded",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Superseded",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Passages that answer a question, each with its citation, from documents the user may read"
+      }
+    },
+    "/api/v1/knowledge/settings": {
+      "get": {
+        "operationId": "settings_api_v1_knowledge_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "The highest classification whose passages may go to the embedding provider"
+      },
+      "put": {
+        "operationId": "change_settings_api_v1_knowledge_settings_put",
+        "parameters": [
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change what may be embedded. A document above it is kept, but not indexed"
       }
     },
     "/api/v1/me": {
