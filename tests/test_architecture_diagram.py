@@ -130,12 +130,14 @@ def test_readme_shows_the_console_as_it_runs() -> None:
     the diagrams. `make readme-screens` captures them (scripts/generate/console_screens.py)."""
     readme = (ROOT / "README.md").read_text()
     screens = re.findall(r"docs/assets/screens/[\w-]+\.png", readme)
-    assert sorted(set(screens)) == [
-        "docs/assets/screens/alarm-console.png", "docs/assets/screens/fleet-overview.png",
-        "docs/assets/screens/maintenance-planner.png", "docs/assets/screens/parts-lookup.png",
-        "docs/assets/screens/phone-work-order.png", "docs/assets/screens/turbine-detail.png",
-        "docs/assets/screens/work-order.png",
-    ]  # fmt: skip
+    assert sorted(set(screens)) == sorted(
+        f"docs/assets/screens/{name}.png" for name in (
+            "administration", "alarm-console", "approval", "approval-queue", "audit-explorer",
+            "evidence", "fleet-overview", "investigation", "investigation-live",
+            "knowledge-library", "maintenance-planner", "parts-lookup", "phone-investigation",
+            "phone-work-order", "turbine-detail", "work-order",
+        )
+    )  # fmt: skip
     # The scaffold check runs the tests in a copy without the assets, so check files where they are.
     if (ROOT / "docs/assets").is_dir():
         assert all((ROOT / screen).is_file() for screen in screens)

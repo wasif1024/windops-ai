@@ -94,9 +94,10 @@ class PlannerSetup:
             approval_check.requested(approvals, order.work_order_id)
             self.submitted[project] = str(order.work_order_id)
 
-    def cancel_titled(self, titles: set[str]) -> None:
+    def cancel_titled(self, titles: set[str]) -> list[str]:
         """Cancel the cases the browser opened, found by their titles, as the case check's
-        engineer, who may cancel. Their investigations stop with them."""
+        engineer, who may cancel. Their investigations stop with them. Return their IDs."""
+        cancelled: list[str] = []
         key = signing_key()
         with ExitStack() as stack:
             port = stack.enter_context(
@@ -115,6 +116,8 @@ class PlannerSetup:
                         case_id=case.case_id, reason="Frontend check over"
                     )
                     api.code("CancelCase", cancel, ENGINEER, TENANT)
+                    cancelled.append(case.case_id)
+        return cancelled
 
     def remove(self) -> None:
         try:

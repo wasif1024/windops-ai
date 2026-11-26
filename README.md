@@ -10,7 +10,7 @@ that matter, and authorized people approve every high-impact action, for each te
 The platform is advisory only: it never issues turbine commands. It is a portfolio-grade reference system, built
 to production standards and run on synthetic data from a seeded, physics-based turbine simulator.
 
-**Status:** Phases 1 to 9 and 4A are complete, each closed by an exit gate proven on a real cluster. The platform
+**Status:** Phases 1 to 11 and 4A are complete, each closed by an exit gate proven on a real cluster. The platform
 is **deployed and proven on Azure Kubernetes Service** by its Azure DevOps pipeline, and runs the same way on a
 laptop ([evidence](docs/phases/phase-04a-exit-gate.md)).
 
@@ -31,6 +31,10 @@ laptop ([evidence](docs/phases/phase-04a-exit-gate.md)).
   reviewed, and the case's workflow resumes from its checkpoint. Stale evidence, completed work verified by the fault
   rules, and notifications follow. A fault runs through to a closed case with 0 approval bypasses
   ([Phase 10](docs/phases/phase-10-exit-gate.md)).
+- **Puts it all in one console:** investigations followed live, findings to accept or challenge, frozen evidence,
+  the approval queue, the knowledge library, the audit trail, notifications and administration, for each role exactly
+  its screens. Browser tests sign in as all 8 roles and cover every screen on a desktop and a phone
+  ([Phase 11](docs/phases/phase-11-exit-gate.md)).
 
 <table>
   <tr>
@@ -87,27 +91,42 @@ verified after it is done.
 
 ## The console today
 
-[![The WindOps AI operations console, captured from the running platform. Six desktop screens in browser frames: the Fleet overview with two offshore wind farms of four turbines each, live power and wind; Dogger East T01's detail page with its latest readings and live charts of power and wind speed; the Alarm console with three standing alarms, most severe first; the Maintenance planner listing two drafts, one marked as an agent's draft; that agent's draft, Inspect the gearbox oil cooling on DE-T01, with its plan, parts available in the store, its validation with the Policy Service's escalation, and the planner's options to edit, check again, submit or withdraw; and Parts lookup, listing the parts that fit the turbine's model with stock in its wind farm's store. Beside them, the same agent's draft on a phone, with a notice that only a person submits.](docs/assets/console-tour.png)](docs/assets/console-tour.png)
+[![The WindOps AI operations console, captured from the running platform, each screen as the role that uses it. Eight desktop screens in browser frames, numbered as one journey from a fault to an audited decision: Dogger East T01's detail page with live charts of power and wind speed; the Alarm console with three standing alarms, most severe first; an investigation's agent team at work, followed live; its findings, each cited, for a Reliability Engineer to accept or challenge; the frozen evidence the run rested on, its hashes checked again; the Maintenance Planner agent's draft work order, validated against parts, the turbine and policy; a Maintenance Manager's review of a submitted work order, to approve or reject; and the audit explorer, its hash chain checked intact. Below them, the console around the journey: the Fleet overview, the Maintenance planner, the Knowledge library's cited search, and Administration's role permissions. Beside them, the investigation's findings on a phone.](docs/assets/console-tour.png)](docs/assets/console-tour.png)
 
-The operations console as it runs now, signed in as a Maintenance Planner, against the simulator's live demo fleet.
-All the data is synthetic. For the picture, `make readme-screens` adds, and then removes:
+The operations console as it runs now, against the simulator's live demo fleet, each screen captured as the role
+that uses it. All the data is synthetic. For the picture, `make readme-screens` adds, and then removes:
+- a person for each role shown, deleted afterwards;
 - three alarms, sent through the turbines' device route, as their controllers would send them;
 - a parts catalogue with stock;
-- an active gearbox case, with a planner's own work orders;
+- an active gearbox case, with a planner's own work orders, one of them submitted for approval;
 - the agent's draft, made through the Maintenance Planner agent's own MCP tool and token. Its plan was written for
-  the picture, not by a model.
+  the picture, not by a model;
+- an investigation the engineer starts from the screen. It is rehearsed: the real agent team on a scripted model, so
+  nothing reaches Claude, and its findings are the rehearsal's placeholders. A run on Claude replaces them once every
+  phase is done.
 
-| Screen | What it shows |
-| --- | --- |
-| [Fleet overview](docs/assets/screens/fleet-overview.png) | Every wind farm and turbine, with its status, latest power and wind, and how fresh the reading is |
-| [Turbine detail](docs/assets/screens/turbine-detail.png) | The model, the latest readings, and live charts over 5, 15 or 60 minutes, with suspect readings marked |
-| [Alarm console](docs/assets/screens/alarm-console.png) | Every alarm the user may see, most severe and newest first, with where its severity came from |
-| [Maintenance planner](docs/assets/screens/maintenance-planner.png) | Work orders by status, an agent's draft marked, and a new draft for an active case |
-| [An agent's draft](docs/assets/screens/work-order.png) | Its plan, each part's availability, its validation and policy outcome, and what a person may do next |
-| [Parts lookup](docs/assets/screens/parts-lookup.png) | The parts that fit a turbine, with stock in its wind farm's store |
-| [On a phone](docs/assets/screens/phone-work-order.png) | The same draft at phone size: every screen works from 360 pixels wide |
+| Screen | Role | What it shows |
+| --- | --- | --- |
+| [Fleet overview](docs/assets/screens/fleet-overview.png) | Planner | Every wind farm and turbine, with its status, latest power and wind, and how fresh the reading is |
+| [Turbine detail](docs/assets/screens/turbine-detail.png) | Planner | The model, the latest readings, and live charts over 5, 15 or 60 minutes, with suspect readings marked |
+| [Alarm console](docs/assets/screens/alarm-console.png) | Planner | Every alarm the user may see, most severe and newest first, with where its severity came from |
+| [An investigation, live](docs/assets/screens/investigation-live.png) | Engineer | The agent team's progress, step by step, as it runs |
+| [Findings and timeline](docs/assets/screens/investigation.png) | Engineer | Each finding with what it cites and its confidence, to accept or challenge, and the case's history |
+| [Evidence viewer](docs/assets/screens/evidence.png) | Engineer | The frozen snapshot the run rested on, its data quality, and its hashes checked again |
+| [Knowledge library](docs/assets/screens/knowledge-library.png) | Engineer | Manuals, bulletins and procedures by revision, and a search that answers with cited passages |
+| [Maintenance planner](docs/assets/screens/maintenance-planner.png) | Planner | Work orders by status, an agent's draft marked, and a new draft for an active case |
+| [An agent's draft](docs/assets/screens/work-order.png) | Planner | Its plan, each part's availability, its validation and policy outcome, and what a person may do next |
+| [Parts lookup](docs/assets/screens/parts-lookup.png) | Planner | The parts that fit a turbine, with stock in its wind farm's store |
+| [Approval queue](docs/assets/screens/approval-queue.png) | Manager | Submitted work orders waiting for a decision, and who may decide each |
+| [A person decides](docs/assets/screens/approval.png) | Manager | The plan, its validation and history, approved or rejected with the rules it was held to |
+| [Audit explorer](docs/assets/screens/audit-explorer.png) | Auditor | The tamper-evident trail, filtered by actor, resource or outcome, its hash chain checked |
+| [Administration](docs/assets/screens/administration.png) | Administrator | Users, each role's permissions, approval policy, change review, access denials, MCP and gateway policies, branding |
+| [On a phone](docs/assets/screens/phone-investigation.png) | Engineer | The investigation's findings at phone size |
+| [A draft on a phone](docs/assets/screens/phone-work-order.png) | Planner | The agent's draft at phone size: every screen works from 360 pixels wide |
 
-`make frontend-check` proves each screen's journey in a real browser, at desktop and phone size, on every run.
+`make frontend-check` signs in as each of the 8 roles in a real browser and checks that its menu holds exactly its
+screens. Then `make browser-coverage-check` passes only when every screen in the specification has a passing journey
+on a desktop and on a phone ([Phase 11](docs/phases/phase-11-exit-gate.md)).
 
 ## Design principles
 
@@ -227,10 +246,11 @@ only read access unless it needs more.
 | 8. Agent workflow | Done, [exit gate](docs/phases/phase-08-exit-gate.md): one investigation on Claude, $4.09 |
 | 9. Maintenance and inventory | Done, [exit gate](docs/phases/phase-09-exit-gate.md): agents draft, and never submit or reserve |
 | 10. Approval and closure | Done, [exit gate](docs/phases/phase-10-exit-gate.md): a fault to verification, with 0 approval bypasses |
+| 11. Frontend completion | Done, [exit gate](docs/phases/phase-11-exit-gate.md): every screen, as each of 8 roles, on a desktop and a phone |
 
 | Running today | |
 | --- | --- |
-| Edge | API Gateway, Web BFF and the React frontend, with Keycloak sign-in and MFA, and the fleet, alarm, maintenance and parts screens |
+| Edge | API Gateway, Web BFF and the React frontend, with Keycloak sign-in and MFA, and every console screen: fleet, alarms, investigations and evidence, impact and weather, knowledge, maintenance and parts, approvals, audit, notifications and administration |
 | Identity and tenancy | Identity, Authorization and Tenant services, with tenant branding and administration consoles |
 | Operations | Asset Service with synthetic demo fleets, and Telemetry Service with authenticated device ingestion, fed live by the simulator's 13 devices |
 | Faults and decisions | Alarm, Fault Detection and Investigation services: controller alarms, versioned fault rules, and one deduplicated case per fault, bound to immutable evidence. The Policy Service judges proposals against versioned rules, and fails closed, the Production Impact Service prices them, with a range for every figure, and the Weather Service gives each site's forecast, with its provenance and age |
