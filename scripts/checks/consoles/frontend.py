@@ -26,6 +26,10 @@ For the investigation screens (M11.1), it makes a Reliability Engineer for each 
 password alone, who investigates the demo turbine in the browser. The run is rehearsed, at no cost.
 The engineer follows it live to review, then challenges a finding. Those cases are cancelled
 afterwards.
+
+For the knowledge library (M11.5), the engineer browses, searches and reads the demo documents,
+and each Tenant Administrator uploads a check-only document addressed to an AI, which is held.
+Those documents are removed afterwards; being held, they were never embedded.
 """
 
 import base64
@@ -44,6 +48,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
 from scripts.checks.consoles.planner_setup import PlannerSetup
+from scripts.checks.fleet import knowledge
 from scripts.checks.fleet.alarm import TURBINE, report, sql
 from scripts.checks.fleet.telemetry import device_token, send_to
 from scripts.checks.identity.identity import Realm, delete_user
@@ -86,6 +91,8 @@ MANAGERS = {project: f"manager-ui-{project}-{RUN}@windops-check.example" for pro
 # The Reliability Engineer each screen size investigates as (M11.1), and their case's title.
 ENGINEERS = {project: f"engineer-ui-{project}-{RUN}@windops-check.example" for project in PROJECTS}
 INVESTIGATIONS = {project: f"Investigation screen {project} {RUN}" for project in PROJECTS}
+# The document each screen size's administrator uploads to the knowledge library (M11.5).
+KNOWLEDGE_DOCUMENTS = {project: f"UI-CHK-{project.upper()}-{RUN.upper()}" for project in PROJECTS}
 # The alarm each screen size acknowledges. The alarm check's clean-up removes these too.
 ALARM_TAGS = {project: f"alarm-check-ui-{project}-{RUN}" for project in PROJECTS}
 
@@ -170,6 +177,22 @@ def remove_alarms() -> None:
     )
 
 
+def remove_documents() -> None:
+    """The check's uploads. A document is never changed or deleted by the service's own rules, so
+    its triggers are paused for this, as the knowledge check does."""
+    ids = ", ".join(f"'{document_id}'" for document_id in KNOWLEDGE_DOCUMENTS.values())
+    knowledge.value("; ".join([
+        "ALTER TABLE passages DISABLE TRIGGER passages_never_change",
+        "ALTER TABLE documents DISABLE TRIGGER documents_keep_content",
+        f"DELETE FROM passages WHERE document_id IN ({ids})",  # noqa: S608  # The check's own IDs.
+        f"DELETE FROM index_queue WHERE document_id IN ({ids})",  # noqa: S608
+        f"DELETE FROM documents WHERE document_id IN ({ids})",  # noqa: S608
+        "ALTER TABLE passages ENABLE TRIGGER passages_never_change",
+        "ALTER TABLE documents ENABLE TRIGGER documents_keep_content",
+        "SELECT 1",
+    ]))  # fmt: skip
+
+
 def run_browser(
     password: str, keys: dict[str, str], operator_token: str, planning: PlannerSetup
 ) -> int:
@@ -211,6 +234,7 @@ def run_browser(
             env[f"MANAGER_WORK_ORDER_{upper}"] = planning.submitted[project]
             env[f"ENGINEER_EMAIL_{upper}"] = ENGINEERS[project]
             env[f"INVESTIGATION_TITLE_{upper}"] = INVESTIGATIONS[project]
+            env[f"KNOWLEDGE_DOCUMENT_{upper}"] = KNOWLEDGE_DOCUMENTS[project]
         result = subprocess.run(["npx", "playwright", "test"], cwd=FRONTEND, env=env, check=False)
     return result.returncode
 
@@ -232,6 +256,7 @@ def main() -> int:
                 code = run_browser(password, keys, operator_token, planning)
             finally:
                 remove_alarms()
+                remove_documents()
                 planning.remove()
                 planning.cancel_titled(set(INVESTIGATIONS.values()))
                 # A fresh login, as the first may have expired during the browser run.

@@ -31,7 +31,9 @@ class KnowledgeServiceStub:
     (FR-KNW-001), each with its tenant, source, version, publication date, ingestion date and
     access classification (FR-KNW-002), and indexed through the embedding adapter (LLM-011).
 
-    The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read.
+    The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read,
+    and a document that applies to wind farms only for a caller who may read one of them, as for
+    search: one the caller may not read is left out of a list, and not found when asked for.
     Uploading, releasing a held document and changing the ingestion settings need knowledge.manage,
     a person, and a recent second factor (SEC-003), and each is audited.
 
@@ -53,6 +55,8 @@ class KnowledgeServiceStub:
     """One revision of a document, the newest when no revision is given, and the revisions kept."""
     ListDocuments: _grpc.UnaryUnaryMultiCallable[_knowledge_pb2.ListDocumentsRequest, _knowledge_pb2.ListDocumentsResponse]
     """The newest revision of each document, by document ID."""
+    ListPassages: _grpc.UnaryUnaryMultiCallable[_knowledge_pb2.ListPassagesRequest, _knowledge_pb2.ListPassagesResponse]
+    """One revision's passages in order, each with its citation, so a person can read the document."""
     ReleaseDocument: _grpc.UnaryUnaryMultiCallable[_knowledge_pb2.ReleaseDocumentRequest, _knowledge_pb2.ReleaseDocumentResponse]
     """Release a held document for indexing. Never by the person who uploaded it."""
     GetIngestionSettings: _grpc.UnaryUnaryMultiCallable[_knowledge_pb2.GetIngestionSettingsRequest, _knowledge_pb2.GetIngestionSettingsResponse]
@@ -73,7 +77,9 @@ class KnowledgeServiceAsyncStub(KnowledgeServiceStub):
     (FR-KNW-001), each with its tenant, source, version, publication date, ingestion date and
     access classification (FR-KNW-002), and indexed through the embedding adapter (LLM-011).
 
-    The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read.
+    The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read,
+    and a document that applies to wind farms only for a caller who may read one of them, as for
+    search: one the caller may not read is left out of a list, and not found when asked for.
     Uploading, releasing a held document and changing the ingestion settings need knowledge.manage,
     a person, and a recent second factor (SEC-003), and each is audited.
 
@@ -92,6 +98,8 @@ class KnowledgeServiceAsyncStub(KnowledgeServiceStub):
     """One revision of a document, the newest when no revision is given, and the revisions kept."""
     ListDocuments: _aio.UnaryUnaryMultiCallable[_knowledge_pb2.ListDocumentsRequest, _knowledge_pb2.ListDocumentsResponse]  # type: ignore[assignment]
     """The newest revision of each document, by document ID."""
+    ListPassages: _aio.UnaryUnaryMultiCallable[_knowledge_pb2.ListPassagesRequest, _knowledge_pb2.ListPassagesResponse]  # type: ignore[assignment]
+    """One revision's passages in order, each with its citation, so a person can read the document."""
     ReleaseDocument: _aio.UnaryUnaryMultiCallable[_knowledge_pb2.ReleaseDocumentRequest, _knowledge_pb2.ReleaseDocumentResponse]  # type: ignore[assignment]
     """Release a held document for indexing. Never by the person who uploaded it."""
     GetIngestionSettings: _aio.UnaryUnaryMultiCallable[_knowledge_pb2.GetIngestionSettingsRequest, _knowledge_pb2.GetIngestionSettingsResponse]  # type: ignore[assignment]
@@ -111,7 +119,9 @@ class KnowledgeServiceServicer(metaclass=_abc_1.ABCMeta):
     (FR-KNW-001), each with its tenant, source, version, publication date, ingestion date and
     access classification (FR-KNW-002), and indexed through the embedding adapter (LLM-011).
 
-    The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read.
+    The tenant comes from the caller's verified identity (GRP-004). Reading needs knowledge.read,
+    and a document that applies to wind farms only for a caller who may read one of them, as for
+    search: one the caller may not read is left out of a list, and not found when asked for.
     Uploading, releasing a held document and changing the ingestion settings need knowledge.manage,
     a person, and a recent second factor (SEC-003), and each is audited.
 
@@ -146,6 +156,14 @@ class KnowledgeServiceServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_knowledge_pb2.ListDocumentsResponse, _abc.Awaitable[_knowledge_pb2.ListDocumentsResponse]]:
         """The newest revision of each document, by document ID."""
+
+    @_abc_1.abstractmethod
+    def ListPassages(
+        self,
+        request: _knowledge_pb2.ListPassagesRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_knowledge_pb2.ListPassagesResponse, _abc.Awaitable[_knowledge_pb2.ListPassagesResponse]]:
+        """One revision's passages in order, each with its citation, so a person can read the document."""
 
     @_abc_1.abstractmethod
     def ReleaseDocument(

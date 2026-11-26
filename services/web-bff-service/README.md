@@ -148,8 +148,8 @@ The Investigation Service decides who may investigate a turbine and read a case
 | `GET /api/v1/evidence/{snapshot_id}` | One snapshot with every item, its data quality, and whether its hashes still match |
 
 Freezing reads and hashes up to a day of telemetry, and an impact estimate gathers the turbine, its telemetry and the
-forecast first. So these two alone may take up to 60 seconds, on clients of their own: their time never counts as slow
-against their services' other calls.
+forecast first. So these, with the approval queue's standing and a knowledge search, may take up to 60 seconds, on
+clients of their own: their time never counts as slow against their services' other calls.
 
 - **Events:** each has its sequence as its `id` and its kind as its name: `requested`, `started`, `step`,
   `run_ended` and `case_status`.
@@ -171,6 +171,27 @@ hiding it (WTH-005).
 | `GET /api/v1/impact/{id}` | One estimate, its hash checked again |
 | `POST /api/v1/impact` | Estimate an action on a case's turbine, optionally from a planned start: `201` |
 | `GET /api/v1/weather/{turbine_id}?hours=24` | The forecast for the turbine's site from now, at most 168 hours, with its state, age and provenance |
+
+### Knowledge library (M11.5)
+
+The Knowledge Service checks each call as the person: reading needs `knowledge.read` where it is read, a site
+document is read only by someone who may read one of its wind farms (FR-KNW-004), and every change needs
+`knowledge.manage` and a recent second factor. Each read takes an optional `wind_farm_id`, for a person whose
+`knowledge.read` covers only some wind farms.
+
+| Route | What |
+| --- | --- |
+| `GET /api/v1/knowledge/documents?status=…&page_token=…` | Each document's newest revision the person may read, by ID |
+| `GET /api/v1/knowledge/documents/{id}?revision=…` | One revision, the newest by default, and the revisions kept |
+| `GET /api/v1/knowledge/documents/{id}/passages?revision=…` | One revision's passages in order, each with its citation |
+| `GET /api/v1/knowledge/search?q=…&types=…&include_superseded=…` | Passages that answer a question, best first |
+| `GET /api/v1/knowledge/passage?citation_id=kn:…` | One cited passage, as it was |
+| `POST /api/v1/knowledge/documents` | Upload one revision of a Markdown or text document, as JSON text, at most 1 MiB: `201` |
+| `POST /api/v1/knowledge/documents/{id}/revisions/{n}/release` | Release a held revision, with a reason. Never by its uploader |
+| `POST /api/v1/knowledge/reindex` | Index one document, or all, again under the same citations |
+| `GET`, `PUT /api/v1/knowledge/settings` | The highest classification that may go to the embedding provider |
+
+A search first has its question embedded by the provider, so it joins the long-call client.
 
 ### Maintenance planner and parts lookup (M9.4)
 

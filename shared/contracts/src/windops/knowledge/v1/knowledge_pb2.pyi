@@ -257,18 +257,22 @@ class GetDocumentRequest(_message.Message):
 
     DOCUMENT_ID_FIELD_NUMBER: _builtins.int
     REVISION_FIELD_NUMBER: _builtins.int
+    WIND_FARM_ID_FIELD_NUMBER: _builtins.int
     document_id: _builtins.str
     revision: _builtins.int
     """0 for the newest."""
+    wind_farm_id: _builtins.str
+    """Where it is read, as for a search. Empty for the whole tenant."""
     def __init__(
         self,
         *,
         document_id: _builtins.str = ...,
         revision: _builtins.int = ...,
+        wind_farm_id: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["document_id", b"document_id", "revision", b"revision"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["document_id", b"document_id", "revision", b"revision", "wind_farm_id", b"wind_farm_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -305,21 +309,25 @@ class ListDocumentsRequest(_message.Message):
     PAGE_SIZE_FIELD_NUMBER: _builtins.int
     PAGE_TOKEN_FIELD_NUMBER: _builtins.int
     STATUS_FIELD_NUMBER: _builtins.int
+    WIND_FARM_ID_FIELD_NUMBER: _builtins.int
     page_size: _builtins.int
     """At most 200; 0 means 50."""
     page_token: _builtins.str
     status: _builtins.str
     """Only documents with this status, when set."""
+    wind_farm_id: _builtins.str
+    """Where the library is browsed, as for a search. Empty for the whole tenant."""
     def __init__(
         self,
         *,
         page_size: _builtins.int = ...,
         page_token: _builtins.str = ...,
         status: _builtins.str = ...,
+        wind_farm_id: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["page_size", b"page_size", "page_token", b"page_token", "status", b"status"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["page_size", b"page_size", "page_token", b"page_token", "status", b"status", "wind_farm_id", b"wind_farm_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -347,6 +355,59 @@ class ListDocumentsResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___ListDocumentsResponse: _TypeAlias = ListDocumentsResponse  # noqa: Y015
+
+@_typing.final
+class ListPassagesRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DOCUMENT_ID_FIELD_NUMBER: _builtins.int
+    REVISION_FIELD_NUMBER: _builtins.int
+    WIND_FARM_ID_FIELD_NUMBER: _builtins.int
+    document_id: _builtins.str
+    revision: _builtins.int
+    """0 for the newest."""
+    wind_farm_id: _builtins.str
+    """Where it is read, as for a search. Empty for the whole tenant."""
+    def __init__(
+        self,
+        *,
+        document_id: _builtins.str = ...,
+        revision: _builtins.int = ...,
+        wind_farm_id: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["document_id", b"document_id", "revision", b"revision", "wind_farm_id", b"wind_farm_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListPassagesRequest: _TypeAlias = ListPassagesRequest  # noqa: Y015
+
+@_typing.final
+class ListPassagesResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DOCUMENT_FIELD_NUMBER: _builtins.int
+    PASSAGES_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def document(self) -> Global___DocumentVersion: ...
+    @_builtins.property
+    def passages(self) -> _containers.RepeatedCompositeFieldContainer[Global___Passage]:
+        """In the document's order. Score is 0: nothing was searched."""
+
+    def __init__(
+        self,
+        *,
+        document: Global___DocumentVersion | None = ...,
+        passages: _abc.Iterable[Global___Passage] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["document", b"document"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["document", b"document", "passages", b"passages"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListPassagesResponse: _TypeAlias = ListPassagesResponse  # noqa: Y015
 
 @_typing.final
 class ReleaseDocumentRequest(_message.Message):

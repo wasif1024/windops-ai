@@ -93,6 +93,22 @@ Filters narrow a search to what documents apply to, and their types.
 - **When a dependency is down:** without the embedding provider, Qdrant or the Authorization Service, a search is
   unavailable. It never answers with passages that were not ranked and checked (SRS 7.7).
 
+## Browsing the library
+
+The console's knowledge library (M11.5) reads through `ListDocuments`, `GetDocument` and `ListPassages`, under the
+same permission as a search:
+
+- **Where it is read:** each takes an optional `wind_farm_id`. Without one, the caller needs `knowledge.read` for the
+  whole tenant; with one, for that wind farm.
+- **Each document:** a site document is listed and read only by someone who may read one of its wind farms. One they
+  may not is left out of a list, and not found when asked for, so they never learn it exists. A list page may then hold
+  fewer than asked for; its token still moves past every document looked at.
+- **Reading a document:** `ListPassages` gives one revision's passages in order, each with the citation `GetPassage`
+  reads, and marks them replaced when a newer revision is indexed. Held and unindexed revisions are read the same way,
+  so a person can review a held one before releasing it.
+- **The ingestion settings:** read with `knowledge.read` or `knowledge.manage`, since a Tenant Administrator manages
+  the library without reading it, and changes this setting.
+
 ## The demo documents
 
 `make knowledge-seed` ingests the synthetic document set's demo documents (M7.1) for the tenants its manifest names.

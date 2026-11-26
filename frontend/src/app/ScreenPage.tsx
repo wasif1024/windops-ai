@@ -4,6 +4,7 @@ import { AlarmScreen } from "../features/alarms/pages/AlarmScreen";
 import { ApprovalScreen } from "../features/approvals/pages/ApprovalScreen";
 import { FleetScreen, TelemetryScreen } from "../features/fleet/pages/FleetScreen";
 import { ImpactScreen } from "../features/impact/pages/ImpactScreen";
+import { KnowledgeScreen } from "../features/knowledge/pages/KnowledgeScreen";
 import { InvestigationScreen } from "../features/investigations/pages/InvestigationScreen";
 import { MaintenanceScreen } from "../features/maintenance/pages/MaintenanceScreen";
 import { PartsScreen } from "../features/parts/pages/PartsScreen";
@@ -34,6 +35,7 @@ export function ScreenPage({ screens, token, held }: { screens: Screen[]; token:
   if (screen.id === "investigations") return <InvestigationScreen token={token} held={held} />;
   if (screen.id === "impact") return <ImpactScreen token={token} />;
   if (screen.id === "weather") return <WeatherScreen token={token} />;
+  if (screen.id === "knowledge") return <KnowledgeScreen token={token} held={held} />;
   return (
     <section>
       <h2 className="text-xl font-semibold">{screen.title}</h2>

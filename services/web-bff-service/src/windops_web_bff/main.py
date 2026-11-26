@@ -17,6 +17,7 @@ from windops.authorization.v1 import authorization_pb2_grpc
 from windops.identity.v1 import identity_pb2_grpc
 from windops.inventory.v1 import inventory_pb2_grpc
 from windops.investigation.v1 import investigation_pb2_grpc
+from windops.knowledge.v1 import knowledge_pb2_grpc
 from windops.maintenance.v1 import maintenance_pb2_grpc
 from windops.notification.v1 import notification_pb2_grpc
 from windops.production_impact.v1 import production_impact_pb2_grpc
@@ -104,6 +105,7 @@ def main() -> None:
             "WINDOPS_PRODUCTION_IMPACT_ADDRESS",
         ),
         "weather": (weather_pb2_grpc.WeatherServiceStub, "WINDOPS_WEATHER_ADDRESS"),
+        "knowledge": (knowledge_pb2_grpc.KnowledgeServiceStub, "WINDOPS_KNOWLEDGE_ADDRESS"),
         "notification": (
             notification_pb2_grpc.NotificationServiceStub,
             "WINDOPS_NOTIFICATION_ADDRESS",
@@ -191,6 +193,7 @@ def main() -> None:
             notification=caller_for("notification"),
             production_impact=caller_for("production_impact"),
             weather=caller_for("weather"),
+            knowledge=caller_for("knowledge"),
             counters=counters,
         )
     )

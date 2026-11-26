@@ -18,7 +18,7 @@ export const SCREENS: Screen[] = [
   { id: "investigations", title: "Investigations", anyOf: ["investigation.read"], arrives: "M11.1" },
   { id: "impact", title: "Production impact", anyOf: ["investigation.read"], arrives: "M11.3" },
   { id: "weather", title: "Weather and sources", anyOf: ["weather.read"], arrives: "M11.3" },
-  { id: "knowledge", title: "Knowledge library", anyOf: ["knowledge.read"], arrives: "Phase 7" },
+  { id: "knowledge", title: "Knowledge library", anyOf: ["knowledge.read", "knowledge.manage"], arrives: "M11.5" },
   { id: "maintenance", title: "Maintenance planner", anyOf: ["maintenance.draft"], arrives: "M9.4" },
   { id: "parts", title: "Parts lookup", anyOf: ["inventory.read"], arrives: "M9.4" },
   { id: "approvals", title: "Approval queue", anyOf: ["maintenance.approve"], arrives: "M10.2" },
