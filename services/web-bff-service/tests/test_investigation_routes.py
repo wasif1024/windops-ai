@@ -276,3 +276,45 @@ def test_a_case_shows_its_history_verification_and_report_with_its_reviews() -> 
     with_bff(
         scenario, services={"investigation": investigation, "investigation_watch": FakeWatch([])}
     )
+
+
+def test_a_case_evidence_is_listed_read_item_by_item_and_frozen_again() -> None:
+    telemetry = pb.EvidenceItem(
+        source_service="telemetry", record_type="telemetry_snapshot", record_id="tsnap_1",
+        version="h", data_quality_json=json.dumps({"quality": {"ok": 7190}, "gaps": 2}),
+        content_json=json.dumps({"snapshot_id": "tsnap_1", "sample_count": 7200}),
+        content_hash="c" * 64,
+    )  # fmt: skip
+    snapshot = pb.EvidenceSnapshot(
+        snapshot_id="evs_1", case_id="case_1", version=2, turbine_id="dogger-east-t01",
+        content_hash="h" * 64, item_count=1, items=[telemetry], verified=True,
+    )  # fmt: skip
+    listed = pb.EvidenceSnapshot()
+    listed.CopyFrom(snapshot)
+    del listed.items[:]
+    investigation = FakeService({
+        "ListEvidenceSnapshots": pb.ListEvidenceSnapshotsResponse(snapshots=[listed]),
+        "GetEvidenceSnapshot": pb.GetEvidenceSnapshotResponse(snapshot=snapshot),
+        "CreateEvidenceSnapshot": pb.CreateEvidenceSnapshotResponse(snapshot=snapshot),
+    })  # fmt: skip
+
+    async def scenario(world: World) -> None:
+        headers = auth(token())
+        versions = (await world.client.get(f"{PREFIX}/investigations/case_1/evidence",
+                                           headers=headers)).json()  # fmt: skip
+        assert [(v["snapshot_id"], v["version"], v["items"]) for v in versions] == [
+            ("evs_1", 2, [])]  # fmt: skip
+        one = (await world.client.get(f"{PREFIX}/evidence/evs_1", headers=headers)).json()
+        [item] = one["items"]
+        assert one["verified"] and item["data_quality"]["quality"]["ok"] == 7190
+        assert item["content"]["sample_count"] == 7200
+        frozen = await world.client.post(f"{PREFIX}/investigations/case_1/evidence",
+                                         headers={**headers, "Idempotency-Key": "f-1"})  # fmt: skip
+        assert frozen.status_code == 201
+        sent = next(c for c in investigation.calls if c.method == "CreateEvidenceSnapshot")
+        assert (sent.request.case_id, sent.request.idempotency_key, sent.retry) == (
+            "case_1", "f-1", False)  # fmt: skip
+
+    with_bff(
+        scenario, services={"investigation": investigation, "investigation_watch": FakeWatch([])}
+    )

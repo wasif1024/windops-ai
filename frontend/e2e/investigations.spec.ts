@@ -1,8 +1,8 @@
-// The investigation screens in a real browser, through the gateway (M11.1). The frontend check
-// makes a Reliability Engineer for each screen size. The engineer investigates the demo turbine
-// from the screen, follows the run live until it waits for review, then challenges one of its
-// findings, which is kept beside the report. The run is rehearsed, at no cost. Nothing may scroll
-// sideways (UX-001).
+// The investigation screens and evidence viewer in a real browser, through the gateway (M11.1,
+// M11.2). The frontend check makes a Reliability Engineer for each screen size. The engineer
+// investigates the demo turbine from the screen, follows the run live until it waits for review,
+// challenges one of its findings, which is kept beside the report, then opens the evidence, its
+// hashes checked again. The run is rehearsed, at no cost. Nothing may scroll sideways (UX-001).
 import { expect, test } from "@playwright/test";
 import { noSidewaysScroll, openScreen, signIn } from "./helpers";
 
@@ -47,6 +47,16 @@ test("an engineer investigates a turbine, follows it live, and challenges a find
   await expect(finding.getByRole("list", { name: "Reviews" })).toContainText("The site replaced this part last month.");
   await noSidewaysScroll(page);
   await page.screenshot({ path: test.info().outputPath("investigation-findings.png"), fullPage: true });
+
+  // The evidence it rests on, as frozen, its hashes checked again (M11.2).
+  await page.getByRole("link", { name: "Open the evidence" }).click();
+  await expect(page.getByTestId("snapshot")).toContainText("Hashes match", { timeout: 30_000 });
+  const telemetry = page.getByTestId("evidence-telemetry_snapshot");
+  await expect(telemetry.getByTestId("data-quality")).toContainText("readings checked as good");
+  await expect(page.getByRole("list", { name: "Turbine" })).toContainText(turbine);
+  await noSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath("evidence.png"), fullPage: true });
+  await page.getByRole("link", { name: "← The case" }).click();
 
   // Back on the list, the case is there, waiting for review.
   await page.getByRole("link", { name: "← Investigations" }).click();

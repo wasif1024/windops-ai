@@ -11,6 +11,7 @@ import { StatusBadge } from "../../fleet/Freshness";
 import { titleCase } from "../../fleet/format";
 import { CASE_STYLE, type Investigation, type InvestigationApi, investigationApi, SEVERITY_STYLE } from "../api";
 import { CasePage } from "./CasePage";
+import { EvidenceViewer } from "./EvidenceViewer";
 
 const SEVERITIES = ["low", "medium", "high", "critical"];
 
@@ -163,6 +164,16 @@ export function InvestigationScreen({ token, held }: { token: string; held: Read
   const api = useMemo(() => investigationApi(token), [token]);
   const [params] = useSearchParams();
   const caseId = params.get("case");
+  if (caseId && params.has("evidence")) {
+    return (
+      <EvidenceViewer
+        api={api}
+        caseId={caseId}
+        snapshotId={params.get("evidence") || null}
+        canFreeze={held.has("investigation.create")}
+      />
+    );
+  }
   if (caseId) return <CasePage api={api} caseId={caseId} canReview={held.has("finding.review")} />;
   return <InvestigationList api={api} token={token} canStart={held.has("investigation.create")} />;
 }

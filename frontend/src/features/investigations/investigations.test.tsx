@@ -3,7 +3,17 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MaintenanceApi, WorkOrder } from "../maintenance/api";
 import { CompleteWork, parseParts } from "../maintenance/pages/Completion";
-import { type CaseDetail, type FindingReview, type InvestigationApi, openConcerns, type Report } from "./api";
+import {
+  type CaseDetail,
+  citationsOf,
+  type EvidenceSnapshot,
+  type FindingReview,
+  type InvestigationApi,
+  openConcerns,
+  type Report,
+  sourceOf,
+} from "./api";
+import { EvidenceViewer } from "./pages/EvidenceViewer";
 import { CasePage, describe as describeEvent } from "./pages/CasePage";
 import { sectionsOf } from "./pages/Findings";
 import { follow, parseSse } from "./stream";
@@ -13,8 +23,8 @@ afterEach(cleanup);
 const REPORT: Report = {
   run_id: "run_1",
   report: {
-    observed_facts: [{ statement: "Oil at 85 °C", citations: ["evs_1"] }],
-    hypotheses: [{ statement: "A stuck thermostatic valve", support: ["evs_1"], confidence: 0.6 }],
+    observed_facts: [{ statement: "Oil at 85 °C", citations: ["tsnap_1"] }],
+    hypotheses: [{ statement: "A stuck thermostatic valve", support: ["tsnap_1", "kn:GBX-OIL-01@3#12"], confidence: 0.6 }],
     data_gaps: ["No oil sample"],
     recommended_actions: [{ action: "inspection", summary: "Inspect the valve" }],
     confidence: 0.6,
@@ -155,15 +165,63 @@ describe("findings and their reviews", () => {
   });
 });
 
-function fakeApi(): InvestigationApi & { reviewed: unknown[]; answered: unknown[] } {
+const SNAPSHOT: EvidenceSnapshot = {
+  snapshot_id: "evs_1",
+  case_id: "case_1",
+  version: 1,
+  turbine_id: "dogger-east-t01",
+  content_hash: "h".repeat(64),
+  hash_format: "windops-evidence-snapshot-v1",
+  created_at: "2026-11-26T07:00:00Z",
+  created_by: "service:investigation",
+  window_start: "2026-11-26T05:00:00Z",
+  window_end: "2026-11-26T07:00:00Z",
+  item_count: 2,
+  verified: true,
+  items: [
+    {
+      source_service: "telemetry",
+      record_type: "telemetry_snapshot",
+      record_id: "tsnap_1",
+      version: "c".repeat(64),
+      window_start: null,
+      window_end: null,
+      retrieved_at: null,
+      data_quality: { quality: { ok: 90, delayed: 10 }, gaps: 3, rejected: 1, samples: 100 },
+      content: { sample_count: 100 },
+      content_hash: "d".repeat(64),
+    },
+    {
+      source_service: "fault-detection",
+      record_type: "detection",
+      record_id: "det_1",
+      version: "1",
+      window_start: null,
+      window_end: null,
+      retrieved_at: null,
+      data_quality: {},
+      content: { rule_id: "gearbox-oil-critical", severity: "critical", amount: 85 },
+      content_hash: "e".repeat(64),
+    },
+  ],
+};
+
+function fakeApi(): InvestigationApi & { reviewed: unknown[]; answered: unknown[]; frozen: number } {
   const reviewed: unknown[] = [];
   const answered: unknown[] = [];
   const empty = new Response(new ReadableStream({ start: (c) => c.close() }), { status: 200 });
   vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(empty)));
-  return {
+  const api = {
     token: "token",
     reviewed,
     answered,
+    frozen: 0,
+    snapshots: () => Promise.resolve([SNAPSHOT]),
+    snapshot: () => Promise.resolve(SNAPSHOT),
+    freeze: () => {
+      api.frozen += 1;
+      return Promise.resolve({ ...SNAPSHOT, snapshot_id: "evs_2", version: 2 });
+    },
     list: () => Promise.resolve([DETAIL.investigation]),
     detail: () => Promise.resolve(DETAIL),
     report: () => Promise.resolve(REPORT),
@@ -177,6 +235,7 @@ function fakeApi(): InvestigationApi & { reviewed: unknown[]; answered: unknown[
       return Promise.resolve(DETAIL);
     },
   };
+  return api;
 }
 
 describe("the case page", () => {
@@ -247,5 +306,38 @@ describe("recording the work done", () => {
       actual_downtime_hours: 2,
     });
     expect(new Date(body.completed_at as string).getTime()).toBe(new Date("2026-01-01T10:00").getTime());
+  });
+});
+
+describe("the evidence viewer", () => {
+  it("shows each item with who cites it, the data quality, and citations beyond the snapshot", async () => {
+    const cited = citationsOf(REPORT.report);
+    expect(cited.get("tsnap_1")).toEqual(["observed_facts[0]", "hypotheses[0]"]);
+    expect(sourceOf("kn:GBX-OIL-01@3#12")).toBe("Knowledge library");
+    const api = fakeApi();
+    render(
+      <MemoryRouter>
+        <EvidenceViewer api={api} caseId="case_1" snapshotId="evs_1" canFreeze />
+      </MemoryRouter>,
+    );
+    await screen.findByText("Hashes match");
+    const telemetry = screen.getByTestId("evidence-telemetry_snapshot");
+    expect(telemetry.textContent).toContain("Cited by observed_facts[0], hypotheses[0]");
+    expect(screen.getByTestId("data-quality").textContent).toContain("90% of 100 readings checked as good");
+    expect(screen.getByTestId("data-quality").textContent).toContain("3 missing in gaps");
+    expect(screen.getByTestId("evidence-detection").textContent).toContain("Not cited by a finding");
+    expect(screen.getByTestId("other-citations").textContent).toContain("Knowledge library");
+    fireEvent.click(screen.getByRole("button", { name: "Freeze new evidence" }));
+    await waitFor(() => expect(api.frozen).toBe(1));
+  });
+
+  it("someone who may not freeze sees no button, and a closed case offers none", async () => {
+    render(
+      <MemoryRouter>
+        <EvidenceViewer api={fakeApi()} caseId="case_1" snapshotId={null} canFreeze={false} />
+      </MemoryRouter>,
+    );
+    await screen.findByText("Hashes match");
+    expect(screen.queryByRole("button", { name: "Freeze new evidence" })).toBeNull();
   });
 });
