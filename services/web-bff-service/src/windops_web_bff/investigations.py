@@ -165,6 +165,62 @@ class Report(BaseModel):
     reviews: list[FindingReview]
 
 
+class EvidenceItem(BaseModel):
+    # "asset", "telemetry", "alarm" or "fault-detection".
+    source_service: str
+    # "turbine", "telemetry_snapshot", "alarm", "detection" or "fault_rule_version".
+    record_type: str
+    record_id: str
+    version: str
+    window_start: str | None
+    window_end: str | None
+    retrieved_at: str | None
+    # For telemetry: each quality label's count, its gaps, rejections and samples.
+    data_quality: dict[str, Any]
+    # The record as it was frozen.
+    content: dict[str, Any]
+    content_hash: str
+
+
+class EvidenceSnapshot(BaseModel):
+    snapshot_id: str
+    case_id: str
+    version: int
+    turbine_id: str
+    content_hash: str
+    hash_format: str
+    created_at: str | None
+    created_by: str
+    window_start: str | None
+    window_end: str | None
+    item_count: int
+    # Only when one snapshot is read.
+    items: list[EvidenceItem]
+    # Every hash still matches what it holds: only when one snapshot is read.
+    verified: bool
+
+
+def _json(text: str) -> dict[str, Any]:
+    found = json.loads(text) if text else {}
+    return found if isinstance(found, dict) else {"value": found}
+
+
+def _snapshot(s: Any) -> EvidenceSnapshot:
+    return EvidenceSnapshot(
+        snapshot_id=s.snapshot_id, case_id=s.case_id, version=s.version, turbine_id=s.turbine_id,
+        content_hash=s.content_hash, hash_format=s.hash_format,
+        created_at=time_of(s, "created_at"), created_by=s.created_by,
+        window_start=time_of(s, "window_start"), window_end=time_of(s, "window_end"),
+        item_count=s.item_count, verified=s.verified,
+        items=[EvidenceItem(
+            source_service=i.source_service, record_type=i.record_type, record_id=i.record_id,
+            version=i.version, window_start=time_of(i, "window_start"),
+            window_end=time_of(i, "window_end"), retrieved_at=time_of(i, "retrieved_at"),
+            data_quality=_json(i.data_quality_json), content=_json(i.content_json),
+            content_hash=i.content_hash) for i in s.items],
+    )  # fmt: skip
+
+
 class ReviewIn(BaseModel):
     finding: str = Field(pattern=r"^[a-z_]{1,40}\[\d{1,4}\]$")
     action: str = Field(pattern=r"^(accept|reject|challenge|annotate)$")
@@ -294,6 +350,42 @@ def add_investigation_routes(
     async def detail(case_id: CaseId, who: Annotated[Caller, Depends(caller)]) -> CaseDetail:
         answer = await call_as("investigation", "GetCase", pb.GetCaseRequest(case_id=case_id), who)
         return _detail(answer)
+
+    @router.get(
+        "/investigations/{case_id}/evidence", response_model=list[EvidenceSnapshot],
+        summary="A case's evidence snapshots, newest version first, without their items",
+    )  # fmt: skip
+    async def snapshots(
+        case_id: CaseId, who: Annotated[Caller, Depends(caller)]
+    ) -> list[EvidenceSnapshot]:
+        request = pb.ListEvidenceSnapshotsRequest(case_id=case_id)
+        answer = await call_as("investigation", "ListEvidenceSnapshots", request, who)
+        return [_snapshot(s) for s in answer.snapshots]
+
+    @router.post(
+        "/investigations/{case_id}/evidence", response_model=EvidenceSnapshot, status_code=201,
+        summary="Freeze a new version of the case's evidence now, as the person: it re-evaluates "
+        "the case (EVD-008)",
+    )  # fmt: skip
+    async def freeze(
+        case_id: CaseId, key: Key, who: Annotated[Caller, Depends(caller)]
+    ) -> EvidenceSnapshot:
+        request = pb.CreateEvidenceSnapshotRequest(case_id=case_id, idempotency_key=key)
+        answer = await call_as("investigation", "CreateEvidenceSnapshot", request, who,
+                               retry=False)  # fmt: skip
+        return _snapshot(answer.snapshot)
+
+    @router.get(
+        "/evidence/{snapshot_id}", response_model=EvidenceSnapshot,
+        summary="One evidence snapshot with every item, and whether its hashes still match",
+    )  # fmt: skip
+    async def snapshot(
+        snapshot_id: Annotated[str, Path(pattern=ID_PATTERN)],
+        who: Annotated[Caller, Depends(caller)],
+    ) -> EvidenceSnapshot:
+        request = pb.GetEvidenceSnapshotRequest(snapshot_id=snapshot_id)
+        answer = await call_as("investigation", "GetEvidenceSnapshot", request, who)
+        return _snapshot(answer.snapshot)
 
     @router.get(
         "/investigations/{case_id}/report", response_model=Report,

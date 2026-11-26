@@ -143,6 +143,12 @@ The Investigation Service decides who may investigate a turbine and read a case
 | `GET /api/v1/investigations/{id}/report` | Its investigation's report (SRS 5.7), and every review of its findings |
 | `POST /api/v1/investigations/{id}/findings` | Accept, reject, challenge or annotate one finding, such as `hypotheses[0]`: `201`. It decides nothing (FR-INV-006) |
 | `POST /api/v1/investigations/{id}/verification` | Close a verified case, or reopen it with a reason, from `expected_version` |
+| `GET /api/v1/investigations/{id}/evidence` | The case's evidence snapshots, newest version first (M11.2) |
+| `POST /api/v1/investigations/{id}/evidence` | Freeze a new version now, as the person, which re-evaluates the case (EVD-008): `201` |
+| `GET /api/v1/evidence/{snapshot_id}` | One snapshot with every item, its data quality, and whether its hashes still match |
+
+Freezing reads and hashes up to a day of telemetry, so it alone may take up to 60 seconds, on a client of its own: its
+time never counts as slow against the Investigation Service's other calls.
 
 - **Events:** each has its sequence as its `id` and its kind as its name: `requested`, `started`, `step`,
   `run_ended` and `case_status`.

@@ -26,7 +26,14 @@ from windops_grpc import ServiceClient, create_channel, outgoing_metadata, run_s
 from windops_observability import breaker_state_metrics
 from windops_resilience import BreakerConfig, CircuitBreaker
 
-from windops_web_bff.api import DEADLINE_SECONDS, EXCEPTION_HANDLERS, Dependencies, create_router
+from windops_web_bff.api import (
+    DEADLINE_SECONDS,
+    EXCEPTION_HANDLERS,
+    LONG_CALLS,
+    LONG_CALLS_SECONDS,
+    Dependencies,
+    create_router,
+)
 from windops_web_bff.limits import RateLimiter
 from windops_web_bff.security_metrics import SecurityCounters
 from windops_web_bff.tokens import TokenSettings, TokenVerifier
@@ -96,25 +103,29 @@ def main() -> None:
         ),
     }
 
-    def client_for(service: str) -> tuple[Any, ServiceClient]:
+    def client_for(service: str, long: bool = False) -> tuple[Any, ServiceClient]:
+        """A service's client. A long call has one of its own, so its time never counts as
+        slow against the service's ordinary calls."""
         # The channel must be made on the running event loop.
-        if service not in clients:
+        name = f"{service}-long" if long else service
+        if name not in clients:
             stub_type, address = stubs[service]
             channel = create_channel(os.environ[address], tls)
             breaker = CircuitBreaker(
-                service,
-                BreakerConfig(slow_call_seconds=1.0),
+                name,
+                BreakerConfig(slow_call_seconds=LONG_CALLS_SECONDS if long else 1.0),
                 on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
             )
-            clients[service] = (
+            clients[name] = (
                 stub_type(channel),
                 ServiceClient(breaker, identity_token=_outgoing.get),
             )
-        return clients[service]
+        return clients[name]
 
     def caller_for(service: str) -> Callable[[str, Any, str], Awaitable[Any]]:
         async def call(method: str, request: Any, identity: str, *, retry: bool = True) -> Any:
-            stub, client = client_for(service)
+            long = method in LONG_CALLS
+            stub, client = client_for(service, long)
             reset = _outgoing.set(identity)
             target = getattr(stub, method)
             if method.startswith("Stream"):
@@ -125,7 +136,7 @@ def main() -> None:
                     request,
                     # A change is never retried here. The browser resends it with the same key.
                     idempotent=retry,
-                    deadline_seconds=DEADLINE_SECONDS,
+                    deadline_seconds=LONG_CALLS_SECONDS if long else DEADLINE_SECONDS,
                 )
             finally:
                 _outgoing.reset(reset)

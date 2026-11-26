@@ -41,6 +41,10 @@ PREFIX = "/api/v1"
 SERVICE_SUBJECT = "svc-web-bff"
 IDENTITY_SECONDS = 60
 DEADLINE_SECONDS = 5.0
+# Calls that may rightly take longer: freezing a case's evidence reads and hashes up to a day of
+# telemetry, as the person (EVD-003).
+LONG_CALLS = frozenset({"CreateEvidenceSnapshot"})
+LONG_CALLS_SECONDS = 60.0
 _TENANT = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 
 

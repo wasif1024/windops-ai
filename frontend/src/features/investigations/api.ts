@@ -127,6 +127,38 @@ export interface Report {
   reviews: FindingReview[];
 }
 
+export interface EvidenceItem {
+  /** "asset", "telemetry", "alarm" or "fault-detection". */
+  source_service: string;
+  /** "turbine", "telemetry_snapshot", "alarm", "detection" or "fault_rule_version". */
+  record_type: string;
+  record_id: string;
+  version: string;
+  window_start: string | null;
+  window_end: string | null;
+  retrieved_at: string | null;
+  /** For telemetry: each quality label's count, its gaps, rejections and samples. */
+  data_quality: { quality?: Record<string, number>; gaps?: number; rejected?: number; samples?: number };
+  content: Record<string, unknown>;
+  content_hash: string;
+}
+
+export interface EvidenceSnapshot {
+  snapshot_id: string;
+  case_id: string;
+  version: number;
+  turbine_id: string;
+  content_hash: string;
+  hash_format: string;
+  created_at: string | null;
+  created_by: string;
+  window_start: string | null;
+  window_end: string | null;
+  item_count: number;
+  items: EvidenceItem[];
+  verified: boolean;
+}
+
 export interface ProgressEvent {
   sequence: number;
   at: string | null;
@@ -146,6 +178,9 @@ export function investigationApi(token: string) {
     list: (every: boolean) => getJson<Investigation[]>(`/investigations${every ? "?all=true" : ""}`, token),
     detail: (id: string) => getJson<CaseDetail>(`${one(id)}/detail`, token),
     report: (id: string) => getJson<Report>(`${one(id)}/report`, token),
+    snapshots: (id: string) => getJson<EvidenceSnapshot[]>(`${one(id)}/evidence`, token),
+    snapshot: (snapshotId: string) => getJson<EvidenceSnapshot>(`/evidence/${encodeURIComponent(snapshotId)}`, token),
+    freeze: (id: string, key: string) => sendJson<EvidenceSnapshot>("POST", `${one(id)}/evidence`, token, key),
     start: (key: string, turbineId: string, title: string, severity: string) =>
       sendJson<Investigation>("POST", "/investigations", token, key, { turbine_id: turbineId, title, severity }),
     review: (id: string, key: string, finding: string, action: ReviewAction, note: string) =>
@@ -190,6 +225,35 @@ export const REVIEW_STYLE: Record<ReviewAction, string> = {
 export function reviewsOf(reviews: FindingReview[], finding: string): { all: FindingReview[]; latest: FindingReview | undefined } {
   const all = reviews.filter((review) => review.finding === finding);
   return { all, latest: all.at(-1) };
+}
+
+/** Every reference the report cites, with the findings that cite it (FR-INV-004). */
+export function citationsOf(report: ReportBody | null): Map<string, string[]> {
+  const cited = new Map<string, string[]>();
+  const add = (reference: string, finding: string) => cited.set(reference, [...(cited.get(reference) ?? []), finding]);
+  if (!report) return cited;
+  (report.observed_facts ?? []).forEach((fact, i) => fact.citations?.forEach((r) => add(r, `observed_facts[${i}]`)));
+  (report.hypotheses ?? []).forEach((h, i) => {
+    h.support?.forEach((r) => add(r, `hypotheses[${i}]`));
+    h.against?.forEach((r) => add(r, `hypotheses[${i}] (against)`));
+  });
+  (report.conflicting_evidence ?? []).forEach((c, i) => c.citations?.forEach((r) => add(r, `conflicting_evidence[${i}]`)));
+  for (const reference of (report as { evidence_references?: string[] }).evidence_references ?? []) {
+    if (!cited.has(reference)) cited.set(reference, []);
+  }
+  return cited;
+}
+
+/** Where a reference the snapshot does not hold comes from, by its form. */
+export function sourceOf(reference: string): string {
+  if (reference.startsWith("kn:")) return "Knowledge library";
+  if (/^https?:\/\//.test(reference)) return "External source";
+  if (reference.startsWith("pol_")) return "Policy result";
+  if (reference.startsWith("imp_")) return "Impact estimate";
+  if (reference.startsWith("fct_")) return "Weather forecast";
+  if (reference.startsWith("evs_")) return "Evidence snapshot";
+  if (reference.startsWith("case_")) return "Case";
+  return "Other record";
 }
 
 /** Findings whose latest review is a challenge or a rejection: what an approver must know. */

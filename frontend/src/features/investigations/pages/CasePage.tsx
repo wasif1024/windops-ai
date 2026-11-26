@@ -286,6 +286,14 @@ export function CasePage({
                         {data.detections.map((d) => `${d.rule_id} (${d.severity})`).join(", ") || "None: opened by a person"}
                       </dd>
                     </dl>
+                    {data.evidence_snapshot_id && (
+                      <Link
+                        to={`?case=${encodeURIComponent(c.case_id)}&evidence=${encodeURIComponent(data.evidence_snapshot_id)}`}
+                        className="mt-3 inline-block text-sm text-brand-primary hover:underline"
+                      >
+                        Open the evidence
+                      </Link>
+                    )}
                   </Panel>
                   <Panel title="Timeline">
                     <Timeline history={data.history} />
