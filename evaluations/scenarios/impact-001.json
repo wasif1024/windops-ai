@@ -1,11 +1,11 @@
 {
   "case_id": "impact-001",
-  "dataset_version": "1.0",
+  "dataset_version": "1.1",
   "family": "production_impact",
   "split": "train",
   "scenario": "The cost of repairing the gearbox, in lost energy",
   "input_fixture": "simulator:gearbox-temp-001",
-  "simulator_seed": 1001,
+  "simulator_seed": 1101,
   "ground_truth": "gearbox_oil_overheating",
   "recorded_external_sources": null,
   "case": {

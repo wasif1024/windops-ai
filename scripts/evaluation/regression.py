@@ -38,7 +38,6 @@ removed at the end.
 import argparse
 import dataclasses
 import json
-import os
 import secrets
 import ssl
 import subprocess
@@ -48,7 +47,6 @@ from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import certifi
 import grpc
 import httpx
 from windops.asset.v1 import asset_pb2, asset_pb2_grpc
@@ -65,9 +63,10 @@ from scripts.checks.fleet.fault_case import clean_up
 from scripts.checks.fleet.fault_stream import send
 from scripts.checks.identity.identity import Realm
 from scripts.evaluation.evaluators import Observed, Score, ToolCall, evaluate, gate
-from scripts.evaluation.scenarios import Scenario, dataset
+from scripts.evaluation.pipeline import check_lock
+from scripts.evaluation.pipeline import to_langsmith as sync_dataset
+from scripts.evaluation.scenarios import Replay, Scenario, dataset
 from scripts.evaluation.service import Evaluations, Job, evaluations, mode_now
-from scripts.lib import settings
 from scripts.lib.settings import KUBE_CONTEXT
 from scripts.lib.tls_client import authority_file, blocking_channel, client_bundle
 from scripts.setup.gateway_routes import port_forward
@@ -80,7 +79,6 @@ ASSET_HOST = "windops-asset.windops-application.svc.cluster.local"
 REPLAY = timedelta(minutes=60)
 # How long one investigation may take, rehearsed or on Claude.
 INVESTIGATION_SECONDS = 1200
-DATASET_NAME = "windops-first-regression"
 
 
 def info(message: str) -> None:
@@ -116,9 +114,11 @@ def hold_detector(turbine: str) -> None:
     ))  # fmt: skip
 
 
-def deliveries(simulator_id: str, turbine: str, end: datetime) -> list[Any]:
-    """The scenario's last hour on this turbine, ending now, as its device would send it."""
-    base = SCENARIOS[simulator_id]
+def deliveries(replayed: Replay, turbine: str, end: datetime) -> list[Any]:
+    """The scenario's last hour on this turbine, ending now, as its device would send it, with the
+    scenario's own seed: a variant's noise and link trouble are its own (M12.2)."""
+    simulator_id, seed = replayed
+    base = dataclasses.replace(SCENARIOS[simulator_id], seed=seed)
     start = end - base.duration
     spec = dataclasses.replace(base.turbines[0], tenant_id=TENANT, wind_farm_id=FARM,
                                turbine_id=turbine)  # fmt: skip
@@ -129,19 +129,20 @@ def deliveries(simulator_id: str, turbine: str, end: datetime) -> list[Any]:
     return [d.payload for d in sent if d.sent_at >= cutoff]
 
 
-def replay(assets: Caller, simulator_id: str) -> str:
+def replay(assets: Caller, replayed: Replay) -> str:
+    simulator_id, seed = replayed
     base = SCENARIOS[simulator_id]
     turbine = f"{PREFIX}{simulator_id}-{secrets.token_hex(2)}"
     make_turbine(assets, turbine, base.turbines[0])
     hold_detector(turbine)
-    items = deliveries(simulator_id, turbine, datetime.now(UTC).replace(microsecond=0))
+    items = deliveries(replayed, turbine, datetime.now(UTC).replace(microsecond=0))
     token = device_token(TENANT, turbine)
     context = ssl.create_default_context(cafile=authority_file())
     with port_forward(GATEWAY, NAMESPACE, 443) as port, httpx.Client(verify=context) as client:
         url = f"https://localhost:{port}/ingest/v1/samples"
         for first in range(0, len(items), 600):
             send(client, url, token, items[first : first + 600])
-    info(f"replayed {simulator_id}'s last hour on {turbine}: {len(items)} deliveries")
+    info(f"replayed {simulator_id}'s last hour, seed {seed}, on {turbine}: {len(items)} deliveries")
     return turbine
 
 
@@ -257,14 +258,14 @@ def run_set(
     rehearsed: set[str] = set()
     key, bundle = signing_key(), client_bundle()
     bootstrap(TENANT, ADMIN, "tenant-administrator")
-    turbines: dict[str, str] = {}
+    turbines: dict[Replay, str] = {}
     with (
         port_forward("deployment/windops-asset", "windops-application", 50051) as port,
         blocking_channel(port, ASSET_HOST, bundle) as channel,
     ):
         assets = Caller(asset_pb2_grpc.AssetServiceStub(channel), key)
-        for simulator_id in dict.fromkeys(by_id[i].simulator_scenario for i, _ in planned):
-            turbines[simulator_id] = replay(assets, simulator_id)
+        for replayed in dict.fromkeys(by_id[i].replay for i, _ in planned):
+            turbines[replayed] = replay(assets, replayed)
     outcomes: list[Outcome] = []
     for scenario_id, attempt in planned:
         scenario = by_id[scenario_id]
@@ -274,8 +275,7 @@ def run_set(
         if job is not None:
             job.renew()
         try:
-            case_id = investigate(operator, scenario, turbines[scenario.simulator_scenario],
-                                  attempt)  # fmt: skip
+            case_id = investigate(operator, scenario, turbines[scenario.replay], attempt)
             cases.opened.append(case_id)
             observed = observe(scenario, operator, case_id, follow(operator, case_id))
         except (RuntimeError, httpx.HTTPError, KeyError, ValueError) as error:
@@ -355,41 +355,12 @@ def versions() -> dict[str, Any]:
 def to_langsmith(header: dict[str, str], scenarios: Sequence[Scenario],
                  outcomes: Sequence[Outcome]) -> None:  # fmt: skip
     """Keep the dataset in LangSmith, and the scores as an experiment on it (EVL-005)."""
-    from langsmith import Client, evaluate
+    from langsmith import evaluate
 
-    values = settings.load()
-    if not values.get("LANGSMITH_API_KEY"):
-        info("no LANGSMITH_API_KEY: the dataset and scores stay local")
+    synced = sync_dataset(header, scenarios)
+    if synced is None:
         return
-    os.environ.setdefault("SSL_CERT_FILE", certifi.where())
-    client = Client(api_key=values["LANGSMITH_API_KEY"])
-    if client.has_dataset(dataset_name=DATASET_NAME):
-        found = client.read_dataset(dataset_name=DATASET_NAME)
-    else:
-        found = client.create_dataset(DATASET_NAME, description=header["description"],
-                                      metadata={"version": header["version"]})  # fmt: skip
-    existing = {str(e.metadata.get("scenario_id")): e
-                for e in client.list_examples(dataset_id=found.id) if e.metadata}  # fmt: skip
-    for s in scenarios:
-        inputs = {"title": s.case.title, "severity": s.case.severity, "replay": s.input_fixture}
-        # The ground truth stays out of the inputs: the agents never see it (SIM-005).
-        outputs = {
-            "ground_truth": s.ground_truth,
-            "expected_behavior": s.expected_behavior,
-            "prohibited_behavior": s.prohibited_behavior,
-            "expected_outcome": s.expected_outcome,
-            "expect": s.expect.model_dump(),
-        }
-        metadata = {"scenario_id": s.case_id, "family": s.family,
-                    "dataset_version": s.dataset_version}  # fmt: skip
-        if s.case_id in existing:
-            client.update_example(existing[s.case_id].id, inputs=inputs, outputs=outputs,
-                                  metadata=metadata, split=s.split)  # fmt: skip
-        else:
-            client.create_examples(dataset_id=found.id, examples=[
-                {"inputs": inputs, "outputs": outputs, "metadata": metadata, "split": s.split}
-            ])  # fmt: skip
-    info(f"synchronized {len(scenarios)} scenarios to LangSmith's {DATASET_NAME}")
+    client, found = synced
     if not outcomes:
         return
     by_id: dict[str, list[Outcome]] = {}
@@ -444,6 +415,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                         help="make the job the benchmark, if it passes")  # fmt: skip
     arguments = parser.parse_args(argv)
     header, scenarios = dataset()
+    try:
+        # A version is run only as locked, so its results name what they scored (EVL-005).
+        check_lock()
+    except ValueError as error:
+        print(f"{type(error).__name__}: {error}", file=sys.stderr)
+        return 2
     chosen = scenarios
     if arguments.scenario:
         unknown = set(arguments.scenario) - {s.case_id for s in scenarios}

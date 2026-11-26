@@ -1,11 +1,11 @@
 {
   "case_id": "grounding-001",
-  "dataset_version": "1.0",
+  "dataset_version": "1.1",
   "family": "rag_grounding",
   "split": "train",
   "scenario": "Grounding in the approved procedure",
   "input_fixture": "simulator:bearing-wear-001",
-  "simulator_seed": 1002,
+  "simulator_seed": 1102,
   "ground_truth": "bearing_wear",
   "recorded_external_sources": null,
   "case": {
