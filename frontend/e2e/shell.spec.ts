@@ -2,6 +2,7 @@
 // at desktop size and once at phone size (UX-001).
 import { expect, type Page, test } from "@playwright/test";
 import { signIn } from "./helpers";
+import { covers, expectMenu } from "./coverage";
 
 const email = process.env.OPERATOR_EMAIL ?? "";
 const password = process.env.OPERATOR_PASSWORD ?? "";
@@ -29,7 +30,7 @@ async function screensMenu(page: Page, isMobile: boolean) {
   return page.getByRole("navigation", { name: "Screens" });
 }
 
-test("a control room operator signs in to a branded, role-aware shell", async ({ page, request, isMobile }) => {
+test("a control room operator signs in to a branded, role-aware shell", covers("control-room-operator", "notification-center"), async ({ page, request, isMobile }) => {
   const document = await page.goto(`/?tenant=${tenant}`);
   const headers = document?.headers() ?? {};
   expect(headers["content-security-policy"]).toContain("default-src 'self'");
@@ -44,6 +45,7 @@ test("a control room operator signs in to a branded, role-aware shell", async ({
   await noSidewaysScroll(page);
 
   await signIn(page, email, password);
+  await expectMenu(page, isMobile, "control-room-operator");
 
   await expect(page.getByTestId("tenant-name")).toHaveText(publicBranding.display_name);
   if (!isMobile) await expect(page.getByTestId("user-email")).toHaveText(email);

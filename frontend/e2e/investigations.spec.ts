@@ -5,6 +5,7 @@
 // hashes checked again. The run is rehearsed, at no cost. Nothing may scroll sideways (UX-001).
 import { expect, test } from "@playwright/test";
 import { noSidewaysScroll, openScreen, signIn } from "./helpers";
+import { covers, expectMenu } from "./coverage";
 
 const tenant = process.env.TENANT ?? "north-sea";
 const password = process.env.PLANNER_PASSWORD ?? "";
@@ -14,12 +15,20 @@ function setting(name: string): string {
   return process.env[`${name}_${test.info().project.name.toUpperCase()}`] ?? "";
 }
 
-test("an engineer investigates a turbine, follows it live, and challenges a finding", async ({ page, isMobile }) => {
+test("an engineer investigates a turbine, follows it live, and challenges a finding", covers(
+  "reliability-engineer",
+  "investigation-list",
+  "investigation-timeline",
+  "live-progress",
+  "findings",
+  "evidence-viewer",
+), async ({ page, isMobile }) => {
   test.setTimeout(240_000);
   const [email, title] = [setting("ENGINEER_EMAIL"), setting("INVESTIGATION_TITLE")];
   expect(email && password && title && turbine, "make frontend-check passes the engineer and title").toBeTruthy();
   await page.goto(`/?tenant=${tenant}`);
   await signIn(page, email, password);
+  await expectMenu(page, isMobile, "reliability-engineer");
 
   await openScreen(page, isMobile, "Investigations");
   await expect(page.getByRole("heading", { name: "Investigations", level: 2 })).toBeVisible();
@@ -45,6 +54,8 @@ test("an engineer investigates a turbine, follows it live, and challenges a find
   await finding.getByRole("button", { name: "Challenge" }).click();
   await expect(finding.getByRole("list", { name: "Reviews" })).toContainText("Challenge", { timeout: 30_000 });
   await expect(finding.getByRole("list", { name: "Reviews" })).toContainText("The site replaced this part last month.");
+  // The case's timeline: its history, from opening on.
+  await expect(page.getByRole("list", { name: "Timeline" }).getByRole("listitem").first()).toBeVisible();
   await noSidewaysScroll(page);
   await page.screenshot({ path: test.info().outputPath("investigation-findings.png"), fullPage: true });
 

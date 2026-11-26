@@ -91,6 +91,11 @@ MANAGERS = {project: f"manager-ui-{project}-{RUN}@windops-check.example" for pro
 # The Reliability Engineer each screen size investigates as (M11.1), and their case's title.
 ENGINEERS = {project: f"engineer-ui-{project}-{RUN}@windops-check.example" for project in PROJECTS}
 INVESTIGATIONS = {project: f"Investigation screen {project} {RUN}" for project in PROJECTS}
+# The roles no other journey signs in as (M11.8), each screen size's own.
+AUDITORS = {project: f"auditor-ui-{project}-{RUN}@windops-check.example" for project in PROJECTS}
+OPERATIONS_MANAGERS = {
+    project: f"operations-ui-{project}-{RUN}@windops-check.example" for project in PROJECTS
+}
 # The document each screen size's administrator uploads to the knowledge library (M11.5).
 KNOWLEDGE_DOCUMENTS = {project: f"UI-CHK-{project.upper()}-{RUN.upper()}" for project in PROJECTS}
 # The alarm each screen size acknowledges. The alarm check's clean-up removes these too.
@@ -140,10 +145,15 @@ def prepare_admins(api: httpx.Client, password: str) -> None:
         user_id = ensure_user(api, email, password, new_password=True)
         ensure_member(api, organization, user_id)
         bootstrap(TENANT, user_id, "maintenance-manager")
-    for email in ENGINEERS.values():
-        user_id = ensure_user(api, email, password, new_password=True)
-        ensure_member(api, organization, user_id)
-        bootstrap(TENANT, user_id, "reliability-engineer")
+    for emails, role in (
+        (ENGINEERS, "reliability-engineer"),
+        (AUDITORS, "auditor"),
+        (OPERATIONS_MANAGERS, "operations-manager"),
+    ):
+        for email in emails.values():
+            user_id = ensure_user(api, email, password, new_password=True)
+            ensure_member(api, organization, user_id)
+            bootstrap(TENANT, user_id, role)
 
 
 def enroll_admins(password: str) -> tuple[dict[str, str], str]:
@@ -235,6 +245,8 @@ def run_browser(
             env[f"ENGINEER_EMAIL_{upper}"] = ENGINEERS[project]
             env[f"INVESTIGATION_TITLE_{upper}"] = INVESTIGATIONS[project]
             env[f"KNOWLEDGE_DOCUMENT_{upper}"] = KNOWLEDGE_DOCUMENTS[project]
+            env[f"AUDITOR_EMAIL_{upper}"] = AUDITORS[project]
+            env[f"OPERATIONS_MANAGER_EMAIL_{upper}"] = OPERATIONS_MANAGERS[project]
         result = subprocess.run(["npx", "playwright", "test"], cwd=FRONTEND, env=env, check=False)
     return result.returncode
 
@@ -268,6 +280,8 @@ def main() -> int:
                         *PLANNERS.values(),
                         *MANAGERS.values(),
                         *ENGINEERS.values(),
+                        *AUDITORS.values(),
+                        *OPERATIONS_MANAGERS.values(),
                     ):
                         delete_user(api, email)
     except (RuntimeError, OSError, httpx.HTTPError, subprocess.CalledProcessError) as error:

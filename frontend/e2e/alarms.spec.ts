@@ -4,16 +4,18 @@
 // sideways (UX-001).
 import { expect, test } from "@playwright/test";
 import { noSidewaysScroll, openScreen, signIn } from "./helpers";
+import { covers, expectMenu } from "./coverage";
 
 const email = process.env.OPERATOR_EMAIL ?? "";
 const password = process.env.OPERATOR_PASSWORD ?? "";
 const tenant = process.env.TENANT ?? "north-sea";
 
-test("an operator finds a new alarm, acknowledges it, and sees it in its history", async ({ page, isMobile }) => {
+test("an operator finds a new alarm, acknowledges it, and sees it in its history", covers("control-room-operator", "alarm-console"), async ({ page, isMobile }) => {
   const tag = process.env[`ALARM_TAG_${test.info().project.name.toUpperCase()}`] ?? "";
   expect(email && password && tag, "make frontend-check passes the operator and the alarm").toBeTruthy();
   await page.goto(`/?tenant=${tenant}`);
   await signIn(page, email, password);
+  await expectMenu(page, isMobile, "control-room-operator");
 
   await openScreen(page, isMobile, "Alarm console");
   const list = page.getByRole("list", { name: "Alarms" });

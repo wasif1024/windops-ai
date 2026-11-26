@@ -2,6 +2,7 @@
 // runs once at desktop size and once at phone size, and nothing may scroll sideways (UX-001).
 import { expect, type Page, test } from "@playwright/test";
 import { signIn } from "./helpers";
+import { covers, expectMenu } from "./coverage";
 
 const email = process.env.OPERATOR_EMAIL ?? "";
 const password = process.env.OPERATOR_PASSWORD ?? "";
@@ -22,9 +23,10 @@ async function openScreen(page: Page, name: string, isMobile: boolean) {
   await menu.getByRole("link", { name }).click();
 }
 
-test("an operator watches the fleet, a turbine's readings and its live charts", async ({ page, isMobile }) => {
+test("an operator watches the fleet, a turbine's readings and its live charts", covers("control-room-operator", "fleet-overview", "turbine-detail", "telemetry-charts"), async ({ page, isMobile }) => {
   await page.goto(`/?tenant=${tenant}`);
   await signIn(page, email, password);
+  await expectMenu(page, isMobile, "control-room-operator");
 
   await openScreen(page, "Fleet overview", isMobile);
   await expect(page.getByRole("heading", { name: "Fleet overview" })).toBeVisible();

@@ -5,6 +5,7 @@
 // it. Nothing may scroll sideways (UX-001).
 import { expect, test } from "@playwright/test";
 import { noSidewaysScroll, openScreen, signIn } from "./helpers";
+import { covers, expectMenu } from "./coverage";
 
 const tenant = process.env.TENANT ?? "north-sea";
 const password = process.env.PLANNER_PASSWORD ?? "";
@@ -22,11 +23,12 @@ function daysFromNow(days: number, hour: number): string {
   return `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(hour)}:00`;
 }
 
-test("a planner finds a part, drafts a work order with it, and submits it", async ({ page, isMobile }) => {
+test("a planner finds a part, drafts a work order with it, and submits it", covers("maintenance-planner", "maintenance-planner", "parts-lookup"), async ({ page, isMobile }) => {
   const [email, part, caseTitle] = [setting("PLANNER_EMAIL"), setting("PLANNER_PART"), setting("PLANNER_CASE")];
   expect(email && password && part && caseTitle, "make frontend-check passes the planner, part and case").toBeTruthy();
   await page.goto(`/?tenant=${tenant}`);
   await signIn(page, email, password);
+  await expectMenu(page, isMobile, "maintenance-planner");
 
   // Parts lookup: the parts that fit the turbine, with its store's stock.
   await openScreen(page, isMobile, "Parts lookup");

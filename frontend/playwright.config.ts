@@ -11,7 +11,9 @@ export default defineConfig({
   // One at a time: the gateway allows 5 sign-ins a minute from one address (SRS 7.5), and this
   // stays within it.
   workers: 1,
-  reporter: [["list"]],
+  // The JSON report is what the Phase 11 gate reads: which journeys passed, as which role, on which
+  // screens (e2e/coverage.ts).
+  reporter: [["list"], ["json", { outputFile: "playwright-report/results.json" }]],
   use: {
     baseURL: process.env.BASE_URL ?? "https://localhost:9443",
     // Trust exactly the gateway's key, which make frontend-check reads from the cluster. Any other

@@ -1,0 +1,82 @@
+{
+  "platform-administrator": [
+    "Audit explorer",
+    "Notifications",
+    "Platform",
+    "Administration"
+  ],
+  "tenant-administrator": [
+    "Fleet overview",
+    "Knowledge library",
+    "Audit explorer",
+    "Notifications",
+    "Administration"
+  ],
+  "operations-manager": [
+    "Fleet overview",
+    "Telemetry",
+    "Alarm console",
+    "Investigations",
+    "Production impact",
+    "Weather and sources",
+    "Knowledge library",
+    "Parts lookup",
+    "Notifications"
+  ],
+  "control-room-operator": [
+    "Fleet overview",
+    "Telemetry",
+    "Alarm console",
+    "Investigations",
+    "Production impact",
+    "Weather and sources",
+    "Knowledge library",
+    "Notifications"
+  ],
+  "reliability-engineer": [
+    "Fleet overview",
+    "Telemetry",
+    "Alarm console",
+    "Investigations",
+    "Production impact",
+    "Weather and sources",
+    "Knowledge library",
+    "Parts lookup",
+    "Notifications"
+  ],
+  "maintenance-planner": [
+    "Fleet overview",
+    "Telemetry",
+    "Alarm console",
+    "Investigations",
+    "Production impact",
+    "Weather and sources",
+    "Knowledge library",
+    "Maintenance planner",
+    "Parts lookup",
+    "Notifications"
+  ],
+  "maintenance-manager": [
+    "Fleet overview",
+    "Telemetry",
+    "Alarm console",
+    "Investigations",
+    "Production impact",
+    "Weather and sources",
+    "Knowledge library",
+    "Parts lookup",
+    "Approval queue",
+    "Notifications"
+  ],
+  "auditor": [
+    "Fleet overview",
+    "Telemetry",
+    "Alarm console",
+    "Investigations",
+    "Production impact",
+    "Knowledge library",
+    "Parts lookup",
+    "Audit explorer",
+    "Notifications"
+  ]
+}
