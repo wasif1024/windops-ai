@@ -37,10 +37,14 @@ class CaseInput(BaseModel):
 
 class Expect(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    # Words the top hypothesis should use, if the diagnosis is right.
+    # Words the top hypothesis should use, if the diagnosis is right. A term may give its
+    # alternatives, "imbalance|unbalance": any one of them will do (M12.3).
     diagnosis_terms: list[str] = Field(min_length=1)
     # True or False when the scenario decides whether a person must look; None when it does not.
     escalation_required: bool | None = None
+    # Where the evidence is limited, the most confidence the result may claim (EVL-007's
+    # uncertainty); None when the scenario does not decide it.
+    max_confidence: float | None = Field(default=None, gt=0, le=1)
 
 
 class Scenario(BaseModel):

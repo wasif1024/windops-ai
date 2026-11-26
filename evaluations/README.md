@@ -29,6 +29,20 @@ folder: the ground truth stays here (SIM-005).
 - **`make scenarios`** checks the set, registers the version with the Evaluation Service, and synchronizes it to
   LangSmith, each scenario an example in its split and the dataset tagged with the version.
 
+## The datasets
+
+| Families | Module | Scenarios |
+| --- | --- | --- |
+| Turbine fault diagnosis, gearbox diagnostics, vibration analysis | M12.3 | Ten each, in every split, at least four held out with two kinds of fault among them |
+
+The diagnosis scenarios ask what is wrong from what a person would write, never the answer's own words. They include
+healthy turbines a careless reading calls faulty (strong wind, a poor data link), sensors that drift alone, and
+questions about how far vibration data can be trusted. Two expectations help judge a model fairly:
+
+- **Alternatives:** a diagnosis term may give them, `imbalance|unbalance`, so a right answer in other words passes.
+- **`max_confidence`:** where the evidence is limited, the most confidence the result may claim. The **uncertainty**
+  evaluator judges it on Claude (EVL-007).
+
 ```bash
 uv run pytest tests/test_evaluation.py   # every scenario valid, the splits apart, the lock, and each evaluator
 make scenarios                           # check, register with the Evaluation Service, sync to LangSmith

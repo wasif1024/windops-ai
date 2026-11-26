@@ -93,6 +93,7 @@ def scores(o: ev.Observed, s: Scenario | None = None) -> dict[str, bool | None]:
 def test_a_good_run_on_claude_passes_every_evaluator() -> None:
     got = scores(observed())
     assert got.pop("escalation") is None, "this scenario does not decide escalation"
+    assert got.pop("uncertainty") is None, "nor does it limit confidence"
     assert all(got.values()), got
 
 
@@ -220,3 +221,49 @@ def test_a_changed_scenario_needs_a_new_version(tmp_path: Path) -> None:
         pipeline.check_lock(root=root)
     pipeline.lock(root=root)
     pipeline.check_lock(root=root)
+
+
+# --- the diagnosis datasets (M12.3)
+
+DIAGNOSIS = ("turbine_fault_diagnosis", "gearbox_diagnostics", "vibration_analysis")
+
+
+def test_each_diagnosis_family_has_ten_scenarios_in_every_split() -> None:
+    _, scenarios = dataset()
+    for family in DIAGNOSIS:
+        mine = [s for s in scenarios if s.family == family]
+        assert len(mine) >= 10, family
+        assert {s.split for s in mine} == {"train", "validation", "held_out"}, family
+        assert sum(s.split == "held_out" for s in mine) >= 4, family
+        # A family's held-out scenarios test more than one kind of fault.
+        assert len({s.ground_truth for s in mine if s.split == "held_out"}) >= 2, family
+
+
+def test_a_diagnosis_term_may_give_its_alternatives() -> None:
+    imbalance = scenario(expect={"diagnosis_terms": ["imbalance|unbalance"]})
+    said = result(
+        hypotheses=[
+            {
+                "statement": "Rotor unbalance from 1P vibration",
+                "support": ["item-1"],
+                "against": [],
+                "confidence": 0.8,
+            }
+        ]
+    )
+    assert scores(observed(result=said), imbalance)["diagnosis"] is True
+    wrong = result(
+        hypotheses=[
+            {"statement": "Bearing wear", "support": ["item-1"], "against": [], "confidence": 0.8}
+        ]
+    )
+    assert scores(observed(result=wrong), imbalance)["diagnosis"] is False
+
+
+def test_limited_evidence_caps_the_confidence_a_result_may_claim() -> None:
+    """EVL-007's uncertainty: judged only where the scenario decides it, and only on Claude."""
+    limited = scenario(expect={"diagnosis_terms": ["sensor"], "max_confidence": 0.85})
+    assert scores(observed(result=result(confidence=0.6)), limited)["uncertainty"] is True
+    assert scores(observed(result=result(confidence=0.95)), limited)["uncertainty"] is False
+    assert scores(observed(rehearsed=True), limited)["uncertainty"] is None
+    assert scores(observed())["uncertainty"] is None
