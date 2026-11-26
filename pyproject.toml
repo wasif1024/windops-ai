@@ -24,6 +24,7 @@ members = [
     "services/asset-service",
     "services/audit-service",
     "services/authorization-service",
+    "services/evaluation-service",
     "services/external-intelligence-service",
     "services/fault-detection-service",
     "services/identity-service",
@@ -98,6 +99,7 @@ windops-maintenance = { workspace = true }
 windops-inventory = { workspace = true }
 windops-approval = { workspace = true }
 windops-notification = { workspace = true }
+windops-evaluation = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -146,6 +148,8 @@ files = [
     "services/audit-service/tests",
     "services/authorization-service/src",
     "services/authorization-service/tests",
+    "services/evaluation-service/src",
+    "services/evaluation-service/tests",
     "services/external-intelligence-service/src",
     "services/external-intelligence-service/tests",
     "services/fault-detection-service/src",
@@ -232,6 +236,8 @@ mypy_path = [
     "services/audit-service/tests",
     "services/authorization-service/src",
     "services/authorization-service/tests",
+    "services/evaluation-service/src",
+    "services/evaluation-service/tests",
     "services/external-intelligence-service/src",
     "services/external-intelligence-service/tests",
     "services/fault-detection-service/src",
@@ -391,4 +397,5 @@ dev = [
     "windops-inventory",
     "windops-approval",
     "windops-notification",
+    "windops-evaluation",
 ]

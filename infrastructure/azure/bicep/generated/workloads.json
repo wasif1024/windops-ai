@@ -71,6 +71,14 @@
     "receives": []
   },
   {
+    "name": "windops-evaluation",
+    "namespace": "windops-application",
+    "events": true,
+    "database": true,
+    "keyVault": true,
+    "receives": []
+  },
+  {
     "name": "windops-external-intelligence",
     "namespace": "windops-application",
     "events": true,

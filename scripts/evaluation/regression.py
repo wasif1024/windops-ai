@@ -19,12 +19,20 @@ The deterministic evaluators score each run (EVL-003). Runs are made the way Inv
 - **On Claude:** each scenario's `runs_required` times (EVL-002), with diagnosis, escalation and
   expected tools judged too.
 
+**The Evaluation Service keeps the record and gives the verdict (M12.1).** The runner registers the
+dataset version, starts a job in that mode, leases it, and follows the plan the service made,
+reporting each attempt as it runs. An attempt that cannot run is reported as such. The service
+passes the job only when every planned attempt passed; anything missing leaves it incomplete,
+never passed (SRS 7.7). The job is then compared with its benchmark, and `--benchmark` makes a
+passed job the benchmark.
+
 With `LANGSMITH_API_KEY` in .env, the dataset is synchronized to LangSmith and the scores are kept
 there as an experiment, with the versions behind them (EVL-005). Everything the runner made is
 removed at the end.
 
     make regression                        # every scenario
     make regression SCENARIO=gearbox-temp-001
+    make regression BENCHMARK=1            # and make it the benchmark, if it passes
 """
 
 import argparse
@@ -58,6 +66,7 @@ from scripts.checks.fleet.fault_stream import send
 from scripts.checks.identity.identity import Realm
 from scripts.evaluation.evaluators import Observed, Score, ToolCall, evaluate, gate
 from scripts.evaluation.scenarios import Scenario, dataset
+from scripts.evaluation.service import Evaluations, Job, evaluations, mode_now
 from scripts.lib import settings
 from scripts.lib.settings import KUBE_CONTEXT
 from scripts.lib.tls_client import authority_file, blocking_channel, client_bundle
@@ -223,6 +232,7 @@ def observe(scenario: Scenario, operator: Operator, case_id: str, run_id: str) -
         result=json.loads(found["result_json"]) if found["result_json"] else None,
         tool_calls=tool_calls(run_id), seconds=float(found["seconds"] or 0),
         tokens=int(used["tokens"]), cost_usd=float(used["cost"]), reason=found["reason"],
+        case_id=case_id,
     )  # fmt: skip
 
 
@@ -233,7 +243,18 @@ class Outcome:
     scores: list[Score]
 
 
-def run_set(scenarios: Sequence[Scenario], operator: Operator, cases: Cases) -> list[Outcome]:
+def run_set(
+    scenarios: Sequence[Scenario], operator: Operator, cases: Cases, job: Job | None = None
+) -> list[Outcome]:
+    """Each attempt the job planned, in its order, reported as it finishes.
+
+    With no job, as the Phase 8 gate runs one scenario, each scenario runs its runs_required
+    times, or once when rehearsed, and an attempt that cannot run raises."""
+    by_id = {s.case_id: s for s in scenarios}
+    planned = job.planned() if job else [
+        (s.case_id, n) for s in scenarios for n in range(1, s.runs_required + 1)
+    ]  # fmt: skip
+    rehearsed: set[str] = set()
     key, bundle = signing_key(), client_bundle()
     bootstrap(TENANT, ADMIN, "tenant-administrator")
     turbines: dict[str, str] = {}
@@ -242,29 +263,68 @@ def run_set(scenarios: Sequence[Scenario], operator: Operator, cases: Cases) -> 
         blocking_channel(port, ASSET_HOST, bundle) as channel,
     ):
         assets = Caller(asset_pb2_grpc.AssetServiceStub(channel), key)
-        for simulator_id in dict.fromkeys(s.simulator_scenario for s in scenarios):
+        for simulator_id in dict.fromkeys(by_id[i].simulator_scenario for i, _ in planned):
             turbines[simulator_id] = replay(assets, simulator_id)
     outcomes: list[Outcome] = []
-    for scenario in scenarios:
-        attempt, runs = 0, 1
-        while attempt < runs:
-            attempt += 1
+    for scenario_id, attempt in planned:
+        scenario = by_id[scenario_id]
+        if job is None and scenario_id in rehearsed:
+            # A rehearsal's model is scripted, so a repeat would only repeat it (EVL-002).
+            continue
+        if job is not None:
+            job.renew()
+        try:
             case_id = investigate(operator, scenario, turbines[scenario.simulator_scenario],
                                   attempt)  # fmt: skip
             cases.opened.append(case_id)
             observed = observe(scenario, operator, case_id, follow(operator, case_id))
-            # A rehearsal's model is scripted, so a repeat would only repeat it (EVL-002).
-            runs = 1 if observed.rehearsed else scenario.runs_required
-            scores = evaluate(scenario, observed, AGENT_TOOLS)
-            outcomes.append(Outcome(scenario, observed, scores))
-            info(f"{scenario.case_id} run {attempt} of {runs}: "
-                 f"{'passed' if gate(scores) else 'FAILED'} in {observed.seconds:.0f}s, "
-                 f"{len(observed.tool_calls)} tool calls, ${observed.cost_usd:.4f}")  # fmt: skip
+        except (RuntimeError, httpx.HTTPError, KeyError, ValueError) as error:
+            if job is None:
+                raise
+            # Reported, so the job cannot pass without it (SRS 7.7).
+            job.could_not_run(scenario_id, attempt, f"{type(error).__name__}: {error}")
+            info(f"{scenario_id} run {attempt}: could not run: {error}")
+            continue
+        scores = evaluate(scenario, observed, AGENT_TOOLS)
+        outcomes.append(Outcome(scenario, observed, scores))
+        if observed.rehearsed:
+            rehearsed.add(scenario_id)
+        status = ("passed" if gate(scores) else "failed") if job is None else (
+            job.report(scenario_id, attempt, observed, scores, versions()).status
+        )  # fmt: skip
+        info(f"{scenario_id} run {attempt} of {len(planned)}: {status} in "
+             f"{observed.seconds:.0f}s, {len(observed.tool_calls)} tool calls, "
+             f"${observed.cost_usd:.4f}")  # fmt: skip
     return outcomes
 
 
-def report(outcomes: Sequence[Outcome]) -> bool:
-    """Print each run's scores. True when every run passed."""
+def verdict(api: Evaluations, job: Job, benchmark: bool) -> bool:
+    """The service's outcome, and the job against its benchmark. True when it passed."""
+    done = job.finish()
+    print(f"\nEvaluation {done.job_id} ({done.mode}, {done.dataset_name} "
+          f"{done.dataset_version}): {done.status}, {done.passed} of {done.planned} attempts "
+          f"passed, {done.failed} failed, {done.incomplete} incomplete")  # fmt: skip
+    for a in done.attempts:
+        if a.status not in ("passed", "planned"):
+            print(f"    {a.scenario_id} run {a.attempt}: {a.status}: {a.reason}")
+    compared = api.compare(done.job_id)
+    if compared.benchmark.job_id:
+        print(f"Against benchmark {compared.benchmark.job_id}: {compared.regressed} regressed, "
+              f"{compared.fixed} fixed, cost {compared.cost_usd_change:+.4f} USD")  # fmt: skip
+        for c in compared.scenarios:
+            if c.change in ("regressed", "fixed"):
+                print(f"    {c.scenario_id}: {c.change} ({c.benchmark_passed}/"
+                      f"{c.benchmark_planned} then, {c.passed}/{c.planned} now)")  # fmt: skip
+    else:
+        print("No benchmark yet for this dataset, splits and mode")
+    if benchmark and done.status == "passed":
+        made = api.benchmark(done.job_id)
+        print(f"Made {made.job_id} the benchmark for {made.dataset_name} ({made.mode})")
+    return bool(done.status == "passed")
+
+
+def report(outcomes: Sequence[Outcome]) -> None:
+    """Print each run's scores. The Evaluation Service gives the verdict."""
     keys = [s.key for s in outcomes[0].scores] if outcomes else []
     print("\n" + " | ".join(["scenario", *keys]))
     for o in outcomes:
@@ -274,9 +334,8 @@ def report(outcomes: Sequence[Outcome]) -> bool:
             if score.passed is False:
                 print(f"    {score.key}: {score.comment}")
     failed = [o.scenario.case_id for o in outcomes if not gate(o.scores)]
-    print(f"\n{len(outcomes) - len(failed)} of {len(outcomes)} runs passed"
+    print(f"\n{len(outcomes) - len(failed)} of {len(outcomes)} runs scored passed"
           + (f"; failed: {', '.join(failed)}" if failed else ""))  # fmt: skip
-    return not failed
 
 
 def versions() -> dict[str, Any]:
@@ -381,26 +440,38 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--scenario", action="append", default=[],
                         help="run only this scenario; may be given more than once")  # fmt: skip
     parser.add_argument("--no-langsmith", action="store_true", help="keep everything local")
+    parser.add_argument("--benchmark", action="store_true",
+                        help="make the job the benchmark, if it passes")  # fmt: skip
     arguments = parser.parse_args(argv)
     header, scenarios = dataset()
+    chosen = scenarios
     if arguments.scenario:
         unknown = set(arguments.scenario) - {s.case_id for s in scenarios}
         if unknown:
             print(f"No such scenarios: {sorted(unknown)}", file=sys.stderr)
             return 2
-        scenarios = [s for s in scenarios if s.case_id in arguments.scenario]
+        chosen = [s for s in scenarios if s.case_id in arguments.scenario]
     passed = False
     try:
         clean_up(TENANT, PREFIX, FARM)
         bootstrap(TENANT, ENGINEER, "reliability-engineer")
-        with keycloak_public() as public:
-            operator = Operator(Realm(public), TENANT)
-            cases = Cases(signing_key())
+        with evaluations() as api:
+            api.register(header, scenarios)
+            mode = mode_now()
+            job = api.start(header, mode, [s.case_id for s in chosen])
+            info(f"evaluation {job.job_id}, {mode}: {job.evaluation.planned} attempts planned")
             try:
-                outcomes = run_set(scenarios, operator, cases)
+                with keycloak_public() as public:
+                    operator = Operator(Realm(public), TENANT)
+                    cases = Cases(signing_key())
+                    try:
+                        outcomes = run_set(scenarios, operator, cases, job)
+                    finally:
+                        cases.close()
             finally:
-                cases.close()
-        passed = report(outcomes)
+                # Whatever happened, the service decides: what did not run is not passed.
+                passed = verdict(api, job, arguments.benchmark)
+        report(outcomes)
         if not arguments.no_langsmith:
             to_langsmith(header, scenarios, outcomes)
     except (

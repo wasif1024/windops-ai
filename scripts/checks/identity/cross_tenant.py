@@ -46,7 +46,7 @@ TENANT, OTHER = "north-sea", "atlas-wind"
 # Every service that stores data so far. A new one must be added here; a repository test holds
 # this to the services with migrations.
 DATABASES = (
-    "agent_runtime", "alarm", "approval", "asset", "audit", "authorization",
+    "agent_runtime", "alarm", "approval", "asset", "audit", "authorization", "evaluation",
     "external_intelligence", "fault_detection", "identity", "inventory", "investigation",
     "knowledge", "maintenance", "notification", "policy", "production_impact", "telemetry",
     "tenant", "weather",
