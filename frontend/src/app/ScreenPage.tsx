@@ -3,10 +3,12 @@ import { AdminPage } from "../features/admin/pages/AdminPage";
 import { AlarmScreen } from "../features/alarms/pages/AlarmScreen";
 import { ApprovalScreen } from "../features/approvals/pages/ApprovalScreen";
 import { FleetScreen, TelemetryScreen } from "../features/fleet/pages/FleetScreen";
+import { ImpactScreen } from "../features/impact/pages/ImpactScreen";
 import { InvestigationScreen } from "../features/investigations/pages/InvestigationScreen";
 import { MaintenanceScreen } from "../features/maintenance/pages/MaintenanceScreen";
 import { PartsScreen } from "../features/parts/pages/PartsScreen";
 import { PlatformPage } from "../features/platform/pages/PlatformPage";
+import { WeatherScreen } from "../features/weather/pages/WeatherScreen";
 import { screenById, type Screen } from "./navigation";
 
 /** A screen the user's roles include. Until its feature is built, it says which phase builds it. */
@@ -30,6 +32,8 @@ export function ScreenPage({ screens, token, held }: { screens: Screen[]; token:
   if (screen.id === "parts") return <PartsScreen token={token} />;
   if (screen.id === "approvals") return <ApprovalScreen token={token} held={held} />;
   if (screen.id === "investigations") return <InvestigationScreen token={token} held={held} />;
+  if (screen.id === "impact") return <ImpactScreen token={token} />;
+  if (screen.id === "weather") return <WeatherScreen token={token} />;
   return (
     <section>
       <h2 className="text-xl font-semibold">{screen.title}</h2>

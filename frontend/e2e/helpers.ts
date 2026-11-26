@@ -44,7 +44,8 @@ export async function submitToKeycloak(page: Page, fill: () => Promise<void>): P
       (response) => response.request().method() === "POST" && response.url().includes("/login-actions/"),
     );
     await page.locator("#kc-login").click();
-    if ((await answered).status() !== 429 || attempt === 2) return;
+    // Up to three refusals: the run signs in more than 5 times a minute in places (M11.3 added two).
+    if ((await answered).status() !== 429 || attempt === 4) return;
     await page.waitForTimeout(61_000);
     await page.goBack();
   }

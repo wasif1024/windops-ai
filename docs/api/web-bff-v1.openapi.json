@@ -1278,6 +1278,45 @@
         "title": "EmailTemplates",
         "type": "object"
       },
+      "EstimateIn": {
+        "properties": {
+          "action": {
+            "pattern": "^(inspection|repair|replacement|adjustment|monitoring)$",
+            "title": "Action",
+            "type": "string"
+          },
+          "case_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "downtime_hours": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 720.0,
+            "title": "Downtime Hours",
+            "type": "number"
+          },
+          "planned_start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Start"
+          }
+        },
+        "required": [
+          "case_id",
+          "action",
+          "downtime_hours"
+        ],
+        "title": "EstimateIn",
+        "type": "object"
+      },
       "EvidenceItem": {
         "properties": {
           "content": {
@@ -1456,6 +1495,39 @@
         "title": "EvidenceSnapshot",
         "type": "object"
       },
+      "Figure": {
+        "properties": {
+          "high": {
+            "title": "High",
+            "type": "number"
+          },
+          "low": {
+            "title": "Low",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "low",
+          "high",
+          "unit"
+        ],
+        "title": "Figure",
+        "type": "object"
+      },
       "FindingReview": {
         "properties": {
           "action": {
@@ -1527,6 +1599,306 @@
         "title": "Fleet",
         "type": "object"
       },
+      "Forecast": {
+        "properties": {
+          "age_seconds": {
+            "title": "Age Seconds",
+            "type": "integer"
+          },
+          "forecast_id": {
+            "title": "Forecast Id",
+            "type": "string"
+          },
+          "from_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Time"
+          },
+          "licence": {
+            "title": "Licence",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/ForecastPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "retrieved_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrieved At"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ForecastSummary"
+          },
+          "to_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Time"
+          },
+          "turbine_id": {
+            "title": "Turbine Id",
+            "type": "string"
+          },
+          "wind_farm_id": {
+            "title": "Wind Farm Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turbine_id",
+          "wind_farm_id",
+          "state",
+          "note",
+          "age_seconds",
+          "provider",
+          "model",
+          "revision",
+          "forecast_id",
+          "retrieved_at",
+          "licence",
+          "from_time",
+          "to_time",
+          "summary",
+          "points"
+        ],
+        "title": "Forecast",
+        "type": "object"
+      },
+      "ForecastPoint": {
+        "properties": {
+          "cape_j_per_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cape J Per Kg"
+          },
+          "precipitation_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precipitation Mm"
+          },
+          "temperature_2m_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature 2M C"
+          },
+          "valid_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid At"
+          },
+          "visibility_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visibility M"
+          },
+          "wind_direction_10m_deg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wind Direction 10M Deg"
+          },
+          "wind_gusts_10m_mps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wind Gusts 10M Mps"
+          },
+          "wind_speed_10m_mps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wind Speed 10M Mps"
+          },
+          "wind_speed_hub_mps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wind Speed Hub Mps"
+          }
+        },
+        "required": [
+          "valid_at",
+          "wind_speed_hub_mps",
+          "wind_gusts_10m_mps",
+          "wind_speed_10m_mps",
+          "wind_direction_10m_deg",
+          "temperature_2m_c",
+          "precipitation_mm",
+          "visibility_m",
+          "cape_j_per_kg"
+        ],
+        "title": "ForecastPoint",
+        "type": "object"
+      },
+      "ForecastSummary": {
+        "properties": {
+          "hours_covered": {
+            "title": "Hours Covered",
+            "type": "integer"
+          },
+          "hours_wanted": {
+            "title": "Hours Wanted",
+            "type": "integer"
+          },
+          "max_cape_j_per_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Cape J Per Kg"
+          },
+          "max_wind_gusts_10m_mps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Wind Gusts 10M Mps"
+          },
+          "max_wind_speed_hub_mps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Wind Speed Hub Mps"
+          },
+          "min_visibility_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Visibility M"
+          },
+          "total_precipitation_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Precipitation Mm"
+          }
+        },
+        "required": [
+          "max_wind_speed_hub_mps",
+          "max_wind_gusts_10m_mps",
+          "total_precipitation_mm",
+          "min_visibility_m",
+          "max_cape_j_per_kg",
+          "hours_covered",
+          "hours_wanted"
+        ],
+        "title": "ForecastSummary",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1538,6 +1910,163 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ImpactInput": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_ref": {
+            "title": "Source Ref",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "source",
+          "source_ref",
+          "observed_at"
+        ],
+        "title": "ImpactInput",
+        "type": "object"
+      },
+      "ImpactResult": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "downtime_hours": {
+            "title": "Downtime Hours",
+            "type": "number"
+          },
+          "estimated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated At"
+          },
+          "estimated_by": {
+            "title": "Estimated By",
+            "type": "string"
+          },
+          "figures": {
+            "items": {
+              "$ref": "#/components/schemas/Figure"
+            },
+            "title": "Figures",
+            "type": "array"
+          },
+          "formula_version": {
+            "title": "Formula Version",
+            "type": "string"
+          },
+          "inputs": {
+            "items": {
+              "$ref": "#/components/schemas/ImpactInput"
+            },
+            "title": "Inputs",
+            "type": "array"
+          },
+          "result_id": {
+            "title": "Result Id",
+            "type": "string"
+          },
+          "turbine_id": {
+            "title": "Turbine Id",
+            "type": "string"
+          },
+          "verified": {
+            "title": "Verified",
+            "type": "boolean"
+          },
+          "wind_farm_id": {
+            "title": "Wind Farm Id",
+            "type": "string"
+          },
+          "window_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window End"
+          },
+          "window_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Start"
+          }
+        },
+        "required": [
+          "result_id",
+          "case_id",
+          "turbine_id",
+          "wind_farm_id",
+          "action",
+          "downtime_hours",
+          "formula_version",
+          "inputs",
+          "figures",
+          "assumptions",
+          "window_start",
+          "window_end",
+          "content_hash",
+          "verified",
+          "estimated_by",
+          "estimated_at"
+        ],
+        "title": "ImpactResult",
         "type": "object"
       },
       "Investigation": {
@@ -6340,6 +6869,140 @@
         "summary": "One turbine's telemetry for the last minutes, for its charts"
       }
     },
+    "/api/v1/impact": {
+      "get": {
+        "operationId": "results_api_v1_impact_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ImpactResult"
+                  },
+                  "title": "Response Results Api V1 Impact Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "A case's impact estimates, newest first"
+      },
+      "post": {
+        "operationId": "estimate_api_v1_impact_post",
+        "parameters": [
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstimateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpactResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Estimate an action's impact on a case's turbine: every figure worked out, with its range, never judged"
+      }
+    },
+    "/api/v1/impact/{result_id}": {
+      "get": {
+        "operationId": "result_api_v1_impact__result_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "result_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Result Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpactResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One estimate, its hash checked again"
+      }
+    },
     "/api/v1/investigations": {
       "get": {
         "operationId": "list_cases_api_v1_investigations_get",
@@ -7756,6 +8419,60 @@
           }
         },
         "summary": "The signed-in user's tenant"
+      }
+    },
+    "/api/v1/weather/{turbine_id}": {
+      "get": {
+        "operationId": "forecast_api_v1_weather__turbine_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "turbine_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Turbine Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "From now, at most 7 days",
+            "in": "query",
+            "name": "hours",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "description": "From now, at most 7 days",
+              "maximum": 168,
+              "minimum": 1,
+              "title": "Hours",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Forecast"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The forecast for a turbine's site, and how fresh it is (WTH-005)"
       }
     },
     "/api/v1/work-orders": {

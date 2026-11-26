@@ -27,6 +27,7 @@ from windops_web_bff.approvals import add_approval_routes
 from windops_web_bff.branding import add_branding_routes
 from windops_web_bff.errors import from_grpc, problem
 from windops_web_bff.fleet import add_fleet_routes
+from windops_web_bff.impact import add_impact_routes
 from windops_web_bff.investigations import Watch, add_investigation_routes
 from windops_web_bff.limits import LimitUnavailableError, RateLimiter, traffic_class
 from windops_web_bff.maintenance import add_maintenance_routes
@@ -42,8 +43,9 @@ SERVICE_SUBJECT = "svc-web-bff"
 IDENTITY_SECONDS = 60
 DEADLINE_SECONDS = 5.0
 # Calls that may rightly take longer: freezing a case's evidence reads and hashes up to a day of
-# telemetry, as the person (EVD-003).
-LONG_CALLS = frozenset({"CreateEvidenceSnapshot"})
+# telemetry, as the person (EVD-003); an impact estimate gathers the turbine, its telemetry and
+# the forecast before it works anything out, which took more than 5 seconds on the cluster.
+LONG_CALLS = frozenset({"CreateEvidenceSnapshot", "EstimateImpact"})
 LONG_CALLS_SECONDS = 60.0
 _TENANT = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 
@@ -121,6 +123,9 @@ class Dependencies:
     approval: Callable[..., Awaitable[Any]] | None = None
     # The user's own notifications (M10.5).
     notification: Callable[..., Awaitable[Any]] | None = None
+    # The impact view and weather panel (M11.3).
+    production_impact: Callable[..., Awaitable[Any]] | None = None
+    weather: Callable[..., Awaitable[Any]] | None = None
     # For the Security dashboard. main.py starts them as the service starts.
     counters: SecurityCounters | None = None
     # Only for tests, when there are no counters: the global provider when unset.
@@ -225,6 +230,8 @@ def create_router(deps: Dependencies) -> APIRouter:
         **({"inventory": deps.inventory} if deps.inventory else {}),
         **({"approval": deps.approval} if deps.approval else {}),
         **({"notification": deps.notification} if deps.notification else {}),
+        **({"production_impact": deps.production_impact} if deps.production_impact else {}),
+        **({"weather": deps.weather} if deps.weather else {}),
     }
 
     async def call_as(
@@ -347,6 +354,7 @@ def create_router(deps: Dependencies) -> APIRouter:
     add_maintenance_routes(router, caller, call_as)
     add_approval_routes(router, caller, call_as, ApiError)
     add_notification_routes(router, caller, call_as)
+    add_impact_routes(router, caller, call_as)
     add_investigation_routes(
         router, caller, call_as, deps.investigation_watch,
         identity_for=lambda who: identity_for(who, deps.identity_secret),
