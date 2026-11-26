@@ -128,6 +128,50 @@ const user = (id: string) => `/admin/users/${encodeURIComponent(id)}`;
 const change = (id: string) => `/admin/policy-changes/${encodeURIComponent(id)}`;
 
 /** Every call, bound to the signed-in user's token. */
+export interface McpTool {
+  name: string;
+  title: string;
+  description: string;
+  timeout_seconds: number;
+  per_minute: number;
+  per_day: number;
+  external: boolean;
+  read_only: boolean;
+  agents: string[];
+}
+
+export interface McpServer {
+  server: string;
+  workload: string;
+  calls: string;
+  boundary: string;
+  local_only: boolean;
+  tools: McpTool[];
+}
+
+export interface GatewayRoute {
+  name: string;
+  purpose: string;
+  uris: string[];
+  methods: string[];
+  sign_in: string;
+  limit: { count: number; window_seconds: number; per: string; rejected_code: number } | null;
+  cors: { origins: string; methods: string; credentials: boolean } | null;
+  timeouts_seconds: { connect?: number; send?: number; read?: number };
+  upstream: string[];
+  upstream_tls: boolean;
+  health_checked: boolean;
+  traced: boolean;
+}
+
+/** MCP integrations and gateway policies as built into this release: changed by pull request. */
+export interface PlatformCatalog {
+  release: string;
+  mcp_servers: McpServer[];
+  gateway_routes: GatewayRoute[];
+  api_limits: { window_seconds: number; per_user: { traffic: string; requests: number }[] };
+}
+
 export function adminApi(token: string) {
   return {
     users: (pageToken = "") =>
@@ -179,6 +223,8 @@ export function adminApi(token: string) {
     setDomain: (key: string, domain: string) =>
       sendJson<CustomDomain>("PUT", "/admin/custom-domain", token, key, { domain }),
     removeDomain: (key: string) => sendJson<undefined>("DELETE", "/admin/custom-domain", token, key),
+    allGrants: () => getJson<{ grants: RoleGrant[] }>("/admin/role-grants", token),
+    platformCatalog: () => getJson<PlatformCatalog>("/admin/platform-catalog", token),
     denials: (pageToken = "") =>
       getJson<AccessDenials>(
         `/admin/access-denials?page_size=100&page_token=${encodeURIComponent(pageToken)}`,

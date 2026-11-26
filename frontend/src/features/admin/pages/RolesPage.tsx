@@ -74,7 +74,7 @@ function Editor({ api, mapping }: { api: AdminApi; mapping: RolePermissions }) {
       {held && (
         <p role="status" className="mt-3 break-words rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           Waiting for a second administrator: {held.summary}. It takes effect once another Tenant Administrator confirms it
-          under Approval policy changes.
+          under Approval policy.
         </p>
       )}
       <ChangeStatus state={change.state} onDismiss={change.reset} />

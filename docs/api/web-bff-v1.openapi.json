@@ -6124,6 +6124,26 @@
         "summary": "Change one email's subject and text"
       }
     },
+    "/api/v1/admin/platform-catalog": {
+      "get": {
+        "operationId": "platform_catalog_api_v1_admin_platform_catalog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Platform Catalog Api V1 Admin Platform Catalog Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Every MCP server and tool with its limits and agents, and every gateway policy, as built into this release"
+      }
+    },
     "/api/v1/admin/policy-changes": {
       "get": {
         "operationId": "tenant_changes_api_v1_admin_policy_changes_get",
