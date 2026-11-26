@@ -71,6 +71,10 @@ class Approval(BaseModel):
     decision: Decision | None
     superseded_reason: str
     superseded_at: str | None
+    # For a pending request: whether the user may decide it now (M11.4). "decidable", "stale",
+    # "moved_on", "requester", "not_eligible" or "unknown"; empty otherwise.
+    standing: str = ""
+    standing_reason: str = ""
 
 
 class ApprovalList(BaseModel):
@@ -110,7 +114,8 @@ def _approval(message: Any) -> Approval:
         submitted_at=time_of(message, "submitted_at"),
         requested_at=time_of(message, "requested_at"), decision=decided,
         superseded_reason=message.superseded_reason,
-        superseded_at=time_of(message, "superseded_at"),
+        superseded_at=time_of(message, "superseded_at"), standing=message.standing,
+        standing_reason=message.standing_reason,
     )  # fmt: skip
 
 
@@ -135,6 +140,8 @@ def add_approval_routes(
         request = apr.ListApprovalsRequest(
             statuses=[s for s in status or [] if s in STATUSES], work_order_id=work_order_id,
             case_id=case_id, turbine_id=turbine_id, page_size=page_size, page_token=page_token,
+            # Each pending request says whether this user may decide it, and if not, why.
+            explain=True,
         )  # fmt: skip
         answer = await call_as("approval", "ListApprovals", request, who)
         return ApprovalList(approvals=[_approval(a) for a in answer.approvals],
@@ -148,7 +155,10 @@ def add_approval_routes(
         approval_id: ApprovalId, who: Annotated[Caller, Depends(caller)]
     ) -> Approval:
         answer = await call_as(
-            "approval", "GetApproval", apr.GetApprovalRequest(approval_id=approval_id), who
+            "approval",
+            "GetApproval",
+            apr.GetApprovalRequest(approval_id=approval_id, explain=True),
+            who,
         )
         return _approval(answer.approval)
 

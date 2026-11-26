@@ -22,6 +22,8 @@ const pending: Approval = {
   decision: null,
   superseded_reason: "",
   superseded_at: null,
+  standing: "decidable",
+  standing_reason: "",
 };
 
 const approved: Approval = {
@@ -162,6 +164,35 @@ describe("the approval queue", () => {
       />,
     );
     expect(await screen.findByText("Waiting for a Maintenance Manager to decide.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+  });
+
+  it("keeps what you may not decide apart, with why: a stale one is never offered", async () => {
+    const stale: Approval = {
+      ...pending,
+      approval_id: "apr_ssssssssssssssssssss",
+      standing: "stale",
+      standing_reason: "The work order is stale: inventory (Part P-1 is now short)",
+    };
+    const { api, maintenance } = fakes(async () => approved);
+    api.list.mockResolvedValue({ approvals: [pending, stale], next_page_token: "" });
+    show(<ApprovalQueue api={api as unknown as ApprovalApi} />);
+    const others = await screen.findByRole("list", { name: "Not yours to decide now" });
+    expect(others.textContent).toContain("Stale");
+    expect(others.textContent).toContain("Part P-1 is now short");
+    expect(screen.getByRole("list", { name: "Requests" }).textContent).toContain(pending.work_order_id);
+    cleanup();
+
+    api.get.mockResolvedValue(stale);
+    show(
+      <ApprovalPage
+        api={api as unknown as ApprovalApi}
+        maintenance={maintenance as unknown as MaintenanceApi}
+        approvalId={stale.approval_id}
+        canDecide
+      />,
+    );
+    expect((await screen.findByTestId("standing")).textContent).toContain("inventory");
     expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
   });
 });

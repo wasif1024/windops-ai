@@ -548,3 +548,48 @@ def test_eligibility_is_held_now_and_not_by_your_own_change_since_the_request() 
         assert world.sources.asked == []
 
     with_service(scenario, authorizer=authorizer)
+
+
+async def standing(world: World, who: Any) -> tuple[str, str]:
+    listed = await world.stub.ListApprovals(
+        pb.ListApprovalsRequest(statuses=["pending"], explain=True), metadata=who, timeout=5
+    )
+    [approval] = listed.approvals
+    return approval.standing, approval.standing_reason
+
+
+def test_the_queue_says_who_may_decide_each_request_and_why_not() -> None:
+    """M11.4: by the checks a decision runs, read-only: listing never changes a request."""
+
+    async def scenario(world: World) -> None:
+        approval = await world.requested()
+        plain = await world.stub.ListApprovals(
+            pb.ListApprovalsRequest(), metadata=as_caller(MANAGER), timeout=5
+        )
+        assert plain.approvals[0].standing == "", "only when asked to explain"
+        assert (await standing(world, as_caller(MANAGER)))[0] == "decidable"
+        world.sources.history.append(("updated", BOTH))
+        found, why = await standing(world, as_caller(BOTH))
+        assert found == "requester" and "RBAC-004" in why
+        assert (await standing(world, as_caller(OPERATOR)))[0] == "not_eligible"
+        assert (await standing(world, as_caller(MANAGER, actor=AGENT)))[0] == "not_eligible"
+
+        assert world.sources.order is not None
+        world.sources.order.status, world.sources.order.stale_rule = "stale", "inventory"
+        world.sources.order.stale_detail = "Part P-1 is now short"
+        found, why = await standing(world, as_caller(MANAGER))
+        assert found == "stale" and "inventory" in why
+        world.sources.order.status, world.sources.order.stale_rule = "submitted", ""
+        world.sources.order.version = 2
+        assert (await standing(world, as_caller(MANAGER)))[0] == "moved_on"
+        world.sources.order = None
+        assert (await standing(world, as_caller(MANAGER)))[0] == "unknown"
+
+        got = await world.stub.GetApproval(
+            pb.GetApprovalRequest(approval_id=approval.approval_id, explain=True),
+            metadata=as_caller(OPERATOR), timeout=5,
+        )  # fmt: skip
+        assert got.approval.standing == "not_eligible"
+        assert (await world.get(approval)).status == "pending", "nothing was settled"
+
+    with_service(scenario)

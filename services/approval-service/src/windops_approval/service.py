@@ -5,6 +5,7 @@ grants an agent maintenance.approve; this service refuses one too, before asking
 the permission table could ever let an agent approve.
 """
 
+import asyncio
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -43,6 +44,12 @@ from windops_approval.store import (
 
 READ, APPROVE = "investigation.read", "maintenance.approve"
 DECISIONS = {"approve": APPROVED, "reject": REJECTED}
+# Whether the caller may decide a pending request now (M11.4).
+DECIDABLE, STALE_STANDING, MOVED_ON = "decidable", "stale", "moved_on"
+REQUESTER, NOT_ELIGIBLE, UNKNOWN = "requester", "not_eligible", "unknown"
+# How many requests are explained at once, each asking Authorization, Maintenance and
+# Investigation as the caller.
+EXPLAIN_AT_ONCE = 8
 DEFAULT_PAGE, MAXIMUM_PAGE, MAXIMUM_KEY, MAXIMUM_REASON = 50, 200, 64, 1000
 
 
@@ -119,6 +126,50 @@ class ApprovalService(approval_pb2_grpc.ApprovalServiceServicer):
         if permission != READ and not await self._allowed(permission, turbine_id):
             raise PermissionDeniedError("You do not have permission to decide on work orders")
 
+    async def _standing(self, row: Any) -> tuple[str, str]:
+        """Whether the caller may decide this pending request now, and if not, why: the checks
+        a decision runs, read-only. It never changes the request."""
+        identity = current_identity()
+        if identity.actor or not identity.user_id:
+            return NOT_ELIGIBLE, "Only a person decides on a work order: never an agent"
+        submitted = row.submitted_at if row.submitted_at.tzinfo else row.submitted_at.replace(
+            tzinfo=UTC)  # fmt: skip
+        try:
+            eligibility = await self._eligible(row.turbine_id, submitted)
+            if not eligibility.allowed:
+                return NOT_ELIGIBLE, (
+                    eligibility.reason if "RBAC-006" in eligibility.reason
+                    else "You may not decide on work orders for this turbine"
+                )  # fmt: skip
+            answer = await self._sources.work_order(row.work_order_id)
+            case = await self._sources.case(row.case_id)
+        except (UnavailableError, NotFoundError):
+            return UNKNOWN, "It cannot be checked against the current work order right now"
+        work_order = answer.work_order
+        found = refusal(row, work_order, case)
+        if found is not None:
+            stale = bool(work_order.stale_rule or case.stale_rule)
+            return (STALE_STANDING if stale else MOVED_ON), found.reason
+        if identity.user_id in requesters(row, answer.history):
+            return REQUESTER, (
+                "You drafted, submitted or changed this work order, or an agent drafted it for "
+                "you, so another Maintenance Manager must decide it (RBAC-004, RBAC-008)"
+            )
+        return DECIDABLE, ""
+
+    async def _explained(self, rows: list[Any]) -> list[pb.Approval]:
+        """Each request, a pending one with its standing for the caller."""
+        gate = asyncio.Semaphore(EXPLAIN_AT_ONCE)
+
+        async def one(row: Any) -> pb.Approval:
+            message = to_message(row)
+            if row.status == PENDING:
+                async with gate:
+                    message.standing, message.standing_reason = await self._standing(row)
+            return message
+
+        return list(await asyncio.gather(*(one(row) for row in rows)))
+
     # --- storage
 
     @staticmethod
@@ -153,6 +204,8 @@ class ApprovalService(approval_pb2_grpc.ApprovalServiceServicer):
             await in_tenant(connection, tenant)
             row = await self._load(connection, tenant, request.approval_id)
         await self._require(READ, row.turbine_id)
+        if request.explain:
+            return pb.GetApprovalResponse(approval=(await self._explained([row]))[0])
         return pb.GetApprovalResponse(approval=to_message(row))
 
     async def ListApprovals(  # noqa: N802  # The name comes from the contract.
@@ -186,8 +239,11 @@ class ApprovalService(approval_pb2_grpc.ApprovalServiceServicer):
             rows = (await connection.execute(
                 query.order_by(a.requested_at, a.approval_id).offset(offset).limit(size + 1)
             )).all()  # fmt: skip
+        page = list(rows[:size])
         return pb.ListApprovalsResponse(
-            approvals=[to_message(r) for r in rows[:size]],
+            approvals=await self._explained(page)
+            if request.explain
+            else [to_message(r) for r in page],
             next_page_token=str(offset + size) if len(rows) > size else "",
         )
 

@@ -111,7 +111,10 @@ class ApprovalServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def DecideApproval(self, request, context):
-        """Approves or rejects a pending request, after rechecking it. Only a person, never an agent.
+        """With `explain`, each pending request also says whether the caller may decide it now, and if
+        not, why: worked out by the checks a decision runs, read-only, so listing never changes a
+        request (M11.4).
+        Approves or rejects a pending request, after rechecking it. Only a person, never an agent.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

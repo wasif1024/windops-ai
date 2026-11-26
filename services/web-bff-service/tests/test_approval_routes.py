@@ -35,8 +35,10 @@ def approval(status: str = "pending") -> apr.Approval:
 
 
 def test_a_manager_lists_the_queue_and_decides_as_themselves() -> None:
+    stale = approval()
+    stale.standing, stale.standing_reason = "stale", "The work order is stale: inventory"
     service = FakeService({
-        "ListApprovals": apr.ListApprovalsResponse(approvals=[approval()]),
+        "ListApprovals": apr.ListApprovalsResponse(approvals=[stale]),
         "DecideApproval": apr.DecideApprovalResponse(approval=approval("approved")),
     })  # fmt: skip
 
@@ -50,6 +52,10 @@ def test_a_manager_lists_the_queue_and_decides_as_themselves() -> None:
             None,
         )
         assert list(service.calls[0].request.statuses) == ["pending"]
+        # Whether this user may decide each one, and why not (M11.4).
+        assert service.calls[0].request.explain
+        assert (shown["standing"], shown["standing_reason"]) == (
+            "stale", "The work order is stale: inventory")  # fmt: skip
         decided = await world.client.post(
             f"{PREFIX}/approvals/{APPROVAL}/decision",
             headers={**auth(token()), "Idempotency-Key": "d-1"}, json=DECISION,

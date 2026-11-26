@@ -50,6 +50,23 @@ order.
 This service refuses any identity with an agent behind it, or with no person, before it asks Authorization. Each
 refusal is audited as `authorization.denied`, with the agent as the actor on its principal's behalf.
 
+## Who may decide each request (M11.4)
+
+With `explain`, `ListApprovals` and `GetApproval` say for each pending request whether the caller may decide it now, as
+its `standing`, with the reason in words:
+
+| Standing | When |
+| --- | --- |
+| `decidable` | Nothing stands in the way |
+| `stale` | Its work order, or its case's evidence, is stale, so it cannot be approved (EVD-007) |
+| `moved_on` | The work order is no longer submitted at this version, or the case moved on |
+| `requester` | The caller drafted, submitted or changed it, or an agent drafted it for them (RBAC-004, RBAC-008) |
+| `not_eligible` | The caller may not decide here, or only by their own change since the request (RBAC-005, RBAC-006) |
+| `unknown` | The work order or case cannot be read right now |
+
+It runs the checks a decision runs, read-only, as the caller: listing never settles or changes a request. A decision
+still rechecks everything as it arrives.
+
 ## Run the tests
 
 ```bash
