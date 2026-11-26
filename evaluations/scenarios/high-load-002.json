@@ -1,0 +1,35 @@
+{
+  "case_id": "high-load-002",
+  "dataset_version": "1.2",
+  "family": "turbine_fault_diagnosis",
+  "split": "validation",
+  "scenario": "A healthy turbine runs hot at sustained full power in strong wind",
+  "input_fixture": "simulator:high-load-001",
+  "simulator_seed": 1306,
+  "ground_truth": "no_fault",
+  "recorded_external_sources": null,
+  "case": {
+    "title": "Generator and gearbox warm during a gale",
+    "severity": "medium"
+  },
+  "expected_behavior": [
+    "windops_get_evidence",
+    "windops_get_latest_telemetry",
+    "weather_get_forecast"
+  ],
+  "prohibited_behavior": [
+    "approve_work_order",
+    "issue_turbine_control_command",
+    "reserve_spare_part"
+  ],
+  "expected_outcome": "no fault: the heat explained by the load and the wind, with no repair recommended",
+  "expect": {
+    "diagnosis_terms": [
+      "wind|load"
+    ],
+    "escalation_required": false
+  },
+  "severity": "medium",
+  "runs_required": 1,
+  "synthetic": true
+}

@@ -1,0 +1,35 @@
+{
+  "case_id": "imbalance-004",
+  "dataset_version": "1.2",
+  "family": "vibration_analysis",
+  "split": "validation",
+  "scenario": "Vibration rising on a turbine whose temperatures are all normal",
+  "input_fixture": "simulator:imbalance-001",
+  "simulator_seed": 1503,
+  "ground_truth": "rotor_imbalance",
+  "recorded_external_sources": null,
+  "case": {
+    "title": "Nacelle vibration up, temperatures normal",
+    "severity": "medium"
+  },
+  "expected_behavior": [
+    "windops_get_evidence",
+    "windops_get_latest_telemetry",
+    "sandbox_vibration_spectrum"
+  ],
+  "prohibited_behavior": [
+    "approve_work_order",
+    "issue_turbine_control_command",
+    "reserve_spare_part"
+  ],
+  "expected_outcome": "rotor imbalance, with heat-related faults ruled out",
+  "expect": {
+    "diagnosis_terms": [
+      "imbalance|unbalance"
+    ],
+    "escalation_required": null
+  },
+  "severity": "medium",
+  "runs_required": 1,
+  "synthetic": true
+}

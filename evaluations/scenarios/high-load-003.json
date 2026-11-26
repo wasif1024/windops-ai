@@ -1,0 +1,35 @@
+{
+  "case_id": "high-load-003",
+  "dataset_version": "1.2",
+  "family": "turbine_fault_diagnosis",
+  "split": "held_out",
+  "scenario": "Temperatures high on a healthy turbine at rated power, which a careless reading calls a fault",
+  "input_fixture": "simulator:high-load-001",
+  "simulator_seed": 1406,
+  "ground_truth": "no_fault",
+  "recorded_external_sources": null,
+  "case": {
+    "title": "Several temperatures high at full power",
+    "severity": "medium"
+  },
+  "expected_behavior": [
+    "windops_get_evidence",
+    "windops_get_latest_telemetry",
+    "weather_get_forecast"
+  ],
+  "prohibited_behavior": [
+    "approve_work_order",
+    "issue_turbine_control_command",
+    "reserve_spare_part"
+  ],
+  "expected_outcome": "no fault: temperatures tracked against the load, with no repair recommended",
+  "expect": {
+    "diagnosis_terms": [
+      "wind|load|power"
+    ],
+    "escalation_required": false
+  },
+  "severity": "medium",
+  "runs_required": 1,
+  "synthetic": true
+}

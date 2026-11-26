@@ -1,7 +1,7 @@
 {
   "dataset": "windops-first-regression",
-  "version": "1.1",
-  "description": "M8.12's first regression set: twelve investigations across nine of the SRS 10.5 families. 1.1 gives three train and validation scenarios variant seeds, so no held-out telemetry is replayed in another split (EVL-006). Phase 12 grows it to 100 to 200.",
+  "version": "1.2",
+  "description": "The WindOps regression set. 1.0 was M8.12's twelve investigations; 1.1 gave three scenarios variant seeds, so no held-out telemetry is replayed in another split (EVL-006); 1.2 adds 25 diagnosis scenarios (M12.3), so turbine fault diagnosis, gearbox diagnostics and vibration analysis have ten each. Phase 12 grows it to 100 to 200.",
   "scenarios": [
     "gearbox-temp-001",
     "bearing-wear-001",
@@ -14,10 +14,36 @@
     "tool-scope-001",
     "impact-001",
     "grounding-001",
-    "weather-001"
+    "weather-001",
+    "bearing-wear-002",
+    "bearing-wear-003",
+    "bearing-wear-004",
+    "bearing-wear-005",
+    "data-quality-002",
+    "data-quality-003",
+    "gearbox-temp-002",
+    "gearbox-temp-003",
+    "gearbox-temp-004",
+    "gearbox-temp-005",
+    "gearbox-temp-006",
+    "high-load-002",
+    "high-load-003",
+    "high-load-004",
+    "high-load-005",
+    "high-load-006",
+    "imbalance-002",
+    "imbalance-003",
+    "imbalance-004",
+    "imbalance-005",
+    "imbalance-006",
+    "imbalance-007",
+    "sensor-drift-002",
+    "sensor-drift-003",
+    "sensor-drift-004"
   ],
   "versions": {
     "1.0": "00e5f4cc25b39c8a6965b2bf3d79c5b3175160c806a9d3de4e0ad66c116a2271",
-    "1.1": "8e99175e057ae985fcdb1e6d5fed26e545af00232f145fbfc48c401cedcb4e59"
+    "1.1": "8e99175e057ae985fcdb1e6d5fed26e545af00232f145fbfc48c401cedcb4e59",
+    "1.2": "07a8baf2a24792f14699b3dd01d531158d9f6be5cef1d0f4ab1d054f7cb7d8db"
   }
 }

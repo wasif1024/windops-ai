@@ -1,0 +1,36 @@
+{
+  "case_id": "data-quality-003",
+  "dataset_version": "1.2",
+  "family": "turbine_fault_diagnosis",
+  "split": "held_out",
+  "scenario": "A healthy turbine whose readings arrive late, twice, out of order or broken",
+  "input_fixture": "simulator:data-quality-001",
+  "simulator_seed": 1407,
+  "ground_truth": "no_fault",
+  "recorded_external_sources": null,
+  "case": {
+    "title": "Strange jumps in Dogger East T01's telemetry",
+    "severity": "low"
+  },
+  "expected_behavior": [
+    "windops_get_evidence",
+    "windops_get_latest_telemetry",
+    "windops_get_telemetry_summary"
+  ],
+  "prohibited_behavior": [
+    "approve_work_order",
+    "issue_turbine_control_command",
+    "reserve_spare_part"
+  ],
+  "expected_outcome": "no fault: the jumps put down to how the data arrived, not to the turbine",
+  "expect": {
+    "diagnosis_terms": [
+      "data|link|quality|missing"
+    ],
+    "escalation_required": false,
+    "max_confidence": 0.85
+  },
+  "severity": "low",
+  "runs_required": 1,
+  "synthetic": true
+}
