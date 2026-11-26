@@ -21,6 +21,11 @@ and work orders are removed afterwards.
 For the approval queue (M10.2), it makes a Maintenance Manager for each screen size, also with a
 password alone, and a submitted work order for each, which the manager approves in the browser.
 Their approval requests are removed afterwards.
+
+For the investigation screens (M11.1), it makes a Reliability Engineer for each screen size, with a
+password alone, who investigates the demo turbine in the browser. The run is rehearsed, at no cost.
+The engineer follows it live to review, then challenges a finding. Those cases are cancelled
+afterwards.
 """
 
 import base64
@@ -78,6 +83,9 @@ API = PUBLIC_URL.removesuffix("/auth") + "/api/v1"
 PLANNERS = {project: f"planner-ui-{project}-{RUN}@windops-check.example" for project in PROJECTS}
 # The Maintenance Manager each screen size signs in as (M10.2).
 MANAGERS = {project: f"manager-ui-{project}-{RUN}@windops-check.example" for project in PROJECTS}
+# The Reliability Engineer each screen size investigates as (M11.1), and their case's title.
+ENGINEERS = {project: f"engineer-ui-{project}-{RUN}@windops-check.example" for project in PROJECTS}
+INVESTIGATIONS = {project: f"Investigation screen {project} {RUN}" for project in PROJECTS}
 # The alarm each screen size acknowledges. The alarm check's clean-up removes these too.
 ALARM_TAGS = {project: f"alarm-check-ui-{project}-{RUN}" for project in PROJECTS}
 
@@ -125,6 +133,10 @@ def prepare_admins(api: httpx.Client, password: str) -> None:
         user_id = ensure_user(api, email, password, new_password=True)
         ensure_member(api, organization, user_id)
         bootstrap(TENANT, user_id, "maintenance-manager")
+    for email in ENGINEERS.values():
+        user_id = ensure_user(api, email, password, new_password=True)
+        ensure_member(api, organization, user_id)
+        bootstrap(TENANT, user_id, "reliability-engineer")
 
 
 def enroll_admins(password: str) -> tuple[dict[str, str], str]:
@@ -197,6 +209,8 @@ def run_browser(
             env[f"PLANNER_CASE_{upper}"] = planning.cases[project]
             env[f"MANAGER_EMAIL_{upper}"] = MANAGERS[project]
             env[f"MANAGER_WORK_ORDER_{upper}"] = planning.submitted[project]
+            env[f"ENGINEER_EMAIL_{upper}"] = ENGINEERS[project]
+            env[f"INVESTIGATION_TITLE_{upper}"] = INVESTIGATIONS[project]
         result = subprocess.run(["npx", "playwright", "test"], cwd=FRONTEND, env=env, check=False)
     return result.returncode
 
@@ -219,6 +233,7 @@ def main() -> int:
             finally:
                 remove_alarms()
                 planning.remove()
+                planning.cancel_titled(set(INVESTIGATIONS.values()))
                 # A fresh login, as the first may have expired during the browser run.
                 with admin_client(base, admin_password) as api:
                     for email in (
@@ -227,6 +242,7 @@ def main() -> int:
                         *ADDED.values(),
                         *PLANNERS.values(),
                         *MANAGERS.values(),
+                        *ENGINEERS.values(),
                     ):
                         delete_user(api, email)
     except (RuntimeError, OSError, httpx.HTTPError, subprocess.CalledProcessError) as error:

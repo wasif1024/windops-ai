@@ -71,6 +71,16 @@ class InvestigationServiceStub:
                 request_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewVerificationRequest.SerializeToString,
                 response_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewVerificationResponse.FromString,
                 _registered_method=True)
+        self.GetInvestigationReport = channel.unary_unary(
+                '/windops.investigation.v1.InvestigationService/GetInvestigationReport',
+                request_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.GetInvestigationReportRequest.SerializeToString,
+                response_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.GetInvestigationReportResponse.FromString,
+                _registered_method=True)
+        self.ReviewFinding = channel.unary_unary(
+                '/windops.investigation.v1.InvestigationService/ReviewFinding',
+                request_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewFindingRequest.SerializeToString,
+                response_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewFindingResponse.FromString,
+                _registered_method=True)
         self.CreateEvidenceSnapshot = channel.unary_unary(
                 '/windops.investigation.v1.InvestigationService/CreateEvidenceSnapshot',
                 request_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.CreateEvidenceSnapshotRequest.SerializeToString,
@@ -138,6 +148,23 @@ class InvestigationServiceServicer:
         """A person's answer to a verification report (SRS 5.4 step 15, FR-MNT-005): close the case, or
         reopen it to be investigated again. Only a verified case, on its newest verification. Needs
         finding.review for its turbine, and a person: never an agent.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetInvestigationReport(self, request, context):
+        """The case's investigation report (SRS 5.7), as its run kept it, with every review of its
+        findings (FR-INV-006). Needs investigation.read. Empty until the investigation completes.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReviewFinding(self, request, context):
+        """A person's review of one finding: accept, reject, challenge or annotate it, with a note
+        (FR-INV-006). Kept, audited and in the case's history, and shown to whoever decides on the
+        case's work order. It changes nothing else. Needs finding.review, and a person: never an agent.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -223,6 +250,16 @@ def add_InvestigationServiceServicer_to_server(servicer, server):
                     servicer.ReviewVerification,
                     request_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewVerificationRequest.FromString,
                     response_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewVerificationResponse.SerializeToString,
+            ),
+            'GetInvestigationReport': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetInvestigationReport,
+                    request_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.GetInvestigationReportRequest.FromString,
+                    response_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.GetInvestigationReportResponse.SerializeToString,
+            ),
+            'ReviewFinding': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReviewFinding,
+                    request_deserializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewFindingRequest.FromString,
+                    response_serializer=windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewFindingResponse.SerializeToString,
             ),
             'CreateEvidenceSnapshot': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateEvidenceSnapshot,
@@ -392,6 +429,60 @@ class InvestigationService:
             '/windops.investigation.v1.InvestigationService/ReviewVerification',
             windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewVerificationRequest.SerializeToString,
             windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewVerificationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetInvestigationReport(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.investigation.v1.InvestigationService/GetInvestigationReport',
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.GetInvestigationReportRequest.SerializeToString,
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.GetInvestigationReportResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReviewFinding(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.investigation.v1.InvestigationService/ReviewFinding',
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewFindingRequest.SerializeToString,
+            windops_dot_investigation_dot_v1_dot_investigation__pb2.ReviewFindingResponse.FromString,
             options,
             channel_credentials,
             insecure,

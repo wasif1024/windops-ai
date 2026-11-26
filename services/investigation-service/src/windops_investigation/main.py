@@ -254,7 +254,14 @@ def main() -> None:
     def register(server: grpc.aio.Server) -> None:
         investigation_pb2_grpc.add_InvestigationServiceServicer_to_server(
             InvestigationService(
-                engine, authorizer, assets, sources=sources, delegations=delegations, agents=agents
+                engine,
+                authorizer,
+                assets,
+                sources=sources,
+                delegations=delegations,
+                agents=agents,
+                runtime=runtime,
+                secret=secret,
             ),
             server,
         )

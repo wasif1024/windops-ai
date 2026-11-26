@@ -72,6 +72,17 @@ class Submission(BaseModel):
     expected_revision: int = Field(ge=1)
 
 
+class CompletionIn(BaseModel):
+    """What was done, by the person recording it (FR-MNT-004)."""
+
+    expected_revision: int = Field(ge=1)
+    started_at: datetime
+    completed_at: datetime
+    summary: str = Field(min_length=1, max_length=2000)
+    parts_used: list[PartLineIn] = Field(default_factory=list, max_length=50)
+    actual_downtime_hours: float = Field(ge=0, le=8760)
+
+
 class Revision(BaseModel):
     expected_revision: int = Field(ge=1)
     # The new version's plan; unset keeps the earlier one's.
@@ -133,6 +144,16 @@ class Validation(BaseModel):
     parts: list[PartAvailability]
 
 
+class Completion(BaseModel):
+    started_at: str | None
+    completed_at: str | None
+    summary: str
+    parts_used: list[PartLine]
+    actual_downtime_hours: float
+    recorded_by: str
+    recorded_at: str | None
+
+
 class WorkOrder(BaseModel):
     work_order_id: str
     version: int
@@ -141,7 +162,8 @@ class WorkOrder(BaseModel):
     turbine_id: str
     evidence_snapshot_id: str
     plan: Plan
-    # "draft", "submitted", "withdrawn", "approved", "rejected" or "stale".
+    # "draft", "submitted", "withdrawn", "approved", "rejected", "stale", "completed" or
+    # "verified".
     status: str
     drafted_by: str
     # "agent:maintenance-planner" when an agent drafted it; "" for a person.
@@ -154,6 +176,10 @@ class WorkOrder(BaseModel):
     # Why it is stale: the rule that fired, and what it found (SRS 8.5, EVD-007).
     stale_rule: str
     stale_detail: str
+    # Once completed: what was done (M10.6). Once verified: "resolved", "not_resolved" or
+    # "inconclusive".
+    completion: Completion | None = None
+    verification_outcome: str = ""
 
 
 class WorkOrderEvent(BaseModel):
@@ -279,6 +305,17 @@ def _work_order(message: Any) -> WorkOrder:
         updated_at=time_of(message, "updated_at"), submitted_by=message.submitted_by,
         submitted_at=time_of(message, "submitted_at"), stale_rule=message.stale_rule,
         stale_detail=message.stale_detail,
+        completion=Completion(
+            started_at=time_of(message.completion, "started_at"),
+            completed_at=time_of(message.completion, "completed_at"),
+            summary=message.completion.summary,
+            parts_used=[PartLine(part_number=p.part_number, quantity=p.quantity)
+                        for p in message.completion.parts_used],
+            actual_downtime_hours=message.completion.actual_downtime_hours,
+            recorded_by=message.completion.recorded_by,
+            recorded_at=time_of(message.completion, "recorded_at"),
+        ) if message.HasField("completion") else None,
+        verification_outcome=message.verification_outcome,
         validation=Validation(
             checked_at=time_of(checked, "checked_at"), passed=checked.passed,
             problems=[Problem(field=p.field, code=p.code, message=p.message, blocking=p.blocking)
@@ -448,6 +485,28 @@ def add_maintenance_routes(
             plan=plan_message(body.plan) if body.plan else None, idempotency_key=key,
         )  # fmt: skip
         answer = await call_as("maintenance", "ReviseWorkOrder", request, who, retry=False)
+        return _work_order(answer.work_order)
+
+    @router.post(
+        "/work-orders/{work_order_id}/complete", response_model=WorkOrder,
+        summary="Record approved work done, which starts its verification. Only a person",
+    )  # fmt: skip
+    async def complete(
+        work_order_id: WorkOrderId, body: CompletionIn, key: Key,
+        who: Annotated[Caller, Depends(caller)],
+    ) -> WorkOrder:  # fmt: skip
+        request = mnt.CompleteWorkOrderRequest(
+            work_order_id=work_order_id, expected_revision=body.expected_revision,
+            completion=mnt.Completion(
+                started_at=_stamp(body.started_at), completed_at=_stamp(body.completed_at),
+                summary=body.summary,
+                parts_used=[mnt.PartLine(part_number=p.part_number, quantity=p.quantity)
+                            for p in body.parts_used],
+                actual_downtime_hours=body.actual_downtime_hours,
+            ),
+            idempotency_key=key,
+        )  # fmt: skip
+        answer = await call_as("maintenance", "CompleteWorkOrder", request, who, retry=False)
         return _work_order(answer.work_order)
 
     # --- Parts

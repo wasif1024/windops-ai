@@ -261,6 +261,24 @@ VERIFICATIONS = Table(
     Column("updated_at", DateTime(timezone=True), nullable=False),
     Index("case_verifications_by_case", "tenant_id", "case_id"),
 )
+# A person's review of one finding in an investigation's report (FR-INV-006, M11.1). Never
+# changed: a database trigger refuses it, and a later review is another row.
+FINDING_REVIEWS = Table(
+    "case_finding_reviews",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("review_id", Text, primary_key=True),
+    Column("case_id", Text, nullable=False),
+    Column("run_id", Text, nullable=False),
+    # Where in the report, such as "hypotheses[0]".
+    Column("finding", Text, nullable=False),
+    # "accept", "reject", "challenge" or "annotate".
+    Column("action", Text, nullable=False),
+    Column("note", Text, nullable=False, server_default=""),
+    Column("reviewed_by", Text, nullable=False),
+    Column("reviewed_at", DateTime(timezone=True), nullable=False),
+    Index("case_finding_reviews_by_case", "tenant_id", "case_id"),
+)
 # A retry with the same key returns the first answer, and changes nothing (GRP-007).
 IDEMPOTENCY_KEYS = Table(
     "idempotency_keys",
@@ -276,7 +294,7 @@ IDEMPOTENCY_KEYS = Table(
 TENANT_TABLES = (
     "cases", "case_detections", "case_history", "idempotency_keys", "evidence_snapshots",
     "evidence_items", "case_investigations", "case_progress", "case_proposals", "case_decisions",
-    "case_verifications",
+    "case_verifications", "case_finding_reviews",
 )  # fmt: skip
 
 

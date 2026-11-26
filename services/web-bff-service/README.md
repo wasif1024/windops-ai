@@ -138,6 +138,11 @@ The Investigation Service decides who may investigate a turbine and read a case
 | `POST /api/v1/investigations` | Open a case and investigate it: `202` with the case's ID at once. The run starts once its evidence is frozen, under the person's own delegation, made with their token |
 | `GET /api/v1/investigations/{id}` | The case, and where its investigation is |
 | `GET /api/v1/investigations/{id}/events` | Its progress as server-sent events (API-003) |
+| `GET /api/v1/investigations?all=true&turbine_id=…` | The cases the person may read: the active ones, or all with `all=true` (M11.1) |
+| `GET /api/v1/investigations/{id}/detail` | A case with its detections, history and verifications |
+| `GET /api/v1/investigations/{id}/report` | Its investigation's report (SRS 5.7), and every review of its findings |
+| `POST /api/v1/investigations/{id}/findings` | Accept, reject, challenge or annotate one finding, such as `hypotheses[0]`: `201`. It decides nothing (FR-INV-006) |
+| `POST /api/v1/investigations/{id}/verification` | Close a verified case, or reopen it with a reason, from `expected_version` |
 
 - **Events:** each has its sequence as its `id` and its kind as its name: `requested`, `started`, `step`,
   `run_ended` and `case_status`.
@@ -164,6 +169,7 @@ A submission blocked by its validation is `409 conflict`, and a change from a re
 | `POST /api/v1/work-orders/{id}/validate` | Check a draft again now |
 | `POST /api/v1/work-orders/{id}/submit` | Submit a draft from `expected_revision`, once nothing blocks it |
 | `POST /api/v1/work-orders/{id}/withdraw` | Withdraw a draft, with a reason |
+| `POST /api/v1/work-orders/{id}/complete` | Record approved work done, from `expected_revision`, which starts its verification (FR-MNT-004) |
 | `GET /api/v1/parts?turbine_id=…&component_kind=…&query=…` | Parts by words or component. With a turbine, only those that fit its model, each with its wind farm's store's stock |
 | `GET /api/v1/parts/detail?part_number=…` | One part, and its stock in each store the user may read. A part number may hold `/` and `.`, so it is a query, not a path |
 

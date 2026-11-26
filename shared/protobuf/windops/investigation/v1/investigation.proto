@@ -28,6 +28,14 @@ service InvestigationService {
   // finding.review for its turbine, and a person: never an agent.
   rpc ReviewVerification(ReviewVerificationRequest) returns (ReviewVerificationResponse);
 
+  // The case's investigation report (SRS 5.7), as its run kept it, with every review of its
+  // findings (FR-INV-006). Needs investigation.read. Empty until the investigation completes.
+  rpc GetInvestigationReport(GetInvestigationReportRequest) returns (GetInvestigationReportResponse);
+  // A person's review of one finding: accept, reject, challenge or annotate it, with a note
+  // (FR-INV-006). Kept, audited and in the case's history, and shown to whoever decides on the
+  // case's work order. It changes nothing else. Needs finding.review, and a person: never an agent.
+  rpc ReviewFinding(ReviewFindingRequest) returns (ReviewFindingResponse);
+
   // A case's evidence, frozen (FR-INV-002, EVD-001 to 004): the turbine, its telemetry window,
   // its alarms, each detection and the exact rule version behind it, each item hashed, and the
   // snapshot hashed over them all. It never changes once made. A case gets its first when it is
@@ -356,4 +364,47 @@ message WatchInvestigationResponse {
     // The investigation is over, and every event has been sent.
     bool finished = 3;
   }
+}
+
+message GetInvestigationReportRequest {
+  string case_id = 1;
+}
+
+// One review of one finding. Never changed: a later review is another.
+message FindingReview {
+  string review_id = 1;
+  // The run whose report holds the finding, and where in it, such as "hypotheses[0]",
+  // "observed_facts[2]" or "recommended_actions[1]".
+  string run_id = 2;
+  string finding = 3;
+  // "accept", "reject", "challenge" or "annotate".
+  string action = 4;
+  string note = 5;
+  string reviewed_by = 6;
+  google.protobuf.Timestamp reviewed_at = 7;
+}
+
+message GetInvestigationReportResponse {
+  // The investigation's run, and its report as canonical JSON: observed_facts, hypotheses,
+  // conflicting_evidence, data_gaps, risk_flags, recommended_actions, confidence, explanation and
+  // the rest of SRS 5.7. Empty until the run completes.
+  string run_id = 1;
+  string report_json = 2;
+  // Oldest first.
+  repeated FindingReview reviews = 3;
+}
+
+message ReviewFindingRequest {
+  string case_id = 1;
+  // A finding in the report of the case's investigation run, such as "hypotheses[0]".
+  string finding = 2;
+  // "accept", "reject", "challenge" or "annotate".
+  string action = 3;
+  // Why. Required, except to accept, at most 1000 characters.
+  string note = 4;
+  string idempotency_key = 5;
+}
+
+message ReviewFindingResponse {
+  FindingReview review = 1;
 }

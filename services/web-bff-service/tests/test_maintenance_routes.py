@@ -210,3 +210,33 @@ def test_a_stale_work_order_shows_its_rule_and_is_revised_as_the_planner() -> No
         )
 
     with_bff(scenario, services={"maintenance": maintenance})
+
+
+def test_a_person_records_approved_work_done_and_sees_what_was_recorded() -> None:
+    done = work_order("completed", 5)
+    done.completion.CopyFrom(mnt.Completion(
+        started_at=stamp(1_767_225_600), completed_at=stamp(1_767_232_800),
+        summary="Replaced the valve", recorded_by="u-1", actual_downtime_hours=2,
+        parts_used=[mnt.PartLine(part_number="GBX-FAN/CAP.25", quantity=1)],
+    ))  # fmt: skip
+    maintenance = FakeService({"CompleteWorkOrder": mnt.CompleteWorkOrderResponse(work_order=done)})
+
+    async def scenario(world: World) -> None:
+        body = {"expected_revision": 4, "started_at": "2026-01-01T00:00:00Z",
+                "completed_at": "2026-01-01T02:00:00Z", "summary": "Replaced the valve",
+                "parts_used": [{"part_number": "GBX-FAN/CAP.25", "quantity": 1}],
+                "actual_downtime_hours": 2}  # fmt: skip
+        headers = {**auth(token()), "Idempotency-Key": "done-1"}
+        empty = await world.client.post(f"{PREFIX}/work-orders/{ORDER}/complete",
+                                         headers=headers, json={**body, "summary": ""})  # fmt: skip
+        assert empty.status_code == 422
+        answer = await world.client.post(f"{PREFIX}/work-orders/{ORDER}/complete",
+                                          headers=headers, json=body)  # fmt: skip
+        got = answer.json()
+        assert got["status"] == "completed" and got["completion"]["summary"] == "Replaced the valve"
+        [call] = maintenance.calls
+        sent = call.request
+        assert (sent.expected_revision, sent.idempotency_key, call.retry) == (4, "done-1", False)
+        assert sent.completion.completed_at.ToSeconds() == 1_767_232_800
+
+    with_bff(scenario, services={"maintenance": maintenance})

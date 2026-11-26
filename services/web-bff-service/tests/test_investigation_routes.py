@@ -194,3 +194,85 @@ def test_one_investigation_shows_where_it_is() -> None:
 
     services = {"investigation": investigation, "investigation_watch": FakeWatch([])}
     with_bff(scenario, services=services)
+
+
+def test_the_list_is_of_active_cases_unless_every_status_is_asked_for() -> None:
+    investigation = FakeService({"ListCases": pb.ListCasesResponse(cases=[CASE])})
+
+    async def scenario(world: World) -> None:
+        listed = (await world.client.get(f"{PREFIX}/investigations", headers=auth(token()))).json()
+        assert [c["case_id"] for c in listed] == ["case_1"]
+        await world.client.get(f"{PREFIX}/investigations?all=true&turbine_id=dogger-east-t01",
+                               headers=auth(token()))  # fmt: skip
+        first, every = (call.request for call in investigation.calls)
+        assert list(first.statuses) == [] and first.turbine_id == ""
+        assert "closed" in every.statuses and every.turbine_id == "dogger-east-t01"
+
+    with_bff(
+        scenario, services={"investigation": investigation, "investigation_watch": FakeWatch([])}
+    )
+
+
+def test_a_case_shows_its_history_verification_and_report_with_its_reviews() -> None:
+    verified = pb.Case()
+    verified.CopyFrom(CASE)
+    verified.status, verified.version = "verified", 12
+    verification = pb.Verification(
+        work_order_id="wo_1", proposal_version=1, status="reported", outcome="resolved",
+        after_samples=120, metrics=[pb.MetricComparison(metric="METRIC_GEARBOX_TEMPERATURE",
+                                                        unit="degC", before_mean=85.0)],
+    )  # fmt: skip
+    detail = pb.GetCaseResponse(
+        case=verified, history=[pb.CaseEvent(action="created", actor_id="u-1")],
+        verifications=[verification],
+    )  # fmt: skip
+    report = pb.GetInvestigationReportResponse(
+        run_id="run_1", report_json=json.dumps({"hypotheses": [{"statement": "A valve"}]}),
+        reviews=[pb.FindingReview(review_id="frv_1", finding="hypotheses[0]", action="challenge",
+                                  note="Replaced last month", reviewed_by="u-engineer")],
+    )  # fmt: skip
+    investigation = FakeService({
+        "GetCase": detail, "GetInvestigationReport": report,
+        "ReviewFinding": pb.ReviewFindingResponse(review=report.reviews[0]),
+        "ReviewVerification": pb.ReviewVerificationResponse(case=verified),
+    })  # fmt: skip
+
+    async def scenario(world: World) -> None:
+        headers = auth(token())
+        got = (await world.client.get(f"{PREFIX}/investigations/case_1/detail",
+                                      headers=headers)).json()  # fmt: skip
+        assert got["version"] == 12 and got["history"][0]["action"] == "created"
+        [shown] = got["verifications"]
+        assert shown["outcome"] == "resolved" and shown["metrics"][0]["after_mean"] is None
+        body = (await world.client.get(f"{PREFIX}/investigations/case_1/report",
+                                       headers=headers)).json()  # fmt: skip
+        assert body["report"]["hypotheses"][0]["statement"] == "A valve"
+        assert body["reviews"][0]["action"] == "challenge"
+
+        bad = await world.client.post(
+            f"{PREFIX}/investigations/case_1/findings", headers={**headers, "Idempotency-Key": "r"},
+            json={"finding": "explanation", "action": "accept"},
+        )  # fmt: skip
+        assert bad.status_code == 422, "only a finding in a list"
+        made = await world.client.post(
+            f"{PREFIX}/investigations/case_1/findings",
+            headers={**headers, "Idempotency-Key": "r-1"},
+            json={"finding": "hypotheses[0]", "action": "challenge", "note": "Replaced"},
+        )  # fmt: skip
+        assert made.status_code == 201
+        sent = next(c for c in investigation.calls if c.method == "ReviewFinding")
+        assert (sent.request.finding, sent.request.idempotency_key, sent.retry) == (
+            "hypotheses[0]", "r-1", False)  # fmt: skip
+
+        closed = await world.client.post(
+            f"{PREFIX}/investigations/case_1/verification",
+            headers={**headers, "Idempotency-Key": "v-1"},
+            json={"decision": "close", "expected_version": 12},
+        )  # fmt: skip
+        assert closed.status_code == 200
+        sent = next(c for c in investigation.calls if c.method == "ReviewVerification")
+        assert (sent.request.decision, sent.request.expected_version) == ("close", 12)
+
+    with_bff(
+        scenario, services={"investigation": investigation, "investigation_watch": FakeWatch([])}
+    )

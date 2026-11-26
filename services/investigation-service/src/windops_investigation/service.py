@@ -30,12 +30,20 @@ from windops_grpc import (
     PermissionDeniedError,
     ServiceClient,
     UnavailableError,
+    acting_as_service,
     current_identity,
 )
 from windops_migrations import in_tenant
 from windops_resilience import BreakerOpenError
 
-from windops_investigation import case_rules, cases, evidence, investigations, verification
+from windops_investigation import (
+    case_rules,
+    cases,
+    evidence,
+    findings,
+    investigations,
+    verification,
+)
 from windops_investigation.store import (
     ACTIVE,
     CASE_DETECTIONS,
@@ -45,6 +53,7 @@ from windops_investigation.store import (
     EVIDENCE_SNAPSHOTS,
     INVESTIGATIONS,
     PROGRESS,
+    SERVICE_NAME,
     VERIFIED,
     KeyReusedError,
     remember,
@@ -245,6 +254,13 @@ def to_verification(row: Any) -> pb.Verification:
     )  # fmt: skip
 
 
+def to_review(row: Any) -> pb.FindingReview:
+    return pb.FindingReview(
+        review_id=row.review_id, run_id=row.run_id, finding=row.finding, action=row.action,
+        note=row.note, reviewed_by=row.reviewed_by, reviewed_at=_timestamp(row.reviewed_at),
+    )  # fmt: skip
+
+
 def to_snapshot(row: Any, items: list[Any] | None = None) -> pb.EvidenceSnapshot:
     return pb.EvidenceSnapshot(
         snapshot_id=row.snapshot_id, case_id=row.case_id, version=row.version,
@@ -278,6 +294,8 @@ class InvestigationService(investigation_pb2_grpc.InvestigationServiceServicer):
         agents: str = "off",
         watch_seconds: float = WATCH_SECONDS,
         poll_seconds: float = POLL_SECONDS,
+        runtime: Any = None,
+        secret: str = "",
     ) -> None:
         self._engine, self._authorizer, self._assets = engine, authorizer, assets
         self._now = clock or (lambda: datetime.now(UTC))
@@ -285,6 +303,8 @@ class InvestigationService(investigation_pb2_grpc.InvestigationServiceServicer):
         # How investigations run: "rehearse", "claude" or "off" (investigations.MODES).
         self._delegations, self._agents = delegations, agents
         self._watch_seconds, self._poll_seconds = watch_seconds, poll_seconds
+        # The Agent Runtime, which keeps each run's report, asked as this service (ADR 0016).
+        self._runtime, self._secret = runtime, secret
 
     async def _allowed(self, permission: str, turbine_id: str) -> bool:
         if await self._authorizer.allowed(permission):
@@ -555,6 +575,87 @@ class InvestigationService(investigation_pb2_grpc.InvestigationServiceServicer):
             await remember(
                 connection, tenant_id=tenant, user_id=user, key=request.idempotency_key,
                 method="ReviewVerification", request=request, response=response, now=now,
+            )  # fmt: skip
+        return response
+
+    async def _report(self, tenant: str, case_id: str) -> tuple[str, str]:
+        """(run ID, report JSON) of the case's investigation, or empty ones before it completes."""
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            investigation = await investigations.load(connection, tenant, case_id)
+        if investigation is None or not investigation.run_id or self._runtime is None:
+            return "", ""
+        with acting_as_service(SERVICE_NAME, tenant, self._secret):
+            run = await self._runtime.get_run(investigation.run_id)
+        return investigation.run_id, str(run.result_json)
+
+    async def GetInvestigationReport(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.GetInvestigationReportRequest, context: Any
+    ) -> pb.GetInvestigationReportResponse:
+        tenant = current_identity().tenant_id
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            case = await cases.load(connection, tenant, request.case_id)
+        if case is None:
+            raise NotFoundError("No such case")
+        await self._require(READ, case.turbine_id)
+        run_id, report = await self._report(tenant, case.case_id)
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            reviews = await findings.of_case(connection, tenant, case.case_id)
+        return pb.GetInvestigationReportResponse(
+            run_id=run_id, report_json=report if report else "",
+            reviews=[to_review(r) for r in reviews],
+        )  # fmt: skip
+
+    async def ReviewFinding(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.ReviewFindingRequest, context: Any
+    ) -> pb.ReviewFindingResponse:
+        """A person's review of one finding (FR-INV-006). It decides nothing."""
+        if len(request.idempotency_key) > MAXIMUM_KEY:
+            raise InvalidRequestError(f"idempotency_key is at most {MAXIMUM_KEY} characters")
+        if current_identity().actor:
+            # An agent may read and draft, and never review (SEC-009).
+            raise PermissionDeniedError("Only a person may review a finding")
+        tenant, user = self._user()
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            try:
+                first = await remembered(connection, tenant, user, request.idempotency_key,
+                                         "ReviewFinding", request)  # fmt: skip
+            except KeyReusedError as error:
+                raise InvalidRequestError(str(error)) from error
+            if first is not None:
+                return pb.ReviewFindingResponse.FromString(first)
+            case = await cases.load(connection, tenant, request.case_id)
+        if case is None:
+            raise NotFoundError("No such case")
+        await self._require(REVIEW, case.turbine_id)
+        run_id, report = await self._report(tenant, case.case_id)
+        if not report:
+            raise ConflictError("The case has no report to review yet")
+        note = request.note.strip()
+        try:
+            findings.check(report, request.finding, request.action, note)
+        except findings.NoSuchFindingError as error:
+            raise NotFoundError(str(error)) from error
+        except ValueError as error:
+            raise InvalidRequestError(str(error)) from error
+        now = self._now()
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, tenant)
+            locked = (await connection.execute(
+                select(CASES).where(CASES.c.tenant_id == tenant, CASES.c.case_id == case.case_id)
+                .with_for_update()
+            )).one()  # fmt: skip
+            review = await findings.record(
+                connection, locked, run_id=run_id, finding=request.finding,
+                action=request.action, note=note, by=user, now=now,
+            )  # fmt: skip
+            response = pb.ReviewFindingResponse(review=to_review(review))
+            await remember(
+                connection, tenant_id=tenant, user_id=user, key=request.idempotency_key,
+                method="ReviewFinding", request=request, response=response, now=now,
             )  # fmt: skip
         return response
 

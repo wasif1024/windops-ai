@@ -3,5 +3,6 @@
 One folder per SRS 4.11 area, as each is built: `admin/` is the administrator console, `platform/` the Platform
 console, `fleet/` the fleet overview, turbine detail and telemetry charts, `alarms/` the alarm console, each alarm's
 history and what operators do to it, `maintenance/` the maintenance planner's work orders and their drafts, `parts/`
-parts lookup, and so on. See
+parts lookup, `approvals/` the approval queue, `investigations/` the investigation list, each case's live progress,
+findings, reviews and verification, and so on. See
 [the frontend README](../../README.md#structure) for what goes inside one.

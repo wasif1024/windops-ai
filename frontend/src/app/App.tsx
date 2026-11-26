@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router-dom";
-import { type Branding, getJson, type Me, type Permissions } from "../api/client";
+import { type Branding, getJson, type Me, type Permissions, readPatiently } from "../api/client";
 import { useAuth } from "../auth/auth";
 import { applyBranding } from "../branding/branding";
 import { Button } from "../components/Button";
@@ -21,10 +21,11 @@ function useSession(token: string): Session | "loading" | "failed" {
   const [session, setSession] = useState<Session | "loading" | "failed">("loading");
   useEffect(() => {
     let cancelled = false;
+    // Who is signed in, tried again through a passing outage, so one 503 does not lock them out.
     Promise.all([
-      getJson<Me>("/me", token),
+      readPatiently(() => getJson<Me>("/me", token)),
       getJson<Branding>("/branding", token).catch(() => null),
-      getJson<Permissions>("/me/permissions", token),
+      readPatiently(() => getJson<Permissions>("/me/permissions", token)),
     ])
       .then(([me, branding, permissions]) => {
         if (!cancelled) {

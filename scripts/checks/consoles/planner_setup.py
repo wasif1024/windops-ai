@@ -15,9 +15,10 @@ from windops.approval.v1 import approval_pb2_grpc
 from windops.asset.v1 import asset_pb2, asset_pb2_grpc
 from windops.inventory.v1 import inventory_pb2 as inv
 from windops.inventory.v1 import inventory_pb2_grpc
+from windops.investigation.v1 import investigation_pb2, investigation_pb2_grpc
 from windops.maintenance.v1 import maintenance_pb2_grpc
 
-from scripts.checks.agents.tools import ENGINEER, TURBINE, Cases
+from scripts.checks.agents.tools import ENGINEER, INVESTIGATION_HOST, TURBINE, Cases
 from scripts.checks.fleet import approval as approval_check
 from scripts.checks.fleet.asset import HOST as ASSET_HOST
 from scripts.checks.fleet.asset import Caller, bootstrap, signing_key
@@ -92,6 +93,28 @@ class PlannerSetup:
             order = approval_check.submit(maintenance, case_id, 100 + n)
             approval_check.requested(approvals, order.work_order_id)
             self.submitted[project] = str(order.work_order_id)
+
+    def cancel_titled(self, titles: set[str]) -> None:
+        """Cancel the cases the browser opened, found by their titles, as the case check's
+        engineer, who may cancel. Their investigations stop with them."""
+        key = signing_key()
+        with ExitStack() as stack:
+            port = stack.enter_context(
+                port_forward("deployment/windops-investigation", "windops-application", 50051)
+            )
+            channel = stack.enter_context(
+                blocking_channel(port, INVESTIGATION_HOST, client_bundle())
+            )
+            api = Caller(investigation_pb2_grpc.InvestigationServiceStub(channel), key)
+            listed = api.call("ListCases", investigation_pb2.ListCasesRequest(turbine_id=TURBINE,
+                                                                               page_size=500),
+                              ENGINEER, TENANT).cases  # fmt: skip
+            for case in listed:
+                if case.title in titles:
+                    cancel = investigation_pb2.CancelCaseRequest(
+                        case_id=case.case_id, reason="Frontend check over"
+                    )
+                    api.code("CancelCase", cancel, ENGINEER, TENANT)
 
     def remove(self) -> None:
         try:

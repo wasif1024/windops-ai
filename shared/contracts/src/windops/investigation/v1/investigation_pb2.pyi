@@ -1017,3 +1017,152 @@ class WatchInvestigationResponse(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType_item) -> _WhichOneofReturnType_item | None: ...
 
 Global___WatchInvestigationResponse: _TypeAlias = WatchInvestigationResponse  # noqa: Y015
+
+@_typing.final
+class GetInvestigationReportRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CASE_ID_FIELD_NUMBER: _builtins.int
+    case_id: _builtins.str
+    def __init__(
+        self,
+        *,
+        case_id: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["case_id", b"case_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetInvestigationReportRequest: _TypeAlias = GetInvestigationReportRequest  # noqa: Y015
+
+@_typing.final
+class FindingReview(_message.Message):
+    """One review of one finding. Never changed: a later review is another."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    REVIEW_ID_FIELD_NUMBER: _builtins.int
+    RUN_ID_FIELD_NUMBER: _builtins.int
+    FINDING_FIELD_NUMBER: _builtins.int
+    ACTION_FIELD_NUMBER: _builtins.int
+    NOTE_FIELD_NUMBER: _builtins.int
+    REVIEWED_BY_FIELD_NUMBER: _builtins.int
+    REVIEWED_AT_FIELD_NUMBER: _builtins.int
+    review_id: _builtins.str
+    run_id: _builtins.str
+    """The run whose report holds the finding, and where in it, such as "hypotheses[0]",
+    "observed_facts[2]" or "recommended_actions[1]".
+    """
+    finding: _builtins.str
+    action: _builtins.str
+    """"accept", "reject", "challenge" or "annotate"."""
+    note: _builtins.str
+    reviewed_by: _builtins.str
+    @_builtins.property
+    def reviewed_at(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        review_id: _builtins.str = ...,
+        run_id: _builtins.str = ...,
+        finding: _builtins.str = ...,
+        action: _builtins.str = ...,
+        note: _builtins.str = ...,
+        reviewed_by: _builtins.str = ...,
+        reviewed_at: _timestamp_pb2.Timestamp | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["reviewed_at", b"reviewed_at"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "finding", b"finding", "note", b"note", "review_id", b"review_id", "reviewed_at", b"reviewed_at", "reviewed_by", b"reviewed_by", "run_id", b"run_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___FindingReview: _TypeAlias = FindingReview  # noqa: Y015
+
+@_typing.final
+class GetInvestigationReportResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    RUN_ID_FIELD_NUMBER: _builtins.int
+    REPORT_JSON_FIELD_NUMBER: _builtins.int
+    REVIEWS_FIELD_NUMBER: _builtins.int
+    run_id: _builtins.str
+    """The investigation's run, and its report as canonical JSON: observed_facts, hypotheses,
+    conflicting_evidence, data_gaps, risk_flags, recommended_actions, confidence, explanation and
+    the rest of SRS 5.7. Empty until the run completes.
+    """
+    report_json: _builtins.str
+    @_builtins.property
+    def reviews(self) -> _containers.RepeatedCompositeFieldContainer[Global___FindingReview]:
+        """Oldest first."""
+
+    def __init__(
+        self,
+        *,
+        run_id: _builtins.str = ...,
+        report_json: _builtins.str = ...,
+        reviews: _abc.Iterable[Global___FindingReview] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["report_json", b"report_json", "reviews", b"reviews", "run_id", b"run_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetInvestigationReportResponse: _TypeAlias = GetInvestigationReportResponse  # noqa: Y015
+
+@_typing.final
+class ReviewFindingRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CASE_ID_FIELD_NUMBER: _builtins.int
+    FINDING_FIELD_NUMBER: _builtins.int
+    ACTION_FIELD_NUMBER: _builtins.int
+    NOTE_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    case_id: _builtins.str
+    finding: _builtins.str
+    """A finding in the report of the case's investigation run, such as "hypotheses[0]"."""
+    action: _builtins.str
+    """"accept", "reject", "challenge" or "annotate"."""
+    note: _builtins.str
+    """Why. Required, except to accept, at most 1000 characters."""
+    idempotency_key: _builtins.str
+    def __init__(
+        self,
+        *,
+        case_id: _builtins.str = ...,
+        finding: _builtins.str = ...,
+        action: _builtins.str = ...,
+        note: _builtins.str = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "case_id", b"case_id", "finding", b"finding", "idempotency_key", b"idempotency_key", "note", b"note"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ReviewFindingRequest: _TypeAlias = ReviewFindingRequest  # noqa: Y015
+
+@_typing.final
+class ReviewFindingResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    REVIEW_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def review(self) -> Global___FindingReview: ...
+    def __init__(
+        self,
+        *,
+        review: Global___FindingReview | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["review", b"review"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["review", b"review"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ReviewFindingResponse: _TypeAlias = ReviewFindingResponse  # noqa: Y015

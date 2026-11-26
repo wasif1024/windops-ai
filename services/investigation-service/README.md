@@ -111,6 +111,18 @@ this service ([ADR 0025](../../docs/adr/0025-investigations-started-and-followed
 
   `WINDOPS_INVESTIGATION_COST_BUDGET_USD` may cap each run's cost below the Claude policy's.
 
+## Findings and their reviews (FR-INV-006)
+
+The findings are the investigation run's report (SRS 5.7), which the Agent Runtime keeps and only this service may
+read, as itself, once the caller may read the case.
+- **`GetInvestigationReport`:** the report, and every review of its findings, with `investigation.read`.
+- **`ReviewFinding`:** a person with `finding.review`, never an agent, accepts, rejects, challenges or annotates one
+  finding, named by where it is in the report, such as `hypotheses[0]`. Anything but accepting needs a note.
+- **What a review does:** it is kept as made (a trigger refuses any change), audited, and in the case's history. It
+  decides nothing: the approval queue shows the findings still challenged or rejected beside the work order, and the
+  Maintenance Manager decides knowing them
+  ([ADR 0040](../../docs/adr/0040-finding-reviews-recorded-and-shown-to-the-approver.md)).
+
 ## Run the tests
 
 ```bash
