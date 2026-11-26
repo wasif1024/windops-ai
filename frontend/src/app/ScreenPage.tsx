@@ -1,11 +1,13 @@
 import { useParams } from "react-router-dom";
 import { AdminPage } from "../features/admin/pages/AdminPage";
 import { AlarmScreen } from "../features/alarms/pages/AlarmScreen";
+import { AuditScreen } from "../features/audit/pages/AuditScreen";
 import { ApprovalScreen } from "../features/approvals/pages/ApprovalScreen";
 import { FleetScreen, TelemetryScreen } from "../features/fleet/pages/FleetScreen";
 import { ImpactScreen } from "../features/impact/pages/ImpactScreen";
 import { KnowledgeScreen } from "../features/knowledge/pages/KnowledgeScreen";
 import { InvestigationScreen } from "../features/investigations/pages/InvestigationScreen";
+import { NotificationScreen } from "../features/notifications/pages/NotificationScreen";
 import { MaintenanceScreen } from "../features/maintenance/pages/MaintenanceScreen";
 import { PartsScreen } from "../features/parts/pages/PartsScreen";
 import { PlatformPage } from "../features/platform/pages/PlatformPage";
@@ -35,6 +37,8 @@ export function ScreenPage({ screens, token, held }: { screens: Screen[]; token:
   if (screen.id === "investigations") return <InvestigationScreen token={token} held={held} />;
   if (screen.id === "impact") return <ImpactScreen token={token} />;
   if (screen.id === "weather") return <WeatherScreen token={token} />;
+  if (screen.id === "audit") return <AuditScreen token={token} />;
+  if (screen.id === "notifications") return <NotificationScreen token={token} held={held} />;
   if (screen.id === "knowledge") return <KnowledgeScreen token={token} held={held} />;
   return (
     <section>

@@ -193,6 +193,23 @@ document is read only by someone who may read one of its wind farms (FR-KNW-004)
 
 A search first has its question embedded by the provider, so it joins the long-call client.
 
+### Audit explorer and notification center (M11.6)
+
+The Audit Service lets only `audit.read` read the trail, in the person's own tenant, and nothing can change a record
+through it. A person reads only their own notifications; the tenant's rules need `users.manage`, and changing them a
+recent second factor.
+
+| Route | What |
+| --- | --- |
+| `GET /api/v1/audit/records` | The trail, newest first unless `newest_first=false`, narrowed by `action_prefix`, `actor_id`, `resource_type`, `resource_id`, `outcome`, `correlation_id`, `producer`, `from_time` and `to_time` |
+| `GET /api/v1/audit/verify` | Recompute the tenant's hash chain, and say where it first breaks |
+| `GET /api/v1/audit/deliveries?case_id=…&status=…` | What notifications reached whom, by user ID. A sender's error stays in the service |
+| `GET /api/v1/notifications?unread_only=…` | The person's own notifications, with each delivery |
+| `POST /api/v1/notifications/read` | Mark the person's own notifications read: the ones named, or all |
+| `GET`, `PUT /api/v1/notifications/rules` | The tenant's rules: whom each kind goes to, and how |
+
+Checking the chain reads every record, so it joins the long-call client.
+
 ### Maintenance planner and parts lookup (M9.4)
 
 The Maintenance Service validates every plan, decides who may draft, and lets only a person submit

@@ -38,7 +38,9 @@ Both first ask the Authorization Service whether the caller has `audit.read`, wh
 Tenant Administrators and Auditors. If Authorization cannot answer, nothing is read (SRS 7.7).
 
 `ListAuditRecords` takes an optional `action`, such as `authorization.denied`, which the administrator console's
-access denials use.
+access denials use. For the audit explorer (M11.6), it also narrows by `action_prefix` (matched as text, so `_` is
+not a wildcard), `actor_id`, `resource_type`, `resource_id`, `outcome`, `correlation_id`, `producer` and a time
+range on when it happened, all together. With `newest_first`, the page token leads to older records.
 
 ## Metrics
 
@@ -70,7 +72,8 @@ make audit-check
 - Anyone with the database's owner login, or an administrator, can turn the triggers off. The hash chain
   would show a change to a record, but not the removal of the newest ones. Anchoring the chain outside the
   database is not planned yet.
-- Listing by `action` scans the tenant's records, as there is no index on it yet. That is fine at this size.
+- Records are indexed by actor, resource, request and time within a tenant. Listing by `action` or its prefix,
+  outcome or service scans the tenant's records, which is fine at this size.
 - Other services do not send audit requests yet. Each adds them as it is built.
 
 ## What the scaffold provides

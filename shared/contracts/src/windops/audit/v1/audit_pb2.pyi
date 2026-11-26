@@ -28,20 +28,63 @@ class ListAuditRecordsRequest(_message.Message):
     PAGE_SIZE_FIELD_NUMBER: _builtins.int
     PAGE_TOKEN_FIELD_NUMBER: _builtins.int
     ACTION_FIELD_NUMBER: _builtins.int
+    ACTION_PREFIX_FIELD_NUMBER: _builtins.int
+    ACTOR_ID_FIELD_NUMBER: _builtins.int
+    RESOURCE_TYPE_FIELD_NUMBER: _builtins.int
+    RESOURCE_ID_FIELD_NUMBER: _builtins.int
+    OUTCOME_FIELD_NUMBER: _builtins.int
+    CORRELATION_ID_FIELD_NUMBER: _builtins.int
+    PRODUCER_FIELD_NUMBER: _builtins.int
+    FROM_TIME_FIELD_NUMBER: _builtins.int
+    TO_TIME_FIELD_NUMBER: _builtins.int
+    NEWEST_FIRST_FIELD_NUMBER: _builtins.int
     page_size: _builtins.int
     page_token: _builtins.str
     action: _builtins.str
     """Only records with this action, such as "authorization.denied". Empty means every record."""
+    action_prefix: _builtins.str
+    """The filters below narrow the records further, each when set, and all together (M11.6).
+    Only records whose action starts with this, such as "knowledge_document.".
+    """
+    actor_id: _builtins.str
+    """Only records of this actor: a user, an agent or a service ID."""
+    resource_type: _builtins.str
+    """Only records about this kind of resource, and this one."""
+    resource_id: _builtins.str
+    outcome: _builtins.str
+    """"succeeded", "denied" or "failed"."""
+    correlation_id: _builtins.str
+    """Only records of one request, followed across services."""
+    producer: _builtins.str
+    """Only records from this service."""
+    newest_first: _builtins.bool
+    """Newest first. The page token then leads to older records."""
+    @_builtins.property
+    def from_time(self) -> _timestamp_pb2.Timestamp:
+        """When it happened: from, inclusive, to, exclusive."""
+
+    @_builtins.property
+    def to_time(self) -> _timestamp_pb2.Timestamp: ...
     def __init__(
         self,
         *,
         page_size: _builtins.int = ...,
         page_token: _builtins.str = ...,
         action: _builtins.str = ...,
+        action_prefix: _builtins.str = ...,
+        actor_id: _builtins.str = ...,
+        resource_type: _builtins.str = ...,
+        resource_id: _builtins.str = ...,
+        outcome: _builtins.str = ...,
+        correlation_id: _builtins.str = ...,
+        producer: _builtins.str = ...,
+        from_time: _timestamp_pb2.Timestamp | None = ...,
+        to_time: _timestamp_pb2.Timestamp | None = ...,
+        newest_first: _builtins.bool = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["from_time", b"from_time", "to_time", b"to_time"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "page_size", b"page_size", "page_token", b"page_token"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action", "action_prefix", b"action_prefix", "actor_id", b"actor_id", "correlation_id", b"correlation_id", "from_time", b"from_time", "newest_first", b"newest_first", "outcome", b"outcome", "page_size", b"page_size", "page_token", b"page_token", "producer", b"producer", "resource_id", b"resource_id", "resource_type", b"resource_type", "to_time", b"to_time"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

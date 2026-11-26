@@ -13,8 +13,8 @@ notification carries identifiers and a link, never evidence, a decision's reason
 | `decision_made` | `approval.decided` | Its drafter and submitter, when people |
 | `case_pending_review`, `case_approved`, `case_rejected`, `case_needs_attention`, `case_verified` | `case.updated` | The person who opened the case, or for one from detections, holders of `finding.review` there |
 
-A tenant's administrator (`users.manage`) may replace the defaults with `SetNotificationRules`; an empty list goes back
-to them.
+A tenant's administrator (`users.manage`, with a recent second factor, SEC-003) may replace the defaults with
+`SetNotificationRules`; an empty list goes back to them. The console's notification center sets them (M11.6).
 
 ## How it works
 
@@ -31,9 +31,11 @@ to them.
 | --- | --- |
 | `ListMyNotifications`, `MarkNotificationsRead` | A person, for their own |
 | `ListDeliveries` | `audit.read` |
-| `GetNotificationRules`, `SetNotificationRules` | `users.manage` |
+| `GetNotificationRules` | `users.manage` |
+| `SetNotificationRules` | `users.manage` and a recent second factor |
 
-Web BFF serves `GET /api/v1/notifications` and `POST /api/v1/notifications/read`.
+Web BFF serves `GET /api/v1/notifications`, `POST /api/v1/notifications/read`, `GET` and `PUT
+/api/v1/notifications/rules`, and `GET /api/v1/audit/deliveries`.
 
 ## Check it on the cluster
 

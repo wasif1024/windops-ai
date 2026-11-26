@@ -10,6 +10,12 @@ from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine
 from windops.notification.v1 import notification_pb2 as pb
 from windops.notification.v1 import notification_pb2_grpc
+from windops_auth import (
+    STEP_UP_MESSAGE,
+    MfaRequiredError,
+    authentication_claims,
+    require_recent_mfa,
+)
 from windops_grpc import InvalidRequestError, PermissionDeniedError, current_identity
 from windops_migrations import in_tenant
 
@@ -178,6 +184,12 @@ class NotificationService(notification_pb2_grpc.NotificationServiceServicer):
         self, request: pb.SetNotificationRulesRequest, context: Any
     ) -> pb.SetNotificationRulesResponse:
         tenant, user = await self._require(USERS_MANAGE)
+        # Who is told what is an administrator's change, so it needs a recent second factor, as
+        # every other one does (SEC-003).
+        try:
+            require_recent_mfa(authentication_claims(current_identity()))
+        except MfaRequiredError as error:
+            raise PermissionDeniedError(STEP_UP_MESSAGE) from error
         if len(request.rules) > MAXIMUM_RULES:
             raise InvalidRequestError(f"At most {MAXIMUM_RULES} rules")
         try:

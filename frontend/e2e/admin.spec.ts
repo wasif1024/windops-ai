@@ -1,5 +1,5 @@
 // A Tenant Administrator uses the console in a real browser, through the gateway and Keycloak,
-// at desktop size and at phone size (SRS 9.4, UX-001). make frontend-check sets up each one's
+// at desktop size and at phone size (SRS 9.4, UX-001), starting in the audit explorer (M11.6). make frontend-check sets up each one's
 // authenticator first, and deletes every user afterwards.
 import { expect, test } from "@playwright/test";
 import { noSidewaysScroll, openScreen, signIn, stepUp } from "./helpers";
@@ -25,6 +25,27 @@ test("a Tenant Administrator manages users, roles and permissions, with step-up"
 
   await page.goto(`/?tenant=${tenant}`);
   await signIn(page, me.email, password);
+
+  // The audit explorer (M11.6): the operator's refused attempt, which make frontend-check made,
+  // then everything that actor did, and the hash chain checked again.
+  await openScreen(page, isMobile, "Audit explorer");
+  await page.getByLabel("Outcome").selectOption("denied");
+  await page.getByRole("button", { name: "Apply" }).click();
+  const trail = page.getByTestId("audit-records");
+  await expect(trail).toContainText("authorization.denied", { timeout: 30_000 });
+  const denied = trail.getByTestId("audit-record").first();
+  await denied.locator("summary").click();
+  await denied.getByRole("button", { name: "Same actor" }).click();
+  await expect(page.getByLabel("Actor")).not.toHaveValue("");
+  await expect(page.getByLabel("Outcome")).toHaveValue("");
+  await expect(page.getByTestId("audit-records")).toBeVisible();
+  await page.getByRole("button", { name: "Check the chain" }).click();
+  await expect(page.getByTestId("chain-check")).toContainText("Intact", { timeout: 60_000 });
+  await noSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath("audit.png"), fullPage: true });
+  await page.getByRole("link", { name: "Notification deliveries" }).click();
+  await expect(page.getByTestId("deliveries").or(page.getByText("No deliveries match."))).toBeVisible();
+  await noSidewaysScroll(page);
 
   await openScreen(page, isMobile, "Administration");
   const tabs = page.getByRole("navigation", { name: "Administration" });

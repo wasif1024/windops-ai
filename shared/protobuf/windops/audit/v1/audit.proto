@@ -16,6 +16,25 @@ message ListAuditRecordsRequest {
   string page_token = 2;
   // Only records with this action, such as "authorization.denied". Empty means every record.
   string action = 3;
+  // The filters below narrow the records further, each when set, and all together (M11.6).
+  // Only records whose action starts with this, such as "knowledge_document.".
+  string action_prefix = 4;
+  // Only records of this actor: a user, an agent or a service ID.
+  string actor_id = 5;
+  // Only records about this kind of resource, and this one.
+  string resource_type = 6;
+  string resource_id = 7;
+  // "succeeded", "denied" or "failed".
+  string outcome = 8;
+  // Only records of one request, followed across services.
+  string correlation_id = 9;
+  // Only records from this service.
+  string producer = 10;
+  // When it happened: from, inclusive, to, exclusive.
+  google.protobuf.Timestamp from_time = 11;
+  google.protobuf.Timestamp to_time = 12;
+  // Newest first. The page token then leads to older records.
+  bool newest_first = 13;
 }
 
 message ListAuditRecordsResponse {

@@ -157,8 +157,11 @@ def prove(bench: Bench) -> None:
 
     refused = bench.notifications.code("ListDeliveries", pb.ListDeliveriesRequest(case_id=case_id),
                                        PLANNER, TENANT)  # fmt: skip
-    listed = bench.notifications.call("ListDeliveries", pb.ListDeliveriesRequest(case_id=case_id),
-                                      AUDITOR, TENANT).deliveries  # fmt: skip
+    # Every holder of maintenance.approve is told of a submission, and earlier runs leave grants
+    # for managers who can no longer sign in, so the case may hold more than a default page.
+    listed = bench.notifications.call(
+        "ListDeliveries", pb.ListDeliveriesRequest(case_id=case_id, page_size=200), AUDITOR, TENANT
+    ).deliveries
     people = {d.user_id for d in listed}
     check(
         refused == grpc.StatusCode.PERMISSION_DENIED

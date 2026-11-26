@@ -8,6 +8,7 @@ from typing import Any
 
 import grpc
 import pytest
+from google.protobuf.timestamp_pb2 import Timestamp
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -218,8 +219,22 @@ def test_records_are_returned_a_page_at_a_time() -> None:
         audit_pb2.ListAuditRecordsRequest(page_token="not-a-number"),
         audit_pb2.ListAuditRecordsRequest(page_size=-1),
         audit_pb2.ListAuditRecordsRequest(action="x" * 129),
+        audit_pb2.ListAuditRecordsRequest(actor_id="x" * 129),
+        audit_pb2.ListAuditRecordsRequest(outcome="maybe"),
+        audit_pb2.ListAuditRecordsRequest(page_token="-4"),
+        audit_pb2.ListAuditRecordsRequest(
+            from_time=Timestamp(seconds=200), to_time=Timestamp(seconds=100)
+        ),
     ],
-    ids=["bad_token", "negative_size", "long_action"],
+    ids=[
+        "bad_token",
+        "negative_size",
+        "long_action",
+        "long_actor",
+        "unknown_outcome",
+        "negative_token",
+        "backwards_span",
+    ],
 )
 def test_an_invalid_page_request_is_refused(
     request_message: audit_pb2.ListAuditRecordsRequest,
@@ -230,6 +245,74 @@ def test_an_invalid_page_request_is_refused(
         assert error.value.code() is grpc.StatusCode.INVALID_ARGUMENT
 
     with_service(scenario)
+
+
+def recorded(event_id: str, day: int, **fields: str) -> Event:
+    """A record with its own fields, on 1 January 2026 plus `day` days."""
+    item = event(event_id)
+    item.payload.CopyFrom(events_pb2.AuditRequested(
+        **{"action": "alarm.acknowledged", "actor_type": "user", "actor_id": "u-1",
+           "outcome": "succeeded", **fields}))  # fmt: skip
+    return Event(subject=item.subject, event_id=event_id, tenant_id=item.tenant_id,
+                 occurred_at=datetime(2026, 1, 1 + day, tzinfo=UTC), producer=item.producer,
+                 payload=item.payload, trace_parent="", request_id=f"r-{event_id}")  # fmt: skip
+
+
+EXPLORED = (
+    recorded("e-1", 0),
+    recorded("e-2", 1, action="knowledge_document.ingested", actor_id="u-2",
+             resource_type="knowledge_document", resource_id="WS-1@1", correlation_id="c-9"),
+    recorded("e-3", 2, action="knowledge_document.held", actor_id="knowledge",
+             actor_type="service", resource_type="knowledge_document", resource_id="WS-1@1",
+             correlation_id="c-9"),
+    recorded("e-4", 3, action="authorization.denied", actor_id="u-2", outcome="denied"),
+    recorded("e-5", 4, action="knowledge_documentXheld"),
+)  # fmt: skip
+
+
+def test_the_explorer_narrows_records_by_each_filter_together() -> None:
+    """M11.6: who acted, on what, with what outcome, in one request, and when."""
+
+    async def ids(stub: Any, **fields: Any) -> list[str]:
+        answer = await stub.ListAuditRecords(
+            audit_pb2.ListAuditRecordsRequest(**fields), metadata=metadata(), timeout=5
+        )
+        return [item.event_id for item in answer.records]
+
+    async def scenario(stub: Any, channel: grpc.aio.Channel) -> None:
+        assert await ids(stub, actor_id="u-2") == ["e-2", "e-4"]
+        # A prefix is matched as text: "_" is not a wildcard.
+        assert await ids(stub, action_prefix="knowledge_document.") == ["e-2", "e-3"]
+        assert await ids(stub, resource_type="knowledge_document", resource_id="WS-1@1",
+                         actor_id="knowledge") == ["e-3"]  # fmt: skip
+        assert await ids(stub, outcome="denied") == ["e-4"]
+        assert await ids(stub, correlation_id="c-9") == ["e-2", "e-3"]
+        assert await ids(stub, correlation_id="r-e-1") == ["e-1"], "the request, when unnamed"
+        assert await ids(stub, producer="alarm", outcome="failed") == []
+        start = Timestamp()
+        start.FromDatetime(datetime(2026, 1, 2, tzinfo=UTC))
+        end = Timestamp()
+        end.FromDatetime(datetime(2026, 1, 4, tzinfo=UTC))
+        assert await ids(stub, from_time=start, to_time=end) == ["e-2", "e-3"]
+
+    with_service(scenario, *EXPLORED)
+
+
+def test_the_explorer_reads_newest_first_a_page_at_a_time() -> None:
+    async def scenario(stub: Any, channel: grpc.aio.Channel) -> None:
+        pages, token = [], ""
+        while True:
+            answer = await stub.ListAuditRecords(
+                audit_pb2.ListAuditRecordsRequest(page_size=2, page_token=token,
+                                                  newest_first=True),
+                metadata=metadata(), timeout=5)  # fmt: skip
+            pages.append([item.event_id for item in answer.records])
+            token = answer.next_page_token
+            if not token:
+                break
+        assert pages == [["e-5", "e-4"], ["e-3", "e-2"], ["e-1"]]
+
+    with_service(scenario, *EXPLORED)
 
 
 def test_the_chain_can_be_verified_through_the_api() -> None:

@@ -422,6 +422,124 @@
         "title": "ApprovalList",
         "type": "object"
       },
+      "AuditPage": {
+        "properties": {
+          "next_page_token": {
+            "title": "Next Page Token",
+            "type": "string"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/AuditRecord"
+            },
+            "title": "Records",
+            "type": "array"
+          }
+        },
+        "required": [
+          "records",
+          "next_page_token"
+        ],
+        "title": "AuditPage",
+        "type": "object"
+      },
+      "AuditRecord": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "correlation_id": {
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred At"
+          },
+          "on_behalf_of": {
+            "title": "On Behalf Of",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "previous_hash": {
+            "title": "Previous Hash",
+            "type": "string"
+          },
+          "producer": {
+            "title": "Producer",
+            "type": "string"
+          },
+          "record_hash": {
+            "title": "Record Hash",
+            "type": "string"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded At"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_type": {
+            "title": "Resource Type",
+            "type": "string"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sequence",
+          "event_id",
+          "occurred_at",
+          "recorded_at",
+          "producer",
+          "action",
+          "actor_type",
+          "actor_id",
+          "on_behalf_of",
+          "resource_type",
+          "resource_id",
+          "outcome",
+          "correlation_id",
+          "previous_hash",
+          "record_hash"
+        ],
+        "title": "AuditRecord",
+        "type": "object"
+      },
       "Branding": {
         "properties": {
           "accent_color": {
@@ -764,6 +882,29 @@
           "component"
         ],
         "title": "CatalogEntry",
+        "type": "object"
+      },
+      "ChainCheck": {
+        "properties": {
+          "first_invalid_sequence": {
+            "title": "First Invalid Sequence",
+            "type": "integer"
+          },
+          "records_checked": {
+            "title": "Records Checked",
+            "type": "integer"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid",
+          "records_checked",
+          "first_invalid_sequence"
+        ],
+        "title": "ChainCheck",
         "type": "object"
       },
       "Completion": {
@@ -1161,6 +1302,66 @@
           "updated_at"
         ],
         "title": "Delivery",
+        "type": "object"
+      },
+      "DeliveryRecord": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "notification_id": {
+            "title": "Notification Id",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notification_id",
+          "kind",
+          "user_id",
+          "case_id",
+          "channel",
+          "status",
+          "provider",
+          "attempts",
+          "updated_at"
+        ],
+        "title": "DeliveryRecord",
         "type": "object"
       },
       "Detection": {
@@ -3990,6 +4191,40 @@
         "title": "RolePermissions",
         "type": "object"
       },
+      "Rule": {
+        "properties": {
+          "audience": {
+            "pattern": "^(requester|drafter|submitter|holders:[a-z_]{1,40}\\.[a-z_]{1,40})$",
+            "title": "Audience",
+            "type": "string"
+          },
+          "channels": {
+            "items": {
+              "enum": [
+                "in_app",
+                "email"
+              ],
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Channels",
+            "type": "array"
+          },
+          "kind": {
+            "pattern": "^(approval_requested|decision_made|case_pending_review|case_approved|case_rejected|case_needs_attention|case_verified)$",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "audience",
+          "channels"
+        ],
+        "title": "Rule",
+        "type": "object"
+      },
       "RuleResult": {
         "properties": {
           "counts": {
@@ -4021,6 +4256,41 @@
           "counts"
         ],
         "title": "RuleResult",
+        "type": "object"
+      },
+      "Rules": {
+        "properties": {
+          "customized": {
+            "title": "Customized",
+            "type": "boolean"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/Rule"
+            },
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rules",
+          "customized"
+        ],
+        "title": "Rules",
+        "type": "object"
+      },
+      "RulesIn": {
+        "properties": {
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/Rule"
+            },
+            "maxItems": 100,
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "title": "RulesIn",
         "type": "object"
       },
       "ScopedPermission": {
@@ -7185,6 +7455,277 @@
         "summary": "Approve or reject a pending request, rechecked against the current work order and evidence. Only a person, never one who had a hand in it"
       }
     },
+    "/api/v1/audit/deliveries": {
+      "get": {
+        "operationId": "deliveries_api_v1_audit_deliveries_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "case_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "",
+              "pattern": "^(delivered|pending|recorded|failed)$",
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryRecord"
+                  },
+                  "title": "Response Deliveries Api V1 Audit Deliveries Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "What notifications reached whom in the tenant, newest first"
+      }
+    },
+    "/api/v1/audit/records": {
+      "get": {
+        "operationId": "records_api_v1_audit_records_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "default": "",
+              "pattern": "^[A-Za-z0-9_.:@#/-]{1,128}$",
+              "title": "Action",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action_prefix",
+            "required": false,
+            "schema": {
+              "default": "",
+              "pattern": "^[A-Za-z0-9_.:@#/-]{1,128}$",
+              "title": "Action Prefix",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actor_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "pattern": "^[A-Za-z0-9_.:@#/-]{1,128}$",
+              "title": "Actor Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "resource_type",
+            "required": false,
+            "schema": {
+              "default": "",
+              "pattern": "^[A-Za-z0-9_.:@#/-]{1,128}$",
+              "title": "Resource Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "resource_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "pattern": "^[A-Za-z0-9_.:@#/-]{1,128}$",
+              "title": "Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "required": false,
+            "schema": {
+              "default": "",
+              "pattern": "^(succeeded|denied|failed)$",
+              "title": "Outcome",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "correlation_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "pattern": "^[A-Za-z0-9_.:@#/-]{1,128}$",
+              "title": "Correlation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "producer",
+            "required": false,
+            "schema": {
+              "default": "",
+              "pattern": "^[A-Za-z0-9_.:@#/-]{1,128}$",
+              "title": "Producer",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "newest_first",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Newest First",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "default": "",
+              "pattern": "^\\d{0,19}$",
+              "title": "Page Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The tenant's audit trail, newest first by default, narrowed by any filters"
+      }
+    },
+    "/api/v1/audit/verify": {
+      "get": {
+        "operationId": "verify_api_v1_audit_verify_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainCheck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Recompute the tenant's hash chain, and say where it first breaks, if anywhere"
+      }
+    },
     "/api/v1/branding": {
       "get": {
         "operationId": "branding_api_v1_branding_get",
@@ -8741,6 +9282,74 @@
           }
         },
         "summary": "Mark the user's own notifications read: the ones named, or all of them"
+      }
+    },
+    "/api/v1/notifications/rules": {
+      "get": {
+        "operationId": "get_rules_api_v1_notifications_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rules"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "The tenant's rules: whom each kind of notification goes to, and how"
+      },
+      "put": {
+        "operationId": "set_rules_api_v1_notifications_rules_put",
+        "parameters": [
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RulesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rules"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace the tenant's rules, or go back to the defaults with none"
       }
     },
     "/api/v1/parts": {
