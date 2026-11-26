@@ -147,16 +147,21 @@ async def check_permissions(run: Run) -> None:
 
     admin = await run.admin()
     js = admin.jetstream()
-    before = (await js.stream_info(EVENTS_STREAM)).state.messages
+    # By sequence, not by count: other services publish, and old events expire, meanwhile.
+    before = (await js.stream_info(EVENTS_STREAM)).state.last_seq
     forged = False
     try:
         await publisher.publish("approval.decided", tenant_id=TENANT, payload=APPROVAL)
         forged = True
     except EventsUnavailableError:
         pass
-    after = (await js.stream_info(EVENTS_STREAM)).state.messages
+    try:
+        landed = (await js.get_last_msg(EVENTS_STREAM, "approval.decided")).seq or 0
+    except APIError:
+        landed = 0  # No approval.decided at all.
+    after = (await js.stream_info(EVENTS_STREAM)).state.last_seq
     check(
-        not forged and before == after,
+        not forged and landed <= before,
         "Alarm cannot forge an approval.decided event, so only Approval can approve",
     )
 
@@ -172,8 +177,10 @@ async def check_permissions(run: Run) -> None:
         except (NatsError, APIError, TimeoutError):
             pass
         check(not allowed, f"a service cannot {name} a stream")
-    remaining = (await js.stream_info(EVENTS_STREAM)).state.messages
-    check(remaining == after, "the stream is intact after those attempts")
+    # A purge empties it, starting after its last sequence; a delete loses it altogether.
+    state = (await js.stream_info(EVENTS_STREAM)).state
+    check(state.messages > 0 and state.first_seq <= after <= state.last_seq,
+          "the stream is intact after those attempts")  # fmt: skip
 
 
 async def check_duplicates(run: Run) -> None:

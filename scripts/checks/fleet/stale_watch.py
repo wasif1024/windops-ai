@@ -307,12 +307,20 @@ def prove(bench: Bench, device: Device) -> None:
     )
 
 
+def cancel_drift_cases(bench: Bench) -> None:
+    """Every active case on the check turbine, so a run never finds one from before."""
+    listed = bench.investigation.call("ListCases", inv.ListCasesRequest(turbine_id=TURBINE),
+                                      DRIFT_ENGINEER, DRIFT_TENANT).cases  # fmt: skip
+    for case in listed:
+        cancel = inv.CancelCaseRequest(case_id=case.case_id, reason="Check over")
+        bench.investigation.code("CancelCase", cancel, DRIFT_ENGINEER, DRIFT_TENANT)
+
+
 def clean_up(bench: Bench | None, device: Device | None) -> None:
     if device is not None:
         device.stop.set()
-    if bench is not None and bench.drift_case:
-        cancel = inv.CancelCaseRequest(case_id=bench.drift_case, reason="Check over")
-        bench.investigation.code("CancelCase", cancel, DRIFT_ENGINEER, DRIFT_TENANT)
+    if bench is not None:
+        cancel_drift_cases(bench)
     if not re.fullmatch(r"[a-z-]+", PREFIX):
         raise ValueError("A fixed prefix of letters and hyphens")
     fault_rules.last_line(fault_rules.sql(
@@ -355,6 +363,7 @@ def main() -> int:
             bench = Bench(stack, key)
             stack.callback(lambda: clean_up(bench, device))
             make_turbine(bench)
+            cancel_drift_cases(bench)
             device = Device(device_token(DRIFT_TENANT, TURBINE))
             device.start()
             prove(bench, device)

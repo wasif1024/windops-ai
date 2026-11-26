@@ -123,7 +123,9 @@ spec:
               memory: 160Mi
             limits:
               # CPU: after a restart, every streaming turbine's first run reads two hours, which held 250m.
-              cpu: 500m
+              # By M10.7, with drift and verification running the rules too, 500m was throttled in
+              # one period of five.
+              cpu: 750m
               memory: 384Mi
           securityContext:
             allowPrivilegeEscalation: false
