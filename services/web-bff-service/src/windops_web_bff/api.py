@@ -26,6 +26,7 @@ from windops_web_bff.alarms import add_alarm_routes
 from windops_web_bff.approvals import add_approval_routes
 from windops_web_bff.audit import add_audit_routes
 from windops_web_bff.branding import add_branding_routes
+from windops_web_bff.catalog import add_catalog_routes
 from windops_web_bff.errors import from_grpc, problem
 from windops_web_bff.fleet import add_fleet_routes
 from windops_web_bff.impact import add_impact_routes
@@ -368,6 +369,7 @@ def create_router(deps: Dependencies) -> APIRouter:
     add_impact_routes(router, caller, call_as)
     add_knowledge_routes(router, caller, call_as)
     add_audit_routes(router, caller, call_as)
+    add_catalog_routes(router, caller, call_as, ApiError)
     add_investigation_routes(
         router, caller, call_as, deps.investigation_watch,
         identity_for=lambda who: identity_for(who, deps.identity_secret),

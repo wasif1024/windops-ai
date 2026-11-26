@@ -4,7 +4,16 @@ import { visibleTabs } from "./AdminPage";
 describe("the administrator console's tabs", () => {
   it("shows a Tenant Administrator every tab", () => {
     const held = new Set(["users.manage", "roles.manage", "permissions.manage", "audit.read", "branding.manage"]);
-    expect(visibleTabs(held).map((tab) => tab.id)).toEqual(["users", "roles", "policy-changes", "denials", "branding"]);
+    expect(visibleTabs(held).map((tab) => tab.id)).toEqual([
+      "users",
+      "roles",
+      "approval-policy",
+      "changes",
+      "denials",
+      "mcp",
+      "gateway",
+      "branding",
+    ]);
   });
 
   it("shows only what a permission allows", () => {

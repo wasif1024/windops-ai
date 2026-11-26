@@ -96,3 +96,25 @@ def test_deliveries_and_rules_are_read_and_rules_set_as_the_person() -> None:
 
 def test_checking_the_chain_may_take_longer_than_an_ordinary_read() -> None:
     assert "VerifyAuditChain" in LONG_CALLS
+
+
+def test_the_platform_catalog_is_shown_only_to_a_reviewer() -> None:
+    from windops.authorization.v1 import authorization_pb2
+
+    allowed = FakeService({"Check": authorization_pb2.CheckResponse(allowed=True)})
+    refused = FakeService({"Check": authorization_pb2.CheckResponse(allowed=False)})
+
+    async def shown(world: World) -> None:
+        got = await world.client.get(f"{PREFIX}/admin/platform-catalog", headers=auth(token()))
+        body = got.json()
+        assert got.status_code == 200 and body["release"]
+        assert {s["server"] for s in body["mcp_servers"]} >= {"windops", "documentation"}
+        assert any(r["name"] == "web-bff" for r in body["gateway_routes"])
+        assert allowed.calls[-1].request.permission == "audit.read"
+
+    async def hidden(world: World) -> None:
+        got = await world.client.get(f"{PREFIX}/admin/platform-catalog", headers=auth(token()))
+        assert got.status_code == 403 and "mcp_servers" not in got.text
+
+    with_bff(shown, services={"authorization": allowed})
+    with_bff(hidden, services={"authorization": refused})

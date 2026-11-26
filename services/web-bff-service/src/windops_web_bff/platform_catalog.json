@@ -1,0 +1,563 @@
+{
+  "api_limits": {
+    "per_user": [
+      {
+        "requests": 120,
+        "traffic": "standard"
+      },
+      {
+        "requests": 300,
+        "traffic": "administrator"
+      }
+    ],
+    "window_seconds": 60
+  },
+  "gateway_routes": [
+    {
+      "cors": null,
+      "health_checked": true,
+      "limit": null,
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "name": "frontend",
+      "purpose": "The console itself: static files only",
+      "sign_in": "none at the gateway",
+      "timeouts_seconds": {
+        "connect": 2,
+        "read": 10,
+        "send": 10
+      },
+      "traced": true,
+      "upstream": [
+        "windops-frontend"
+      ],
+      "upstream_tls": false,
+      "uris": [
+        "/*"
+      ]
+    },
+    {
+      "cors": null,
+      "health_checked": true,
+      "limit": {
+        "count": 12000,
+        "per": "address",
+        "rejected_code": 429,
+        "window_seconds": 60
+      },
+      "methods": [
+        "any"
+      ],
+      "name": "ingest",
+      "purpose": "Telemetry and alarms from turbine devices, each with its own token",
+      "sign_in": "none at the gateway",
+      "timeouts_seconds": {
+        "connect": 2,
+        "read": 15,
+        "send": 10
+      },
+      "traced": true,
+      "upstream": [
+        "windops-telemetry"
+      ],
+      "upstream_tls": true,
+      "uris": [
+        "/ingest/*"
+      ]
+    },
+    {
+      "cors": null,
+      "health_checked": true,
+      "limit": {
+        "count": 5,
+        "per": "address",
+        "rejected_code": 429,
+        "window_seconds": 60
+      },
+      "methods": [
+        "POST"
+      ],
+      "name": "keycloak-login",
+      "purpose": "Sign-in form posts, limited per address (SRS 7.5)",
+      "sign_in": "none at the gateway",
+      "timeouts_seconds": {
+        "connect": 2,
+        "read": 15,
+        "send": 10
+      },
+      "traced": true,
+      "upstream": [
+        "windops-keycloak"
+      ],
+      "upstream_tls": true,
+      "uris": [
+        "/auth/realms/${WINDOPS_KEYCLOAK_REALM}/login-actions/*"
+      ]
+    },
+    {
+      "cors": null,
+      "health_checked": true,
+      "limit": null,
+      "methods": [
+        "any"
+      ],
+      "name": "keycloak",
+      "purpose": "Keycloak's sign-in pages and resources",
+      "sign_in": "none at the gateway",
+      "timeouts_seconds": {
+        "connect": 2,
+        "read": 15,
+        "send": 10
+      },
+      "traced": true,
+      "upstream": [
+        "windops-keycloak"
+      ],
+      "upstream_tls": true,
+      "uris": [
+        "/auth/realms/*",
+        "/auth/resources/*"
+      ]
+    },
+    {
+      "cors": null,
+      "health_checked": true,
+      "limit": null,
+      "methods": [
+        "any"
+      ],
+      "name": "sample",
+      "purpose": "The Phase 1 sample service, for the gateway checks",
+      "sign_in": "none at the gateway",
+      "timeouts_seconds": {
+        "connect": 2,
+        "read": 10,
+        "send": 10
+      },
+      "traced": true,
+      "upstream": [
+        "windops-sample-caller"
+      ],
+      "upstream_tls": false,
+      "uris": [
+        "/sample/*"
+      ]
+    },
+    {
+      "cors": {
+        "credentials": false,
+        "methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        "origins": "the console's own origins only"
+      },
+      "health_checked": true,
+      "limit": {
+        "count": 60,
+        "per": "address",
+        "rejected_code": 429,
+        "window_seconds": 60
+      },
+      "methods": [
+        "GET",
+        "OPTIONS"
+      ],
+      "name": "web-bff-public",
+      "purpose": "What a sign-in page reads before anyone signs in: branding and the API contract",
+      "sign_in": "none at the gateway",
+      "timeouts_seconds": {
+        "connect": 2,
+        "read": 15,
+        "send": 10
+      },
+      "traced": true,
+      "upstream": [
+        "windops-web-bff"
+      ],
+      "upstream_tls": true,
+      "uris": [
+        "/api/v1/public/*",
+        "/api/v1/openapi.json"
+      ]
+    },
+    {
+      "cors": {
+        "credentials": false,
+        "methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        "origins": "the console's own origins only"
+      },
+      "health_checked": true,
+      "limit": {
+        "count": 600,
+        "per": "address",
+        "rejected_code": 429,
+        "window_seconds": 60
+      },
+      "methods": [
+        "any"
+      ],
+      "name": "web-bff",
+      "purpose": "The browser's API: only with a valid Keycloak token for this console",
+      "sign_in": "Keycloak bearer token, checked for issuer, audience and tenant",
+      "timeouts_seconds": {
+        "connect": 2,
+        "read": 15,
+        "send": 10
+      },
+      "traced": true,
+      "upstream": [
+        "windops-web-bff"
+      ],
+      "upstream_tls": true,
+      "uris": [
+        "/api/*"
+      ]
+    }
+  ],
+  "mcp_servers": [
+    {
+      "boundary": "Document permissions, checked by the service before any text is returned",
+      "calls": "Knowledge Service",
+      "local_only": false,
+      "server": "documentation",
+      "tools": [
+        {
+          "agents": [
+            "reliability-engineer",
+            "safety-researcher"
+          ],
+          "description": "Read one passage by its citation, as it was indexed.",
+          "external": true,
+          "name": "documentation.read_passage",
+          "per_day": 4000,
+          "per_minute": 60,
+          "read_only": true,
+          "timeout_seconds": 5,
+          "title": "Read a passage"
+        },
+        {
+          "agents": [
+            "reliability-engineer",
+            "safety-researcher"
+          ],
+          "description": "Search the approved manuals, service bulletins and procedures the caller may read, best match first. Each passage has a citation, its document and revision, and whether a later revision replaces it.",
+          "external": true,
+          "name": "documentation.search_documents",
+          "per_day": 2000,
+          "per_minute": 30,
+          "read_only": true,
+          "timeout_seconds": 10,
+          "title": "Search documents"
+        }
+      ],
+      "workload": "windops-mcp-documentation"
+    },
+    {
+      "boundary": "Synthetic documents and evaluation fixtures, needing knowledge.read",
+      "calls": "Its own read-only sandboxes",
+      "local_only": true,
+      "server": "filesystem",
+      "tools": [
+        {
+          "agents": [],
+          "description": "List a folder of the synthetic documents or the evaluation fixtures.",
+          "external": false,
+          "name": "filesystem.list_files",
+          "per_day": 4000,
+          "per_minute": 60,
+          "read_only": true,
+          "timeout_seconds": 5,
+          "title": "List files"
+        },
+        {
+          "agents": [],
+          "description": "Read one text file, of at most 256 KiB, from the synthetic documents or the evaluation fixtures.",
+          "external": true,
+          "name": "filesystem.read_file",
+          "per_day": 4000,
+          "per_minute": 60,
+          "read_only": true,
+          "timeout_seconds": 5,
+          "title": "Read a file"
+        }
+      ],
+      "workload": "windops-mcp-filesystem"
+    },
+    {
+      "boundary": "Read-only diagnostics, needing evaluation.manage",
+      "calls": "PostgreSQL statistics views",
+      "local_only": true,
+      "server": "postgres",
+      "tools": [
+        {
+          "agents": [],
+          "description": "Connections to each service database by state, the longest running one's age and how many wait on locks. Never a query's text.",
+          "external": false,
+          "name": "postgres.connection_activity",
+          "per_day": 500,
+          "per_minute": 10,
+          "read_only": true,
+          "timeout_seconds": 10,
+          "title": "Connection activity"
+        },
+        {
+          "agents": [],
+          "description": "Each service database's size, connections, commits, rollbacks, deadlocks, temporary bytes and cache hit ratio.",
+          "external": false,
+          "name": "postgres.database_overview",
+          "per_day": 500,
+          "per_minute": 10,
+          "read_only": true,
+          "timeout_seconds": 10,
+          "title": "Database overview"
+        }
+      ],
+      "workload": "windops-mcp-postgres"
+    },
+    {
+      "boundary": "Generic web research only. It holds no Tavily key",
+      "calls": "External Intelligence Service",
+      "local_only": false,
+      "server": "tavily",
+      "tools": [
+        {
+          "agents": [
+            "safety-researcher"
+          ],
+          "description": "Read up to five sources of a past search in full. Results are advisory only: no safety rule takes weather or anything else from them.",
+          "external": true,
+          "name": "tavily.extract_page",
+          "per_day": 200,
+          "per_minute": 10,
+          "read_only": true,
+          "timeout_seconds": 30,
+          "title": "Read found pages"
+        },
+        {
+          "agents": [
+            "safety-researcher"
+          ],
+          "description": "Read a past search as it was recorded, with its sources and extractions.",
+          "external": true,
+          "name": "tavily.get_research",
+          "per_day": 2000,
+          "per_minute": 30,
+          "read_only": true,
+          "timeout_seconds": 5,
+          "title": "Read a past search"
+        },
+        {
+          "agents": [
+            "safety-researcher"
+          ],
+          "description": "Search the web on one topic, with a generic query. What was sent is returned, and each source is flagged stale, undated, low-confidence, conflicting or addressed to an AI. Results are advisory only: no safety rule takes weather or anything else from them.",
+          "external": true,
+          "name": "tavily.search_web",
+          "per_day": 200,
+          "per_minute": 10,
+          "read_only": true,
+          "timeout_seconds": 30,
+          "title": "Research the web"
+        }
+      ],
+      "workload": "windops-mcp-tavily"
+    },
+    {
+      "boundary": "Weather only, needing weather.read",
+      "calls": "Weather Service",
+      "local_only": false,
+      "server": "weather",
+      "tools": [
+        {
+          "agents": [
+            "safety-researcher"
+          ],
+          "description": "A turbine's hourly forecast over a window of up to 7 days: wind at 10 m and at hub height, gusts, direction, temperature, precipitation, visibility and CAPE, each only when the provider gave it, with a summary and the forecast's provenance and age.",
+          "external": false,
+          "name": "weather.get_forecast",
+          "per_day": 2000,
+          "per_minute": 30,
+          "read_only": true,
+          "timeout_seconds": 15,
+          "title": "Get a forecast"
+        }
+      ],
+      "workload": "windops-mcp-weather"
+    },
+    {
+      "boundary": "The platform's own records, tenant-scoped; each service checks the user. Its one write is a draft work order",
+      "calls": "Asset, Telemetry, Alarm, Investigation, Production Impact, Policy, Inventory and Maintenance services",
+      "local_only": false,
+      "server": "windops",
+      "tools": [
+        {
+          "agents": [
+            "maintenance-planner"
+          ],
+          "description": "Whether each named part fits a turbine and how many are available in its wind farm's store now: available, short, incompatible, retired or unknown. State a part's availability only from this. Checking holds nothing.",
+          "external": false,
+          "name": "windops.check_parts",
+          "per_day": 2000,
+          "per_minute": 30,
+          "read_only": true,
+          "timeout_seconds": 10,
+          "title": "Check parts for a turbine"
+        },
+        {
+          "agents": [
+            "supervisor"
+          ],
+          "description": "The Policy Service's deterministic rules on a proposed action: pass, escalate or block, each rule with its version and reason. An agent cannot override it.",
+          "external": false,
+          "name": "windops.check_policy",
+          "per_day": 500,
+          "per_minute": 10,
+          "read_only": true,
+          "timeout_seconds": 20,
+          "title": "Check a proposal against policy"
+        },
+        {
+          "agents": [
+            "maintenance-planner"
+          ],
+          "description": "A draft work order for a case: its tasks, crew, window, parts, the procedures it follows and the expected downtime. It is validated at once, and its problems come back. Only a draft: a person submits it, and another decides (FR-MNT-003).",
+          "external": false,
+          "name": "windops.create_draft_work_order",
+          "per_day": 200,
+          "per_minute": 10,
+          "read_only": false,
+          "timeout_seconds": 20,
+          "title": "Draft a work order"
+        },
+        {
+          "agents": [
+            "production-impact"
+          ],
+          "description": "A deterministic estimate of lost energy, availability and cost for an action on a case, each figure with a low to high range and its assumptions. Explain these figures; never change or invent one (FR-IMP-004).",
+          "external": false,
+          "name": "windops.estimate_impact",
+          "per_day": 500,
+          "per_minute": 10,
+          "read_only": true,
+          "timeout_seconds": 20,
+          "title": "Estimate the production impact"
+        },
+        {
+          "agents": [
+            "maintenance-planner"
+          ],
+          "description": "Spare parts that fit a turbine's model, with how many are available in its wind farm's store now. Filter by component kind or words. Finding a part holds nothing: name it in a draft, and a person reserves it (FR-INVT-002).",
+          "external": false,
+          "name": "windops.find_parts",
+          "per_day": 2000,
+          "per_minute": 30,
+          "read_only": true,
+          "timeout_seconds": 10,
+          "title": "Find parts for a turbine"
+        },
+        {
+          "agents": [
+            "maintenance-planner",
+            "production-impact",
+            "supervisor"
+          ],
+          "description": "A case: its turbine, component group, status, severity, detections and current evidence snapshot.",
+          "external": false,
+          "name": "windops.get_case",
+          "per_day": 2000,
+          "per_minute": 60,
+          "read_only": true,
+          "timeout_seconds": 5,
+          "title": "Get a case"
+        },
+        {
+          "agents": [
+            "reliability-engineer",
+            "scada-analyst",
+            "supervisor"
+          ],
+          "description": "A frozen evidence snapshot and its items: what each record was, from which service, its window, data quality and content hash. Cite items by record_id.",
+          "external": false,
+          "name": "windops.get_evidence",
+          "per_day": 2000,
+          "per_minute": 30,
+          "read_only": true,
+          "timeout_seconds": 10,
+          "title": "Get an evidence snapshot"
+        },
+        {
+          "agents": [
+            "scada-analyst"
+          ],
+          "description": "A turbine's latest reading of each metric, each with its unit and quality label. A reading marked suspect or missing is not evidence on its own.",
+          "external": false,
+          "name": "windops.get_latest_telemetry",
+          "per_day": 2000,
+          "per_minute": 60,
+          "read_only": true,
+          "timeout_seconds": 5,
+          "title": "Get the latest telemetry"
+        },
+        {
+          "agents": [
+            "reliability-engineer",
+            "scada-analyst"
+          ],
+          "description": "A frozen telemetry snapshot's readings, summarized per metric: their count and quality, minimum, maximum, mean, first and last, the trend per hour, and the mean of each slice of the window. Take the snapshot_id from the telemetry item of the case's evidence. Cite a figure by its metric's record_id. A missing reading is counted, never averaged; suspect readings are not evidence on their own.",
+          "external": false,
+          "name": "windops.get_telemetry_summary",
+          "per_day": 2000,
+          "per_minute": 20,
+          "read_only": true,
+          "timeout_seconds": 20,
+          "title": "Summarize frozen telemetry"
+        },
+        {
+          "agents": [
+            "maintenance-planner",
+            "production-impact",
+            "reliability-engineer",
+            "scada-analyst"
+          ],
+          "description": "A turbine's wind farm, model, rated power, rotor, hub height and status.",
+          "external": false,
+          "name": "windops.get_turbine",
+          "per_day": 2000,
+          "per_minute": 60,
+          "read_only": true,
+          "timeout_seconds": 5,
+          "title": "Get a turbine"
+        },
+        {
+          "agents": [
+            "scada-analyst"
+          ],
+          "description": "A turbine's alarms, newest first, each with its code, severity and state.",
+          "external": false,
+          "name": "windops.list_alarms",
+          "per_day": 2000,
+          "per_minute": 60,
+          "read_only": true,
+          "timeout_seconds": 5,
+          "title": "List a turbine's alarms"
+        },
+        {
+          "agents": [
+            "maintenance-planner",
+            "reliability-engineer",
+            "supervisor"
+          ],
+          "description": "A turbine's cases, newest first: its fault history.",
+          "external": false,
+          "name": "windops.list_cases",
+          "per_day": 2000,
+          "per_minute": 30,
+          "read_only": true,
+          "timeout_seconds": 5,
+          "title": "List a turbine's cases"
+        }
+      ],
+      "workload": "windops-mcp-windops"
+    }
+  ]
+}

@@ -52,13 +52,36 @@ test("a Tenant Administrator manages users, roles and permissions, with step-up"
   await expect(tabs.getByRole("link")).toHaveText([
     "Users",
     "Role permissions",
-    "Approval policy changes",
+    "Approval policy",
+    "Change review",
     "Access denials",
+    "MCP integrations",
+    "Gateway policies",
     "Branding",
   ]);
-  // Changes to who may approve wait here for a second administrator (RBAC-007).
-  await tabs.getByRole("link", { name: "Approval policy changes" }).click();
-  await expect(page.getByRole("region", { name: "Approval policy changes" })).toBeVisible();
+  // Who may approve, and changes to it waiting for a second administrator (RBAC-007).
+  await tabs.getByRole("link", { name: "Approval policy" }).click();
+  await expect(page.getByRole("list", { name: "Roles that approve" })).toContainText("Maintenance Manager", { timeout: 30_000 });
+  await expect(page.getByTestId("approvers")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Changes waiting for a second administrator" })).toBeVisible();
+  await noSidewaysScroll(page);
+
+  // What administrators changed, from the audit trail (SRS 9.4): the check's own grants.
+  await tabs.getByRole("link", { name: "Change review" }).click();
+  await page.getByRole("group", { name: "Kind of change" }).getByRole("button", { name: "Roles" }).click();
+  await expect(page.getByTestId("changes")).toContainText("authorization.role.granted", { timeout: 30_000 });
+  await noSidewaysScroll(page);
+
+  // MCP integrations and gateway policies, as built into this release.
+  await tabs.getByRole("link", { name: "MCP integrations" }).click();
+  await expect(page.getByTestId("release")).toContainText("As built into release");
+  await expect(page.getByTestId("mcp-windops")).toContainText("windops.create_draft_work_order");
+  await expect(page.getByTestId("mcp-postgres")).toHaveCount(0);
+  await noSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath("mcp.png"), fullPage: true });
+  await tabs.getByRole("link", { name: "Gateway policies" }).click();
+  await expect(page.getByTestId("route-web-bff")).toContainText("Keycloak bearer token");
+  await expect(page.getByTestId("route-keycloak-login")).toContainText("5 requests each 60 s per address");
   await noSidewaysScroll(page);
   await tabs.getByRole("link", { name: "Users" }).click();
   const users = page.getByRole("list", { name: "Users" });

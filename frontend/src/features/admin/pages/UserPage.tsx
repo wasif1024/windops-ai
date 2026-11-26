@@ -146,7 +146,7 @@ function Roles({ api, id }: { api: AdminApi; id: string }) {
       {held && (
         <p role="status" className="mb-3 break-words rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           Waiting for a second administrator: {held.summary}. It changes who may approve maintenance, so it takes effect
-          once another Tenant Administrator confirms it under Approval policy changes.
+          once another Tenant Administrator confirms it under Approval policy.
         </p>
       )}
       <Loading state={state}>

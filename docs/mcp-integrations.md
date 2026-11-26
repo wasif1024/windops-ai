@@ -18,6 +18,10 @@ every call ([ADR 0014](adr/0014-mcp-tools-behind-per-call-tool-tokens.md)).
 
 WindOps MCP, with tenant-scoped tools and draft-only writes, comes in M8.6.
 
+**In the administrator console** (M11.7), Tenant Administrators see every server and tool, with its limits and the
+agents that hold it, as built into the running release. It is generated from the servers' own definitions, and
+changes only by pull request ([ADR 0041](adr/0041-mcp-and-gateway-policies-shown-and-changed-by-pull-request.md)).
+
 **Filesystem and PostgreSQL are for development only.** Only the local overlay deploys them, through
 `infrastructure/kubernetes/base/development`, and never Azure. A test holds this.
 
