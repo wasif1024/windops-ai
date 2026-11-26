@@ -143,6 +143,22 @@ async def append_record(connection: AsyncConnection, event: Event) -> bool:
     return True
 
 
+@dataclass(frozen=True)
+class Filters:
+    """What narrows a listing, each when set, all together. Every value is matched as data."""
+
+    action: str = ""
+    action_prefix: str = ""
+    actor_id: str = ""
+    resource_type: str = ""
+    resource_id: str = ""
+    outcome: str = ""
+    correlation_id: str = ""
+    producer: str = ""
+    from_time: datetime | None = None
+    to_time: datetime | None = None
+
+
 async def list_records(
     connection: AsyncConnection,
     tenant_id: str,
@@ -150,15 +166,40 @@ async def list_records(
     limit: int,
     after_sequence: int,
     action: str = "",
+    filters: Filters | None = None,
+    newest_first: bool = False,
 ) -> list[Any]:
-    """Return one tenant's records in order, after the given sequence. `action` narrows them."""
+    """Return one tenant's records in order, after the given sequence, or before it when newest
+    first (0 for the start). `action` and `filters` narrow them."""
     await in_tenant(connection, tenant_id)
-    query = select(AUDIT_RECORDS).where(
-        AUDIT_RECORDS.c.tenant_id == tenant_id, AUDIT_RECORDS.c.sequence > after_sequence
-    )
-    if action:
-        query = query.where(AUDIT_RECORDS.c.action == action)
-    result = await connection.execute(query.order_by(AUDIT_RECORDS.c.sequence).limit(limit))
+    c = AUDIT_RECORDS.c
+    query = select(AUDIT_RECORDS).where(c.tenant_id == tenant_id)
+    if newest_first:
+        if after_sequence:
+            query = query.where(c.sequence < after_sequence)
+    else:
+        query = query.where(c.sequence > after_sequence)
+    f = filters or Filters()
+    if action or f.action:
+        query = query.where(c.action == (action or f.action))
+    if f.action_prefix:
+        query = query.where(c.action.startswith(f.action_prefix, autoescape=True))
+    for column, wanted in (
+        (c.actor_id, f.actor_id),
+        (c.resource_type, f.resource_type),
+        (c.resource_id, f.resource_id),
+        (c.outcome, f.outcome),
+        (c.correlation_id, f.correlation_id),
+        (c.producer, f.producer),
+    ):
+        if wanted:
+            query = query.where(column == wanted)
+    if f.from_time is not None:
+        query = query.where(c.occurred_at >= f.from_time)
+    if f.to_time is not None:
+        query = query.where(c.occurred_at < f.to_time)
+    order = c.sequence.desc() if newest_first else c.sequence
+    result = await connection.execute(query.order_by(order).limit(limit))
     return list(result.all())
 
 

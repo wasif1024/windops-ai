@@ -5,6 +5,7 @@ import contextlib
 import logging
 import os
 from collections.abc import Callable
+from datetime import UTC
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -41,7 +42,13 @@ from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, BreakerOpenError, CircuitBreaker
 
-from windops_audit.records import SERVICE_NAME, append_record, list_records, verify_chain
+from windops_audit.records import (
+    SERVICE_NAME,
+    Filters,
+    append_record,
+    list_records,
+    verify_chain,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +60,7 @@ APPEND_ATTEMPTS = 5
 PERMISSION = "audit.read"
 DEADLINE_SECONDS = 3.0
 _MAXIMUM_ACTION = 128
+OUTCOMES = ("succeeded", "denied", "failed")
 
 
 def _timestamp(value: Any) -> Timestamp:
@@ -99,13 +107,30 @@ class AuditService(audit_pb2_grpc.AuditServiceServicer):
     ) -> audit_pb2.ListAuditRecordsResponse:
         if request.page_size < 0:
             raise InvalidRequestError("page_size cannot be negative")
-        if len(request.action) > _MAXIMUM_ACTION:
-            raise InvalidRequestError("action is too long")
+        texts = {
+            "action": request.action, "action_prefix": request.action_prefix,
+            "actor_id": request.actor_id, "resource_type": request.resource_type,
+            "resource_id": request.resource_id, "outcome": request.outcome,
+            "correlation_id": request.correlation_id, "producer": request.producer,
+        }  # fmt: skip
+        for name, value in texts.items():
+            if len(value) > _MAXIMUM_ACTION:
+                raise InvalidRequestError(f"{name} is too long")
+        if request.outcome and request.outcome not in OUTCOMES:
+            raise InvalidRequestError(f"outcome is one of {', '.join(OUTCOMES)}")
+        span = [
+            request.from_time.ToDatetime(tzinfo=UTC) if request.HasField("from_time") else None,
+            request.to_time.ToDatetime(tzinfo=UTC) if request.HasField("to_time") else None,
+        ]
+        if span[0] and span[1] and span[0] >= span[1]:
+            raise InvalidRequestError("from_time is before to_time")
         limit = min(request.page_size or DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE)
         try:
             after = int(request.page_token or "0")
         except ValueError as error:
             raise InvalidRequestError("page_token is not valid") from error
+        if after < 0:
+            raise InvalidRequestError("page_token is not valid")
         await self._require_reader()
         async with self._engine.connect() as connection:
             rows = await list_records(
@@ -113,7 +138,8 @@ class AuditService(audit_pb2_grpc.AuditServiceServicer):
                 current_identity().tenant_id,
                 limit=limit,
                 after_sequence=after,
-                action=request.action,
+                filters=Filters(**texts, from_time=span[0], to_time=span[1]),
+                newest_first=request.newest_first,
             )
         records = [
             audit_pb2.AuditRecord(

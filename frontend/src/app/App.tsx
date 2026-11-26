@@ -5,6 +5,7 @@ import { useAuth } from "../auth/auth";
 import { applyBranding } from "../branding/branding";
 import { Button } from "../components/Button";
 import { Logo } from "../components/Logo";
+import { useUnread } from "../features/notifications/api";
 import { type Screen, visibleScreens } from "./navigation";
 import { ScreenPage } from "./ScreenPage";
 import { SignInPage } from "./SignInPage";
@@ -50,7 +51,18 @@ function useSession(token: string): Session | "loading" | "failed" {
 const STATUS = "p-8 text-slate-500";
 const MENU_ID = "screens-menu";
 
-function ScreenLinks({ screens, onChoose }: { screens: Screen[]; onChoose?: () => void }) {
+/** How many notifications are unread, for a screen reader as well as the eye. */
+function UnreadBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <span className="ml-2 inline-block min-w-5 rounded-full bg-brand-accent px-1.5 text-center text-xs font-semibold text-white" data-testid="unread-badge">
+      {count > 99 ? "99+" : count}
+      <span className="sr-only"> unread</span>
+    </span>
+  );
+}
+
+function ScreenLinks({ screens, onChoose, unread = 0 }: { screens: Screen[]; onChoose?: () => void; unread?: number }) {
   return (
     <ul>
       {screens.map((screen) => (
@@ -65,6 +77,7 @@ function ScreenLinks({ screens, onChoose }: { screens: Screen[]; onChoose?: () =
             }
           >
             {screen.title}
+            {screen.id === "notifications" && <UnreadBadge count={unread} />}
           </NavLink>
         </li>
       ))}
@@ -79,12 +92,14 @@ function MobileMenu({
   screens,
   email,
   onSignOut,
+  unread,
 }: {
   open: boolean;
   onClose: () => void;
   screens: Screen[];
   email: string;
   onSignOut: () => void;
+  unread: number;
 }) {
   const panel = useRef<HTMLDivElement>(null);
 
@@ -116,7 +131,7 @@ function MobileMenu({
         className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white py-4 shadow-xl"
       >
         <nav aria-label="Screens" className="flex-1 overflow-y-auto">
-          <ScreenLinks screens={screens} onChoose={onClose} />
+          <ScreenLinks screens={screens} onChoose={onClose} unread={unread} />
         </nav>
         <div className="border-t border-slate-200 px-6 pt-4">
           <p className="truncate text-sm text-slate-500" data-testid="menu-user-email">
@@ -134,6 +149,7 @@ function MobileMenu({
 function Shell({ token }: { token: string }) {
   const { signOut } = useAuth();
   const session = useSession(token);
+  const unread = useUnread(token);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const branding = typeof session === "object" ? session.branding : null;
@@ -176,7 +192,22 @@ function Shell({ token }: { token: string }) {
         <strong className="truncate" data-testid="tenant-name">
           {session.branding?.display_name ?? session.me.tenant_id}
         </strong>
-        <span className="ml-auto hidden truncate md:inline" data-testid="user-email">
+        <NavLink
+          to="/screens/notifications"
+          className="relative ml-auto rounded-md p-2 hover:bg-white/10"
+          aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
+          data-testid="notification-bell"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0" />
+          </svg>
+          {unread > 0 && (
+            <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-brand-accent px-1 text-center text-[10px] font-semibold leading-4 text-white">
+              {unread > 99 ? "99+" : unread}
+            </span>
+          )}
+        </NavLink>
+        <span className="hidden truncate md:inline" data-testid="user-email">
           {session.me.email}
         </span>
         <Button variant="outline" className="hidden md:inline-block" onClick={() => void signOut()}>
@@ -184,7 +215,7 @@ function Shell({ token }: { token: string }) {
         </Button>
       </header>
       <nav aria-label="Screens" className="hidden bg-white py-4 md:block">
-        <ScreenLinks screens={session.screens} />
+        <ScreenLinks screens={session.screens} unread={unread} />
       </nav>
       <MobileMenu
         open={menuOpen}
@@ -192,6 +223,7 @@ function Shell({ token }: { token: string }) {
         screens={session.screens}
         email={session.me.email}
         onSignOut={() => void signOut()}
+        unread={unread}
       />
       <main className="min-w-0 p-4 md:p-6">
         <Routes>

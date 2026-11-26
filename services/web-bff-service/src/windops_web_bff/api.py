@@ -24,6 +24,7 @@ from windops_resilience import BreakerOpenError
 from windops_web_bff.admin import add_admin_routes
 from windops_web_bff.alarms import add_alarm_routes
 from windops_web_bff.approvals import add_approval_routes
+from windops_web_bff.audit import add_audit_routes
 from windops_web_bff.branding import add_branding_routes
 from windops_web_bff.errors import from_grpc, problem
 from windops_web_bff.fleet import add_fleet_routes
@@ -47,10 +48,12 @@ DEADLINE_SECONDS = 5.0
 # telemetry, as the person (EVD-003); an impact estimate gathers the turbine, its telemetry and
 # the forecast before it works anything out, which took more than 5 seconds on the cluster; and
 # the approval queue explains each pending request by the checks a decision runs (M11.4); and a
-# knowledge search first has its question embedded by the provider (M11.5).
+# knowledge search first has its question embedded by the provider (M11.5); and checking the audit
+# chain recomputes every record's hash in the tenant (M11.6).
 LONG_CALLS = frozenset(
-    {"CreateEvidenceSnapshot", "EstimateImpact", "ListApprovals", "SearchPassages"}
-)
+    {"CreateEvidenceSnapshot", "EstimateImpact", "ListApprovals", "SearchPassages",
+     "VerifyAuditChain"}
+)  # fmt: skip
 LONG_CALLS_SECONDS = 60.0
 _TENANT = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 
@@ -364,6 +367,7 @@ def create_router(deps: Dependencies) -> APIRouter:
     add_notification_routes(router, caller, call_as)
     add_impact_routes(router, caller, call_as)
     add_knowledge_routes(router, caller, call_as)
+    add_audit_routes(router, caller, call_as)
     add_investigation_routes(
         router, caller, call_as, deps.investigation_watch,
         identity_for=lambda who: identity_for(who, deps.identity_secret),

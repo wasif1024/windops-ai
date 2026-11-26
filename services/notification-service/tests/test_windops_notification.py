@@ -18,6 +18,7 @@ from sqlalchemy.pool import StaticPool
 from windops.events.v1 import events_pb2
 from windops.notification.v1 import notification_pb2 as pb
 from windops.notification.v1 import notification_pb2_grpc
+from windops_auth import LEVEL_MFA, LEVEL_PASSWORD, STEP_UP_MESSAGE
 from windops_events import Event, InvalidEventError, parse_event
 from windops_grpc import (
     ServiceRuntime,
@@ -121,9 +122,10 @@ class World:
 
 
 def as_caller(who: str, tenant: str = TENANT, actor: str | None = None,
-              person: bool = True) -> Any:  # fmt: skip
+              person: bool = True, level: str | None = LEVEL_MFA) -> Any:  # fmt: skip
     identity = VerifiedIdentity(subject=who, tenant_id=tenant, user_id=who if person else None,
-                                auth_time=int(time.time()), actor=actor)  # fmt: skip
+                                auth_time=int(time.time()), actor=actor,
+                                auth_level=level)  # fmt: skip
     return (("x-windops-identity", sign_identity(identity, SECRET)),)
 
 
@@ -463,6 +465,14 @@ def test_an_administrator_sets_the_tenants_rules_and_can_go_back_to_the_defaults
             )
         )
         assert code is grpc.StatusCode.PERMISSION_DENIED
+        try:
+            await world.stub.SetNotificationRules(
+                pb.SetNotificationRulesRequest(rules=mine, idempotency_key="rules-key-1"),
+                metadata=as_caller(ADMIN, level=LEVEL_PASSWORD), timeout=5)  # fmt: skip
+            raise AssertionError("a password alone must not change the rules")
+        except grpc.aio.AioRpcError as error:
+            assert (error.code(), error.details()) == (grpc.StatusCode.PERMISSION_DENIED,
+                                                       STEP_UP_MESSAGE)  # fmt: skip
         for wrong in (
             pb.Rule(kind="nothing", audience="requester", channels=["in_app"]),
             pb.Rule(kind="case_approved", audience="everyone", channels=["in_app"]),

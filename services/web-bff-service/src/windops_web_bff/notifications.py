@@ -1,18 +1,19 @@
 """The signed-in person's own notifications, and marking them read (M10.5, FR-NOT-001).
 
-The notification center screen comes in M11.6; this is what it, and a badge in the shell, read.
+The notification center (M11.6) and the badge in the shell read these. A Tenant Administrator
+with users.manage also sets the tenant's rules there: whom each kind goes to, and how.
 Each call is made as the signed-in user, so they only ever see their own. A notification holds
 identifiers and a link, never evidence (FR-NOT-002).
 """
 
 from collections.abc import Awaitable, Callable
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from windops.notification.v1 import notification_pb2 as ntf
 
-from windops_web_bff.common import Call, time_of
+from windops_web_bff.common import Call, Key, time_of
 from windops_web_bff.tokens import Caller
 
 
@@ -51,6 +52,38 @@ class ReadIn(BaseModel):
 
 class ReadOut(BaseModel):
     marked: int
+
+
+KINDS = (r"^(approval_requested|decision_made|case_pending_review|case_approved|case_rejected|"
+         r"case_needs_attention|case_verified)$")  # fmt: skip
+AUDIENCES = r"^(requester|drafter|submitter|holders:[a-z_]{1,40}\.[a-z_]{1,40})$"
+
+
+class Rule(BaseModel):
+    kind: str = Field(pattern=KINDS)
+    # "requester", "drafter", "submitter", or "holders:<permission>".
+    audience: str = Field(pattern=AUDIENCES)
+    # "in_app", "email", or both.
+    channels: list[Literal["in_app", "email"]] = Field(min_length=1, max_length=2)
+
+
+class Rules(BaseModel):
+    rules: list[Rule]
+    # False while the tenant uses the defaults.
+    customized: bool
+
+
+class RulesIn(BaseModel):
+    # Empty goes back to the defaults.
+    rules: list[Rule] = Field(default_factory=list, max_length=100)
+
+
+def _rules(answer: Any) -> Rules:
+    return Rules(
+        rules=[Rule(kind=r.kind, audience=r.audience, channels=list(r.channels))
+               for r in answer.rules],
+        customized=answer.customized,
+    )  # fmt: skip
 
 
 def _notification(message: Any) -> Notification:
@@ -98,3 +131,25 @@ def add_notification_routes(
             ntf.MarkNotificationsReadRequest(notification_ids=body.notification_ids), who,
         )  # fmt: skip
         return ReadOut(marked=answer.marked)
+
+    @router.get(
+        "/notifications/rules", response_model=Rules,
+        summary="The tenant's rules: whom each kind of notification goes to, and how",
+    )  # fmt: skip
+    async def get_rules(who: Annotated[Caller, Depends(caller)]) -> Rules:
+        answer = await call_as("notification", "GetNotificationRules",
+                               ntf.GetNotificationRulesRequest(), who)  # fmt: skip
+        return _rules(answer)
+
+    @router.put(
+        "/notifications/rules", response_model=Rules,
+        summary="Replace the tenant's rules, or go back to the defaults with none",
+    )  # fmt: skip
+    async def set_rules(body: RulesIn, key: Key, who: Annotated[Caller, Depends(caller)]) -> Rules:
+        request = ntf.SetNotificationRulesRequest(
+            rules=[ntf.Rule(kind=r.kind, audience=r.audience, channels=r.channels)
+                   for r in body.rules],
+            idempotency_key=key,
+        )  # fmt: skip
+        answer = await call_as("notification", "SetNotificationRules", request, who, retry=False)
+        return _rules(answer)
