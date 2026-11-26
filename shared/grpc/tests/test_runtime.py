@@ -203,3 +203,37 @@ def test_failed_background_work_stops_the_service_with_its_error() -> None:
 
     with pytest.raises(LookupError, match="broken"):
         asyncio.run(run_service("background-check", lambda server: None, background=[work]))
+
+
+def test_a_random_port_is_held_on_loopback_so_nothing_else_can_share_it() -> None:
+    """Listening everywhere, macOS let another program hold the same port on 127.0.0.1, and a
+    test's client reached it instead: "Trying to connect an http1.x server"."""
+    import socket
+
+    def taken_on_loopback(port: int) -> bool:
+        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind(("127.0.0.1", port))
+        except OSError:
+            return True
+        finally:
+            probe.close()
+        return False
+
+    async def scenario() -> None:
+        async with running_service() as harness:
+            runtime = harness.runtime
+            assert taken_on_loopback(runtime.grpc_port), "the gRPC port is this server's alone"
+            assert taken_on_loopback(runtime.http_port), "and so is the HTTP port"
+            assert await grpc_health(harness.channel) == SERVING
+
+    asyncio.run(scenario())
+
+
+def test_a_fixed_port_listens_everywhere_as_a_pod_must() -> None:
+    from windops_grpc import runtime
+
+    assert runtime._host(0, "[::]") == "127.0.0.1"
+    assert runtime._host(50051, "[::]") == "[::]"
+    assert runtime._host(8080, "0.0.0.0") == "0.0.0.0"  # noqa: S104
