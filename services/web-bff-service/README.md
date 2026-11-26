@@ -147,8 +147,9 @@ The Investigation Service decides who may investigate a turbine and read a case
 | `POST /api/v1/investigations/{id}/evidence` | Freeze a new version now, as the person, which re-evaluates the case (EVD-008): `201` |
 | `GET /api/v1/evidence/{snapshot_id}` | One snapshot with every item, its data quality, and whether its hashes still match |
 
-Freezing reads and hashes up to a day of telemetry, so it alone may take up to 60 seconds, on a client of its own: its
-time never counts as slow against the Investigation Service's other calls.
+Freezing reads and hashes up to a day of telemetry, and an impact estimate gathers the turbine, its telemetry and the
+forecast first. So these two alone may take up to 60 seconds, on clients of their own: their time never counts as slow
+against their services' other calls.
 
 - **Events:** each has its sequence as its `id` and its kind as its name: `requested`, `started`, `step`,
   `run_ended` and `case_status`.
@@ -157,6 +158,19 @@ time never counts as slow against the Investigation Service's other calls.
   most five minutes, or when the person's token does, to be opened again.
 - **The browser:** `EventSource` cannot send an `Authorization` header, so the frontend reads the stream with
   `fetch`.
+
+### Production impact and the weather (M11.3)
+
+The Production Impact Service works out every figure, with its range, inputs and assumptions, and checks who may
+estimate for a case's turbine. The Weather Service says how fresh its forecast is, and reports an outage rather than
+hiding it (WTH-005).
+
+| Route | What |
+| --- | --- |
+| `GET /api/v1/impact?case_id=…` | A case's impact estimates, newest first |
+| `GET /api/v1/impact/{id}` | One estimate, its hash checked again |
+| `POST /api/v1/impact` | Estimate an action on a case's turbine, optionally from a planned start: `201` |
+| `GET /api/v1/weather/{turbine_id}?hours=24` | The forecast for the turbine's site from now, at most 168 hours, with its state, age and provenance |
 
 ### Maintenance planner and parts lookup (M9.4)
 

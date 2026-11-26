@@ -294,6 +294,12 @@ export function CasePage({
                         Open the evidence
                       </Link>
                     )}
+                    <Link
+                      to={`/screens/impact?case=${encodeURIComponent(c.case_id)}`}
+                      className="mt-1 block text-sm text-brand-primary hover:underline"
+                    >
+                      Production impact
+                    </Link>
                   </Panel>
                   <Panel title="Timeline">
                     <Timeline history={data.history} />

@@ -19,8 +19,10 @@ from windops.inventory.v1 import inventory_pb2_grpc
 from windops.investigation.v1 import investigation_pb2_grpc
 from windops.maintenance.v1 import maintenance_pb2_grpc
 from windops.notification.v1 import notification_pb2_grpc
+from windops.production_impact.v1 import production_impact_pb2_grpc
 from windops.telemetry.v1 import telemetry_pb2_grpc
 from windops.tenant.v1 import tenant_pb2_grpc
+from windops.weather.v1 import weather_pb2_grpc
 from windops_cache import connect as redis_connect
 from windops_grpc import ServiceClient, create_channel, outgoing_metadata, run_service
 from windops_observability import breaker_state_metrics
@@ -97,6 +99,11 @@ def main() -> None:
         ),
         "inventory": (inventory_pb2_grpc.InventoryServiceStub, "WINDOPS_INVENTORY_ADDRESS"),
         "approval": (approval_pb2_grpc.ApprovalServiceStub, "WINDOPS_APPROVAL_ADDRESS"),
+        "production_impact": (
+            production_impact_pb2_grpc.ProductionImpactServiceStub,
+            "WINDOPS_PRODUCTION_IMPACT_ADDRESS",
+        ),
+        "weather": (weather_pb2_grpc.WeatherServiceStub, "WINDOPS_WEATHER_ADDRESS"),
         "notification": (
             notification_pb2_grpc.NotificationServiceStub,
             "WINDOPS_NOTIFICATION_ADDRESS",
@@ -182,6 +189,8 @@ def main() -> None:
             inventory=caller_for("inventory"),
             approval=caller_for("approval"),
             notification=caller_for("notification"),
+            production_impact=caller_for("production_impact"),
+            weather=caller_for("weather"),
             counters=counters,
         )
     )
