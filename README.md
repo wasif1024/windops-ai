@@ -27,6 +27,10 @@ laptop ([evidence](docs/phases/phase-04a-exit-gate.md)).
 - **Plans maintenance:** an agent drafts the work order, checked against parts, the turbine and policy, and only a
   person can submit it. Every agent attempt to submit or reserve is refused, at five layers, and audited
   ([Phase 9](docs/phases/phase-09-exit-gate.md)).
+- **Keeps the decision with a person:** only a manager with no hand in the work approves it, on the evidence they
+  reviewed, and the case's workflow resumes from its checkpoint. Stale evidence, completed work verified by the fault
+  rules, and notifications follow. A fault runs through to a closed case with 0 approval bypasses
+  ([Phase 10](docs/phases/phase-10-exit-gate.md)).
 
 <table>
   <tr>
@@ -78,8 +82,8 @@ hop, and the staging deployment's resource groups.</sub>
 An investigation from detection to decision, as specified in [SRS section 5.4](docs/srs.md#54-workflow). A
 deterministic rule raises the fault; the Supervisor delegates to five specialist agents, each limited to its own
 allowlisted tools; the Policy Service checks the result; the Maintenance Planner drafts the work order; and a person
-approves or rejects it. The animation is an illustration, not a recording. Everything up to the draft runs today;
-the human decision arrives with Phase 10.
+approves or rejects it. The animation is an illustration, not a recording. All of it runs today, through to the work
+verified after it is done.
 
 ## The console today
 
@@ -222,6 +226,7 @@ only read access unless it needs more.
 | 7. Knowledge and external intelligence | Done, [exit gate](docs/phases/phase-07-exit-gate.md) |
 | 8. Agent workflow | Done, [exit gate](docs/phases/phase-08-exit-gate.md): one investigation on Claude, $4.09 |
 | 9. Maintenance and inventory | Done, [exit gate](docs/phases/phase-09-exit-gate.md): agents draft, and never submit or reserve |
+| 10. Approval and closure | Done, [exit gate](docs/phases/phase-10-exit-gate.md): a fault to verification, with 0 approval bypasses |
 
 | Running today | |
 | --- | --- |

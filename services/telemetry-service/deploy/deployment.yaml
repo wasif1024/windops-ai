@@ -146,8 +146,10 @@ spec:
               cpu: 25m
               memory: 192Mi
             limits:
-              # CPU: devices, summaries and the detector's reads together held 250m in M5.3.
-              cpu: 500m
+              # CPU: devices, summaries and the detector's reads together held 250m in M5.3. By M10.7,
+              # with evidence, verification and drift reading it too, 500m was throttled in a third
+              # of its periods, slowing every screen that reads telemetry.
+              cpu: 1000m
               memory: 384Mi
           securityContext:
             allowPrivilegeEscalation: false

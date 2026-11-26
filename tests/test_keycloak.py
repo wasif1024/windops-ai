@@ -301,7 +301,7 @@ def test_the_admin_client_takes_a_new_token_when_keycloak_refuses_the_old(
         return httpx.Response(200, json={"access_token": issued[-1]},
                               request=httpx.Request("POST", url))  # fmt: skip
 
-    monkeypatch.setattr(identity_seed.httpx, "post", token)
+    monkeypatch.setattr(httpx, "post", token)
     seen: list[str] = []
 
     def keycloak(request: httpx.Request) -> httpx.Response:
