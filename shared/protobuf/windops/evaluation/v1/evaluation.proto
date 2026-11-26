@@ -1,0 +1,336 @@
+syntax = "proto3";
+
+package windops.evaluation.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Agent evaluation: datasets, evaluation jobs, benchmarks and regression orchestration (SRS 7.2,
+// SRS 10.5 to 10.7).
+//
+// A dataset is a named, versioned set of scenarios. A version, once registered, never changes:
+// registering it again with the same content is a no-op, and with other content is refused, so a
+// result always names exactly what it was scored on (EVL-005). Each scenario keeps its family,
+// its split (train, validation or held out, EVL-006) and how many runs it needs (EVL-002).
+//
+// A job evaluates one dataset version, for some of its splits, either rehearsed (the real team
+// on a scripted model, at no cost) or on Claude. Starting it plans every attempt: one a scenario
+// when rehearsed, else each scenario's runs_required. A runner leases the job, runs each attempt
+// on the platform and reports it. The service decides the outcome when the runner finishes it:
+//
+// - "passed" only when every planned attempt was reported and passed;
+// - "failed" when every attempt was reported and at least one failed;
+// - "incomplete" when any attempt is missing, was skipped or could not run. A skipped evaluation
+//   never counts as passed (SRS 7.7).
+//
+// A finished job may be made the benchmark for its dataset, splits and mode. Comparing a job with
+// its benchmark lists the scenarios that regressed, those fixed, and the change in cost and time.
+//
+// Every call needs evaluation.manage, which only a Platform Administrator holds (SRS 3.2). The
+// tenant comes from the caller's verified identity (GRP-004). Changes may be retried with the same
+// idempotency_key (GRP-007), and each is recorded in the audit trail.
+service EvaluationService {
+  rpc RegisterDataset(RegisterDatasetRequest) returns (RegisterDatasetResponse);
+  // With its scenarios.
+  rpc GetDataset(GetDatasetRequest) returns (GetDatasetResponse);
+  // Newest first, without their scenarios.
+  rpc ListDatasets(ListDatasetsRequest) returns (ListDatasetsResponse);
+
+  // Queues a job, with every attempt planned.
+  rpc StartEvaluation(StartEvaluationRequest) returns (StartEvaluationResponse);
+  // With its attempts.
+  rpc GetEvaluation(GetEvaluationRequest) returns (GetEvaluationResponse);
+  // Newest first.
+  rpc ListEvaluations(ListEvaluationsRequest) returns (ListEvaluationsResponse);
+  // Leases a job to a runner: the one named, or else the oldest queued, or one whose lease ran
+  // out, so a runner that stopped is taken over and its reported attempts are kept.
+  rpc LeaseEvaluation(LeaseEvaluationRequest) returns (LeaseEvaluationResponse);
+  rpc RenewLease(RenewLeaseRequest) returns (RenewLeaseResponse);
+  // One planned attempt, once. Reporting it again with the same result changes nothing.
+  rpc ReportAttempt(ReportAttemptRequest) returns (ReportAttemptResponse);
+  // Ends the lease, and decides the outcome.
+  rpc FinishEvaluation(FinishEvaluationRequest) returns (FinishEvaluationResponse);
+  // A queued or running job. Its outcome is "cancelled", never passed.
+  rpc CancelEvaluation(CancelEvaluationRequest) returns (CancelEvaluationResponse);
+
+  // Makes a finished, passed job the benchmark for its dataset, splits and mode.
+  rpc SetBenchmark(SetBenchmarkRequest) returns (SetBenchmarkResponse);
+  rpc ListBenchmarks(ListBenchmarksRequest) returns (ListBenchmarksResponse);
+  // A finished job against its benchmark.
+  rpc CompareEvaluation(CompareEvaluationRequest) returns (CompareEvaluationResponse);
+}
+
+message Scenario {
+  // Such as "gearbox-temp-001".
+  string scenario_id = 1;
+  // One of SRS 10.5's thirteen families, such as "gearbox_diagnostics".
+  string family = 2;
+  // "train", "validation" or "held_out" (EVL-006).
+  string split = 3;
+  // "low", "medium", "high" or "critical".
+  string severity = 4;
+  // On Claude, how many times it runs; one failure fails it (EVL-002).
+  int32 runs_required = 5;
+  // The scenario as written, in SRS 10.5's JSON shape, ground truth included. Only runners and
+  // Platform Administrators read it: agents never do (SIM-005).
+  string definition_json = 6;
+}
+
+message Dataset {
+  string name = 1;
+  string version = 2;
+  string description = 3;
+  // Over its scenarios' definitions, in scenario_id order.
+  string content_sha256 = 4;
+  int32 scenario_count = 5;
+  string registered_by = 6;
+  google.protobuf.Timestamp registered_at = 7;
+  repeated Scenario scenarios = 8;
+}
+
+message Score {
+  // An evaluator's key, such as "output_validity" or "approval_bypass".
+  string key = 1;
+  // "pass", "fail", or "not_judged" when the evaluator did not apply, such as a model's choices
+  // in a rehearsal. Not judged is never counted as passed or failed.
+  string result = 2;
+  string comment = 3;
+}
+
+message Attempt {
+  string scenario_id = 1;
+  // From 1.
+  int32 attempt = 2;
+  // "planned", "passed", "failed", "skipped" or "error".
+  string status = 3;
+  // What ran on the platform.
+  string run_id = 4;
+  string case_id = 5;
+  bool rehearsed = 6;
+  repeated Score scores = 7;
+  double seconds = 8;
+  int64 tokens = 9;
+  double cost_usd = 10;
+  // Why it was skipped or could not run.
+  string reason = 11;
+  google.protobuf.Timestamp reported_at = 12;
+}
+
+message Evaluation {
+  string job_id = 1;
+  string dataset_name = 2;
+  string dataset_version = 3;
+  // The splits evaluated, sorted.
+  repeated string splits = 4;
+  // "rehearse" or "claude".
+  string mode = 5;
+  // "queued", "running", "passed", "failed", "incomplete" or "cancelled".
+  string status = 6;
+  string requested_by = 7;
+  google.protobuf.Timestamp requested_at = 8;
+  string runner = 9;
+  google.protobuf.Timestamp lease_expires_at = 10;
+  google.protobuf.Timestamp started_at = 11;
+  google.protobuf.Timestamp finished_at = 12;
+  // What the runs depended on, as the runner read it: graph, prompts, tools, skills, policy and
+  // model versions (EVL-005).
+  map<string, string> versions = 13;
+  int32 planned = 14;
+  int32 passed = 15;
+  int32 failed = 16;
+  // Skipped, in error, or never reported.
+  int32 incomplete = 17;
+  double cost_usd = 18;
+  int64 tokens = 19;
+  double seconds = 20;
+  string note = 21;
+  repeated Attempt attempts = 22;
+}
+
+message Benchmark {
+  string dataset_name = 1;
+  repeated string splits = 2;
+  string mode = 3;
+  string job_id = 4;
+  string dataset_version = 5;
+  string set_by = 6;
+  google.protobuf.Timestamp set_at = 7;
+}
+
+message RegisterDatasetRequest {
+  string name = 1;
+  string version = 2;
+  string description = 3;
+  repeated Scenario scenarios = 4;
+  string idempotency_key = 5;
+}
+
+message RegisterDatasetResponse {
+  Dataset dataset = 1;
+  // False when this exact version was already registered.
+  bool created = 2;
+}
+
+message GetDatasetRequest {
+  string name = 1;
+  string version = 2;
+}
+
+message GetDatasetResponse {
+  Dataset dataset = 1;
+}
+
+message ListDatasetsRequest {
+  // Only this dataset's versions, when set.
+  string name = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListDatasetsResponse {
+  repeated Dataset datasets = 1;
+  string next_page_token = 2;
+}
+
+message StartEvaluationRequest {
+  string dataset_name = 1;
+  string dataset_version = 2;
+  // Every split when empty.
+  repeated string splits = 3;
+  // Only these scenarios, when set.
+  repeated string scenario_ids = 4;
+  // "rehearse" or "claude".
+  string mode = 5;
+  string note = 6;
+  string idempotency_key = 7;
+}
+
+message StartEvaluationResponse {
+  Evaluation evaluation = 1;
+}
+
+message GetEvaluationRequest {
+  string job_id = 1;
+}
+
+message GetEvaluationResponse {
+  Evaluation evaluation = 1;
+}
+
+message ListEvaluationsRequest {
+  // Only this dataset's jobs, when set.
+  string dataset_name = 1;
+  // Only jobs in this status, when set.
+  string status = 2;
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListEvaluationsResponse {
+  // Without their attempts.
+  repeated Evaluation evaluations = 1;
+  string next_page_token = 2;
+}
+
+message LeaseEvaluationRequest {
+  // Who runs it, such as "make-regression@host".
+  string runner = 1;
+  // This job, when set; otherwise the oldest waiting.
+  string job_id = 2;
+  // At most 3600; 600 when not set.
+  int32 lease_seconds = 3;
+}
+
+message LeaseEvaluationResponse {
+  // Empty when there was nothing to run.
+  Evaluation evaluation = 1;
+  // Needed to report, renew and finish.
+  string lease_token = 2;
+}
+
+message RenewLeaseRequest {
+  string job_id = 1;
+  string lease_token = 2;
+  int32 lease_seconds = 3;
+}
+
+message RenewLeaseResponse {
+  google.protobuf.Timestamp lease_expires_at = 1;
+}
+
+message ReportAttemptRequest {
+  string job_id = 1;
+  string lease_token = 2;
+  // scenario_id and attempt name a planned attempt. Its status is "passed" or "failed", worked
+  // out here from its scores, or "skipped" or "error" with a reason. A rehearsed attempt in a job
+  // on Claude is recorded as skipped: a scripted model's run says nothing of Claude's.
+  Attempt attempt = 3;
+  // Merged into the job's versions (EVL-005).
+  map<string, string> versions = 4;
+}
+
+message ReportAttemptResponse {
+  Attempt attempt = 1;
+}
+
+message FinishEvaluationRequest {
+  string job_id = 1;
+  string lease_token = 2;
+}
+
+message FinishEvaluationResponse {
+  Evaluation evaluation = 1;
+}
+
+message CancelEvaluationRequest {
+  string job_id = 1;
+  string reason = 2;
+  string idempotency_key = 3;
+}
+
+message CancelEvaluationResponse {
+  Evaluation evaluation = 1;
+}
+
+message SetBenchmarkRequest {
+  string job_id = 1;
+  string idempotency_key = 2;
+}
+
+message SetBenchmarkResponse {
+  Benchmark benchmark = 1;
+}
+
+message ListBenchmarksRequest {
+  string dataset_name = 1;
+}
+
+message ListBenchmarksResponse {
+  repeated Benchmark benchmarks = 1;
+}
+
+message CompareEvaluationRequest {
+  string job_id = 1;
+}
+
+message ScenarioComparison {
+  string scenario_id = 1;
+  // Attempts passed of those planned, in the benchmark and in this job.
+  int32 benchmark_passed = 2;
+  int32 benchmark_planned = 3;
+  int32 passed = 4;
+  int32 planned = 5;
+  // "regressed" (all passed in the benchmark, not now), "fixed" (the reverse), "same" or "new"
+  // (not in the benchmark).
+  string change = 6;
+}
+
+message CompareEvaluationResponse {
+  // Empty when there is no benchmark for this job's dataset, splits and mode.
+  Benchmark benchmark = 1;
+  repeated ScenarioComparison scenarios = 2;
+  int32 regressed = 3;
+  int32 fixed = 4;
+  // This job less the benchmark.
+  double cost_usd_change = 5;
+  double seconds_change = 6;
+}

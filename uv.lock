@@ -16,6 +16,7 @@ members = [
     "windops-cache",
     "windops-claude",
     "windops-contracts",
+    "windops-evaluation",
     "windops-events",
     "windops-external-intelligence",
     "windops-fault-detection",
@@ -2380,6 +2381,7 @@ dev = [
     { name = "windops-cache" },
     { name = "windops-claude" },
     { name = "windops-contracts" },
+    { name = "windops-evaluation" },
     { name = "windops-events" },
     { name = "windops-external-intelligence" },
     { name = "windops-fault-detection" },
@@ -2453,6 +2455,7 @@ dev = [
     { name = "windops-cache", editable = "shared/cache" },
     { name = "windops-claude", editable = "shared/claude" },
     { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-evaluation", editable = "services/evaluation-service" },
     { name = "windops-events", editable = "shared/events" },
     { name = "windops-external-intelligence", editable = "services/external-intelligence-service" },
     { name = "windops-fault-detection", editable = "services/fault-detection-service" },
@@ -2679,6 +2682,33 @@ dependencies = [
 requires-dist = [
     { name = "grpcio", specifier = ">=1.85.1" },
     { name = "protobuf", specifier = ">=7.36.2" },
+]
+
+[[package]]
+name = "windops-evaluation"
+version = "0.1.0"
+source = { editable = "services/evaluation-service" }
+dependencies = [
+    { name = "windops-auth" },
+    { name = "windops-contracts" },
+    { name = "windops-events" },
+    { name = "windops-grpc" },
+    { name = "windops-migrations" },
+    { name = "windops-observability" },
+    { name = "windops-outbox" },
+    { name = "windops-resilience" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
+    { name = "windops-events", editable = "shared/events" },
+    { name = "windops-grpc", editable = "shared/grpc" },
+    { name = "windops-migrations", editable = "shared/migrations" },
+    { name = "windops-observability", editable = "shared/observability" },
+    { name = "windops-outbox", editable = "shared/outbox" },
+    { name = "windops-resilience", editable = "shared/resilience" },
 ]
 
 [[package]]

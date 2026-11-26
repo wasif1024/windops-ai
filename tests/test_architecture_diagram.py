@@ -112,7 +112,9 @@ def test_a_service_runs_once_it_has_an_image_or_a_deployment() -> None:
     assert is_running("Asset")
     assert is_running("API Gateway")
     assert is_running("Agent Runtime")
-    assert not is_running("Evaluation")
+    # Evaluation was the last to arrive (M12.1): a name with no directory is not running.
+    assert is_running("Evaluation")
+    assert not is_running("No Such Service")
 
 
 def test_end_to_end_diagram_draws_every_srs_service_once() -> None:
@@ -169,9 +171,10 @@ def test_the_diagram_draws_every_domain_service_and_its_database() -> None:
 
 
 def test_the_kubernetes_view_marks_what_the_pipeline_deploys_as_on_azure() -> None:
-    from scripts.generate.kubernetes_view import BACK_END, ON_AZURE, PLANNED, status_of
+    from scripts.generate.kubernetes_view import BACK_END, LOCALLY, ON_AZURE, status_of
 
     on_azure = {name for name in BACK_END if status_of(name) == ON_AZURE}
     assert on_azure == {"Asset", "Audit"}  # Authorization and Tenant are drawn in the front end
     assert status_of("Authorization") == status_of("Tenant") == ON_AZURE
-    assert status_of("Evaluation") == PLANNED
+    # Every back-end service now runs locally at least; Evaluation was the last (M12.1).
+    assert status_of("Evaluation") == LOCALLY

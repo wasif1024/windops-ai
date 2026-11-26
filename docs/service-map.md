@@ -132,8 +132,9 @@ flowchart LR
     Knowledge -.->|evidence.changed| Investigation
     Inventory -.->|evidence.changed| Investigation
     Alarm -.->|alarm.changed| Investigation
-    Evaluation --> Runtime["Agent Runtime"]
-    Evaluation --> LangSmith[("LangSmith")]
+    Runner["Evaluation runner: make regression"] -->|lease, report| Evaluation
+    Runner -->|investigate, as a person| BFF["Web BFF"]
+    Runner -.->|scores, as an experiment| LangSmith[("LangSmith")]
 ```
 
 Investigation listens for changes because they can make a recommendation stale (SRS 8.5).
@@ -164,7 +165,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | Approval | Maintenance, Investigation, Asset | `approval.decided`, audit events | `workorder.submitted` |
 | Audit | None | `audit.recorded` | `audit.requested.*`, the audit events from every service |
 | Notification | Authorization, for who holds a permission, and Asset, for a turbine's wind farm ([ADR 0037](adr/0037-notifications-from-events-by-tenant-rules-with-email-recorded.md)). An email provider once one is chosen | Audit events | `case.updated`, `workorder.submitted`, `approval.decided` |
-| Evaluation | Agent Runtime, LangSmith | Audit events | None |
+| Evaluation | Authorization, for `evaluation.manage`. Its runner, not the service, runs investigations through Web BFF and keeps scores in LangSmith ([ADR 0042](adr/0042-the-evaluation-service-keeps-the-record-and-the-verdict.md)) | Audit events | None |
 
 The telemetry simulator is a separate workload and reaches Telemetry through the gateway. The MCP
 servers are also separate workloads, and call only these services (SRS 6.3):

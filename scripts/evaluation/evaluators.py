@@ -58,6 +58,7 @@ class Observed:
     tokens: int = 0
     cost_usd: float = 0.0
     reason: str = ""
+    case_id: str = ""
 
 
 @dataclass(frozen=True)
