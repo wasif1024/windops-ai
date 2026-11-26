@@ -3,9 +3,11 @@
 
     make readme-screens
 
-It signs in as a Maintenance Planner, in a real browser, through the gateway, against the live
-demo fleet. The healthy demo fleet raises no alarms and holds no parts or work orders, so for the
-picture it adds, and removes afterwards:
+It signs in, in a real browser, through the gateway, against the live demo fleet, as each role
+whose screens the picture shows: a Maintenance Planner, a Reliability Engineer, a Maintenance
+Manager, an Auditor and a Tenant Administrator, each made for the picture and deleted afterwards.
+The healthy demo fleet raises no alarms and holds no parts or work orders, so for the picture it
+adds, and removes afterwards:
 
 - three alarms, sent through three turbines' device route, as their controllers would send them;
 - a parts catalogue that fits the demo turbines, with stock in each wind farm's store;
@@ -13,7 +15,11 @@ picture it adds, and removes afterwards:
 - a draft work order from the Maintenance Planner agent, made through the agent's own WindOps MCP
   tool with its own token, for the tenant's fault-investigator. Its plan is written here: no
   model wrote it;
-- a planner's own draft, and a planner's submitted work order.
+- a planner's own draft, and a planner's submitted work order, waiting in the approval queue;
+- an investigation the engineer starts from the screen. It is rehearsed: the real agent team on a
+  scripted model, so nothing reaches Claude. Its case is cancelled afterwards.
+
+The knowledge library's search makes one OpenAI embedding call; nothing else is paid for.
 
 The screenshots go to docs/assets/screens, and scripts/generate/console_tour.py composes them.
 Run `make services` and the seeds first, with the cluster running.
@@ -40,21 +46,24 @@ from windops.maintenance.v1 import maintenance_pb2_grpc
 from scripts.checks.agents.runtime import investigation_bundle
 from scripts.checks.agents.tools import Cases, answer
 from scripts.checks.consoles.frontend import bootstrap, gateway_spki
+from scripts.checks.consoles.planner_setup import PlannerSetup
 from scripts.checks.fleet.alarm import sql as alarm_sql
+from scripts.checks.fleet.approval import clean_up as clean_up_approvals
 from scripts.checks.fleet.asset import HOST as ASSET_HOST
 from scripts.checks.fleet.asset import Caller, signing_key
 from scripts.checks.fleet.inventory import HOST as INVENTORY_HOST
 from scripts.checks.fleet.inventory import sql as inventory_sql
 from scripts.checks.fleet.maintenance import HOST as MAINTENANCE_HOST
-from scripts.checks.fleet.maintenance import clean_up as clean_up_work_orders
 from scripts.checks.fleet.mcp_servers import Server, tls_files
 from scripts.checks.fleet.telemetry import device_token, send_to
 from scripts.checks.identity.agent_identity import as_service, bundle_of, identity_as
-from scripts.checks.identity.identity import delete_user
+from scripts.checks.identity.identity import Realm, delete_user
+from scripts.checks.identity.mfa import Browser, enroll
 from scripts.generate.console_tour import SCREENS, build
 from scripts.lib.tls_client import authority_file, blocking_channel, client_bundle
 from scripts.setup.gateway_routes import port_forward
 from scripts.setup.identity_seed import (
+    ADMIN_REQUIRED_ACTIONS,
     ADMIN_SECRET_FILE,
     PUBLIC_URL,
     TENANTS,
@@ -71,7 +80,16 @@ from scripts.setup.provision_postgres import read_passwords
 REPOSITORY = Path(__file__).resolve().parents[2]
 FRONTEND = REPOSITORY / "frontend"
 TENANT, TURBINE = "north-sea", "dogger-east-t01"
-PLANNER_EMAIL = "maintenance.planner@north-sea.example"
+# The people each screen is captured as: (environment name, email, role). The seed's own users
+# (admin@ and operator@) are left alone.
+PEOPLE = (
+    ("PLANNER", "maintenance.planner@north-sea.example", "maintenance-planner"),
+    ("ENGINEER", "reliability.engineer@north-sea.example", "reliability-engineer"),
+    ("MANAGER", "maintenance.manager@north-sea.example", "maintenance-manager"),
+    ("AUDITOR", "auditor@north-sea.example", "auditor"),
+    ("ADMIN", "tenant.administrator@north-sea.example", "tenant-administrator"),
+)
+INVESTIGATION = "Gearbox oil running hot on DE-T01"
 OPENER = "readme-screens-operator"
 SOURCE = "turbine-controller-readme"
 PROCEDURE = "kn:WS-PRC-GBX-012@3"
@@ -216,7 +234,8 @@ class Seed:
             "estimated_downtime_hours": 6,
         })  # fmt: skip
 
-    def planner_work(self, case_id: str) -> None:
+    def planner_work(self, case_id: str) -> str:
+        """A planner's own draft, and a submitted work order. Return the submitted one's ID."""
         maintenance = self.stub("windops-maintenance", MAINTENANCE_HOST,
                                 maintenance_pb2_grpc.MaintenanceServiceStub)  # fmt: skip
         change = at(6, 7)
@@ -247,35 +266,53 @@ class Seed:
         maintenance.call("SubmitWorkOrder", mnt.SubmitWorkOrderRequest(
             work_order_id=watched.work_order_id, expected_revision=watched.revision,
         ), self.planner, TENANT)  # fmt: skip
+        return str(watched.work_order_id)
 
 
-def capture(password: str) -> None:
+def capture(password: str, work_order: str) -> None:
     out = REPOSITORY / "docs" / "assets" / "screens"
     env = {
         **{k: v for k, v in os.environ.items() if k != "SSL_CERT_FILE"},
         "BASE_URL": PUBLIC_URL.removesuffix("/auth"), "GATEWAY_SPKI": gateway_spki(),
         "NODE_EXTRA_CA_CERTS": authority_file(), "TENANT": TENANT,
-        "PLANNER_EMAIL": PLANNER_EMAIL, "PLANNER_PASSWORD": password,
-        "SCREEN_TURBINE": TURBINE, "SCREENS_DIR": str(out),
+        "SCREEN_PASSWORD": password, "SCREEN_TURBINE": TURBINE, "SCREENS_DIR": str(out),
+        "SCREEN_INVESTIGATION": INVESTIGATION, "SCREEN_WORK_ORDER": work_order,
+        **{f"SCREEN_{name}_EMAIL": email for name, email, _ in PEOPLE},
     }  # fmt: skip
     subprocess.run(["npx", "playwright", "test", "-c", "playwright.screens.config.ts"],
                    cwd=FRONTEND, env=env, check=True)  # fmt: skip
 
 
 @contextmanager
-def planner_user(password: str) -> Iterator[str]:
+def people(password: str) -> Iterator[dict[str, str]]:
+    """Each role's person, by environment name, with their user ID. The administrator sets up
+    their authenticator straight with Keycloak, as the frontend check does, and then signs in
+    with a password; nothing the picture shows asks for a second factor."""
     admin = read_passwords(ADMIN_SECRET_FILE)["password"]
+    made: dict[str, str] = {}
     with keycloak_admin() as base:
-        with admin_client(base, admin) as api:
-            organization = ensure_tenant(api, TENANT, TENANTS[TENANT])
-            user_id = ensure_user(api, PLANNER_EMAIL, password, new_password=True)
-            ensure_member(api, organization, user_id)
-        bootstrap(TENANT, user_id, "maintenance-planner")
         try:
-            yield user_id
+            with admin_client(base, admin) as api:
+                organization = ensure_tenant(api, TENANT, TENANTS[TENANT])
+                for name, email, role in PEOPLE:
+                    actions = ADMIN_REQUIRED_ACTIONS if name == "ADMIN" else None
+                    made[name] = ensure_user(api, email, password, new_password=True,
+                                             required_actions=actions)  # fmt: skip
+                    ensure_member(api, organization, made[name])
+                    bootstrap(TENANT, made[name], role)
+            with keycloak_public(through_gateway=False) as public:
+                administrator = next(e for n, e, _ in PEOPLE if n == "ADMIN")
+                enroll(Browser(Realm(public)), administrator, password)
+            yield made
         finally:
             with admin_client(base, admin) as api:
-                delete_user(api, PLANNER_EMAIL)
+                for _, email, _ in PEOPLE:
+                    delete_user(api, email)
+
+
+def cancel_investigation() -> None:
+    """Cancel the case the engineer opened, and remove what its rehearsed run drafted."""
+    clean_up_approvals(PlannerSetup("readme", ()).cancel_titled({INVESTIGATION}))
 
 
 def main() -> int:
@@ -283,23 +320,24 @@ def main() -> int:
     subprocess.run(["npx", "playwright", "install", "chromium"], cwd=FRONTEND, check=True)
     password = strong_password()
     try:
-        with planner_user(password) as planner, ExitStack() as stack, keycloak_public():
+        with people(password) as made, ExitStack() as stack, keycloak_public():
             bootstrap(TENANT, OPENER, "control-room-operator")
             key = signing_key()
             stack.callback(remove_parts)
             stack.callback(remove_alarms)
-            seed = Seed(stack, key, planner)
+            seed = Seed(stack, key, made["PLANNER"])
             files = stack.enter_context(tls_files(seed.bundle))
             cases = Cases(key)
             stack.callback(cases.close)
-            stack.callback(lambda: clean_up_work_orders(cases.opened))
+            stack.callback(lambda: clean_up_approvals(cases.opened))
+            stack.callback(cancel_investigation)
             raise_alarms()
             seed.parts()
             case_id = cases.open(OPENER, title="Gearbox oil temperature rising on DE-T01")
             cases.evidence(case_id)
             seed.agent_draft(case_id, files)
-            seed.planner_work(case_id)
-            capture(password)
+            work_order = seed.planner_work(case_id)
+            capture(password, work_order)
     except (RuntimeError, OSError, httpx.HTTPError, subprocess.CalledProcessError) as error:
         print(f"{type(error).__name__}: {error}", file=sys.stderr)
         return 1

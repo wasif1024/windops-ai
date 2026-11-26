@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Compose the README's console screenshots into one picture, docs/assets/console-tour.png.
 
-Six desktop screens, each in a browser frame with its address and a caption, and one phone
-screen, in the README pictures' palette. The screenshots come from `make readme-screens`
-(console_screens.py), which captures them from the running platform. Run this alone to compose
-them again:
+Eight desktop screens in order, from a turbine running hot to the audit trail of a person's
+decision, then four more of the console around them, each in a browser frame with its address, the
+role it was captured as, and a caption, and one phone screen, in the README pictures' palette. The
+screenshots come from `make readme-screens` (console_screens.py), which captures them from the
+running platform. Run this alone to compose them again:
 
     uv run python -m scripts.generate.console_tour
 """
@@ -20,6 +21,7 @@ ASSETS = Path(__file__).resolve().parents[2] / "docs" / "assets"
 SCREENS_DIR = ASSETS / "screens"
 OUT = ASSETS / "console-tour.png"
 ACCENT = "#2DD4BF"
+HUMAN = "#FBBF24"
 
 
 @dataclass(frozen=True)
@@ -28,32 +30,50 @@ class Screen:
     path: str
     title: str
     caption: str
-    phase: str
+    role: str
 
 
-SCREENS = (
-    Screen("fleet-overview", "screens/fleet", "Fleet overview",
-           "Every wind farm and turbine, live power, wind and freshness", "Phase 4"),
-    Screen("turbine-detail", "screens/fleet?turbine=dogger-east-t01", "Turbine detail",
-           "Latest readings and live charts, suspect values marked", "Phase 4"),
+# From a fault to an audited decision, in order.
+JOURNEY = (
+    Screen("turbine-detail", "screens/fleet?turbine=dogger-east-t01", "A turbine runs hot",
+           "Live readings and charts, suspect values marked", "Planner"),
     Screen("alarm-console", "screens/alarms", "Alarm console",
-           "Most severe first; severity from the controller or catalogue", "Phase 5"),
-    Screen("maintenance-planner", "screens/maintenance", "Maintenance planner",
-           "Work orders by status; an agent's draft is marked", "Phase 9"),
+           "Most severe first; severity from the controller or catalogue", "Planner"),
+    Screen("investigation-live", "screens/investigations?case=…", "Agents investigate",
+           "The agent team's progress, followed live", "Engineer"),
+    Screen("investigation", "screens/investigations?case=…", "Findings to review",
+           "Each finding cited, for a person to accept or challenge", "Engineer"),
+    Screen("evidence", "screens/investigations?case=…&evidence", "Frozen evidence",
+           "The snapshot the run rested on, its hashes checked again", "Engineer"),
     Screen("work-order", "screens/maintenance?work_order=…", "An agent's draft",
-           "Validated against parts, turbine and policy; only a person submits", "Phase 9"),
-    Screen("parts-lookup", "screens/parts?turbine=dogger-east-t01", "Parts lookup",
-           "Parts that fit the turbine, with its wind farm's stock", "Phase 9"),
+           "Validated against parts, turbine and policy; only a person submits", "Planner"),
+    Screen("approval", "screens/approvals?approval=…", "A person decides",
+           "The plan, its validation and history, to approve or reject", "Manager"),
+    Screen("audit-explorer", "screens/audit", "The audit trail",
+           "Every decision recorded, the hash chain checked intact", "Auditor"),
 )  # fmt: skip
-PHONE = "phone-work-order"
+# The console around it.
+AROUND = (
+    Screen("fleet-overview", "screens/fleet", "Fleet overview",
+           "Every wind farm and turbine, live power, wind and freshness", "Planner"),
+    Screen("maintenance-planner", "screens/maintenance", "Maintenance planner",
+           "Work orders by status; an agent's draft is marked", "Planner"),
+    Screen("knowledge-library", "screens/knowledge", "Knowledge library",
+           "Manuals and procedures, searched with citations", "Engineer"),
+    Screen("administration", "screens/admin", "Administration",
+           "Each role's permissions; approval changes need a second admin",
+           "Administrator"),
+)  # fmt: skip
+SCREENS = JOURNEY + AROUND
+PHONE = "phone-investigation"
 
-MARGIN, GAP, CARD_W = 64, 40, 640
+MARGIN, GAP, CARD_W, COLUMNS = 64, 48, 560, 4
 BAR, CAPTION = 38, 78
 SHOT_H = CARD_W * 900 // 1440
 CARD_H = BAR + SHOT_H
 ROW_H = CARD_H + CAPTION + 28
-HEADER = 176
-PHONE_GAP = 56
+HEADER, LABEL = 176, 44
+PHONE_GAP = 64
 
 
 def rounded(image: Image.Image, radius: int) -> Image.Image:
@@ -75,7 +95,16 @@ def shadow(canvas: Canvas, box: tuple[int, int, int, int], radius: int) -> None:
     canvas.image.paste(base.convert("RGB"))
 
 
-def browser(canvas: Canvas, x: int, y: int, screen: Screen) -> None:
+def pill(canvas: Canvas, x: int, y: int, label: str, color: str = ACCENT) -> int:
+    """A small rounded label centred on y; return its width."""
+    width = int(canvas.text_width(label, 12, bold=True)) + 20
+    fill = "#46350A" if color == HUMAN else "#0D3B3B"
+    canvas.draw.rounded_rectangle((x, y - 11, x + width, y + 11), 11, fill=fill, outline=color)
+    canvas.text(x + 10, y, label, 12, bold=True, color=color)
+    return width
+
+
+def browser(canvas: Canvas, x: int, y: int, screen: Screen, step: int | None) -> None:
     shadow(canvas, (x, y, x + CARD_W, y + CARD_H), 14)
     d = canvas.draw
     d.rounded_rectangle((x, y, x + CARD_W, y + CARD_H), 14, fill="#E2E8F0")
@@ -91,16 +120,27 @@ def browser(canvas: Canvas, x: int, y: int, screen: Screen) -> None:
     framed = rounded(shot, 14)
     canvas.image.paste(framed, (x, y + BAR), framed)
     canvas.image.paste(shot.crop((0, 0, CARD_W, 14)), (x, y + BAR))
-    # The caption.
+    # The caption: the step, the title, and the role it was captured as.
     cy = y + CARD_H + 22
-    width = canvas.text_width(screen.phase, 12, bold=True) + 20
-    d.rounded_rectangle((x, cy - 11, x + width, cy + 11), 11, fill="#0D3B3B", outline=ACCENT)
-    canvas.text(x + 10, cy, screen.phase, 12, bold=True, color=ACCENT)
-    canvas.text(x + width + 12, cy, screen.title, 19, bold=True)
+    tx = x
+    if step is not None:
+        d.ellipse((x, cy - 14, x + 28, cy + 14), fill=ACCENT)
+        canvas.text(x + 14, cy, str(step), 15, bold=True, color=BG, anchor="mm")
+        tx = x + 38
+    canvas.text(tx, cy, screen.title, 19, bold=True)
+    role = screen.role
+    width = int(canvas.text_width(role, 12, bold=True)) + 20
+    pill(canvas, x + CARD_W - width, cy, role, HUMAN if role == "Manager" else ACCENT)
     canvas.text(x, cy + 30, screen.caption, 15, color=MUTED)
 
 
-def phone(canvas: Canvas, x: int, y: int, height: int) -> None:
+def arrow(canvas: Canvas, x: int, y: int) -> None:
+    """A chevron in the gap between two cards of the journey."""
+    cx, cy = x + GAP // 2, y + CARD_H // 2
+    canvas.draw.line((cx - 7, cy - 12, cx + 5, cy, cx - 7, cy + 12), fill=ACCENT, width=4)
+
+
+def phone(canvas: Canvas, x: int, y: int, height: int) -> int:
     shot = Image.open(SCREENS_DIR / f"{PHONE}.png").convert("RGB")
     bezel, radius = 16, 44
     inner_h = height - 2 * bezel
@@ -115,46 +155,55 @@ def phone(canvas: Canvas, x: int, y: int, height: int) -> None:
     canvas.image.paste(framed, (x + bezel, y + bezel), framed)
     cx = x + width // 2
     d.rounded_rectangle((cx - 44, y + bezel + 8, cx + 44, y + bezel + 26), 9, fill="#0F172A")
+    return width
+
+
+def section(canvas: Canvas, y: int, label: str) -> None:
+    canvas.text(MARGIN, y + LABEL // 2 - 4, label.upper(), 14, bold=True, color=MUTED)
 
 
 def build() -> None:
     first = Image.open(SCREENS_DIR / f"{PHONE}.png")
-    grid_w = 3 * CARD_W + 2 * GAP
-    grid_h = 2 * ROW_H
+    grid_w = COLUMNS * CARD_W + (COLUMNS - 1) * GAP
+    rows = [HEADER + LABEL, HEADER + LABEL + ROW_H, HEADER + 2 * LABEL + 2 * ROW_H]
     phone_h = ROW_H + CARD_H
     phone_w = (phone_h - 32) * first.width // first.height + 32
     width = MARGIN + grid_w + PHONE_GAP + phone_w + MARGIN
-    height = HEADER + grid_h + 70
+    height = rows[2] + ROW_H + 70
     c = Canvas(width, height, scale=1, background=BG)
     d = c.draw
     # The header.
     d.rectangle((0, 0, width, 6), fill=ACCENT)
     c.text(MARGIN, 66, "WindOps AI: the operations console", 40, bold=True)
-    c.text(MARGIN, 116, "Captured from the running platform in a real browser, signed in as a "
-                        "Maintenance Planner. Synthetic demo fleet; nothing here is a mock-up.",
+    c.text(MARGIN, 116, "Captured from the running platform in a real browser, each screen as "
+                        "the role that uses it. Synthetic demo fleet; nothing here is a mock-up.",
            18, color=MUTED)  # fmt: skip
-    pill = "Responsive: desktop and phone"
-    pw = c.text_width(pill, 15, bold=True) + 32
+    label = "Responsive: desktop and phone"
+    pw = c.text_width(label, 15, bold=True) + 32
     d.rounded_rectangle((width - MARGIN - pw, 50, width - MARGIN, 84), 17, fill=PANEL,
                         outline=LINE)  # fmt: skip
-    c.text(width - MARGIN - pw + 16, 67, pill, 15, bold=True, color=TEXT)
-    # The six desktop screens.
-    for index, screen in enumerate(SCREENS):
-        row, column = divmod(index, 3)
-        browser(c, MARGIN + column * (CARD_W + GAP), HEADER + row * ROW_H, screen)
-    # The phone, the height of both rows' frames.
+    c.text(width - MARGIN - pw + 16, 67, label, 15, bold=True, color=TEXT)
+    # The journey, two rows of four, then the console around it.
+    section(c, HEADER, "From a fault to an audited decision")
+    for index, screen in enumerate(JOURNEY):
+        row, column = divmod(index, COLUMNS)
+        x = MARGIN + column * (CARD_W + GAP)
+        browser(c, x, rows[row], screen, index + 1)
+        if column < COLUMNS - 1:
+            arrow(c, x + CARD_W, rows[row])
+    section(c, rows[2] - LABEL, "Around it")
+    for column, screen in enumerate(AROUND):
+        browser(c, MARGIN + column * (CARD_W + GAP), rows[2], screen, None)
+    # The phone, the height of the journey's frames.
     px = MARGIN + grid_w + PHONE_GAP
-    phone(c, px, HEADER, phone_h)
-    cy = HEADER + phone_h + 22
-    label = "On a phone"
-    lw = c.text_width("Phase 9", 12, bold=True) + 20
-    d.rounded_rectangle((px, cy - 11, px + lw, cy + 11), 11, fill="#0D3B3B", outline=ACCENT)
-    c.text(px + 10, cy, "Phase 9", 12, bold=True, color=ACCENT)
-    c.text(px + lw + 12, cy, label, 19, bold=True)
-    c.text(px, cy + 30, "The same draft at 412 px wide", 15, color=MUTED)
+    phone(c, px, rows[0], phone_h)
+    cy = rows[0] + phone_h + 22
+    c.text(px, cy, "On a phone", 19, bold=True)
+    pill(c, px + int(c.text_width("On a phone", 19, bold=True)) + 12, cy, "Engineer")
+    c.text(px, cy + 30, "Step 4's findings, at 412 px wide", 15, color=MUTED)
     # The footer.
     motto = "Agents recommend and draft. Deterministic services and authorized people decide."
-    c.text(MARGIN, height - 30, motto, 16, bold=True, color="#FBBF24")
+    c.text(MARGIN, height - 30, motto, 16, bold=True, color=HUMAN)
     c.image.save(OUT, optimize=True)
 
 
