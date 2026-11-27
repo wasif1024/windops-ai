@@ -133,10 +133,11 @@ class Evaluations:
         ))  # fmt: skip
         return answer.dataset  # type: ignore[no-any-return]
 
-    def start(self, header: Mapping[str, str], mode: str, only: Sequence[str]) -> Job:
+    def start(self, header: Mapping[str, str], mode: str, only: Sequence[str],
+              splits: Sequence[str] = ()) -> Job:  # fmt: skip
         started = self.call("StartEvaluation", pb.StartEvaluationRequest(
             dataset_name=header["dataset"], dataset_version=header["version"], mode=mode,
-            scenario_ids=list(only), note="make regression",
+            scenario_ids=list(only), splits=list(splits), note="make regression",
             idempotency_key=f"regression-{secrets.token_hex(8)}",
         )).evaluation  # fmt: skip
         leased = self.call("LeaseEvaluation", pb.LeaseEvaluationRequest(
