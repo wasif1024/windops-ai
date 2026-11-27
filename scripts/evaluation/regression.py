@@ -381,6 +381,21 @@ def verdict(api: Evaluations, job: Job, benchmark: bool) -> bool:
     return bool(done.status == "passed")
 
 
+def gated(api: Evaluations, job_id: str, scenarios: Sequence[Scenario]) -> bool:
+    """The job's report, written, and its SRS 10.7 gates (M12.8). True when it passed."""
+    from windops.evaluation.v1 import evaluation_pb2 as pb
+
+    from scripts.evaluation import report as reports
+
+    done = api.call("GetEvaluation", pb.GetEvaluationRequest(job_id=job_id)).evaluation
+    found = reports.build(done, scenarios)
+    path = reports.write(found)
+    for each in found.gates:
+        print(f"{each.status:>10} - {each.name}: {each.detail}")
+    print(f"Report {found.outcome}: {path}")
+    return found.outcome == "passed"
+
+
 def report(outcomes: Sequence[Outcome]) -> None:
     """Print each run's scores. The Evaluation Service gives the verdict."""
     keys = [s.key for s in outcomes[0].scores] if outcomes else []
@@ -473,6 +488,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--no-langsmith", action="store_true", help="keep everything local")
     parser.add_argument("--benchmark", action="store_true",
                         help="make the job the benchmark, if it passes")  # fmt: skip
+    parser.add_argument("--split", choices=("train", "validation", "held_out"),
+                        help="run only this split, as a job of that split")  # fmt: skip
+    parser.add_argument("--report", action="store_true",
+                        help="write the job's report; pass only if its gates pass")  # fmt: skip
     arguments = parser.parse_args(argv)
     header, scenarios = dataset()
     try:
@@ -488,6 +507,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"No such scenarios: {sorted(unknown)}", file=sys.stderr)
             return 2
         chosen = [s for s in scenarios if s.case_id in arguments.scenario]
+    if arguments.split:
+        chosen = [s for s in chosen if s.split == arguments.split]
     passed = False
     try:
         clean_up(TENANT, PREFIX, FARM)
@@ -495,7 +516,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         with evaluations() as api:
             api.register(header, scenarios)
             mode = mode_now()
-            job = api.start(header, mode, [s.case_id for s in chosen])
+            # A whole split is a job of that split, so its benchmark and report are the split's.
+            only = [s.case_id for s in chosen] if arguments.scenario else []
+            if not only and not arguments.split:
+                only = [s.case_id for s in chosen]
+            job = api.start(header, mode, only, [arguments.split] if arguments.split else [])
             info(f"evaluation {job.job_id}, {mode}: {job.evaluation.planned} attempts planned")
             try:
                 with keycloak_public() as public:
@@ -510,6 +535,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             finally:
                 # Whatever happened, the service decides: what did not run is not passed.
                 passed = verdict(api, job, arguments.benchmark)
+                if arguments.report:
+                    passed = gated(api, job.job_id, scenarios) and passed
         report(outcomes)
         if not arguments.no_langsmith:
             to_langsmith(header, scenarios, outcomes)

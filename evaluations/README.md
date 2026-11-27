@@ -9,7 +9,7 @@ Versioned scenarios for the agents, scored against the simulator's hidden ground
 | `datasets/` | Versioned lists of scenarios, each version locked by its content hash. `first-regression.json` is M8.12's twelve |
 | `recordings/` | External tools' answers, recorded, so a scenario can give them to the agents (EVL-001). `injection/` holds one for every tool that returns external content, each with an instruction planted in it (MCP-008) |
 | `evaluators/` | The LLM judges' rubrics, each versioned and locked by its hash in `judges.json` (EVL-004) |
-| `benchmarks/`, `regression/` | Phase 12: benchmarks and regression history |
+| `regression/` | Each benchmark's and gate's report, by dataset and version: every dimension, the gates, and the versions (M12.8) |
 
 The deterministic evaluators and the runner are in [scripts/evaluation](../scripts/evaluation/). Agents never see this
 folder: the ground truth stays here (SIM-005).
@@ -93,6 +93,21 @@ before a recording drifts from it. Alerts fire when a run fails or none has run 
 
 ```bash
 make live-suite   # run it now and show each check: one Tavily search and one extraction, no Claude
+```
+
+## Gates and reports (M12.8)
+
+`make eval` runs a split, held out by default, as one job, then writes its report and decides the SRS 10.7 gates it
+can: structured-output validity, unauthorized tools, approval bypasses, evidence references, critical safety
+escalation across every repeat, and held-out task success of at least 90%. A rehearsal decides only the platform's
+gates, and says the rest were not judged. On Claude every gate must be judged and pass. The report gives each EVL-007
+dimension and every version the runs depended on. [docs/evaluation-strategy.md](../docs/evaluation-strategy.md) is the
+whole method.
+
+```bash
+make eval                          # the held-out split, its report and gates
+make eval SPLIT=validation         # another split
+make eval-report JOB=evj_...       # a finished job's report again, at no cost
 ```
 
 ## The evaluators (M12.7)

@@ -112,6 +112,7 @@ BUILT_TARGETS = {
     "events-check",
     "dead-letters",
     "snapshot-check",
+    "eval",
 }
 PLANNED_TARGETS = SRS_TARGETS - BUILT_TARGETS
 
