@@ -149,6 +149,7 @@ def test_dockerfile_is_pinned_multi_stage_and_non_root(service: Path) -> None:
     assert not any(line.startswith(("ENV WINDOPS", "COPY .env")) for line in lines)
     runtime = lines[lines.index(stages[1]) :]
     assert any("pip uninstall" in line for line in runtime)
+    assert any("apt-get upgrade" in line for line in runtime), "Debian's security fixes"
 
 
 def test_a_service_gets_its_own_certificate_for_both_directions(service: Path) -> None:
