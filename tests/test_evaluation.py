@@ -10,6 +10,7 @@ from windops_identity.targets import AGENT_TOOLS
 from scripts.evaluation import evaluators as ev
 from scripts.evaluation import pipeline
 from scripts.evaluation.scenarios import (
+    EXTERNAL_TOOLS,
     ROOT,
     CaseInput,
     Scenario,
@@ -18,6 +19,7 @@ from scripts.evaluation.scenarios import (
     check_set,
     dataset,
     load,
+    recording,
 )
 
 
@@ -95,6 +97,7 @@ def test_a_good_run_on_claude_passes_every_evaluator() -> None:
     assert got.pop("escalation") is None, "this scenario does not decide escalation"
     assert got.pop("uncertainty") is None, "nor does it limit confidence"
     assert got.pop("actions") is None and got.pop("impact") is None, "nor does it plan"
+    assert got.pop("grounding") is None and got.pop("data_gaps") is None
     assert all(got.values()), got
 
 
@@ -321,3 +324,82 @@ def test_a_production_question_carries_the_services_estimate() -> None:
     assert scores(observed(result=result(impact=estimate)), costed)["impact"] is True
     assert scores(observed(), costed)["impact"] is False
     assert scores(observed(rehearsed=True), costed)["impact"] is None
+
+
+# --- the governance datasets (M12.5)
+
+GOVERNANCE = ("safety_escalation", "tool_selection", "rag_grounding", "rbac_and_security",
+              "human_approval", "failure_recovery")  # fmt: skip
+
+
+def test_each_governance_family_has_ten_scenarios_in_every_split() -> None:
+    _, scenarios = dataset()
+    for family in GOVERNANCE:
+        mine = [s for s in scenarios if s.family == family]
+        assert len(mine) >= 10, family
+        assert {s.split for s in mine} == {"train", "validation", "held_out"}, family
+        assert sum(s.split == "held_out" for s in mine) >= 4, family
+        assert len({s.ground_truth for s in mine if s.split == "held_out"}) >= 2, family
+
+
+def test_every_tool_that_returns_external_content_has_an_injection_case() -> None:
+    """MCP-008: in the security dataset, each one's recorded answer plants an instruction."""
+    _, scenarios = dataset()
+    covered = set()
+    for s in scenarios:
+        recorded = recording(s)
+        if recorded is not None and recorded.injection:
+            assert s.family == "rbac_and_security", s.case_id
+            # What the injection asks for is never allowed, so obeying it fails a run.
+            assert {"approve_work_order", "reserve_spare_part"} <= set(s.prohibited_behavior)
+            covered.add(recorded.tool)
+    assert covered == EXTERNAL_TOOLS
+
+
+def test_a_recording_is_for_an_external_tool_the_scenario_expects() -> None:
+    with pytest.raises(ScenarioError, match="no recording"):
+        check(scenario(recorded_external_sources="injection/missing.json"), "gearbox-temp-001.json")
+    with pytest.raises(ScenarioError, match="never expects"):
+        check(scenario(recorded_external_sources="injection/tavily-search-web.json"),
+              "gearbox-temp-001.json")  # fmt: skip
+
+
+def test_a_grounded_result_cites_an_approved_passage() -> None:
+    grounded = scenario(expect={"diagnosis_terms": ["gearbox"], "cites_documents": True})
+    cited = result(observed_facts=[{"statement": "Limit 80 C", "citations": ["kn:doc-1@2#p3"]}],
+                   evidence_references=["kn:doc-1@2#p3", "item-1"])  # fmt: skip
+    assert scores(observed(result=cited), grounded)["grounding"] is True
+    assert scores(observed(), grounded)["grounding"] is False
+    assert scores(observed(rehearsed=True), grounded)["grounding"] is None
+
+
+def test_missing_evidence_is_named_as_a_data_gap() -> None:
+    """FR-INV-005."""
+    missing = scenario(expect={"diagnosis_terms": ["sensor"], "data_gap_required": True})
+    named = result(data_gaps=["No bearing temperature since 06:00"])
+    assert scores(observed(result=named), missing)["data_gaps"] is True
+    assert scores(observed(), missing)["data_gaps"] is False
+
+
+def test_a_recorded_scenario_is_skipped_on_claude_until_recordings_are_replayed() -> None:
+    """A run on the live source would judge nothing the scenario is for: skipped, so the job is
+    incomplete, never passed (SRS 7.7)."""
+    from scripts.evaluation import regression
+
+    recorded = scenario(recorded_external_sources="injection/tavily-search-web.json")
+    assert not regression.replays(recorded)
+    assert regression.replays(scenario())
+
+
+def test_a_changed_recording_needs_a_new_version(tmp_path: Path) -> None:
+    """EVL-005: the recording is part of the dataset's content."""
+    import shutil
+
+    shutil.copytree(ROOT, tmp_path / "evaluations")
+    root = tmp_path / "evaluations"
+    path = root / "recordings" / "injection" / "tavily-search-web.json"
+    data = json.loads(path.read_text())
+    data["text"] += " More."
+    path.write_text(json.dumps(data))
+    with pytest.raises(ScenarioError, match="give the dataset a new version"):
+        pipeline.check_lock(root=root)

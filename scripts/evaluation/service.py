@@ -97,6 +97,15 @@ class Job:
         ))  # fmt: skip
         return answer.attempt  # type: ignore[no-any-return]
 
+    def skip(self, scenario_id: str, attempt: int, reason: str) -> pb.Attempt:
+        """Reported as skipped, so the job cannot pass without it (SRS 7.7)."""
+        answer = self.api.call("ReportAttempt", pb.ReportAttemptRequest(
+            job_id=self.job_id, lease_token=self.token,
+            attempt=pb.Attempt(scenario_id=scenario_id, attempt=attempt, status="skipped",
+                               reason=reason[:900]),
+        ))  # fmt: skip
+        return answer.attempt  # type: ignore[no-any-return]
+
     def finish(self) -> pb.Evaluation:
         return self.api.call("FinishEvaluation", pb.FinishEvaluationRequest(  # type: ignore[no-any-return]
             job_id=self.job_id, lease_token=self.token)).evaluation  # fmt: skip

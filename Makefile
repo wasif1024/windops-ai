@@ -479,8 +479,9 @@ browser-coverage-check: ## After make frontend-check, prove every SRS 4.11 scree
 phase-11-gate: ## Check the Phase 11 exit gate on the cluster: role-based browser tests cover every SRS 4.11 screen, then every Phase 11 check
 	uv run python -m scripts.checks.gates.phase_11
 
-regression: ## Run the regression set on the cluster, scored deterministically: make regression [SCENARIO=id] (M8.12)
-	uv run python -m scripts.evaluation.regression $(if $(SCENARIO),--scenario $(SCENARIO),) $(if $(BENCHMARK),--benchmark,)
+comma := ,
+regression: ## Run the regression set on the cluster, scored deterministically: make regression [SCENARIO=id,id] (M8.12)
+	uv run python -m scripts.evaluation.regression $(foreach id,$(subst $(comma), ,$(SCENARIO)),--scenario $(id)) $(if $(BENCHMARK),--benchmark,)
 
 scenarios: ## Check the regression dataset, register it with the Evaluation Service and sync it to LangSmith (M12.2)
 	uv run python -m scripts.evaluation.pipeline

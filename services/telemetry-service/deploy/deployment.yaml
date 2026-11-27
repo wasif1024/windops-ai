@@ -150,7 +150,9 @@ spec:
               # with evidence, verification and drift reading it too, 500m was throttled in a third
               # of its periods, slowing every screen that reads telemetry.
               cpu: 1000m
-              memory: 384Mi
+              # Memory: by M12.5 it rests near 230Mi, and the regression's 130 replays, each making
+              # a device credential in a second process, peaked at 384Mi and were killed for it.
+              memory: 512Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

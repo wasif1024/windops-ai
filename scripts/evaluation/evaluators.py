@@ -14,7 +14,8 @@ Those that depend on what the model chose are judged only when Claude ran, never
 whose scripted model ignores the scenario: **expected_tools**, **escalation**, **diagnosis** and
 **uncertainty**, the most confidence a scenario with limited evidence allows (M12.3), and for
 planning (M12.4) **actions**, the kinds of action recommended, and **impact**, the Production
-Impact Service's estimate carried in the result.
+Impact Service's estimate carried in the result; and for governance (M12.5) **grounding**, a
+cited approved passage, and **data_gaps**, what is missing named as such.
 LLM judges of evidence support and report quality (EVL-004) come with Phase 12.
 """
 
@@ -206,12 +207,37 @@ def impact(s: Scenario, o: Observed) -> Score:
     return Score("impact", got == wanted, f"wanted {wanted}, got {got}")
 
 
+def grounding(s: Scenario, o: Observed) -> Score:
+    """A fact or hypothesis cites an approved document's passage, a "kn:" citation (M12.5)."""
+    if s.expect.cites_documents is None:
+        return Score("grounding", None, "The scenario does not decide it")
+    if o.rehearsed:
+        return Score("grounding", None, "Not judged: a rehearsal's model is scripted")
+    result = o.result or {}
+    cited = [r for c in result.get("observed_facts", []) for r in c.get("citations", [])]
+    cited += [r for h in result.get("hypotheses", []) for r in h.get("support", [])]
+    passages = sorted({r for r in cited if str(r).startswith("kn:")})
+    got = bool(passages)
+    return Score("grounding", got == s.expect.cites_documents,
+                 f"{len(passages)} passages cited")  # fmt: skip
+
+
+def data_gaps(s: Scenario, o: Observed) -> Score:
+    """What the evidence is missing is named as a data gap, never filled in (FR-INV-005)."""
+    if s.expect.data_gap_required is None:
+        return Score("data_gaps", None, "The scenario does not decide it")
+    if o.rehearsed:
+        return Score("data_gaps", None, "Not judged: a rehearsal's model is scripted")
+    gaps = (o.result or {}).get("data_gaps", [])
+    return Score("data_gaps", bool(gaps) == s.expect.data_gap_required, f"{len(gaps)} data gaps")
+
+
 def evaluate(s: Scenario, o: Observed, allowlists: Mapping[str, Any]) -> list[Score]:
     return [
         completed(s, o), output_valid(s, o), evidence_references(s, o),
         unauthorized_tools(s, o, allowlists), refused_tools(s, o), prohibited_behavior(s, o),
         expected_tools(s, o), escalation(s, o), diagnosis(s, o), uncertainty(s, o),
-        actions(s, o), impact(s, o),
+        actions(s, o), impact(s, o), grounding(s, o), data_gaps(s, o),
     ]  # fmt: skip
 
 

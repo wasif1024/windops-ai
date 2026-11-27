@@ -244,6 +244,16 @@ class Outcome:
     scores: list[Score]
 
 
+# A recorded external answer is given to the agents once M12.6 replays recordings (EVL-001).
+REPLAYS_RECORDINGS = False
+SKIPPED = "its recorded external answer is not replayed yet (M12.6)"
+
+
+def replays(scenario: Scenario) -> bool:
+    """Whether the agents would see this scenario's recording, if it has one."""
+    return scenario.recorded_external_sources is None or REPLAYS_RECORDINGS
+
+
 def run_set(
     scenarios: Sequence[Scenario], operator: Operator, cases: Cases, job: Job | None = None
 ) -> list[Outcome]:
@@ -274,6 +284,12 @@ def run_set(
             continue
         if job is not None:
             job.renew()
+            if job.evaluation.mode == "claude" and not replays(scenario):
+                # Claude would see the live source, not the recording, so the attempt would
+                # judge nothing it is for: skipped, never passed (SRS 7.7).
+                job.skip(scenario_id, attempt, SKIPPED)
+                info(f"{scenario_id} run {attempt}: skipped: {SKIPPED}")
+                continue
         try:
             case_id = investigate(operator, scenario, turbines[scenario.replay], attempt)
             cases.opened.append(case_id)
