@@ -34,8 +34,9 @@ Sign in as `admin`. The password is in `infrastructure/minikube/secrets.local.gr
 | [Data Freshness](../services/telemetry-service/README.md#freshness-m49-srs-103) | Turbines live, delayed, stale and silent, telemetry delay percentiles, each turbine's newest sample age, and samples stored and refused. Weather, documents and provider status arrive with their services |
 | Agent Operations | Investigations started and completed, completion and failure rates, tool success by agent, failed tool calls, duration, handoffs by specialist, and retries and takeovers ([ADR 0026](adr/0026-the-first-regression-set-and-agent-dashboards.md)) |
 | LLM Operations | Tokens by kind, estimated cost, cache hit rate, calls by model and stop reason, model latency, provider errors, refusals and fallbacks, and retries. Rehearsals call no model, so it fills once Claude runs |
+| Responsible AI | Safety escalations and their rate, policy denials, human overrides (approvals refused, findings challenged, work orders revised), unsupported claims the result checks caught by kind, stale evidence, and agent tool calls refused. Escalations and unsupported claims count runs on Claude; rehearsals, which always escalate, are shown apart (M12.9) |
 
-The other SRS 10.3 dashboards arrive with the components they describe. Panels stay empty until something produces the
+Every SRS 10.3 dashboard is here. Panels stay empty until something produces the
 data, such as a breaker opening.
 
 ## On Azure (ADR 0006)

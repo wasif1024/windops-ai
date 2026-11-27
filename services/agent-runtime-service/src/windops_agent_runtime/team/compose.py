@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from langchain_core.messages import BaseMessage, HumanMessage
 from windops_claude import Claude, HistoryGuard, StructuredOutputError, stable_system
 
+from windops_agent_runtime.team import counted
 from windops_agent_runtime.team.definitions import SUPERVISOR
 from windops_agent_runtime.team.result import Draft, Seen, problems
 
@@ -76,6 +77,8 @@ async def compose(
             found = problems(draft, case_id=case_id, snapshot_id=snapshot_id, seen=seen)
             if not found:
                 return Composed(draft=draft, repairs=attempt)
+        # What each check caught, for the Responsible AI dashboard (SRS 10.3).
+        counted.count_problems(found, "claude")
         if attempt < repairs:
             listed = "\n".join(f"- {problem}" for problem in found)
             messages = [

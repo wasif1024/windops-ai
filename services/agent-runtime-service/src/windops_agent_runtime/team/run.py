@@ -105,13 +105,20 @@ class TeamRunner:
             draft = rehearsal.draft(case_id, snapshot_id, turbine_id, seen)
             found = problems(draft, case_id=case_id, snapshot_id=snapshot_id, seen=seen)
             if found:
+                counted.count_problems(found, "rehearse")
                 raise InvalidResultError("; ".join(found))
-            return Composed(draft=draft, repairs=0)
-        prompt = self._team.agents[SUPERVISOR].result_prompt
-        return await compose(
-            self._claude, prompt, case_id=case_id, snapshot_id=snapshot_id, report=report,
-            seen=seen,
-        )  # fmt: skip
+            composed = Composed(draft=draft, repairs=0)
+        else:
+            prompt = self._team.agents[SUPERVISOR].result_prompt
+            composed = await compose(
+                self._claude, prompt, case_id=case_id, snapshot_id=snapshot_id, report=report,
+                seen=seen,
+            )  # fmt: skip
+        # Each result kept, and whether a person must look (SRS 10.3, Responsible AI).
+        mode = "rehearse" if rehearse else "claude"
+        escalation = str(composed.draft.escalation_required).lower()
+        counted.results.add(1, {"mode": mode, "escalation": escalation})
+        return composed
 
     async def check_policy(self, case_id: str, action: Recommendation) -> PolicyCheck:
         """Step 11: the Policy Service's deterministic rules on one recommended action, asked as

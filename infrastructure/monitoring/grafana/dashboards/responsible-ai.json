@@ -1,0 +1,432 @@
+{
+  "uid": "windops-responsible-ai",
+  "title": "Responsible AI",
+  "description": "SRS 10.3: safety escalations, policy denials, human overrides, unsupported recommendations and stale evidence. Escalations and unsupported claims count runs on Claude; rehearsals are shown separately, never mixed in.",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "tags": [
+    "windops"
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Safety escalations",
+      "description": "In the last 24 hours: results on Claude that a person must look at before anything is done (escalation_required).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum((increase(windops_agent_results_total{mode=\"claude\",escalation=\"true\"}[24h]) and windops_agent_results_total{mode=\"claude\",escalation=\"true\"} offset 24h or windops_agent_results_total{mode=\"claude\",escalation=\"true\"})))",
+          "legendFormat": "safety escalations"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Escalation rate",
+      "description": "In the last 24 hours: of the results kept on Claude, the share that escalated. Rehearsals always escalate, so they are left out.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "0",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum((increase(windops_agent_results_total{mode=\"claude\",escalation=\"true\"}[24h]) and windops_agent_results_total{mode=\"claude\",escalation=\"true\"} offset 24h or windops_agent_results_total{mode=\"claude\",escalation=\"true\"})) / sum((increase(windops_agent_results_total{mode=\"claude\"}[24h]) and windops_agent_results_total{mode=\"claude\"} offset 24h or windops_agent_results_total{mode=\"claude\"}))",
+          "legendFormat": "escalation rate"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Policy denials",
+      "description": "In the last 24 hours: proposals the Policy Service blocked (policy.evaluated, outcome block).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum((increase(windops_audit_records_total{action=\"policy.evaluated\",outcome=\"block\"}[24h]) and windops_audit_records_total{action=\"policy.evaluated\",outcome=\"block\"} offset 24h or windops_audit_records_total{action=\"policy.evaluated\",outcome=\"block\"})))",
+          "legendFormat": "policy denials"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Human overrides",
+      "description": "In the last 24 hours: a person refused an approval, challenged a finding, or revised a drafted work order.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum((increase(windops_audit_records_total{action=~\"approval.refused|case.finding_challenged|work_order.revised\"}[24h]) and windops_audit_records_total{action=~\"approval.refused|case.finding_challenged|work_order.revised\"} offset 24h or windops_audit_records_total{action=~\"approval.refused|case.finding_challenged|work_order.revised\"})))",
+          "legendFormat": "human overrides"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Unsupported claims caught",
+      "description": "In the last 24 hours: problems a result's checks caught on Claude and sent back: claims citing nothing, references no tool returned, unsupported hypotheses, changed impact figures.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum((increase(windops_agent_result_problems_total{mode=\"claude\"}[24h]) and windops_agent_result_problems_total{mode=\"claude\"} offset 24h or windops_agent_result_problems_total{mode=\"claude\"})))",
+          "legendFormat": "unsupported claims caught"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Stale evidence",
+      "description": "In the last 24 hours: cases and work orders whose evidence a staleness rule marked stale (SRS 8.5).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum((increase(windops_audit_records_total{action=~\"case.stale|work_order.stale\"}[24h]) and windops_audit_records_total{action=~\"case.stale|work_order.stale\"} offset 24h or windops_audit_records_total{action=~\"case.stale|work_order.stale\"})))",
+          "legendFormat": "stale evidence"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Results kept, by mode and escalation",
+      "description": "Every 5 minutes: results kept, on Claude or rehearsed, and whether a person must look.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (mode, escalation) (increase(windops_agent_results_total[5m]))",
+          "legendFormat": "{{mode}}, escalation {{escalation}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Policy decisions, by outcome",
+      "description": "Every 5 minutes: the Policy Service's decisions on proposals: pass, escalate or block.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (increase(windops_audit_records_total{action=\"policy.evaluated\"}[5m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Human overrides, by kind",
+      "description": "Every 5 minutes: approvals refused, findings challenged and work orders revised by a person.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (action) (increase(windops_audit_records_total{action=~\"approval.refused|case.finding_challenged|work_order.revised\"}[5m]))",
+          "legendFormat": "{{action}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Unsupported claims caught, by kind",
+      "description": "Every 5 minutes: what a result's checks caught and sent back for repair, by kind, on Claude and rehearsed.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (mode, kind) (increase(windops_agent_result_problems_total[5m]))",
+          "legendFormat": "{{mode}}: {{kind}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Stale evidence, by what went stale",
+      "description": "Every 5 minutes: cases and work orders marked stale.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (action) (increase(windops_audit_records_total{action=~\"case.stale|work_order.stale\"}[5m]))",
+          "legendFormat": "{{action}}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Agent tool calls refused",
+      "description": "Every 5 minutes: tool calls the MCP servers refused, as authorization denied them: a tool or scope outside what the agent, or the person it acts for, may use.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (action) (increase(windops_audit_records_total{action=~\"mcp\\\\..+\",outcome=\"denied\"}[5m]))",
+          "legendFormat": "{{action}}"
+        }
+      ]
+    }
+  ]
+}
