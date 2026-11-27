@@ -113,6 +113,11 @@ class EvaluationServiceStub:
                 request_serializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.CancelEvaluationRequest.SerializeToString,
                 response_deserializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.CancelEvaluationResponse.FromString,
                 _registered_method=True)
+        self.SetReplay = channel.unary_unary(
+                '/windops.evaluation.v1.EvaluationService/SetReplay',
+                request_serializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.SetReplayRequest.SerializeToString,
+                response_deserializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.SetReplayResponse.FromString,
+                _registered_method=True)
         self.SetBenchmark = channel.unary_unary(
                 '/windops.evaluation.v1.EvaluationService/SetBenchmark',
                 request_serializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.SetBenchmarkRequest.SerializeToString,
@@ -233,6 +238,15 @@ class EvaluationServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetReplay(self, request, context):
+        """Which scenario's recorded external answer the evaluation tenant's agents get next, while the
+        job's lease holds; none gives the baseline answers. Recordings replace Tavily and the weather
+        provider in a regression, so it is repeatable (EVL-001).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SetBenchmark(self, request, context):
         """Makes a finished, passed job the benchmark for its dataset, splits and mode.
         """
@@ -310,6 +324,11 @@ def add_EvaluationServiceServicer_to_server(servicer, server):
                     servicer.CancelEvaluation,
                     request_deserializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.CancelEvaluationRequest.FromString,
                     response_serializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.CancelEvaluationResponse.SerializeToString,
+            ),
+            'SetReplay': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetReplay,
+                    request_deserializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.SetReplayRequest.FromString,
+                    response_serializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.SetReplayResponse.SerializeToString,
             ),
             'SetBenchmark': grpc.unary_unary_rpc_method_handler(
                     servicer.SetBenchmark,
@@ -648,6 +667,33 @@ class EvaluationService:
             '/windops.evaluation.v1.EvaluationService/CancelEvaluation',
             windops_dot_evaluation_dot_v1_dot_evaluation__pb2.CancelEvaluationRequest.SerializeToString,
             windops_dot_evaluation_dot_v1_dot_evaluation__pb2.CancelEvaluationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetReplay(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.evaluation.v1.EvaluationService/SetReplay',
+            windops_dot_evaluation_dot_v1_dot_evaluation__pb2.SetReplayRequest.SerializeToString,
+            windops_dot_evaluation_dot_v1_dot_evaluation__pb2.SetReplayResponse.FromString,
             options,
             channel_credentials,
             insecure,

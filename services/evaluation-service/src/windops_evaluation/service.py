@@ -25,7 +25,7 @@ from windops_grpc import (
 )
 from windops_migrations import in_tenant
 
-from windops_evaluation import rules
+from windops_evaluation import replay, rules
 from windops_evaluation.store import (
     ATTEMPTS,
     BENCHMARKS,
@@ -459,6 +459,35 @@ class EvaluationService(evaluation_pb2_grpc.EvaluationServiceServicer):
                 .values(lease_expires_at=until)
             )
         return pb.RenewLeaseResponse(lease_expires_at=_timestamp(until))
+
+    async def SetReplay(  # noqa: N802
+        self, request: pb.SetReplayRequest, context: Any
+    ) -> pb.SetReplayResponse:
+        """The scenario whose recorded answer the evaluation tenant gets while this lease holds."""
+        _, tenant, _ = await self._caller()
+        _key(request.idempotency_key)
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, tenant)
+            row = await self._job(connection, tenant, request.job_id, lock=True)
+            self._leased(row, request.lease_token)
+            tool = ""
+            if request.scenario_id:
+                s = SCENARIOS.c
+                found = (await connection.execute(select(SCENARIOS.c.definition_json).where(
+                    s.tenant_id == tenant, s.dataset_name == row.dataset_name,
+                    s.dataset_version == row.dataset_version, s.scenario_id == request.scenario_id,
+                ))).scalar_one_or_none()  # fmt: skip
+                if found is None:
+                    raise NotFoundError("No such scenario in this evaluation's dataset")
+                recording = replay.recorded(json.loads(found))
+                tool = recording.tool if recording else ""
+            j = JOBS.c
+            await connection.execute(
+                update(JOBS)
+                .where(j.tenant_id == tenant, j.job_id == row.job_id)
+                .values(replay_scenario=request.scenario_id)
+            )
+        return pb.SetReplayResponse(scenario_id=request.scenario_id, tool=tool)
 
     async def ReportAttempt(  # noqa: N802
         self, request: pb.ReportAttemptRequest, context: Any

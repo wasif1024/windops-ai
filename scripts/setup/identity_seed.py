@@ -17,6 +17,7 @@ from typing import Any
 import httpx
 from windops_auth import LEVEL_MFA, LEVEL_PASSWORD, MFA_LEVEL_SECONDS
 from windops_identity.targets import EXCHANGE_TARGETS, audience_scope
+from windops_simulator.documents import EVALUATION_TENANT
 
 from scripts.lib import settings
 from scripts.lib.tls_client import trust_cluster_ca
@@ -43,8 +44,11 @@ PASSWORD_LEVEL_SECONDS = 36000
 ADMIN_REQUIRED_ACTIONS = ["CONFIGURE_TOTP", "CONFIGURE_RECOVERY_AUTHN_CODES"]
 LOCAL = Path(__file__).resolve().parents[2] / "infrastructure" / "minikube"
 ADMIN_SECRET_FILE = LOCAL / "secrets.local.keycloak.env"
-# Synthetic tenants (SRS 1). The alias becomes the tenant ID in every token.
-TENANTS = {"north-sea": "North Sea Wind", "atlas-wind": "Atlas Wind"}
+# Synthetic tenants (SRS 1). The alias becomes the tenant ID in every token. The evaluation
+# tenant is where the regression runs, on recorded external sources (EVL-001, M12.6), so the demo
+# tenants always see the live ones.
+TENANTS = {"north-sea": "North Sea Wind", "atlas-wind": "Atlas Wind",
+           EVALUATION_TENANT: "WindOps Evaluation"}  # fmt: skip
 # Platform staff belong to a tenant of their own, so their tokens still carry a tenant (SEC-005).
 PLATFORM_TENANT = "windops-platform"
 PLATFORM_ADMIN_EMAIL = f"platform-admin@{PLATFORM_TENANT}.example"

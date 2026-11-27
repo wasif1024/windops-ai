@@ -13,8 +13,10 @@ what a reader can see:
 
 - `tenants`: the tenants the document is loaded for. Site procedures are each one tenant's own.
 - `covers`: the fault labels and alarm codes it is the procedure for, for retrieval tests.
-- `purpose`: "demo" to load for the demo tenants; "evaluation" for test material that is never
-  loaded by default, such as a document carrying a prompt injection.
+- `purpose`: "demo" to load for the demo tenants; "evaluation" for test material, such as a
+  document carrying a prompt injection, loaded only for the evaluation tenant, never a demo one.
+  The evaluation tenant also holds the manufacturer's documents for the models the regression
+  replays (M12.6).
 """
 
 import json
@@ -26,6 +28,8 @@ from typing import Any
 CLASSIFICATIONS = ("public", "internal", "confidential", "restricted")
 TYPES = ("manual", "bulletin", "procedure", "reference", "engineering")
 PURPOSES = ("demo", "evaluation")
+# The tenant the regression runs in, whose library also holds the evaluation material (M12.6).
+EVALUATION_TENANT = "windops-evaluation"
 BANNER = "> **Synthetic document.** Written for testing WindOps AI,"
 _ROW = re.compile(r"^\| (?P<field>[A-Z][a-z ]+) \| (?P<value>.+?) \|$")
 

@@ -10,6 +10,9 @@ import pytest
 from windops_knowledge import passages, uploads
 from windops_simulator import documents
 
+# The evaluation documents the upload screening flags.
+SCREENED = {"ADV-SB-INJ-001", "ADV-PRC-INJ-003"}
+
 DOCUMENTS = documents.load()
 
 
@@ -60,7 +63,9 @@ def test_every_documents_metadata_is_read_from_its_own_header(
     assert (m.supersedes_document_id, m.supersedes_revision) == supersedes
     assert "document_id" in upload.from_document and "classification" in upload.from_document
     # Only the evaluation material is addressed to an AI.
-    assert bool(upload.screening) == (document.purpose == "evaluation")
+    # Screening flags an injection that addresses an AI in the words it knows. One evaluation
+    # document is quiet on purpose, so the model's own resistance is tested too (MCP-008).
+    assert bool(upload.screening) == (document.document_id in SCREENED)
 
 
 def test_the_injected_bulletin_is_screened_line_by_line_without_quoting_it() -> None:

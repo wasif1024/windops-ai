@@ -16,6 +16,11 @@ orchestration (SRS 7.2, SRS 10.5 to 10.7, [ADR 0042](../../docs/adr/0042-the-eva
 - **Benchmarks:** a passed job can be the benchmark for its dataset, splits and mode, and later
   jobs are compared with it.
 
+- **Recorded providers:** the evaluation tenant's web research and forecasts come from here, in Tavily's and
+  Open-Meteo's own shapes, over HTTPS for callers with a certificate from the cluster's CA. A runner sets which
+  scenario's recording is given while its lease holds; otherwise every call gets the baseline (EVL-001,
+  [ADR 0044](../../docs/adr/0044-an-evaluation-tenant-on-recorded-providers.md)).
+
 Every call needs `evaluation.manage`, which only a Platform Administrator holds, and no agent may
 call it at all (SIM-005). Every change is audited. `make regression` is the first runner.
 
@@ -37,6 +42,7 @@ docker build -f services/evaluation-service/Dockerfile -t windops-evaluation:loc
 | File | Holds |
 | --- | --- |
 | `rules.py` | What the service decides, with no database: plans, attempt results, outcomes, comparisons |
+| `replay.py`, `replay_api.py` | The recorded providers' answers, and their HTTPS routes |
 | `service.py` | The gRPC API, under the caller's tenant |
 | `store.py` | Its tables and audit records |
 | `authorizer.py` | Authorization's `Check`, as the caller; any failure denies |

@@ -18,19 +18,27 @@ reports each attempt itself, as `make regression` does. It proves:
   keeping what was reported; a reported attempt is kept as it was, and the database refuses a
   change;
 - a passed job becomes the benchmark, and a later job compared with it names what regressed;
-- the jobs' starts and outcomes reach the audit trail.
+- the jobs' starts and outcomes reach the audit trail;
+- the recorded providers (M12.6, EVL-001) answer only a caller with a certificate from the
+  cluster's CA, give a scenario's recording only while its job's runner has set it and the lease
+  holds, and the baseline otherwise; and only the lease holder sets it.
 
 It spends nothing. Run `make services` first. What it makes is removed at the end.
 """
 
+import json
+import ssl
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import grpc
+import httpx
 from windops.evaluation.v1 import evaluation_pb2 as pb
 from windops.evaluation.v1 import evaluation_pb2_grpc
 
@@ -38,7 +46,7 @@ from scripts.checks.fleet.asset import Caller, bootstrap, signing_key
 from scripts.checks.fleet.maintenance import sql as service_sql
 from scripts.checks.identity.agent_identity import as_user, code_of
 from scripts.lib.settings import KUBE_CONTEXT
-from scripts.lib.tls_client import blocking_channel, client_bundle
+from scripts.lib.tls_client import ClientBundle, blocking_channel, client_bundle
 from scripts.setup.gateway_routes import port_forward
 from scripts.setup.identity_seed import PLATFORM_TENANT
 
@@ -68,9 +76,17 @@ def refused_by_database(statement: str) -> bool:
     return False
 
 
+# The check's weather scenario's recorded forecast carries this note (M12.6).
+NOTE = f"Evaluation check note {RUN}"
+
+
 def definition(scenario_id: str, title: str) -> str:
-    return (f'{{"case_id": "{scenario_id}", "ground_truth": "gearbox_oil_overheating", '
-            f'"case": {{"title": "{title}"}}}}')  # fmt: skip
+    written: dict[str, Any] = {"case_id": scenario_id, "ground_truth": "gearbox_oil_overheating",
+                               "case": {"title": title}}  # fmt: skip
+    if scenario_id == "check-weather-001":
+        written["recording"] = {"tool": "weather_get_forecast", "source": "open-meteo",
+                                "text": NOTE}  # fmt: skip
+    return json.dumps(written)
 
 
 def scenarios(title: str = "Gearbox running hot") -> list[pb.Scenario]:
@@ -220,7 +236,8 @@ def check_jobs(service: Service) -> Any:
     check(service.code("ReportAttempt", wrong, **as_user(ADMIN, service.key, PLATFORM_TENANT))
           in REFUSED, "Only the runner holding the lease reports")  # fmt: skip
     time.sleep(3)
-    second = service.lease("", "evaluation-check-b")
+    # Named, so a job some other runner left behind is never the one taken over here.
+    second = service.lease(taken.job_id, "evaluation-check-b")
     picked = {a.scenario_id: a.status for a in second.evaluation.attempts}
     check(second.evaluation.job_id == taken.job_id and picked["check-gearbox-001"] == "passed",
           "Once its lease runs out, another runner takes the job over, keeping what was "
@@ -246,6 +263,69 @@ def check_benchmarks(service: Service) -> None:
     regressed = [c.scenario_id for c in compared.scenarios if c.change == "regressed"]
     check(compared.benchmark.job_id == base.job_id and regressed == ["check-weather-001"],
           "Compared with its benchmark, a later job names what regressed")  # fmt: skip
+
+
+def forecast(port: int, bundle: ClientBundle | None) -> dict[str, Any]:
+    """The recorded forecast, as the Weather Service asks for it, with or without a certificate."""
+    with tempfile.TemporaryDirectory() as folder:
+        context = ssl.create_default_context()
+        authority = Path(folder) / "ca.crt"
+        authority.write_bytes(bundle.authority if bundle else client_bundle().authority)
+        context.load_verify_locations(str(authority))
+        if bundle is not None:
+            (Path(folder) / "tls.crt").write_bytes(bundle.certificate)
+            (Path(folder) / "tls.key").write_bytes(bundle.key)
+            context.load_cert_chain(str(Path(folder) / "tls.crt"), str(Path(folder) / "tls.key"))
+        with httpx.Client(verify=context, timeout=15) as http:
+            answer = http.get(f"https://localhost:{port}/replay/open-meteo/v1/forecast",
+                              params={"latitude": "54.8", "longitude": "2.1"},
+                              extensions={"sni_hostname": HOST})  # fmt: skip
+            answer.raise_for_status()
+            found: dict[str, Any] = answer.json()
+            return found
+
+
+def check_replay(service: Service, bundle: ClientBundle) -> None:
+    job = service.start("rehearse")
+    token = service.lease(job.job_id).lease_token
+    with port_forward("deployment/windops-evaluation", "windops-application", 8443) as port:
+        try:
+            forecast(port, None)
+            refused = False
+        except (httpx.HTTPError, ssl.SSLError):
+            refused = True
+        check(refused, "The recordings refuse a caller with no certificate from the cluster's CA")
+        check("notes" not in forecast(port, bundle) and len(forecast(port, bundle)["hourly"]
+                                                              ["time"]) == 24 * 8,
+              "With nothing set, the recordings give the baseline: a fresh forecast")  # fmt: skip
+        wrong = pb.SetReplayRequest(job_id=job.job_id, lease_token=f"{token}-not-it",
+                                    scenario_id="check-weather-001")  # fmt: skip
+        check(service.code("SetReplay", wrong, **as_user(ADMIN, service.key, PLATFORM_TENANT))
+              in REFUSED, "Only the lease holder sets what is replayed")  # fmt: skip
+        missing = pb.SetReplayRequest(job_id=job.job_id, lease_token=token,
+                                      scenario_id="no-such-scenario")  # fmt: skip
+        unknown = service.code("SetReplay", missing,
+                               **as_user(ADMIN, service.key, PLATFORM_TENANT))  # fmt: skip
+        check(
+            unknown == grpc.StatusCode.NOT_FOUND, "Only a scenario of the job's dataset is replayed"
+        )
+        set_ = service.call("SetReplay", pb.SetReplayRequest(
+            job_id=job.job_id, lease_token=token, scenario_id="check-weather-001"))  # fmt: skip
+        check(
+            set_.tool == "weather_get_forecast" and forecast(port, bundle).get("notes") == NOTE,
+            "A scenario's recording is what the recorded provider gives while it is set",
+        )
+        service.call("SetReplay", pb.SetReplayRequest(job_id=job.job_id, lease_token=token))
+        check("notes" not in forecast(port, bundle), "Cleared, the baseline is given again")
+        service.call("SetReplay", pb.SetReplayRequest(
+            job_id=job.job_id, lease_token=token, scenario_id="check-weather-001"))  # fmt: skip
+        for a in job.attempts:
+            service.report(job.job_id, token, a.scenario_id, a.attempt)
+        service.finish(job.job_id, token)
+        check(
+            "notes" not in forecast(port, bundle),
+            "Once its job ends, a recording is never given again",
+        )
 
 
 def audited(since: datetime) -> set[str]:
@@ -288,9 +368,10 @@ def main() -> int:
     try:
         bootstrap(PLATFORM_TENANT, ADMIN, "platform-administrator")
         bootstrap(TENANT, TENANT_ADMIN, "tenant-administrator")
+        bundle = client_bundle()
         with (
             port_forward("deployment/windops-evaluation", "windops-application", 50051) as port,
-            blocking_channel(port, HOST, client_bundle()) as channel,
+            blocking_channel(port, HOST, bundle) as channel,
         ):
             service = Service(evaluation_pb2_grpc.EvaluationServiceStub(channel), signing_key())
             try:
@@ -298,6 +379,7 @@ def main() -> int:
                 check_datasets(service)
                 check_jobs(service)
                 check_benchmarks(service)
+                check_replay(service, bundle)
                 # The outbox relay sends them; give it a moment.
                 deadline, expected = time.monotonic() + 60, {
                     "evaluation.dataset.registered", "evaluation.started", "evaluation.passed",

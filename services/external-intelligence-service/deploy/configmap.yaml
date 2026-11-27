@@ -10,3 +10,7 @@ data:
   WINDOPS_GRPC_PORT: "50051"
   WINDOPS_HTTP_PORT: "8080"
   WINDOPS_SHUTDOWN_GRACE_SECONDS: "20"
+  # The regression's tenant gets the Evaluation Service's recordings, never the live provider, so
+  # a run is repeatable (EVL-001, M12.6). Every other tenant is always live.
+  WINDOPS_REPLAY_TENANTS: "windops-evaluation"
+  WINDOPS_REPLAY_URL: "https://windops-evaluation.windops-application.svc.cluster.local:8443/replay"

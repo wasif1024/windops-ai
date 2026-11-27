@@ -381,14 +381,19 @@ def test_missing_evidence_is_named_as_a_data_gap() -> None:
     assert scores(observed(), missing)["data_gaps"] is False
 
 
-def test_a_recorded_scenario_is_skipped_on_claude_until_recordings_are_replayed() -> None:
-    """A run on the live source would judge nothing the scenario is for: skipped, so the job is
+def test_a_recorded_scenario_is_replayed_and_never_judged_on_the_live_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """EVL-001: the evaluation tenant's agents get the recording (M12.6). Were replay off, a run
+    on the live source would judge nothing the scenario is for: skipped, so the job is
     incomplete, never passed (SRS 7.7)."""
     from scripts.evaluation import regression
 
     recorded = scenario(recorded_external_sources="injection/tavily-search-web.json")
+    assert regression.replays(recorded) and regression.replays(scenario())
+    assert regression.TENANT == "windops-evaluation"
+    monkeypatch.setattr(regression, "REPLAYS_RECORDINGS", False)
     assert not regression.replays(recorded)
-    assert regression.replays(scenario())
 
 
 def test_a_changed_recording_needs_a_new_version(tmp_path: Path) -> None:

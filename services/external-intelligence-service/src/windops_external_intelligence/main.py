@@ -18,7 +18,14 @@ from windops.external_intelligence.v1 import external_intelligence_pb2_grpc
 from windops.tenant.v1 import tenant_pb2_grpc
 from windops_auth import current_identity_token
 from windops_events import EventsUnavailableError, open_events
-from windops_grpc import ServiceClient, create_channel, run_service
+from windops_grpc import (
+    ByTenant,
+    ReplaySettings,
+    ServiceClient,
+    create_channel,
+    replay_ssl_context,
+    run_service,
+)
 from windops_migrations import create_service_engine
 from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
@@ -105,13 +112,27 @@ def main() -> None:
         )
     )
     # TLS is verified against the system's certificate authorities, always.
-    provider = _Lazy(
+    live = _Lazy(
         lambda: tavily.Tavily(
             KEY_FILE,
             _breaker("tavily", slow_call_seconds=10.0),
             httpx.AsyncClient(),
         )
     )
+    provider: Any = live
+    # The evaluation tenant's research is recorded, so a regression is repeatable (EVL-001).
+    replaying = ReplaySettings.from_env()
+    if replaying is not None:
+        replayed = _Lazy(
+            lambda: tavily.Tavily(
+                None,
+                _breaker("tavily-replay", slow_call_seconds=10.0),
+                httpx.AsyncClient(verify=replay_ssl_context(tls)),
+                search_url=f"{replaying.url}/tavily/search",
+                extract_url=f"{replaying.url}/tavily/extract",
+            )
+        )
+        provider = ByTenant(live, replayed, replaying.tenants)
 
     async def database_ready() -> bool:
         async with engine.connect() as connection:

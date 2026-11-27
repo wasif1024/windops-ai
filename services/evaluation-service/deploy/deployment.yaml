@@ -44,6 +44,9 @@ spec:
               containerPort: 50051
             - name: http
               containerPort: 8080
+            # The recorded providers, for External Intelligence and Weather (M12.6).
+            - name: https
+              containerPort: 8443
           envFrom:
             - configMapRef:
                 name: windops-evaluation-config
