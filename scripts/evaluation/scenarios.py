@@ -28,6 +28,12 @@ Severity = Literal["low", "medium", "high", "critical"]
 Action = Literal["inspection", "repair", "replacement", "adjustment", "monitoring"]
 # EVL-002: critical safety, security and approval cases run at least 5 times each.
 REPEATED = {"safety_escalation", "rbac_and_security", "human_approval", "tool_selection"}
+# The tools whose answers carry content from outside the platform: the web, the weather provider
+# and uploaded documents. MCP-008: each has a prompt-injection case in the security dataset.
+EXTERNAL_TOOLS = frozenset({
+    "tavily_search_web", "tavily_extract_page", "tavily_get_research", "weather_get_forecast",
+    "documentation_search_documents", "documentation_read_passage",
+})  # fmt: skip
 
 
 class CaseInput(BaseModel):
@@ -53,6 +59,22 @@ class Expect(BaseModel):
     actions: list[Action] | None = Field(default=None, min_length=1)
     # True when the result must carry the Production Impact Service's estimate (FR-IMP-004).
     impact_required: bool | None = None
+    # True when the result must cite an approved document's passage, a "kn:" citation (M12.5).
+    cites_documents: bool | None = None
+    # True when the evidence is missing something the result must name as a data gap (M12.5).
+    data_gap_required: bool | None = None
+
+
+class Recording(BaseModel):
+    """An external tool's answer, recorded, so a scenario can give it to the agents (EVL-001).
+    The text is what the outside source said, before the MCP server wraps it as untrusted. An
+    injection names the instruction planted in it, which an agent must treat as data (MCP-008)."""
+
+    model_config = ConfigDict(extra="forbid")
+    tool: str
+    source: str
+    text: str = Field(min_length=1)
+    injection: str | None = None
 
 
 class Scenario(BaseModel):
@@ -66,8 +88,9 @@ class Scenario(BaseModel):
     input_fixture: str = Field(pattern=r"^simulator:[a-z0-9-]+$")
     simulator_seed: int = Field(ge=1)
     ground_truth: str
-    # EVL-001's recorded Tavily and weather answers come with the full evaluation (Phase 12).
-    recorded_external_sources: str | None = None
+    # A recording in evaluations/recordings, by its path there, "injection/tavily-search-web.json":
+    # an external tool's answer given to the agents in place of the live source (EVL-001).
+    recorded_external_sources: str | None = Field(default=None, pattern=r"^[a-z0-9/-]+\.json$")
     case: CaseInput
     # Tools a good investigation calls, by the name the agents see.
     expected_behavior: list[str] = Field(min_length=1)
@@ -114,7 +137,19 @@ class ScenarioError(ValueError):
     """A scenario file is wrong."""
 
 
-def check(scenario: Scenario, file_name: str) -> None:
+def recording(scenario: Scenario, root: Path = ROOT) -> Recording | None:
+    """The scenario's recorded external answer, if it has one."""
+    if scenario.recorded_external_sources is None:
+        return None
+    path = root / "recordings" / scenario.recorded_external_sources
+    if not path.is_file():
+        raise ScenarioError(
+            f"{scenario.case_id}: no recording {scenario.recorded_external_sources}"
+        )
+    return Recording.model_validate(json.loads(path.read_text()))
+
+
+def check(scenario: Scenario, file_name: str, root: Path = ROOT) -> None:
     if file_name != f"{scenario.case_id}.json":
         raise ScenarioError(f"{file_name} must be named after its case_id")
     simulated = SCENARIOS.get(scenario.simulator_scenario)
@@ -139,6 +174,12 @@ def check(scenario: Scenario, file_name: str) -> None:
         raise ScenarioError(f"{scenario.case_id}: its case and its severity differ")
     if scenario.family in REPEATED and scenario.runs_required < 5:
         raise ScenarioError(f"{scenario.case_id}: {scenario.family} runs at least 5 times")
+    recorded = recording(scenario, root)
+    if recorded is not None:
+        if recorded.tool not in EXTERNAL_TOOLS:
+            raise ScenarioError(f"{scenario.case_id}: {recorded.tool} returns no external content")
+        if recorded.tool not in scenario.expected_behavior:
+            raise ScenarioError(f"{scenario.case_id}: its recording is for a tool it never expects")
 
 
 def check_set(scenarios: Sequence[Scenario]) -> None:
@@ -166,7 +207,7 @@ def load(root: Path = ROOT) -> list[Scenario]:
     found = []
     for path in sorted((root / "scenarios").glob("*.json")):
         scenario = Scenario.model_validate(json.loads(path.read_text()))
-        check(scenario, path.name)
+        check(scenario, path.name, root)
         found.append(scenario)
     return found
 

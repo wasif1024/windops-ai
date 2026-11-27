@@ -36,7 +36,14 @@ from windops.evaluation.v1 import evaluation_pb2 as pb
 from windops_evaluation import rules
 from windops_simulator.scenarios import GroundTruth
 
-from scripts.evaluation.scenarios import ROOT, Scenario, ScenarioError, dataset, simulated
+from scripts.evaluation.scenarios import (
+    ROOT,
+    Scenario,
+    ScenarioError,
+    dataset,
+    recording,
+    simulated,
+)
 from scripts.lib import settings
 
 DEFAULT_DATASET = "first-regression"
@@ -54,10 +61,14 @@ def ground_truth(scenario: Scenario) -> dict[str, Any]:
     return truth
 
 
-def definition(scenario: Scenario) -> str:
-    """The scenario as written, with the simulator's ground truth, as the service keeps it."""
+def definition(scenario: Scenario, root: Path = ROOT) -> str:
+    """The scenario as written, with the simulator's ground truth and its recording, as the
+    service keeps it: a changed recording is a changed dataset (EVL-005)."""
     written = scenario.model_dump(mode="json")
     written["simulator_ground_truth"] = ground_truth(scenario)
+    recorded = recording(scenario, root)
+    if recorded is not None:
+        written["recording"] = recorded.model_dump(mode="json")
     return json.dumps(written, sort_keys=True, separators=(",", ":"))
 
 
@@ -69,11 +80,11 @@ def to_message(scenario: Scenario) -> pb.Scenario:
     )  # fmt: skip
 
 
-def content_hash(scenarios: Sequence[Scenario]) -> str:
+def content_hash(scenarios: Sequence[Scenario], root: Path = ROOT) -> str:
     """The hash the Evaluation Service gives this content, worked out the same way."""
     return rules.content_hash([
         rules.ScenarioSpec(s.case_id, s.family, s.split, s.severity, s.runs_required,
-                           definition(s))
+                           definition(s, root))
         for s in scenarios
     ])  # fmt: skip
 
@@ -85,7 +96,7 @@ def manifest_path(name: str, root: Path = ROOT) -> Path:
 def check_lock(name: str = DEFAULT_DATASET, root: Path = ROOT) -> tuple[dict[str, str], str]:
     """The manifest's header and the content's hash, once its version's lock matches it."""
     header, scenarios = dataset(name, root)
-    digest = content_hash(scenarios)
+    digest = content_hash(scenarios, root)
     versions: Mapping[str, str] = json.loads(manifest_path(name, root).read_text()).get(
         "versions", {}
     )
@@ -107,7 +118,7 @@ def lock(name: str = DEFAULT_DATASET, root: Path = ROOT) -> str:
     path = manifest_path(name, root)
     manifest = json.loads(path.read_text())
     _, scenarios = dataset(name, root)
-    digest = content_hash(scenarios)
+    digest = content_hash(scenarios, root)
     versions: dict[str, str] = manifest.setdefault("versions", {})
     version = str(manifest["version"])
     if versions.get(version, digest) != digest:
