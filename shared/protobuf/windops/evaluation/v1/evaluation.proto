@@ -61,6 +61,12 @@ service EvaluationService {
   rpc ListBenchmarks(ListBenchmarksRequest) returns (ListBenchmarksResponse);
   // A finished job against its benchmark.
   rpc CompareEvaluation(CompareEvaluationRequest) returns (CompareEvaluationResponse);
+
+  // The live suite, now: the real Tavily and weather providers through the platform's own
+  // services, in the deployment's live tenant. It also runs on a schedule (EVL-001).
+  rpc RunLiveSuite(RunLiveSuiteRequest) returns (RunLiveSuiteResponse);
+  // Newest first.
+  rpc ListLiveRuns(ListLiveRunsRequest) returns (ListLiveRunsResponse);
 }
 
 message Scenario {
@@ -353,4 +359,42 @@ message CompareEvaluationResponse {
   // This job less the benchmark.
   double cost_usd_change = 5;
   double seconds_change = 6;
+}
+
+message LiveCheck {
+  // Such as "forecast_fresh" or "research_answered".
+  string name = 1;
+  bool passed = 2;
+  string detail = 3;
+}
+
+message LiveRun {
+  string run_id = 1;
+  // The tenant whose providers it asked: always one whose providers are live.
+  string live_tenant_id = 2;
+  // "passed" only when every check passed; otherwise "failed".
+  string outcome = 3;
+  repeated LiveCheck checks = 4;
+  google.protobuf.Timestamp started_at = 5;
+  google.protobuf.Timestamp finished_at = 6;
+  // "schedule", or the person who asked for it.
+  string triggered_by = 7;
+}
+
+message RunLiveSuiteRequest {
+  // A retry with the same key returns the first run, and runs nothing again (GRP-007).
+  string idempotency_key = 1;
+}
+
+message RunLiveSuiteResponse {
+  LiveRun run = 1;
+}
+
+message ListLiveRunsRequest {
+  // From 1 to 200. Zero means 50.
+  int32 page_size = 1;
+}
+
+message ListLiveRunsResponse {
+  repeated LiveRun runs = 1;
 }

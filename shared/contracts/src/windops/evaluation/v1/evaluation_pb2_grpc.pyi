@@ -89,6 +89,12 @@ class EvaluationServiceStub:
     ListBenchmarks: _grpc.UnaryUnaryMultiCallable[_evaluation_pb2.ListBenchmarksRequest, _evaluation_pb2.ListBenchmarksResponse]
     CompareEvaluation: _grpc.UnaryUnaryMultiCallable[_evaluation_pb2.CompareEvaluationRequest, _evaluation_pb2.CompareEvaluationResponse]
     """A finished job against its benchmark."""
+    RunLiveSuite: _grpc.UnaryUnaryMultiCallable[_evaluation_pb2.RunLiveSuiteRequest, _evaluation_pb2.RunLiveSuiteResponse]
+    """The live suite, now: the real Tavily and weather providers through the platform's own
+    services, in the deployment's live tenant. It also runs on a schedule (EVL-001).
+    """
+    ListLiveRuns: _grpc.UnaryUnaryMultiCallable[_evaluation_pb2.ListLiveRunsRequest, _evaluation_pb2.ListLiveRunsResponse]
+    """Newest first."""
 
 @_typing.type_check_only
 class EvaluationServiceAsyncStub(EvaluationServiceStub):
@@ -151,6 +157,12 @@ class EvaluationServiceAsyncStub(EvaluationServiceStub):
     ListBenchmarks: _aio.UnaryUnaryMultiCallable[_evaluation_pb2.ListBenchmarksRequest, _evaluation_pb2.ListBenchmarksResponse]  # type: ignore[assignment]
     CompareEvaluation: _aio.UnaryUnaryMultiCallable[_evaluation_pb2.CompareEvaluationRequest, _evaluation_pb2.CompareEvaluationResponse]  # type: ignore[assignment]
     """A finished job against its benchmark."""
+    RunLiveSuite: _aio.UnaryUnaryMultiCallable[_evaluation_pb2.RunLiveSuiteRequest, _evaluation_pb2.RunLiveSuiteResponse]  # type: ignore[assignment]
+    """The live suite, now: the real Tavily and weather providers through the platform's own
+    services, in the deployment's live tenant. It also runs on a schedule (EVL-001).
+    """
+    ListLiveRuns: _aio.UnaryUnaryMultiCallable[_evaluation_pb2.ListLiveRunsRequest, _evaluation_pb2.ListLiveRunsResponse]  # type: ignore[assignment]
+    """Newest first."""
 
 class EvaluationServiceServicer(metaclass=_abc_1.ABCMeta):
     """Agent evaluation: datasets, evaluation jobs, benchmarks and regression orchestration (SRS 7.2,
@@ -300,5 +312,23 @@ class EvaluationServiceServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_evaluation_pb2.CompareEvaluationResponse, _abc.Awaitable[_evaluation_pb2.CompareEvaluationResponse]]:
         """A finished job against its benchmark."""
+
+    @_abc_1.abstractmethod
+    def RunLiveSuite(
+        self,
+        request: _evaluation_pb2.RunLiveSuiteRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_evaluation_pb2.RunLiveSuiteResponse, _abc.Awaitable[_evaluation_pb2.RunLiveSuiteResponse]]:
+        """The live suite, now: the real Tavily and weather providers through the platform's own
+        services, in the deployment's live tenant. It also runs on a schedule (EVL-001).
+        """
+
+    @_abc_1.abstractmethod
+    def ListLiveRuns(
+        self,
+        request: _evaluation_pb2.ListLiveRunsRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_evaluation_pb2.ListLiveRunsResponse, _abc.Awaitable[_evaluation_pb2.ListLiveRunsResponse]]:
+        """Newest first."""
 
 def add_EvaluationServiceServicer_to_server(servicer: EvaluationServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

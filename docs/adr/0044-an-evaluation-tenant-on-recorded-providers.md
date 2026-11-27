@@ -1,6 +1,6 @@
 # ADR 0044: An evaluation tenant on recorded providers
 
-**Status:** Accepted, 2026-11-27, for M12.6.
+**Status:** Accepted, 2026-11-27, for M12.6 and M12.6b.
 
 ## Context
 
@@ -47,4 +47,27 @@ would have left it switched.
   recorded, synthetic content, and only over mutual TLS.
 - A deployment without `WINDOPS_REPLAY_TENANTS` is entirely live. Production should leave it unset, while local and
   staging set it.
-- The live sources still need exercising: that is the scheduled live suite, M12.6b.
+- The live sources still need exercising: that is the scheduled live suite.
+
+## The live suite (M12.6b)
+
+**The Evaluation Service runs it daily, as itself, in a tenant whose providers are live.**
+- `WINDOPS_LIVE_SUITE_TENANT` names that tenant, north-sea locally. A tenant that is replayed is refused.
+- `WINDOPS_LIVE_SUITE_HOURS` sets how often it runs.
+- The Authorization Service grants the Evaluation Service, acting as itself, only `turbine.read`, `weather.read` and
+  `knowledge.read`, read only, as every fixed service grant is.
+
+**What a run checks, through the platform's own services:**
+- a turbine's forecast: fresh, from Open-Meteo, covering the window asked for, with physical values;
+- a fixed, generic research question: answered, from secure sources;
+- the first source's page: read.
+
+The services parse each provider's own format, so a provider that changes its format fails here first, and the
+recordings it would leave behind are renewed. A service that cannot be reached is a failed check, never a skipped one.
+A run costs one Tavily search and one extraction.
+
+**Each run is kept, audited and measured.**
+- A scheduled run's ID is its time slot, so two replicas never both run it.
+- `make live-suite` runs it now, and `ListLiveRuns` lists the runs.
+- `windops_live_suite_passed` and `windops_live_suite_finished_seconds` drive two alerts: the latest run failed, or
+  none has finished in two days.

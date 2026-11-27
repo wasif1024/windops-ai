@@ -172,3 +172,23 @@ groups:
           category: agents
         annotations:
           summary: "Claude cost more than $20 in the last hour: {{ $value | printf \"%.2f\" }} USD"
+  - name: windops-evaluation
+    rules:
+      # EVL-001: the live suite asks the real Tavily and weather providers through the platform.
+      # Its latest run failed: a provider is down, or changed its format, so the regression's
+      # recordings may no longer match it.
+      - alert: WindopsLiveSuiteFailing
+        expr: windops_live_suite_passed == 0
+        labels:
+          severity: warning
+          category: evaluation
+        annotations:
+          summary: "The live suite's latest run failed: ListLiveRuns names the checks that did"
+      # It runs daily: two days with no finished run means its schedule has stopped.
+      - alert: WindopsLiveSuiteStopped
+        expr: time() - windops_live_suite_finished_seconds > 2 * 86400
+        labels:
+          severity: warning
+          category: evaluation
+        annotations:
+          summary: "The live suite has not finished a run in two days"
