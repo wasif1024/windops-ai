@@ -10,7 +10,7 @@ that matter, and authorized people approve every high-impact action, for each te
 The platform is advisory only: it never issues turbine commands. It is a portfolio-grade reference system, built
 to production standards and run on synthetic data from a seeded, physics-based turbine simulator.
 
-**Status:** Phases 1 to 11 and 4A are complete, each closed by an exit gate proven on a real cluster. The platform
+**Status:** Phases 1 to 12 and 4A are complete, each closed by an exit gate proven on a real cluster. The platform
 is **deployed and proven on Azure Kubernetes Service** by its Azure DevOps pipeline, and runs the same way on a
 laptop ([evidence](docs/phases/phase-04a-exit-gate.md)).
 
@@ -35,6 +35,13 @@ laptop ([evidence](docs/phases/phase-04a-exit-gate.md)).
   the approval queue, the knowledge library, the audit trail, notifications and administration, for each role exactly
   its screens. Browser tests sign in as all 8 roles and cover every screen on a desktop and a phone
   ([Phase 11](docs/phases/phase-11-exit-gate.md)).
+- **Measures the agents:** an Evaluation Service holds 130 versioned scenarios, split into train, validation and
+  held-out sets, from fault diagnosis and planning to safety escalation, RBAC and a prompt-injection case for every
+  tool that returns external content. Deterministic checks run first, and versioned LLM judges score only the runs
+  that pass them. On the 54 held-out scenarios, structured output is 100% valid, with 0 unauthorized tool calls and
+  0 approval bypasses. A daily suite tests the live weather and research providers, and a Responsible AI dashboard
+  shows escalations, denials, overrides and unsupported claims. The gates that judge the model itself wait for one
+  paid run at the end ([Phase 12](docs/phases/phase-12-exit-gate.md)).
 
 <table>
   <tr>
@@ -247,6 +254,7 @@ only read access unless it needs more.
 | 9. Maintenance and inventory | Done, [exit gate](docs/phases/phase-09-exit-gate.md): agents draft, and never submit or reserve |
 | 10. Approval and closure | Done, [exit gate](docs/phases/phase-10-exit-gate.md): a fault to verification, with 0 approval bypasses |
 | 11. Frontend completion | Done, [exit gate](docs/phases/phase-11-exit-gate.md): every screen, as each of 8 roles, on a desktop and a phone |
+| 12. Full evaluation | Done, [exit gate](docs/phases/phase-12-exit-gate.md): 54 held-out scenarios rehearsed, the paid model-judged gates after all phases |
 
 | Running today | |
 | --- | --- |
@@ -256,8 +264,10 @@ only read access unless it needs more.
 | Faults and decisions | Alarm, Fault Detection and Investigation services: controller alarms, versioned fault rules, and one deduplicated case per fault, bound to immutable evidence. The Policy Service judges proposals against versioned rules, and fails closed, the Production Impact Service prices them, with a range for every figure, and the Weather Service gives each site's forecast, with its provenance and age |
 | Knowledge | Knowledge Service: checked uploads of manuals, bulletins and procedures, their metadata from their own headers, and passages indexed with OpenAI embeddings in Qdrant, only up to each tenant's allowed classification. Search returns cited passages of current revisions, each checked against the caller's permissions first |
 | External intelligence | External Intelligence Service: Tavily web research with generic queries only, every source recorded and flagged when stale, undated, low-confidence or conflicting, within each tenant's policy and quotas |
-| Agents | Agent Runtime: six agents on Claude Opus 5.5, in durable, checkpointed LangGraph runs with per-agent tokens and allowlists, structured and cited results, redacted LangSmith traces, and registered Sandbox tasks. The regression set replays 12 scenarios. Investigation starts a run for each case, and follows it live to pending review |
+| Agents | Agent Runtime: six agents on Claude Opus 5.5, in durable, checkpointed LangGraph runs with per-agent tokens and allowlists, structured and cited results, redacted LangSmith traces, and registered Sandbox tasks. Investigation starts a run for each case, and follows it live to pending review |
 | Maintenance | Maintenance Service: work orders validated against the plan, the turbine, its parts and policy, drafted by a person or an agent, and submitted only by a person. Inventory Service: parts, compatibility, stock and reservations, changed or reserved only by a person |
+| Approval and closure | Approval Service: only a person decides, never someone who had a hand in the work, on the current proposal and evidence, and a decision that cannot be rechecked fails closed. Versioned rules mark stale evidence, the workflow resumes from its checkpoint, the Notification Service tells the right people, and completed work is verified by the fault rules |
+| Evaluation | Evaluation Service: 130 versioned scenarios with locked dataset hashes, deterministic checks then versioned LLM judges, `make eval` deciding the SRS 10.7 gates, a daily live suite, and the Responsible AI dashboard |
 | Platform | Audit Service, with a tamper-evident trail, plus PostgreSQL, Redis, Qdrant, NATS JetStream and the full observability stack |
 | On Azure | Asset, Audit, Authorization and Tenant on AKS, with Service Bus, Azure Database for PostgreSQL, Key Vault and Azure Monitor |
 
