@@ -36,6 +36,7 @@ removed at the end.
 """
 
 import argparse
+import asyncio
 import dataclasses
 import json
 import secrets
@@ -45,6 +46,7 @@ import sys
 import time
 from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 import grpc
@@ -63,16 +65,20 @@ from scripts.checks.fleet.data_quality import device_token
 from scripts.checks.fleet.fault_case import clean_up
 from scripts.checks.fleet.fault_stream import send
 from scripts.checks.identity.identity import Realm
+from scripts.evaluation import judges, pipeline, stored
 from scripts.evaluation.evaluators import Observed, Score, ToolCall, evaluate, gate
 from scripts.evaluation.pipeline import check_lock
 from scripts.evaluation.pipeline import to_langsmith as sync_dataset
 from scripts.evaluation.scenarios import Replay, Scenario, dataset
 from scripts.evaluation.service import Evaluations, Job, evaluations, mode_now
+from scripts.lib import settings
 from scripts.lib.settings import KUBE_CONTEXT
 from scripts.lib.tls_client import authority_file, blocking_channel, client_bundle
 from scripts.setup.gateway_routes import port_forward
 from scripts.setup.identity_seed import GATEWAY, NAMESPACE, keycloak_public
 
+# The most the LLM judges may spend in one regression, in USD, unless the settings say otherwise.
+JUDGE_BUDGET = "5.00"
 # The evaluation tenant: its web research and forecasts are recordings (EVL-001, M12.6), its
 # library holds the evaluation documents, and a demo tenant never sees either.
 TENANT, FARM, PREFIX = EVALUATION_TENANT, "regression-farm", "regr-"
@@ -258,8 +264,28 @@ def replays(scenario: Scenario) -> bool:
     return scenario.recorded_external_sources is None or REPLAYS_RECORDINGS
 
 
+def judge_client() -> tuple[Any, list[judges.Judge]] | None:
+    """Claude as the "evaluator" role, under the judges' own budget, and the locked rubrics.
+    None when no key is set: a run on Claude then has no judge, and its judged scores fail."""
+    from windops_claude import Budget, Claude, MemoryLedger, Meter
+    from windops_claude import load as load_policy
+
+    values = settings.load()
+    key = values.get("ANTHROPIC_API_KEY", "")
+    if not key:
+        return None
+    cap = values.get("WINDOPS_JUDGE_BUDGET_USD", "") or JUDGE_BUDGET
+    budget = Budget(tokens=5_000_000, tool_calls=1, cost_usd=Decimal(cap))
+    claude = Claude(load_policy(), Meter(budget, MemoryLedger()), lambda: key)
+    return claude, judges.load()
+
+
 def run_set(
-    scenarios: Sequence[Scenario], operator: Operator, cases: Cases, job: Job | None = None
+    scenarios: Sequence[Scenario],
+    operator: Operator,
+    cases: Cases,
+    job: Job | None = None,
+    judging: tuple[Any, list[judges.Judge]] | None = None,
 ) -> list[Outcome]:
     """Each attempt the job planned, in its order, reported as it finishes.
 
@@ -308,6 +334,16 @@ def run_set(
             info(f"{scenario_id} run {attempt}: could not run: {error}")
             continue
         scores = evaluate(scenario, observed, AGENT_TOOLS)
+        # The LLM judges, after the deterministic checks and only if they passed (EVL-003,
+        # EVL-004), while the run's evidence is still there.
+        if judging is not None and not observed.rehearsed:
+            judged, cost = asyncio.run(judges.judge_run(
+                judging[0], judging[1], scenario, observed, scores,
+                stored.evidence_of(TENANT, str((observed.result or {}).get("snapshot_id", ""))),
+                pipeline.ground_truth(scenario),
+            ))  # fmt: skip
+            scores = [*scores, *judged]
+            observed.cost_usd += float(cost)
         outcomes.append(Outcome(scenario, observed, scores))
         if observed.rehearsed:
             rehearsed.add(scenario_id)
@@ -371,7 +407,9 @@ def versions() -> dict[str, Any]:
     pins = json.loads(pinned["pins"])
     return {"graph": pins.get("graph"), "prompts": pins.get("prompts"), "tools": pins.get("tools"),
             "skills": pins.get("skills"), "policy_version": pinned["policy_version"],
-            "policy_hash": pinned["policy_hash"]}  # fmt: skip
+            "policy_hash": pinned["policy_hash"],
+            # The rubrics each judged score was given by (EVL-004, EVL-005).
+            **judges.versions(judges.load())}  # fmt: skip
 
 
 def to_langsmith(header: dict[str, str], scenarios: Sequence[Scenario],
@@ -464,7 +502,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     operator = Operator(Realm(public), TENANT)
                     cases = Cases(signing_key(), TENANT)
                     try:
-                        outcomes = run_set(scenarios, operator, cases, job)
+                        # The LLM judges only judge a model's own work (EVL-004).
+                        judging = judge_client() if mode == "claude" else None
+                        outcomes = run_set(scenarios, operator, cases, job, judging)
                     finally:
                         cases.close()
             finally:
