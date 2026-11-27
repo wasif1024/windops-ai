@@ -133,6 +133,16 @@ class EvaluationServiceStub:
                 request_serializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.CompareEvaluationRequest.SerializeToString,
                 response_deserializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.CompareEvaluationResponse.FromString,
                 _registered_method=True)
+        self.RunLiveSuite = channel.unary_unary(
+                '/windops.evaluation.v1.EvaluationService/RunLiveSuite',
+                request_serializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.RunLiveSuiteRequest.SerializeToString,
+                response_deserializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.RunLiveSuiteResponse.FromString,
+                _registered_method=True)
+        self.ListLiveRuns = channel.unary_unary(
+                '/windops.evaluation.v1.EvaluationService/ListLiveRuns',
+                request_serializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.ListLiveRunsRequest.SerializeToString,
+                response_deserializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.ListLiveRunsResponse.FromString,
+                _registered_method=True)
 
 
 class EvaluationServiceServicer:
@@ -267,6 +277,21 @@ class EvaluationServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RunLiveSuite(self, request, context):
+        """The live suite, now: the real Tavily and weather providers through the platform's own
+        services, in the deployment's live tenant. It also runs on a schedule (EVL-001).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListLiveRuns(self, request, context):
+        """Newest first.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_EvaluationServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -344,6 +369,16 @@ def add_EvaluationServiceServicer_to_server(servicer, server):
                     servicer.CompareEvaluation,
                     request_deserializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.CompareEvaluationRequest.FromString,
                     response_serializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.CompareEvaluationResponse.SerializeToString,
+            ),
+            'RunLiveSuite': grpc.unary_unary_rpc_method_handler(
+                    servicer.RunLiveSuite,
+                    request_deserializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.RunLiveSuiteRequest.FromString,
+                    response_serializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.RunLiveSuiteResponse.SerializeToString,
+            ),
+            'ListLiveRuns': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListLiveRuns,
+                    request_deserializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.ListLiveRunsRequest.FromString,
+                    response_serializer=windops_dot_evaluation_dot_v1_dot_evaluation__pb2.ListLiveRunsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -775,6 +810,60 @@ class EvaluationService:
             '/windops.evaluation.v1.EvaluationService/CompareEvaluation',
             windops_dot_evaluation_dot_v1_dot_evaluation__pb2.CompareEvaluationRequest.SerializeToString,
             windops_dot_evaluation_dot_v1_dot_evaluation__pb2.CompareEvaluationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RunLiveSuite(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.evaluation.v1.EvaluationService/RunLiveSuite',
+            windops_dot_evaluation_dot_v1_dot_evaluation__pb2.RunLiveSuiteRequest.SerializeToString,
+            windops_dot_evaluation_dot_v1_dot_evaluation__pb2.RunLiveSuiteResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListLiveRuns(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.evaluation.v1.EvaluationService/ListLiveRuns',
+            windops_dot_evaluation_dot_v1_dot_evaluation__pb2.ListLiveRunsRequest.SerializeToString,
+            windops_dot_evaluation_dot_v1_dot_evaluation__pb2.ListLiveRunsResponse.FromString,
             options,
             channel_credentials,
             insecure,

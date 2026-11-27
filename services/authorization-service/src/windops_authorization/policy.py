@@ -174,6 +174,9 @@ SERVICE_GRANTS: dict[str, frozenset[str]] = {
     "weather": frozenset({"turbine.read"}),
     # It reads a turbine's wind farm, to find whom to tell in that scope (M10.5).
     "notification": frozenset({"turbine.read"}),
+    # Its live suite asks the real providers through the platform, on a schedule, in a tenant
+    # whose providers are live: a turbine, its forecast, and research (EVL-001, M12.6b).
+    "evaluation": frozenset({"turbine.read", "weather.read", "knowledge.read"}),
     # Not a service but the tenant's principal for fault-triggered investigations (SRS 9.2): it
     # reads the evidence and may create drafts, the one change any identity without a person
     # behind it may make, and never submits, reserves or approves (SEC-009, M8.5).

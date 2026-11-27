@@ -21,6 +21,10 @@ orchestration (SRS 7.2, SRS 10.5 to 10.7, [ADR 0042](../../docs/adr/0042-the-eva
   scenario's recording is given while its lease holds; otherwise every call gets the baseline (EVL-001,
   [ADR 0044](../../docs/adr/0044-an-evaluation-tenant-on-recorded-providers.md)).
 
+- **The live suite:** daily, the real Tavily and weather providers through the platform's own services, as the
+  service itself, in a tenant whose providers are live. Each run is kept, audited and measured, and alerts say when one
+  failed or none has run (EVL-001, M12.6b). `make live-suite` runs it now.
+
 Every call needs `evaluation.manage`, which only a Platform Administrator holds, and no agent may
 call it at all (SIM-005). Every change is audited. `make regression` is the first runner.
 
@@ -43,6 +47,7 @@ docker build -f services/evaluation-service/Dockerfile -t windops-evaluation:loc
 | --- | --- |
 | `rules.py` | What the service decides, with no database: plans, attempt results, outcomes, comparisons |
 | `replay.py`, `replay_api.py` | The recorded providers' answers, and their HTTPS routes |
+| `live.py`, `live_runner.py` | The live suite's checks, and its runs and schedule |
 | `service.py` | The gRPC API, under the caller's tenant |
 | `store.py` | Its tables and audit records |
 | `authorizer.py` | Authorization's `Check`, as the caller; any failure denies |

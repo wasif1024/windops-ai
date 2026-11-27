@@ -10,3 +10,10 @@ data:
   WINDOPS_GRPC_PORT: "50051"
   WINDOPS_HTTP_PORT: "8080"
   WINDOPS_SHUTDOWN_GRACE_SECONDS: "20"
+  # The live suite: the real Tavily and weather providers, through the platform, daily, in a
+  # tenant whose providers are live, never the replayed evaluation tenant (EVL-001, M12.6b).
+  WINDOPS_LIVE_SUITE_TENANT: "north-sea"
+  WINDOPS_LIVE_SUITE_HOURS: "24"
+  # Its own tenant's settings must be known to refuse a replayed one.
+  WINDOPS_REPLAY_TENANTS: "windops-evaluation"
+  WINDOPS_REPLAY_URL: "https://windops-evaluation.windops-application.svc.cluster.local:8443/replay"

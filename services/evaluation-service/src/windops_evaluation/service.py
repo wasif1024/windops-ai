@@ -25,7 +25,8 @@ from windops_grpc import (
 )
 from windops_migrations import in_tenant
 
-from windops_evaluation import replay, rules
+from windops_evaluation import live, live_runner, replay, rules
+from windops_evaluation.live_runner import LiveSettings
 from windops_evaluation.store import (
     ATTEMPTS,
     BENCHMARKS,
@@ -137,9 +138,12 @@ class EvaluationService(evaluation_pb2_grpc.EvaluationServiceServicer):
         engine: AsyncEngine,
         authorizer: Authorizer,
         clock: Callable[[], datetime] | None = None,
+        live_suite: tuple[LiveSettings, live.Providers] | None = None,
     ) -> None:
         self._engine, self._authorizer = engine, authorizer
         self._now = clock or (lambda: datetime.now(UTC))
+        # The deployment's live tenant and its services, or None where the suite is off.
+        self._live = live_suite
 
     async def _caller(self) -> tuple[Any, str, str]:
         """The caller, their tenant and who they are, once they may manage evaluation. No agent
@@ -718,3 +722,25 @@ class EvaluationService(evaluation_pb2_grpc.EvaluationServiceServicer):
             seconds_change=sum(a.seconds for a in now_attempts)
             - sum(a.seconds for a in base_attempts),
         )
+
+    # --- the live suite (M12.6b)
+
+    async def RunLiveSuite(  # noqa: N802  # The name comes from the contract.
+        self, request: pb.RunLiveSuiteRequest, context: Any
+    ) -> pb.RunLiveSuiteResponse:
+        _, _, who = await self._caller()
+        key = _key(request.idempotency_key)
+        if self._live is None:
+            raise ConflictError("The live suite is off here: no live tenant is set")
+        settings, providers = self._live
+        row = await live_runner.run_and_keep(
+            self._engine, providers, settings, live_runner.manual_run_id(key), who, self._now
+        )
+        return pb.RunLiveSuiteResponse(run=live_runner.message(row))
+
+    async def ListLiveRuns(  # noqa: N802
+        self, request: pb.ListLiveRunsRequest, context: Any
+    ) -> pb.ListLiveRunsResponse:
+        await self._caller()
+        rows = await live_runner.latest(self._engine, _page(request.page_size))
+        return pb.ListLiveRunsResponse(runs=[live_runner.message(r) for r in rows])

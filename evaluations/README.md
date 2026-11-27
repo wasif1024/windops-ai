@@ -83,6 +83,17 @@ Tavily or Open-Meteo (EVL-001). Demo tenants always see the live sources.
   documents. Upload screening flags one of them, and one addresses agents quietly enough that it is not flagged.
 - A forecast's injected text goes in a field the Weather Service never reads: the case shows it dropped.
 
+## The live suite (M12.6b)
+
+The recordings make the regression repeatable, so the real providers are exercised separately. Each day the Evaluation
+Service asks, as itself and in a tenant whose providers are live, for a turbine's forecast, a research question and a
+page. They must come back fresh, from the provider, secure and physical. A provider that changes its format fails here
+before a recording drifts from it. Alerts fire when a run fails or none has run in two days.
+
+```bash
+make live-suite   # run it now and show each check: one Tavily search and one extraction, no Claude
+```
+
 ```bash
 uv run pytest tests/test_evaluation.py   # every scenario valid, the splits apart, the lock, and each evaluator
 make scenarios                           # check, register with the Evaluation Service, sync to LangSmith

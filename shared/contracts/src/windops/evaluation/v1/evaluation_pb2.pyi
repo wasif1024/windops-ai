@@ -1147,3 +1147,152 @@ class CompareEvaluationResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___CompareEvaluationResponse: _TypeAlias = CompareEvaluationResponse  # noqa: Y015
+
+@_typing.final
+class LiveCheck(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    NAME_FIELD_NUMBER: _builtins.int
+    PASSED_FIELD_NUMBER: _builtins.int
+    DETAIL_FIELD_NUMBER: _builtins.int
+    name: _builtins.str
+    """Such as "forecast_fresh" or "research_answered"."""
+    passed: _builtins.bool
+    detail: _builtins.str
+    def __init__(
+        self,
+        *,
+        name: _builtins.str = ...,
+        passed: _builtins.bool = ...,
+        detail: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["detail", b"detail", "name", b"name", "passed", b"passed"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___LiveCheck: _TypeAlias = LiveCheck  # noqa: Y015
+
+@_typing.final
+class LiveRun(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    RUN_ID_FIELD_NUMBER: _builtins.int
+    LIVE_TENANT_ID_FIELD_NUMBER: _builtins.int
+    OUTCOME_FIELD_NUMBER: _builtins.int
+    CHECKS_FIELD_NUMBER: _builtins.int
+    STARTED_AT_FIELD_NUMBER: _builtins.int
+    FINISHED_AT_FIELD_NUMBER: _builtins.int
+    TRIGGERED_BY_FIELD_NUMBER: _builtins.int
+    run_id: _builtins.str
+    live_tenant_id: _builtins.str
+    """The tenant whose providers it asked: always one whose providers are live."""
+    outcome: _builtins.str
+    """"passed" only when every check passed; otherwise "failed"."""
+    triggered_by: _builtins.str
+    """"schedule", or the person who asked for it."""
+    @_builtins.property
+    def checks(self) -> _containers.RepeatedCompositeFieldContainer[Global___LiveCheck]: ...
+    @_builtins.property
+    def started_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def finished_at(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        run_id: _builtins.str = ...,
+        live_tenant_id: _builtins.str = ...,
+        outcome: _builtins.str = ...,
+        checks: _abc.Iterable[Global___LiveCheck] | None = ...,
+        started_at: _timestamp_pb2.Timestamp | None = ...,
+        finished_at: _timestamp_pb2.Timestamp | None = ...,
+        triggered_by: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["finished_at", b"finished_at", "started_at", b"started_at"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["checks", b"checks", "finished_at", b"finished_at", "live_tenant_id", b"live_tenant_id", "outcome", b"outcome", "run_id", b"run_id", "started_at", b"started_at", "triggered_by", b"triggered_by"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___LiveRun: _TypeAlias = LiveRun  # noqa: Y015
+
+@_typing.final
+class RunLiveSuiteRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    idempotency_key: _builtins.str
+    """A retry with the same key returns the first run, and runs nothing again (GRP-007)."""
+    def __init__(
+        self,
+        *,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["idempotency_key", b"idempotency_key"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___RunLiveSuiteRequest: _TypeAlias = RunLiveSuiteRequest  # noqa: Y015
+
+@_typing.final
+class RunLiveSuiteResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    RUN_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def run(self) -> Global___LiveRun: ...
+    def __init__(
+        self,
+        *,
+        run: Global___LiveRun | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["run", b"run"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["run", b"run"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___RunLiveSuiteResponse: _TypeAlias = RunLiveSuiteResponse  # noqa: Y015
+
+@_typing.final
+class ListLiveRunsRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PAGE_SIZE_FIELD_NUMBER: _builtins.int
+    page_size: _builtins.int
+    """From 1 to 200. Zero means 50."""
+    def __init__(
+        self,
+        *,
+        page_size: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["page_size", b"page_size"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListLiveRunsRequest: _TypeAlias = ListLiveRunsRequest  # noqa: Y015
+
+@_typing.final
+class ListLiveRunsResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    RUNS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def runs(self) -> _containers.RepeatedCompositeFieldContainer[Global___LiveRun]: ...
+    def __init__(
+        self,
+        *,
+        runs: _abc.Iterable[Global___LiveRun] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["runs", b"runs"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ListLiveRunsResponse: _TypeAlias = ListLiveRunsResponse  # noqa: Y015

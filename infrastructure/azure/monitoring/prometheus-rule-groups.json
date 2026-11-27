@@ -271,6 +271,40 @@
           "enabled": true
         }
       ]
+    },
+    {
+      "name": "windops-evaluation",
+      "interval": "PT1M",
+      "rules": [
+        {
+          "alert": "WindopsLiveSuiteFailing",
+          "expression": "windops_live_suite_passed == 0",
+          "for": "PT1M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning",
+            "category": "evaluation"
+          },
+          "annotations": {
+            "summary": "The live suite's latest run failed: ListLiveRuns names the checks that did"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsLiveSuiteStopped",
+          "expression": "time() - windops_live_suite_finished_seconds > 2 * 86400",
+          "for": "PT1M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning",
+            "category": "evaluation"
+          },
+          "annotations": {
+            "summary": "The live suite has not finished a run in two days"
+          },
+          "enabled": true
+        }
+      ]
     }
   ],
   "coveredByServiceBusAlerts": [

@@ -127,6 +127,20 @@ BENCHMARKS = Table(
     Column("set_by", Text, nullable=False),
     Column("set_at", DateTime(timezone=True), nullable=False),
 )
+# Each run of the live suite: the real providers, through the platform's services (M12.6b). Its
+# outcome is "running" until it finishes, so two replicas never run the same scheduled slot.
+LIVE_RUNS = Table(
+    "live_runs",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("run_id", Text, primary_key=True),
+    Column("live_tenant_id", Text, nullable=False),
+    Column("outcome", Text, nullable=False),
+    Column("checks_json", Text, nullable=False, server_default="[]"),
+    Column("started_at", DateTime(timezone=True), nullable=False),
+    Column("finished_at", DateTime(timezone=True)),
+    Column("triggered_by", Text, nullable=False),
+)
 # A retry with the same key returns the first answer, and changes nothing (GRP-007).
 IDEMPOTENCY_KEYS = Table(
     "idempotency_keys",
@@ -141,7 +155,7 @@ IDEMPOTENCY_KEYS = Table(
 )
 TENANT_TABLES = (
     "datasets", "dataset_scenarios", "evaluation_jobs", "evaluation_attempts", "benchmarks",
-    "idempotency_keys",
+    "idempotency_keys", "live_runs",
 )  # fmt: skip
 
 
