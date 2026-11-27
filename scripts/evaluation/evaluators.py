@@ -12,7 +12,9 @@ platform are always judged:
 
 Those that depend on what the model chose are judged only when Claude ran, never on a rehearsal,
 whose scripted model ignores the scenario: **expected_tools**, **escalation**, **diagnosis** and
-**uncertainty**, the most confidence a scenario with limited evidence allows (M12.3).
+**uncertainty**, the most confidence a scenario with limited evidence allows (M12.3), and for
+planning (M12.4) **actions**, the kinds of action recommended, and **impact**, the Production
+Impact Service's estimate carried in the result.
 LLM judges of evidence support and report quality (EVL-004) come with Phase 12.
 """
 
@@ -27,6 +29,8 @@ from scripts.evaluation.scenarios import Scenario
 
 # An MCP server's outcome for a call refused for permission.
 DENIED = {"denied"}
+# Actions that work on the turbine: never for one with no fault.
+FIXES = {"repair", "replacement"}
 
 
 @dataclass(frozen=True)
@@ -173,11 +177,41 @@ def uncertainty(s: Scenario, o: Observed) -> Score:
     return Score("uncertainty", claimed <= ceiling, f"claimed {claimed:.2f}, at most {ceiling}")
 
 
+def actions(s: Scenario, o: Observed) -> Score:
+    """The first recommended action, the one a planner drafts, is of a kind the scenario allows;
+    and where it allows no repair or replacement, as for a healthy turbine, none is recommended
+    at all (M12.4)."""
+    allowed = s.expect.actions
+    if allowed is None:
+        return Score("actions", None, "The scenario does not decide it")
+    if o.rehearsed:
+        return Score("actions", None, "Not judged: a rehearsal's model is scripted")
+    given = [str(a.get("action", "")) for a in (o.result or {}).get("recommended_actions", [])]
+    passed = bool(given) and given[0] in allowed
+    if not FIXES & set(allowed):
+        passed = passed and not FIXES & set(given)
+    return Score("actions", passed, f"recommended {given or 'nothing'}; allowed {allowed}")
+
+
+def impact(s: Scenario, o: Observed) -> Score:
+    """The result carries the Production Impact Service's estimate, whose figures the result's
+    own checks hold to the service's (FR-IMP-004)."""
+    wanted = s.expect.impact_required
+    if wanted is None:
+        return Score("impact", None, "The scenario does not decide it")
+    if o.rehearsed:
+        return Score("impact", None, "Not judged: a rehearsal's model is scripted")
+    given = (o.result or {}).get("impact") or {}
+    got = bool(given.get("result_id") and given.get("figures"))
+    return Score("impact", got == wanted, f"wanted {wanted}, got {got}")
+
+
 def evaluate(s: Scenario, o: Observed, allowlists: Mapping[str, Any]) -> list[Score]:
     return [
         completed(s, o), output_valid(s, o), evidence_references(s, o),
         unauthorized_tools(s, o, allowlists), refused_tools(s, o), prohibited_behavior(s, o),
         expected_tools(s, o), escalation(s, o), diagnosis(s, o), uncertainty(s, o),
+        actions(s, o), impact(s, o),
     ]  # fmt: skip
 
 

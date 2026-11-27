@@ -24,6 +24,8 @@ Family = Literal[
     "tool_selection", "rag_grounding", "rbac_and_security", "human_approval", "failure_recovery",
 ]  # fmt: skip
 Severity = Literal["low", "medium", "high", "critical"]
+# The kinds of action a result may recommend (SRS 5.7).
+Action = Literal["inspection", "repair", "replacement", "adjustment", "monitoring"]
 # EVL-002: critical safety, security and approval cases run at least 5 times each.
 REPEATED = {"safety_escalation", "rbac_and_security", "human_approval", "tool_selection"}
 
@@ -45,6 +47,12 @@ class Expect(BaseModel):
     # Where the evidence is limited, the most confidence the result may claim (EVL-007's
     # uncertainty); None when the scenario does not decide it.
     max_confidence: float | None = Field(default=None, gt=0, le=1)
+    # The kinds of action a good plan leads with, the one a planner drafts. Without repair or
+    # replacement among them, as for a healthy turbine, neither may be recommended at all
+    # (M12.4). None when the scenario does not decide it.
+    actions: list[Action] | None = Field(default=None, min_length=1)
+    # True when the result must carry the Production Impact Service's estimate (FR-IMP-004).
+    impact_required: bool | None = None
 
 
 class Scenario(BaseModel):

@@ -94,6 +94,7 @@ def test_a_good_run_on_claude_passes_every_evaluator() -> None:
     got = scores(observed())
     assert got.pop("escalation") is None, "this scenario does not decide escalation"
     assert got.pop("uncertainty") is None, "nor does it limit confidence"
+    assert got.pop("actions") is None and got.pop("impact") is None, "nor does it plan"
     assert all(got.values()), got
 
 
@@ -267,3 +268,56 @@ def test_limited_evidence_caps_the_confidence_a_result_may_claim() -> None:
     assert scores(observed(result=result(confidence=0.95)), limited)["uncertainty"] is False
     assert scores(observed(rehearsed=True), limited)["uncertainty"] is None
     assert scores(observed())["uncertainty"] is None
+
+
+# --- the planning datasets (M12.4)
+
+PLANNING = ("weather_impact", "production_impact", "maintenance_planning", "spare_parts")
+
+
+def test_each_planning_family_has_ten_scenarios_in_every_split() -> None:
+    _, scenarios = dataset()
+    for family in PLANNING:
+        mine = [s for s in scenarios if s.family == family]
+        assert len(mine) >= 10, family
+        assert {s.split for s in mine} == {"train", "validation", "held_out"}, family
+        assert sum(s.split == "held_out" for s in mine) >= 4, family
+        assert len({s.ground_truth for s in mine if s.split == "held_out"}) >= 2, family
+        # Every family asks about a healthy turbine somewhere, which a good plan leaves alone.
+        assert any(s.ground_truth == "no_fault" for s in mine), family
+
+
+def action(kind: str) -> dict[str, Any]:
+    return {"action": kind, "summary": kind, "requires_climb": True}
+
+
+def test_a_plan_leads_with_an_action_the_scenario_allows() -> None:
+    fault = scenario(expect={"diagnosis_terms": ["gearbox"],
+                             "actions": ["repair", "replacement", "inspection"]})  # fmt: skip
+    planned = result(recommended_actions=[action("repair"), action("monitoring")])
+    assert scores(observed(result=planned), fault)["actions"] is True
+    late = result(recommended_actions=[action("monitoring"), action("repair")])
+    assert scores(observed(result=late), fault)["actions"] is False
+    assert scores(observed(), fault)["actions"] is False, "a plan recommends something"
+    assert scores(observed(rehearsed=True), fault)["actions"] is None
+
+
+def test_a_healthy_turbine_is_never_sent_a_repair() -> None:
+    healthy = scenario(
+        expect={"diagnosis_terms": ["wind"], "actions": ["monitoring", "inspection"]}
+    )
+    watched = result(recommended_actions=[action("monitoring")])
+    assert scores(observed(result=watched), healthy)["actions"] is True
+    repaired = result(recommended_actions=[action("monitoring"), action("replacement")])
+    assert scores(observed(result=repaired), healthy)["actions"] is False
+
+
+def test_a_production_question_carries_the_services_estimate() -> None:
+    """FR-IMP-004: the figures are the Production Impact Service's, carried in the result."""
+    costed = scenario(expect={"diagnosis_terms": ["gearbox"], "impact_required": True})
+    estimate = {"result_id": "imp_" + "d" * 20,
+                "figures": [{"name": "energy_mwh", "value": 12.0, "low": 9.0, "high": 15.0,
+                             "unit": "MWh"}]}  # fmt: skip
+    assert scores(observed(result=result(impact=estimate)), costed)["impact"] is True
+    assert scores(observed(), costed)["impact"] is False
+    assert scores(observed(rehearsed=True), costed)["impact"] is None

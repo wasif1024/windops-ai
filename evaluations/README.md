@@ -34,6 +34,7 @@ folder: the ground truth stays here (SIM-005).
 | Families | Module | Scenarios |
 | --- | --- | --- |
 | Turbine fault diagnosis, gearbox diagnostics, vibration analysis | M12.3 | Ten each, in every split, at least four held out with two kinds of fault among them |
+| Weather impact, production impact, maintenance planning, spare parts | M12.4 | Ten each, the same way, with a healthy turbine a good plan leaves alone |
 
 The diagnosis scenarios ask what is wrong from what a person would write, never the answer's own words. They include
 healthy turbines a careless reading calls faulty (strong wind, a poor data link), sensors that drift alone, and
@@ -42,6 +43,17 @@ questions about how far vibration data can be trusted. Two expectations help jud
 - **Alternatives:** a diagnosis term may give them, `imbalance|unbalance`, so a right answer in other words passes.
 - **`max_confidence`:** where the evidence is limited, the most confidence the result may claim. The **uncertainty**
   evaluator judges it on Claude (EVL-007).
+
+The planning scenarios ask when work can be done, what it costs, what the work order holds and which parts it needs.
+Two more expectations judge a plan on Claude:
+
+- **`actions`:** the kinds of action a good plan leads with, the one the Maintenance Planner drafts. Where they include
+  no repair or replacement, as for a healthy turbine, neither may be recommended at all. The **actions** evaluator.
+- **`impact_required`:** the result carries the Production Impact Service's estimate, whose figures its own checks
+  already hold to the service's (FR-IMP-004). The **impact** evaluator.
+
+No agent ever reserves a part or approves a work order: every scenario prohibits both, and that is judged on every run,
+rehearsed or not.
 
 ```bash
 uv run pytest tests/test_evaluation.py   # every scenario valid, the splits apart, the lock, and each evaluator
