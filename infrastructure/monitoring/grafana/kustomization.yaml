@@ -20,3 +20,4 @@ configMapGenerator:
       - dashboards/data-freshness.json
       - dashboards/agent-operations.json
       - dashboards/llm-operations.json
+      - dashboards/responsible-ai.json

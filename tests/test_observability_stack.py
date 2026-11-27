@@ -412,3 +412,15 @@ def test_agent_dashboards_use_only_metrics_that_are_exported(name: str) -> None:
 def test_agent_failures_and_cost_have_their_alerts(alert: str) -> None:
     """SRS 10.3: repeated tool failures, and excessive model cost."""
     assert alert_rules()[alert]["labels"]["category"] == "agents"
+
+
+def test_responsible_ai_has_every_srs_indicator_and_never_counts_a_rehearsal_as_claude() -> None:
+    """SRS 10.3: safety escalations, policy denials, human overrides, unsupported
+    recommendations and stale evidence (M12.9)."""
+    titles = panel_titles("responsible-ai.json")
+    for indicator in ("safety escalations", "policy denials", "human overrides",
+                      "unsupported claims", "stale evidence"):  # fmt: skip
+        assert indicator in titles, indicator
+    board = json.loads((DASHBOARDS / "responsible-ai.json").read_text())
+    escalations = next(p for p in board["panels"] if p["title"] == "Safety escalations")
+    assert 'mode="claude"' in escalations["targets"][0]["expr"]
