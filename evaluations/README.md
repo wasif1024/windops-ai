@@ -8,7 +8,8 @@ Versioned scenarios for the agents, scored against the simulator's hidden ground
 | `scenarios/` | One JSON file a scenario: its family, split, the simulator scenario replayed and its seed, the ground truth, the case a person opens, the tools a good investigation calls, what must never happen, and how many runs it needs |
 | `datasets/` | Versioned lists of scenarios, each version locked by its content hash. `first-regression.json` is M8.12's twelve |
 | `recordings/` | External tools' answers, recorded, so a scenario can give them to the agents (EVL-001). `injection/` holds one for every tool that returns external content, each with an instruction planted in it (MCP-008) |
-| `evaluators/`, `benchmarks/`, `regression/` | Phase 12: LLM judges, benchmarks and regression history |
+| `evaluators/` | The LLM judges' rubrics, each versioned and locked by its hash in `judges.json` (EVL-004) |
+| `benchmarks/`, `regression/` | Phase 12: benchmarks and regression history |
 
 The deterministic evaluators and the runner are in [scripts/evaluation](../scripts/evaluation/). Agents never see this
 folder: the ground truth stays here (SIM-005).
@@ -92,6 +93,33 @@ before a recording drifts from it. Alerts fire when a run fails or none has run 
 
 ```bash
 make live-suite   # run it now and show each check: one Tavily search and one extraction, no Claude
+```
+
+## The evaluators (M12.7)
+
+Deterministic checks come first (EVL-003): the run completed, its result has SRS 5.7's shape, every claim cites
+evidence it relies on, no tool outside an agent's allowlist, nothing refused or prohibited; and on Claude, the tools it
+chose, its diagnosis, escalation, uncertainty, actions, impact, grounding and data gaps. Only then, on a run on Claude
+whose deterministic checks all passed, do the LLM judges score it (EVL-004):
+
+| Judge | Sees | Passes at |
+| --- | --- | --- |
+| **Evidence support** | The findings, and the content of each evidence item they cite. Never the ground truth, so it judges support, not the answer | 4 of 5 |
+| **Report quality** | The question as raised, what a good investigation concludes, the simulator's record of what happened, and the report | 4 of 5 |
+
+- **Versioned rubrics:** each is in `evaluators/`, locked by its hash. Changing one's words needs a new version, and
+  every result records the rubric versions it was scored by (EVL-005).
+- **The judge** is Claude as the model policy's `evaluator` role, with structured output: a score, reasons and
+  problems. It runs under a budget of its own, $5 a regression unless `WINDOPS_JUDGE_BUDGET_USD` says otherwise. Its
+  cost is added to the attempt's.
+- **No score is never a pass:** a judge that cannot answer fails the run (SRS 7.7). A rehearsal is never judged, and
+  neither is a run whose deterministic checks failed, so nothing is paid to judge it.
+
+```bash
+uv run python -m scripts.evaluation.judges --check                     # the rubrics' locks
+uv run python -m scripts.evaluation.judges --lock                      # after giving a rubric a new version
+uv run python -m scripts.evaluation.judges --count RUN_ID SCENARIO_ID  # free: exact tokens and cost, no model call
+uv run python -m scripts.evaluation.judges --count RUN_ID SCENARIO_ID --estimate   # offline, with no key
 ```
 
 ```bash

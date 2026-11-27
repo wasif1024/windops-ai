@@ -1,0 +1,19 @@
+{
+  "description": "The LLM judges (EVL-004). Each rubric is versioned and locked by its content hash: changing a rubric's text needs a new version, so a score always names the rubric it was given by.",
+  "judges": {
+    "evidence_support": {
+      "rubric": "evidence-support.md",
+      "version": "1",
+      "pass_at": 4
+    },
+    "report_quality": {
+      "rubric": "report-quality.md",
+      "version": "1",
+      "pass_at": 4
+    }
+  },
+  "locks": {
+    "evidence_support@1": "9b85c8f051ce68107c834618b1fd468078ef4f4fee50cc7a08ab94746976cdcd",
+    "report_quality@1": "6907cb6b1c882a1faed9222cbf828c9ad50aa36052d68770aedddc1bccfa6c98"
+  }
+}
