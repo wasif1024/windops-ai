@@ -18,6 +18,8 @@ TENANT_MODELS = {
     tenant: {(OFFSHORE if f.offshore else ONSHORE).model for f in FARMS if f.tenant_id == tenant}
     for tenant in FARM_TENANT.values()
 }
+# The regression replays turbines of both models in the evaluation tenant (M12.6).
+TENANT_MODELS[documents.EVALUATION_TENANT] = set(MODELS)
 
 
 def prose(document: documents.Document) -> str:

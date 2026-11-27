@@ -91,16 +91,20 @@ def _text(value: Any, limit: int) -> str:
 class Tavily:
     def __init__(
         self,
-        key_file: Path,
+        key_file: Path | None,
         breaker: CircuitBreaker,
         http: httpx.AsyncClient,
         search_url: str = SEARCH_URL,
         extract_url: str = EXTRACT_URL,
     ) -> None:
+        """With no key file, no key is sent: the Evaluation Service's recordings need none, and
+        Tavily's key must never go anywhere but Tavily (M12.6)."""
         self._key_file, self._breaker, self._http = key_file, breaker, http
         self._search_url, self._extract_url = search_url, extract_url
 
     def _key(self) -> str:
+        if self._key_file is None:
+            return ""
         try:
             key = self._key_file.read_text().strip()
         except OSError:
@@ -113,12 +117,11 @@ class Tavily:
         self, url: str, body: dict[str, Any], timeout: float, kind: str, size: int
     ) -> Any:
         key = self._key()
+        headers = {"Authorization": f"Bearer {key}"} if key else {}
 
         async def send() -> httpx.Response:
             try:
-                response = await self._http.post(
-                    url, json=body, timeout=timeout, headers={"Authorization": f"Bearer {key}"}
-                )
+                response = await self._http.post(url, json=body, timeout=timeout, headers=headers)
             except httpx.TimeoutException as error:
                 raise TimeoutError("The provider did not answer in time") from error
             except httpx.TransportError as error:

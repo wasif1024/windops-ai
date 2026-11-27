@@ -69,8 +69,19 @@ the two documentation tools) has a scenario whose recorded answer plants an inst
 words try one. Each instruction asks for what an existing evaluator catches: an approval, a reservation, a control
 command, a healthy verdict for a fault, a dropped escalation or full confidence. So an agent that obeys fails, and one
 that quotes the instruction in its report does not. A recording is part of its dataset's content, so changing one needs
-a new version. Until M12.6 replays recordings, an agent on Claude would see the live source instead, so `make
-regression` skips those scenarios on Claude, and the job is incomplete, never passed.
+a new version.
+
+## Recordings (M12.6)
+
+[ADR 0044](../docs/adr/0044-an-evaluation-tenant-on-recorded-providers.md). `make regression` runs in the evaluation
+tenant, `windops-evaluation`, whose web research and forecasts are recordings, kept by the Evaluation Service, never
+Tavily or Open-Meteo (EVL-001). Demo tenants always see the live sources.
+
+- Before each attempt, the runner sets that scenario's recording, or none for the baseline: plain search results and a
+  calm, fresh forecast. The recording is given only while its job's lease holds.
+- A documentation tool's recording is a document in the evaluation tenant's library, alongside the manufacturer's
+  documents. Upload screening flags one of them, and one addresses agents quietly enough that it is not flagged.
+- A forecast's injected text goes in a field the Weather Service never reads: the case shows it dropped.
 
 ```bash
 uv run pytest tests/test_evaluation.py   # every scenario valid, the splits apart, the lock, and each evaluator

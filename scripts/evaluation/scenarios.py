@@ -14,6 +14,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from windops_identity.targets import AGENT_TOOLS
+from windops_simulator import documents
 from windops_simulator.scenarios import SCENARIOS
 
 ROOT = Path(__file__).resolve().parents[2] / "evaluations"
@@ -137,6 +138,12 @@ class ScenarioError(ValueError):
     """A scenario file is wrong."""
 
 
+# The documents only the evaluation tenant's library holds, such as those carrying an injection.
+EVALUATION_DOCUMENTS = frozenset(
+    d.document_id for d in documents.load() if d.purpose == "evaluation"
+)
+
+
 def recording(scenario: Scenario, root: Path = ROOT) -> Recording | None:
     """The scenario's recorded external answer, if it has one."""
     if scenario.recorded_external_sources is None:
@@ -180,6 +187,13 @@ def check(scenario: Scenario, file_name: str, root: Path = ROOT) -> None:
             raise ScenarioError(f"{scenario.case_id}: {recorded.tool} returns no external content")
         if recorded.tool not in scenario.expected_behavior:
             raise ScenarioError(f"{scenario.case_id}: its recording is for a tool it never expects")
+        # A documentation tool's recording is a document in the evaluation tenant's library.
+        if recorded.tool.startswith("documentation_") and (
+            recorded.source.split(" ")[0] not in EVALUATION_DOCUMENTS
+        ):
+            raise ScenarioError(
+                f"{scenario.case_id}: {recorded.source} is not an evaluation document"
+            )
 
 
 def check_set(scenarios: Sequence[Scenario]) -> None:

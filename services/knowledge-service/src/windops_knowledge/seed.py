@@ -1,12 +1,14 @@
-"""Ingest the synthetic document set for the demo tenants. Safe to repeat.
+"""Ingest the synthetic document set for the demo tenants and the evaluation tenant. Safe to
+repeat.
 
 Run inside the service's pod, with its own database login, by `make knowledge-seed`:
 
     python -m windops_knowledge.seed
 
-Each demo document goes to the tenants its manifest names, through the same checks and ingestion
-an upload takes, as the actor "seed". The evaluation material, such as the document carrying a
-prompt injection, is never loaded here. The demo tenants hold only synthetic documents, so the seed
+Each document goes to the tenants its manifest names, through the same checks and ingestion an
+upload takes, as the actor "seed". The evaluation material, such as the documents carrying a
+prompt injection, names only the evaluation tenant, where the regression runs (M12.6), so it
+never reaches a demo tenant. These tenants hold only synthetic documents, so the seed
 allows each to send restricted ones to the embedding provider, which their site procedures are,
 for retrieval and tenant isolation to be tested on them. A real tenant's administrator decides
 that for themselves (ADR 0011).
@@ -34,8 +36,9 @@ async def seed() -> tuple[int, int]:
     """Return how many revisions were added, and how many were already there."""
     engine = create_service_engine()
     added = kept = 0
-    demo = [d for d in documents.load() if d.purpose == "demo"]
-    tenants = sorted({t for d in demo for t in d.tenants})
+    # Each document names its tenants: evaluation material names only the evaluation tenant.
+    found = list(documents.load())
+    tenants = sorted({t for d in found for t in d.tenants})
     try:
         for tenant in tenants:
             async with engine.begin() as connection:
@@ -44,7 +47,7 @@ async def seed() -> tuple[int, int]:
                 if current.embedding_max_classification != DEMO_ALLOWANCE:
                     await library.set_allowance(connection, tenant, "service", ACTOR,
                                                 DEMO_ALLOWANCE, datetime.now(UTC))  # fmt: skip
-            for document in (d for d in demo if tenant in d.tenants):
+            for document in (d for d in found if tenant in d.tenants):
                 filename = document.path.rsplit("/", 1)[-1]
                 upload = uploads.prepare(filename, CONTENT_TYPE, document.text().encode())
                 # One transaction per document, so each is all there or not at all.

@@ -13,7 +13,14 @@ from windops.asset.v1 import asset_pb2_grpc
 from windops.authorization.v1 import authorization_pb2_grpc
 from windops.weather.v1 import weather_pb2_grpc
 from windops_auth import current_identity_token
-from windops_grpc import ServiceClient, create_channel, run_service
+from windops_grpc import (
+    ByTenant,
+    ReplaySettings,
+    ServiceClient,
+    create_channel,
+    replay_ssl_context,
+    run_service,
+)
 from windops_migrations import create_service_engine
 from windops_observability import breaker_state_metrics
 from windops_resilience import BreakerConfig, CircuitBreaker
@@ -67,10 +74,20 @@ def main() -> None:
         stub(asset_pb2_grpc.AssetServiceStub, "WINDOPS_ASSET_ADDRESS"), _client("asset"),
     ))  # fmt: skip
     # TLS is verified against the system's certificate authorities, always.
-    forecasts = _Lazy(lambda: OpenMeteo(
+    live = _Lazy(lambda: OpenMeteo(
         os.environ.get("WINDOPS_WEATHER_PROVIDER_URL", DEFAULT_PROVIDER_URL),
         _breaker("open-meteo", slow_call_seconds=5.0), httpx.AsyncClient(),
     ))  # fmt: skip
+    forecasts: Any = live
+    # The evaluation tenant's forecasts are recorded, so a regression is repeatable (EVL-001).
+    replaying = ReplaySettings.from_env()
+    if replaying is not None:
+        replayed = _Lazy(lambda: OpenMeteo(
+            f"{replaying.url}/open-meteo/v1/forecast",
+            _breaker("open-meteo-replay", slow_call_seconds=5.0),
+            httpx.AsyncClient(verify=replay_ssl_context(tls)),
+        ))  # fmt: skip
+        forecasts = ByTenant(live, replayed, replaying.tenants)
 
     async def database_ready() -> bool:
         async with engine.connect() as connection:

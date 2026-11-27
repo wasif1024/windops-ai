@@ -30,6 +30,8 @@ from windops_events import audit_request_subject
 from windops_outbox import add_event
 
 SERVICE_NAME = "evaluation"
+# The tenant whose Platform Administrators run evaluations, so every job's rows are its own.
+PLATFORM_TENANT = "windops-platform"
 METADATA = MetaData()
 
 # Job statuses: waiting, leased, and the four outcomes.
@@ -89,6 +91,9 @@ JOBS = Table(
     # A JSON object of what the runs depended on (EVL-005).
     Column("versions_json", Text, nullable=False, server_default="{}"),
     Column("note", Text, nullable=False, server_default=""),
+    # The scenario whose recorded external answer the evaluation tenant gets while the lease holds
+    # (EVL-001, M12.6); empty for the baseline answers.
+    Column("replay_scenario", Text, nullable=False, server_default=""),
 )
 # Every planned attempt, and once reported, what happened.
 ATTEMPTS = Table(

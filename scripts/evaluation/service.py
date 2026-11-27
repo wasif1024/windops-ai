@@ -97,6 +97,13 @@ class Job:
         ))  # fmt: skip
         return answer.attempt  # type: ignore[no-any-return]
 
+    def set_replay(self, scenario_id: str) -> str:
+        """The scenario whose recorded answer the evaluation tenant's agents get; "" for the
+        baseline. Returns the tool it is for, if any."""
+        answer = self.api.call("SetReplay", pb.SetReplayRequest(
+            job_id=self.job_id, lease_token=self.token, scenario_id=scenario_id))  # fmt: skip
+        return str(answer.tool)
+
     def skip(self, scenario_id: str, attempt: int, reason: str) -> pb.Attempt:
         """Reported as skipped, so the job cannot pass without it (SRS 7.7)."""
         answer = self.api.call("ReportAttempt", pb.ReportAttemptRequest(

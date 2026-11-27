@@ -156,8 +156,8 @@ Investigation listens for changes because they can make a recommendation stale (
 | Agent Runtime | MCP servers, Agent Sandbox Adapter, Claude | Audit events | Queued runs, including the decision runs that resume a case |
 | Agent Sandbox Adapter | LangSmith Sandbox | None. Agent Runtime records sandbox use | None |
 | Knowledge | Qdrant, the embedding provider | `evidence.changed`, audit events | None |
-| Weather | Asset, for each turbine's coordinates and hub height, and Open-Meteo ([ADR 0010](adr/0010-open-meteo-as-the-forecast-provider.md)) | None | None |
-| External Intelligence | Tavily | Audit events | None |
+| Weather | Asset, for each turbine's coordinates and hub height, and Open-Meteo ([ADR 0010](adr/0010-open-meteo-as-the-forecast-provider.md)); the evaluation tenant's forecasts from Evaluation's recordings ([ADR 0044](adr/0044-an-evaluation-tenant-on-recorded-providers.md)) | None | None |
+| External Intelligence | Tavily; the evaluation tenant's research from Evaluation's recordings ([ADR 0044](adr/0044-an-evaluation-tenant-on-recorded-providers.md)) | Audit events | None |
 | Production Impact | Investigation, Asset, Telemetry and Weather, for the case, the turbine, its observed wind and power, and the forecast wind | Audit events | None |
 | Policy | Investigation, Asset and Production Impact, for the facts it judges on ([ADR 0009](adr/0009-policy-judges-a-proposal-on-facts-it-gathers.md)), and Weather, the only source of its weather (FR-POL-004) | Audit events | None |
 | Maintenance | Asset, Policy, Inventory | `workorder.submitted`, `workorder.completed`, audit events | `approval.decided`, `case.updated` for stale evidence and verification |
@@ -165,7 +165,7 @@ Investigation listens for changes because they can make a recommendation stale (
 | Approval | Maintenance, Investigation, Asset | `approval.decided`, audit events | `workorder.submitted` |
 | Audit | None | `audit.recorded` | `audit.requested.*`, the audit events from every service |
 | Notification | Authorization, for who holds a permission, and Asset, for a turbine's wind farm ([ADR 0037](adr/0037-notifications-from-events-by-tenant-rules-with-email-recorded.md)). An email provider once one is chosen | Audit events | `case.updated`, `workorder.submitted`, `approval.decided` |
-| Evaluation | Authorization, for `evaluation.manage`. Its runner, not the service, runs investigations through Web BFF and keeps scores in LangSmith ([ADR 0042](adr/0042-the-evaluation-service-keeps-the-record-and-the-verdict.md)) | Audit events | None |
+| Evaluation | Authorization, for `evaluation.manage`. Its runner, not the service, runs investigations through Web BFF and keeps scores in LangSmith ([ADR 0042](adr/0042-the-evaluation-service-keeps-the-record-and-the-verdict.md)). It serves recorded providers to Weather and External Intelligence ([ADR 0044](adr/0044-an-evaluation-tenant-on-recorded-providers.md)) | Audit events | None |
 
 The telemetry simulator is a separate workload and reaches Telemetry through the gateway. The MCP
 servers are also separate workloads, and call only these services (SRS 6.3):

@@ -21,6 +21,7 @@ from windops_observability import breaker_state_metrics
 from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, CircuitBreaker
 
+from windops_evaluation import replay_api
 from windops_evaluation.authorizer import AuthorizationClient
 from windops_evaluation.service import EvaluationService
 from windops_evaluation.store import SERVICE_NAME
@@ -87,7 +88,14 @@ def main() -> None:
 
     asyncio.run(
         run_service(
-            SERVICE_NAME, register, readiness_checks=(database_ready,), background=(relay_outbox,)
+            SERVICE_NAME,
+            register,
+            readiness_checks=(database_ready,),
+            background=(relay_outbox,),
+            # The recorded providers, only for callers with the cluster's certificates (M12.6).
+            http_router=replay_api.router(engine),
+            api_over_https=True,
+            api_client_certificates=True,
         )
     )
 

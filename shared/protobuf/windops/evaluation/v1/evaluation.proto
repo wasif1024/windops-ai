@@ -51,6 +51,10 @@ service EvaluationService {
   rpc FinishEvaluation(FinishEvaluationRequest) returns (FinishEvaluationResponse);
   // A queued or running job. Its outcome is "cancelled", never passed.
   rpc CancelEvaluation(CancelEvaluationRequest) returns (CancelEvaluationResponse);
+  // Which scenario's recorded external answer the evaluation tenant's agents get next, while the
+  // job's lease holds; none gives the baseline answers. Recordings replace Tavily and the weather
+  // provider in a regression, so it is repeatable (EVL-001).
+  rpc SetReplay(SetReplayRequest) returns (SetReplayResponse);
 
   // Makes a finished, passed job the benchmark for its dataset, splits and mode.
   rpc SetBenchmark(SetBenchmarkRequest) returns (SetBenchmarkResponse);
@@ -245,6 +249,22 @@ message LeaseEvaluationResponse {
   Evaluation evaluation = 1;
   // Needed to report, renew and finish.
   string lease_token = 2;
+}
+
+message SetReplayRequest {
+  string job_id = 1;
+  string lease_token = 2;
+  // A scenario of the job's dataset, or empty for the baseline answers.
+  string scenario_id = 3;
+  // Setting the same scenario again changes nothing, so a retry, with this key or without, is
+  // safe (GRP-007).
+  string idempotency_key = 4;
+}
+
+message SetReplayResponse {
+  string scenario_id = 1;
+  // The tool whose answer is recorded, such as "tavily_search_web"; empty for the baseline.
+  string tool = 2;
 }
 
 message RenewLeaseRequest {

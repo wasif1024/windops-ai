@@ -708,6 +708,61 @@ class LeaseEvaluationResponse(_message.Message):
 Global___LeaseEvaluationResponse: _TypeAlias = LeaseEvaluationResponse  # noqa: Y015
 
 @_typing.final
+class SetReplayRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    JOB_ID_FIELD_NUMBER: _builtins.int
+    LEASE_TOKEN_FIELD_NUMBER: _builtins.int
+    SCENARIO_ID_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    job_id: _builtins.str
+    lease_token: _builtins.str
+    scenario_id: _builtins.str
+    """A scenario of the job's dataset, or empty for the baseline answers."""
+    idempotency_key: _builtins.str
+    """Setting the same scenario again changes nothing, so a retry, with this key or without, is
+    safe (GRP-007).
+    """
+    def __init__(
+        self,
+        *,
+        job_id: _builtins.str = ...,
+        lease_token: _builtins.str = ...,
+        scenario_id: _builtins.str = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["idempotency_key", b"idempotency_key", "job_id", b"job_id", "lease_token", b"lease_token", "scenario_id", b"scenario_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SetReplayRequest: _TypeAlias = SetReplayRequest  # noqa: Y015
+
+@_typing.final
+class SetReplayResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SCENARIO_ID_FIELD_NUMBER: _builtins.int
+    TOOL_FIELD_NUMBER: _builtins.int
+    scenario_id: _builtins.str
+    tool: _builtins.str
+    """The tool whose answer is recorded, such as "tavily_search_web"; empty for the baseline."""
+    def __init__(
+        self,
+        *,
+        scenario_id: _builtins.str = ...,
+        tool: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["scenario_id", b"scenario_id", "tool", b"tool"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SetReplayResponse: _TypeAlias = SetReplayResponse  # noqa: Y015
+
+@_typing.final
 class RenewLeaseRequest(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 

@@ -51,6 +51,7 @@ import grpc
 import httpx
 from windops.asset.v1 import asset_pb2, asset_pb2_grpc
 from windops_identity.targets import AGENT_TOOLS
+from windops_simulator.documents import EVALUATION_TENANT
 from windops_simulator.scenarios import SCENARIOS, run
 
 from scripts.checks.agents.progress import API, Operator, events
@@ -72,7 +73,9 @@ from scripts.lib.tls_client import authority_file, blocking_channel, client_bund
 from scripts.setup.gateway_routes import port_forward
 from scripts.setup.identity_seed import GATEWAY, NAMESPACE, keycloak_public
 
-TENANT, FARM, PREFIX = "north-sea", "regression-farm", "regr-"
+# The evaluation tenant: its web research and forecasts are recordings (EVL-001, M12.6), its
+# library holds the evaluation documents, and a demo tenant never sees either.
+TENANT, FARM, PREFIX = EVALUATION_TENANT, "regression-farm", "regr-"
 ADMIN = "regression-admin"
 ASSET_HOST = "windops-asset.windops-application.svc.cluster.local"
 # The scenario's last hour: its fault at full severity, inside a case's default evidence window.
@@ -244,9 +247,10 @@ class Outcome:
     scores: list[Score]
 
 
-# A recorded external answer is given to the agents once M12.6 replays recordings (EVL-001).
-REPLAYS_RECORDINGS = False
-SKIPPED = "its recorded external answer is not replayed yet (M12.6)"
+# The evaluation tenant's agents get each scenario's recorded external answer (M12.6). Off, a
+# scenario with a recording is skipped on Claude, never judged on the live source (SRS 7.7).
+REPLAYS_RECORDINGS = True
+SKIPPED = "its recorded external answer is not replayed"
 
 
 def replays(scenario: Scenario) -> bool:
@@ -290,6 +294,8 @@ def run_set(
                 job.skip(scenario_id, attempt, SKIPPED)
                 info(f"{scenario_id} run {attempt}: skipped: {SKIPPED}")
                 continue
+            # Its recording, or the baseline, is what the agents' external tools get (EVL-001).
+            job.set_replay(scenario_id if scenario.recorded_external_sources else "")
         try:
             case_id = investigate(operator, scenario, turbines[scenario.replay], attempt)
             cases.opened.append(case_id)
@@ -456,7 +462,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             try:
                 with keycloak_public() as public:
                     operator = Operator(Realm(public), TENANT)
-                    cases = Cases(signing_key())
+                    cases = Cases(signing_key(), TENANT)
                     try:
                         outcomes = run_set(scenarios, operator, cases, job)
                     finally:

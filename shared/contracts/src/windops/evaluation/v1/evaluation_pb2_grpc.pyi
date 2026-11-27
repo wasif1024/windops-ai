@@ -79,6 +79,11 @@ class EvaluationServiceStub:
     """Ends the lease, and decides the outcome."""
     CancelEvaluation: _grpc.UnaryUnaryMultiCallable[_evaluation_pb2.CancelEvaluationRequest, _evaluation_pb2.CancelEvaluationResponse]
     """A queued or running job. Its outcome is "cancelled", never passed."""
+    SetReplay: _grpc.UnaryUnaryMultiCallable[_evaluation_pb2.SetReplayRequest, _evaluation_pb2.SetReplayResponse]
+    """Which scenario's recorded external answer the evaluation tenant's agents get next, while the
+    job's lease holds; none gives the baseline answers. Recordings replace Tavily and the weather
+    provider in a regression, so it is repeatable (EVL-001).
+    """
     SetBenchmark: _grpc.UnaryUnaryMultiCallable[_evaluation_pb2.SetBenchmarkRequest, _evaluation_pb2.SetBenchmarkResponse]
     """Makes a finished, passed job the benchmark for its dataset, splits and mode."""
     ListBenchmarks: _grpc.UnaryUnaryMultiCallable[_evaluation_pb2.ListBenchmarksRequest, _evaluation_pb2.ListBenchmarksResponse]
@@ -136,6 +141,11 @@ class EvaluationServiceAsyncStub(EvaluationServiceStub):
     """Ends the lease, and decides the outcome."""
     CancelEvaluation: _aio.UnaryUnaryMultiCallable[_evaluation_pb2.CancelEvaluationRequest, _evaluation_pb2.CancelEvaluationResponse]  # type: ignore[assignment]
     """A queued or running job. Its outcome is "cancelled", never passed."""
+    SetReplay: _aio.UnaryUnaryMultiCallable[_evaluation_pb2.SetReplayRequest, _evaluation_pb2.SetReplayResponse]  # type: ignore[assignment]
+    """Which scenario's recorded external answer the evaluation tenant's agents get next, while the
+    job's lease holds; none gives the baseline answers. Recordings replace Tavily and the weather
+    provider in a regression, so it is repeatable (EVL-001).
+    """
     SetBenchmark: _aio.UnaryUnaryMultiCallable[_evaluation_pb2.SetBenchmarkRequest, _evaluation_pb2.SetBenchmarkResponse]  # type: ignore[assignment]
     """Makes a finished, passed job the benchmark for its dataset, splits and mode."""
     ListBenchmarks: _aio.UnaryUnaryMultiCallable[_evaluation_pb2.ListBenchmarksRequest, _evaluation_pb2.ListBenchmarksResponse]  # type: ignore[assignment]
@@ -256,6 +266,17 @@ class EvaluationServiceServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_evaluation_pb2.CancelEvaluationResponse, _abc.Awaitable[_evaluation_pb2.CancelEvaluationResponse]]:
         """A queued or running job. Its outcome is "cancelled", never passed."""
+
+    @_abc_1.abstractmethod
+    def SetReplay(
+        self,
+        request: _evaluation_pb2.SetReplayRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_evaluation_pb2.SetReplayResponse, _abc.Awaitable[_evaluation_pb2.SetReplayResponse]]:
+        """Which scenario's recorded external answer the evaluation tenant's agents get next, while the
+        job's lease holds; none gives the baseline answers. Recordings replace Tavily and the weather
+        provider in a regression, so it is repeatable (EVL-001).
+        """
 
     @_abc_1.abstractmethod
     def SetBenchmark(

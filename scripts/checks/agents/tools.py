@@ -85,10 +85,11 @@ def refused(server: Server, token: str, tool: str, arguments: dict[str, Any]) ->
 
 
 class Cases:
-    """Opens the check's own case as the demo operator, and cancels it afterwards."""
+    """Opens the check's own case as the demo operator, and cancels it afterwards, in its tenant:
+    north-sea for the checks, the evaluation tenant for the regression."""
 
-    def __init__(self, key: str) -> None:
-        self._key, self._stack = key, ExitStack()
+    def __init__(self, key: str, tenant: str = TENANT) -> None:
+        self._key, self._stack, self._tenant = key, ExitStack(), tenant
         port = self._stack.enter_context(
             port_forward("deployment/windops-investigation", "windops-application", 50051)
         )
@@ -99,12 +100,12 @@ class Cases:
         self.opened: list[str] = []
 
     def open(self, user: str, title: str = "") -> str:
-        bootstrap(TENANT, ENGINEER, "reliability-engineer")
+        bootstrap(self._tenant, ENGINEER, "reliability-engineer")
         request = investigation_pb2.CreateCaseRequest(
             turbine_id=TURBINE, title=title or f"Agent tools check {RUN}", severity="medium",
             idempotency_key=f"tools-check-{RUN}-{len(self.opened)}",
         )  # fmt: skip
-        case_id = str(self._api.call("CreateCase", request, user, TENANT).case.case_id)
+        case_id = str(self._api.call("CreateCase", request, user, self._tenant).case.case_id)
         self.opened.append(case_id)
         return case_id
 
@@ -114,7 +115,7 @@ class Cases:
         while time.monotonic() < deadline:
             case = self._api.call(
                 "GetCase", investigation_pb2.GetCaseRequest(case_id=case_id), ENGINEER_READER,
-                TENANT,
+                self._tenant,
             ).case  # fmt: skip
             if case.evidence_snapshot_id:
                 return str(case.evidence_snapshot_id)
@@ -123,11 +124,13 @@ class Cases:
 
     def close(self) -> None:
         try:
+            if self.opened:
+                bootstrap(self._tenant, ENGINEER, "reliability-engineer")
             for case_id in self.opened:
                 self._api.call(
                     "CancelCase",
                     investigation_pb2.CancelCaseRequest(case_id=case_id, reason="Check over"),
-                    ENGINEER, TENANT,
+                    ENGINEER, self._tenant,
                 )  # fmt: skip
         finally:
             self._stack.close()

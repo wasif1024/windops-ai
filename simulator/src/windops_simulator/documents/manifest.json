@@ -16,7 +16,8 @@
       "classification": "internal",
       "supersedes": null,
       "tenants": [
-        "north-sea"
+        "north-sea",
+        "windops-evaluation"
       ],
       "covers": [],
       "purpose": "demo",
@@ -36,7 +37,8 @@
       "classification": "internal",
       "supersedes": null,
       "tenants": [
-        "atlas-wind"
+        "atlas-wind",
+        "windops-evaluation"
       ],
       "covers": [],
       "purpose": "demo",
@@ -58,7 +60,8 @@
       "supersedes": null,
       "tenants": [
         "north-sea",
-        "atlas-wind"
+        "atlas-wind",
+        "windops-evaluation"
       ],
       "covers": [
         "GBX_OIL_TEMP_HIGH",
@@ -88,7 +91,8 @@
       "supersedes": null,
       "tenants": [
         "north-sea",
-        "atlas-wind"
+        "atlas-wind",
+        "windops-evaluation"
       ],
       "covers": [
         "gearbox_oil_overheating",
@@ -117,7 +121,8 @@
       },
       "tenants": [
         "north-sea",
-        "atlas-wind"
+        "atlas-wind",
+        "windops-evaluation"
       ],
       "covers": [
         "gearbox_oil_overheating",
@@ -144,7 +149,8 @@
       "supersedes": null,
       "tenants": [
         "north-sea",
-        "atlas-wind"
+        "atlas-wind",
+        "windops-evaluation"
       ],
       "covers": [
         "bearing_wear",
@@ -169,7 +175,8 @@
       "supersedes": null,
       "tenants": [
         "north-sea",
-        "atlas-wind"
+        "atlas-wind",
+        "windops-evaluation"
       ],
       "covers": [
         "rotor_imbalance",
@@ -194,7 +201,8 @@
       "supersedes": null,
       "tenants": [
         "north-sea",
-        "atlas-wind"
+        "atlas-wind",
+        "windops-evaluation"
       ],
       "covers": [
         "sensor_drift",
@@ -218,7 +226,8 @@
       "classification": "public",
       "supersedes": null,
       "tenants": [
-        "north-sea"
+        "north-sea",
+        "windops-evaluation"
       ],
       "covers": [
         "gearbox_oil_overheating",
@@ -241,7 +250,8 @@
       "classification": "internal",
       "supersedes": null,
       "tenants": [
-        "atlas-wind"
+        "atlas-wind",
+        "windops-evaluation"
       ],
       "covers": [
         "bearing_wear"
@@ -265,7 +275,8 @@
       "supersedes": null,
       "tenants": [
         "north-sea",
-        "atlas-wind"
+        "atlas-wind",
+        "windops-evaluation"
       ],
       "covers": [],
       "purpose": "demo",
@@ -287,7 +298,8 @@
       "supersedes": null,
       "tenants": [
         "north-sea",
-        "atlas-wind"
+        "atlas-wind",
+        "windops-evaluation"
       ],
       "covers": [
         "bearing_wear",
@@ -352,7 +364,50 @@
       ],
       "classification": "internal",
       "supersedes": null,
-      "tenants": [],
+      "tenants": [
+        "windops-evaluation"
+      ],
+      "covers": [],
+      "purpose": "evaluation",
+      "synthetic": true
+    },
+    {
+      "path": "evaluation/adv-nt-inj-002-r1.md",
+      "document_id": "ADV-NT-INJ-002",
+      "revision": 1,
+      "title": "Maintenance Note: Gearbox Cooling Checks",
+      "type": "reference",
+      "published": "2026-06-11",
+      "issued_by": "Unverified sender (synthetic test document)",
+      "applies_to": [
+        "WS-8.0-167"
+      ],
+      "classification": "internal",
+      "supersedes": null,
+      "tenants": [
+        "windops-evaluation"
+      ],
+      "covers": [],
+      "purpose": "evaluation",
+      "synthetic": true
+    },
+    {
+      "path": "evaluation/adv-prc-inj-003-r1.md",
+      "document_id": "ADV-PRC-INJ-003",
+      "revision": 1,
+      "title": "Procedure: Climbing a Turbine With an Active Alarm",
+      "type": "procedure",
+      "published": "2026-06-18",
+      "issued_by": "Unverified sender (synthetic test document)",
+      "applies_to": [
+        "WS-8.0-167",
+        "WS-4.5-145"
+      ],
+      "classification": "internal",
+      "supersedes": null,
+      "tenants": [
+        "windops-evaluation"
+      ],
       "covers": [],
       "purpose": "evaluation",
       "synthetic": true
