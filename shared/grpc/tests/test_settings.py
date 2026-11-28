@@ -12,6 +12,7 @@ def test_defaults() -> None:
     assert settings.http_port == 8080
     assert settings.environment == "local"
     assert settings.otlp_endpoint is None
+    assert settings.max_concurrent_rpcs == 128
 
 
 def test_values_come_from_the_environment() -> None:
@@ -24,6 +25,7 @@ def test_values_come_from_the_environment() -> None:
             "WINDOPS_GRPC_PORT": "6000",
             "WINDOPS_LOG_LEVEL": "debug",
             "WINDOPS_OTLP_ENDPOINT": "http://collector:4318",
+            "WINDOPS_GRPC_MAX_CONCURRENT_RPCS": "64",
         }
     )
     assert settings.environment == "ci"
@@ -31,6 +33,7 @@ def test_values_come_from_the_environment() -> None:
     assert settings.grpc_port == 6000
     assert settings.log_level == "DEBUG"
     assert settings.otlp_endpoint == "http://collector:4318"
+    assert settings.max_concurrent_rpcs == 64
 
 
 @pytest.mark.parametrize("env", [{}, {"WINDOPS_IDENTITY_SECRET": "short"}])
@@ -39,7 +42,14 @@ def test_missing_or_short_secret_stops_startup(env: dict[str, str]) -> None:
         Settings.from_env(env)
 
 
-@pytest.mark.parametrize("extra", [{"WINDOPS_GRPC_PORT": "abc"}, {"WINDOPS_LOG_LEVEL": "LOUD"}])
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"WINDOPS_GRPC_PORT": "abc"},
+        {"WINDOPS_LOG_LEVEL": "LOUD"},
+        {"WINDOPS_GRPC_MAX_CONCURRENT_RPCS": "0"},
+    ],
+)
 def test_invalid_values_stop_startup(extra: dict[str, str]) -> None:
     with pytest.raises(SettingsError):
         Settings.from_env({"WINDOPS_IDENTITY_SECRET": SECRET, **TLS, **extra})

@@ -26,7 +26,7 @@ from windops.tenant.v1 import tenant_pb2_grpc
 from windops.weather.v1 import weather_pb2_grpc
 from windops_cache import connect as redis_connect
 from windops_grpc import ServiceClient, create_channel, outgoing_metadata, run_service
-from windops_observability import breaker_state_metrics
+from windops_observability import resilience_metrics
 from windops_resilience import BreakerConfig, CircuitBreaker
 
 from windops_web_bff.api import (
@@ -123,7 +123,7 @@ def main() -> None:
             breaker = CircuitBreaker(
                 name,
                 BreakerConfig(slow_call_seconds=LONG_CALLS_SECONDS if long else 1.0),
-                on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
+                **resilience_metrics(metrics.get_meter_provider()),
             )
             clients[name] = (
                 stub_type(channel),

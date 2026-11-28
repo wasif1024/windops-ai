@@ -90,6 +90,30 @@ def test_in_flight_call_finishes_during_shutdown() -> None:
     asyncio.run(asyncio.wait_for(scenario(), 20))
 
 
+def test_calls_beyond_the_worker_limit_are_refused_as_resource_exhausted() -> None:
+    """GRPC_MAX_CONCURRENT_RPCS bounds the workers that bulkheads share out (RES-002)."""
+
+    async def scenario() -> None:
+        async with running_service(max_concurrent_rpcs=2) as harness:
+            echo = harness.method("Echo")
+
+            async def waiting_call() -> bytes:
+                result: bytes = await echo(b"wait", timeout=10, metadata=GOOD)
+                return result
+
+            held = [asyncio.create_task(waiting_call()) for _ in range(2)]
+            while len(harness.calls) < 2:
+                await asyncio.sleep(0.01)
+            with pytest.raises(grpc.aio.AioRpcError) as refused:
+                await echo(b"extra", timeout=5, metadata=GOOD)
+            assert refused.value.code() is grpc.StatusCode.RESOURCE_EXHAUSTED
+            harness.release.set()
+            assert await asyncio.gather(*held) == [b"ok:tenant-a"] * 2
+            assert await echo(b"after", timeout=5, metadata=GOOD) == b"ok:tenant-a"
+
+    asyncio.run(asyncio.wait_for(scenario(), 20))
+
+
 def test_health_turns_not_serving_when_stopping() -> None:
     async def scenario() -> None:
         async with running_service() as harness:

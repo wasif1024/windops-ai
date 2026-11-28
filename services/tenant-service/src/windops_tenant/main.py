@@ -18,7 +18,7 @@ from windops_auth import current_identity_token
 from windops_events import EventsUnavailableError, open_events
 from windops_grpc import ServiceClient, create_channel, run_service
 from windops_migrations import create_service_engine
-from windops_observability import breaker_state_metrics
+from windops_observability import resilience_metrics
 from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, CircuitBreaker
 
@@ -67,7 +67,7 @@ def _client(dependency: str) -> ServiceClient:
     breaker = CircuitBreaker(
         dependency,
         BreakerConfig(slow_call_seconds=1.0),
-        on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
+        **resilience_metrics(metrics.get_meter_provider()),
     )
     # The caller's own identity goes along, so the other service decides for them.
     return ServiceClient(breaker, identity_token=current_identity_token)

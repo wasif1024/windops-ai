@@ -180,6 +180,34 @@
           "legendFormat": "{{workload}} to {{dependency}}"
         }
       ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Calls refused by a full bulkhead, per second",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (workload, dependency) (rate(windops_bulkhead_rejections_total[5m]))",
+          "legendFormat": "{{workload}} to {{dependency}}"
+        }
+      ]
     }
   ]
 }

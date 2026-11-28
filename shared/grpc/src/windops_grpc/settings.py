@@ -34,6 +34,9 @@ class Settings:
     log_level: str = "INFO"
     otlp_endpoint: str | None = None
     shutdown_grace_seconds: int = 20
+    # The gRPC workers: calls handled at once, beyond which the server answers RESOURCE_EXHAUSTED.
+    # Each dependency's bulkhead takes a bounded share of them (RES-002).
+    max_concurrent_rpcs: int = 128
     # Where cert-manager's files are mounted. None means plain gRPC, which only from_env decides.
     tls_dir: Path | None = None
 
@@ -53,6 +56,9 @@ class Settings:
         level = env.get("WINDOPS_LOG_LEVEL", "INFO").upper()
         if not isinstance(logging.getLevelNamesMapping().get(level), int):
             raise SettingsError("WINDOPS_LOG_LEVEL is not a valid level")
+        max_concurrent_rpcs = _integer(env, "WINDOPS_GRPC_MAX_CONCURRENT_RPCS", 128)
+        if max_concurrent_rpcs < 1:
+            raise SettingsError("WINDOPS_GRPC_MAX_CONCURRENT_RPCS must be at least 1")
         return cls(
             environment=environment,
             version=env.get("WINDOPS_VERSION", "unknown"),
@@ -63,5 +69,6 @@ class Settings:
             log_level=level,
             otlp_endpoint=env.get("WINDOPS_OTLP_ENDPOINT") or None,
             shutdown_grace_seconds=_integer(env, "WINDOPS_SHUTDOWN_GRACE_SECONDS", 20),
+            max_concurrent_rpcs=max_concurrent_rpcs,
             tls_dir=Path(tls_directory) if tls_directory else None,
         )

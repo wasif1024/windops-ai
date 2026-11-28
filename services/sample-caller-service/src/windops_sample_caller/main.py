@@ -21,7 +21,7 @@ from windops_grpc import (
     run_service,
     sign_identity,
 )
-from windops_observability import breaker_state_metrics
+from windops_observability import resilience_metrics
 from windops_resilience import BreakerConfig, BreakerOpenError, CircuitBreaker
 
 SERVICE_NAME = "sample-caller"
@@ -58,7 +58,7 @@ class Responder:
             breaker = CircuitBreaker(
                 "sample-responder",
                 BreakerConfig(slow_call_seconds=2.0),
-                on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
+                **resilience_metrics(metrics.get_meter_provider()),
             )
             self._client = ServiceClient(breaker, identity_token=self._token)
         return self._stub, self._client

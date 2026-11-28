@@ -9,8 +9,13 @@ from opentelemetry import trace
 from opentelemetry.propagate import extract, inject
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-from windops_observability import ServiceInfo, breaker_state_metrics, configure_telemetry
-from windops_resilience import BreakerConfig, CircuitBreaker
+from windops_observability import (
+    ServiceInfo,
+    breaker_state_metrics,
+    configure_telemetry,
+    resilience_metrics,
+)
+from windops_resilience import BreakerConfig, BulkheadConfig, BulkheadFullError, CircuitBreaker
 
 SERVICE = ServiceInfo(name="telemetry", environment="test", version="1.2.3")
 
@@ -177,3 +182,31 @@ def test_no_exporter_is_safe() -> None:
     with telemetry.tracer_provider.get_tracer("test").start_as_current_span("work"):
         pass
     telemetry.shutdown()
+
+
+def test_real_bulkhead_counts_its_refusals() -> None:
+    reader = InMemoryMetricReader()
+    telemetry = configure_telemetry(SERVICE, metric_reader=reader, install_global=False)
+    breaker = CircuitBreaker(
+        "weather",
+        BreakerConfig(slow_call_seconds=5.0),
+        bulkhead=BulkheadConfig(max_concurrent=1, max_waiting=0),
+        **resilience_metrics(telemetry.meter_provider),
+    )
+
+    async def scenario() -> None:
+        gate = asyncio.Event()
+
+        async def held() -> None:
+            await gate.wait()
+
+        running = asyncio.create_task(breaker.call(held))
+        await asyncio.sleep(0)
+        for _ in range(2):
+            with pytest.raises(BulkheadFullError):
+                await breaker.call(held)
+        gate.set()
+        await running
+
+    asyncio.run(scenario())
+    assert metric_points(reader)["windops.bulkhead.rejections"] == [({"dependency": "weather"}, 2)]

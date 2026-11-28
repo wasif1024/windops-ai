@@ -408,6 +408,11 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0038](docs/adr/0038-step-15-completed-work-verified-by-the-fault-rules.md) | Step 15: completed work verified by the fault rules after a window, and a person closes the case |
 | [0039](docs/adr/0039-drift-by-the-cases-fault-figures-and-weather-by-policy.md) | Condition drift by the case's own fault figures, and weather by asking Policy again |
 | [0040](docs/adr/0040-finding-reviews-recorded-and-shown-to-the-approver.md) | Finding reviews, recorded and shown to the approver, deciding nothing |
+| [0041](docs/adr/0041-mcp-and-gateway-policies-shown-and-changed-by-pull-request.md) | MCP integrations and gateway policies, shown in the console and changed by pull request |
+| [0042](docs/adr/0042-the-evaluation-service-keeps-the-record-and-the-verdict.md) | The Evaluation Service keeps the record and the verdict, and a runner does the runs |
+| [0043](docs/adr/0043-seeded-variants-split-replays-and-locked-dataset-versions.md) | Seeded variants, one split a replay, and dataset versions locked by their hash |
+| [0044](docs/adr/0044-an-evaluation-tenant-on-recorded-providers.md) | An evaluation tenant on recorded providers, and a daily live suite |
+| [0045](docs/adr/0045-a-bulkhead-in-every-breaker-and-a-worker-limit.md) | A bulkhead in every breaker, and a limit on each service's gRPC workers |
 
 ## Repository layout
 

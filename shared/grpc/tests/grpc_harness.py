@@ -39,7 +39,7 @@ def token(identity: VerifiedIdentity = IDENTITY) -> str:
     return sign_identity(identity, SECRET)
 
 
-def settings() -> Settings:
+def settings(max_concurrent_rpcs: int = 128) -> Settings:
     return Settings(
         environment="test",
         version="1.0.0",
@@ -47,6 +47,7 @@ def settings() -> Settings:
         grpc_port=0,
         http_port=0,
         shutdown_grace_seconds=5,
+        max_concurrent_rpcs=max_concurrent_rpcs,
     )
 
 
@@ -68,6 +69,8 @@ class Harness:
 @asynccontextmanager
 async def running_service(
     readiness_checks: Sequence[ReadinessCheck] = (),
+    *,
+    max_concurrent_rpcs: int = 128,
 ) -> AsyncIterator[Harness]:
     root = logging.getLogger()
     saved_handlers, saved_level = list(root.handlers), root.level
@@ -117,7 +120,7 @@ async def running_service(
 
     runtime = ServiceRuntime(
         "test-service",
-        settings(),
+        settings(max_concurrent_rpcs),
         register,
         readiness_checks=readiness_checks,
         install_global_telemetry=False,

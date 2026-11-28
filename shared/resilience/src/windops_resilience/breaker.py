@@ -8,7 +8,9 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
 
+from windops_resilience.bulkhead import Bulkhead, BulkheadConfig, BulkheadFullHook
 from windops_resilience.classify import is_dependency_failure
+from windops_resilience.errors import BreakerOpenError
 
 logger = logging.getLogger("windops.resilience")
 
@@ -17,14 +19,6 @@ class BreakerState(StrEnum):
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
-
-
-class BreakerOpenError(Exception):
-    """The call was refused without reaching the dependency."""
-
-    def __init__(self, dependency: str) -> None:
-        super().__init__(f"Circuit breaker for {dependency} is open")
-        self.dependency = dependency
 
 
 @dataclass(frozen=True)
@@ -55,7 +49,8 @@ StateChangeHook = Callable[[str, BreakerState, BreakerState], None]
 class CircuitBreaker:
     """Protects one dependency for one calling service (SRS section 7.7).
 
-    Use one instance per dependency in each service, on a single event loop.
+    Every breaker holds a bulkhead too, so each dependency has a limit on calls in flight
+    (RES-002). Use one instance per dependency in each service, on a single event loop.
     """
 
     def __init__(
@@ -65,8 +60,15 @@ class CircuitBreaker:
         *,
         clock: Callable[[], float] = time.monotonic,
         on_state_change: StateChangeHook | None = None,
+        bulkhead: BulkheadConfig | None = None,
+        on_bulkhead_full: BulkheadFullHook | None = None,
     ) -> None:
         self.dependency = dependency
+        self.bulkhead = Bulkhead(
+            dependency,
+            bulkhead if bulkhead is not None else BulkheadConfig(),
+            on_full=on_bulkhead_full,
+        )
         self._config = config
         self._clock = clock
         self._on_state_change = on_state_change
@@ -88,8 +90,18 @@ class CircuitBreaker:
         return self._state
 
     async def call[T](self, operation: Callable[[], Awaitable[T]]) -> T:
-        """Run an operation through the breaker, or raise BreakerOpenError."""
+        """Run an operation through the breaker and its bulkhead, or raise BreakerOpenError.
+
+        A full bulkhead raises BulkheadFullError, a BreakerOpenError, and is not counted as
+        the dependency failing: the call never reached it.
+        """
         generation = self._acquire()
+        try:
+            await self.bulkhead.acquire()
+        except BaseException:
+            self._release(generation)
+            raise
+        # Time spent waiting for a slot is not the dependency being slow.
         started = self._clock()
         try:
             result = await operation()
@@ -100,6 +112,8 @@ class CircuitBreaker:
             healthy = not is_dependency_failure(error) and not self._is_slow(started)
             self._record(generation, healthy=healthy)
             raise
+        finally:
+            self.bulkhead.release()
         self._record(generation, healthy=not self._is_slow(started))
         return result
 
