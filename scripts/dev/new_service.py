@@ -128,8 +128,9 @@ def register_in_workspace(directory: str, root: Path) -> None:
     pyproject = root / "pyproject.toml"
     pyproject.write_text(add_workspace_member(directory, pyproject.read_text()))
     subprocess.run(["uv", "add", "--dev", values["distribution"]], cwd=root, check=True)
-    # So it gets its workload identity, Key Vault secrets and Azure roles too (ADR 0006).
-    for generator in ("azure_overlay", "azure_foundation"):
+    # So it gets its workload identity, Key Vault secrets and Azure roles too (ADR 0006), and a
+    # network policy for the calls it makes (ADR 0047).
+    for generator in ("azure_overlay", "azure_foundation", "network_policies"):
         subprocess.run(
             ["uv", "run", "python", "-m", f"scripts.generate.{generator}"], cwd=root, check=True
         )
