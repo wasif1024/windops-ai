@@ -1,6 +1,7 @@
 """Metrics shared by every service."""
 
 from collections.abc import Callable
+from typing import TypedDict
 
 from opentelemetry.metrics import MeterProvider
 
@@ -27,3 +28,30 @@ def breaker_state_metrics(meter_provider: MeterProvider) -> Callable[[str, str, 
         transitions.add(1, {"dependency": dependency, "from_state": previous, "to_state": current})
 
     return record
+
+
+def bulkhead_full_metrics(meter_provider: MeterProvider) -> Callable[[str], None]:
+    """Return a CircuitBreaker `on_bulkhead_full` hook that counts refused calls (RES-002)."""
+    meter = meter_provider.get_meter("windops.resilience")
+    rejections = meter.create_counter(
+        "windops.bulkhead.rejections",
+        description="Calls refused because the dependency's bulkhead was full",
+    )
+
+    def record(dependency: str) -> None:
+        rejections.add(1, {"dependency": dependency})
+
+    return record
+
+
+class ResilienceHooks(TypedDict):
+    on_state_change: Callable[[str, str, str], None]
+    on_bulkhead_full: Callable[[str], None]
+
+
+def resilience_metrics(meter_provider: MeterProvider) -> ResilienceHooks:
+    """Every CircuitBreaker metrics hook, to pass as `CircuitBreaker(..., **hooks)`."""
+    return ResilienceHooks(
+        on_state_change=breaker_state_metrics(meter_provider),
+        on_bulkhead_full=bulkhead_full_metrics(meter_provider),
+    )

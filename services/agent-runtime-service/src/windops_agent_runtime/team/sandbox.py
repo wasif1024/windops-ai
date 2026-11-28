@@ -192,7 +192,7 @@ def sandbox_from_environment(tls: Path) -> SandboxTasks | None:
     from windops.agent_sandbox.v1 import agent_sandbox_pb2_grpc
     from windops_auth import current_identity_token
     from windops_grpc import ServiceClient, create_channel
-    from windops_observability import breaker_state_metrics
+    from windops_observability import resilience_metrics
     from windops_resilience import BreakerConfig, CircuitBreaker
 
     stubs: list[Any] = []
@@ -207,7 +207,7 @@ def sandbox_from_environment(tls: Path) -> SandboxTasks | None:
     breaker = CircuitBreaker(
         "agent-sandbox-adapter",
         BreakerConfig(slow_call_seconds=180, minimum_calls=4, window_size=10),
-        on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
+        **resilience_metrics(metrics.get_meter_provider()),
     )
     client = ServiceClient(breaker, identity_token=current_identity_token)
     return SandboxTasks(GrpcSandbox(stub, client, os.environ["WINDOPS_IDENTITY_SECRET"]))

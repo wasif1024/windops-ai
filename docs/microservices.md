@@ -20,7 +20,7 @@ Then follow the steps in its README.
 | Maps errors to gRPC status codes, and hides internal details | `windops-grpc` | GRP-006 |
 | Health endpoints, metrics and graceful shutdown | `windops-grpc` | GRP-006, DEP-004 |
 | JSON logs, traces and redaction | `windops-observability` | OBS-001, OBS-003 |
-| Breakers, bounded retries and deadlines on outgoing calls | `windops-resilience`, `ServiceClient` | SRS 7.7 |
+| Breakers, bulkheads, bounded retries and deadlines on outgoing calls | `windops-resilience`, `ServiceClient` | SRS 7.7, RES-002 |
 | Tenant-scoped Redis cache and rate limits, with TTLs and a breaker | `windops-cache` | SRS 8.1, DAT-004, DAT-007 |
 | Durable, tenant-carrying events, with retries and dead letters | `windops-events` | SRS 7.6, DAT-007 |
 | Its own migration history and Job, for a service that stores data | `windops-migrations` | DAT-001, DAT-002 |
@@ -31,9 +31,11 @@ Then follow the steps in its README.
 
 1. Add or change the contract in `shared/protobuf`, and run `make contracts-gen`.
 2. Depend on `windops-contracts`.
-3. Call through `ServiceClient`, with one breaker for each dependency. The
-   [sample caller](../services/sample-caller-service/src/windops_sample_caller/main.py) shows how.
-4. Handle `BreakerOpenError` with the behavior SRS 7.7 defines for that dependency.
+3. Call through `ServiceClient`, with one breaker for each dependency, passing
+   `**resilience_metrics(...)` for its metrics. Each breaker holds that dependency's bulkhead (RES-002).
+   The [sample caller](../services/sample-caller-service/src/windops_sample_caller/main.py) shows how.
+4. Handle `BreakerOpenError` with the behavior SRS 7.7 defines for that dependency. A full bulkhead
+   raises `BulkheadFullError`, which is one, so the same behavior applies.
 
 ## Rules
 

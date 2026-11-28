@@ -31,7 +31,7 @@ from windops_cache import connect as redis_connect
 from windops_events import open_events
 from windops_events.backend import Events
 from windops_grpc import ServiceClient, create_channel, run_service
-from windops_observability import breaker_state_metrics
+from windops_observability import resilience_metrics
 from windops_resilience import BreakerConfig, BreakerOpenError, CircuitBreaker
 
 from windops_mcp.audit import AuditUnavailableError, EventsAudit, ToolCall
@@ -78,7 +78,7 @@ class Services:
             breaker = CircuitBreaker(
                 dependency,
                 BreakerConfig(slow_call_seconds=2.0),
-                on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
+                **resilience_metrics(metrics.get_meter_provider()),
             )
             self._clients[dependency] = ServiceClient(
                 breaker, identity_token=current_identity_token

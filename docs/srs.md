@@ -625,6 +625,7 @@ A shared resilience library shall wrap every gRPC client, database-adjacent netw
 | Counts as failure | `UNAVAILABLE`, `DEADLINE_EXCEEDED`, `RESOURCE_EXHAUSTED`, unexpected `INTERNAL`, provider 429 and 5xx |
 | Never counts as failure | `INVALID_ARGUMENT`, `NOT_FOUND`, `PERMISSION_DENIED`, `UNAUTHENTICATED` |
 | Retries | At most 3 total attempts, idempotent calls only, exponential backoff with jitter |
+| Bulkhead | 32 calls in flight and 16 waiting, for at most 0.5 seconds, per dependency in each service; 128 gRPC workers per service ([ADR 0045](adr/0045-a-bulkhead-in-every-breaker-and-a-worker-limit.md)) |
 
 | Dependency down | Defined behavior when the breaker opens |
 | --- | --- |

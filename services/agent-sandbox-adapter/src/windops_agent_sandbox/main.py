@@ -10,7 +10,7 @@ import grpc
 from opentelemetry import metrics
 from windops.agent_sandbox.v1 import agent_sandbox_pb2_grpc
 from windops_grpc import run_service
-from windops_observability import breaker_state_metrics
+from windops_observability import resilience_metrics
 from windops_resilience import BreakerConfig, CircuitBreaker
 
 from windops_agent_sandbox.executor import LangSmithExecutor
@@ -42,7 +42,7 @@ def main() -> None:
         "langsmith-sandbox",
         # A sandbox takes seconds to create, and a task up to its own limit.
         BreakerConfig(slow_call_seconds=180, minimum_calls=4, window_size=10),
-        on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
+        **resilience_metrics(metrics.get_meter_provider()),
     )
     executor = LangSmithExecutor(SandboxClient(api_key=key or None))
     concurrency = int(os.environ.get("WINDOPS_SANDBOX_CONCURRENCY", "2"))

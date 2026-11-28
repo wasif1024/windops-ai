@@ -163,7 +163,11 @@ class ServiceRuntime:
         interceptor = ServerContextInterceptor(
             settings.identity_secret, meter_provider=self._telemetry.meter_provider
         )
-        server = grpc.aio.server(interceptors=[interceptor], options=SERVER_OPTIONS)
+        server = grpc.aio.server(
+            interceptors=[interceptor],
+            options=SERVER_OPTIONS,
+            maximum_concurrent_rpcs=settings.max_concurrent_rpcs,
+        )
         health_pb2_grpc.add_HealthServicer_to_server(self._health, server)
         await self._set_serving(False)
         self._register(server)

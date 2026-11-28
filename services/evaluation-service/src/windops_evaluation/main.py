@@ -20,7 +20,7 @@ from windops_auth import current_identity_token
 from windops_events import Events, EventsUnavailableError, open_events
 from windops_grpc import ServiceClient, create_channel, run_service
 from windops_migrations import create_service_engine
-from windops_observability import breaker_state_metrics
+from windops_observability import resilience_metrics
 from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, CircuitBreaker
 
@@ -106,7 +106,7 @@ def main() -> None:
     breaker = CircuitBreaker(
         "authorization",
         BreakerConfig(slow_call_seconds=1.0),
-        on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
+        **resilience_metrics(metrics.get_meter_provider()),
     )
     # The caller's own identity goes along, so Authorization decides for them.
     authorizer = AuthorizationClient(
@@ -132,7 +132,7 @@ def main() -> None:
             stubs[name] = _Lazy(lambda s=setting, m=make: m(create_channel(os.environ[s], tls)))
             clients[name] = ServiceClient(
                 CircuitBreaker(name, BreakerConfig(slow_call_seconds=live_runner.DEADLINES[name]),
-                               on_state_change=breaker_state_metrics(metrics.get_meter_provider())),
+                               **resilience_metrics(metrics.get_meter_provider())),
                 identity_token=current_identity_token,
             )  # fmt: skip
         providers = live_runner.ServiceProviders(

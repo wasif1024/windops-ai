@@ -27,7 +27,7 @@ from windops_grpc import (
     run_service,
 )
 from windops_migrations import create_service_engine
-from windops_observability import breaker_state_metrics
+from windops_observability import resilience_metrics
 from windops_outbox import OutboxRelay
 from windops_resilience import BreakerConfig, CircuitBreaker
 
@@ -81,7 +81,7 @@ def _breaker(dependency: str, slow_call_seconds: float = 1.0) -> CircuitBreaker:
     return CircuitBreaker(
         dependency,
         BreakerConfig(slow_call_seconds=slow_call_seconds),
-        on_state_change=breaker_state_metrics(metrics.get_meter_provider()),
+        **resilience_metrics(metrics.get_meter_provider()),
     )
 
 
