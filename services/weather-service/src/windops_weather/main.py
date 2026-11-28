@@ -11,6 +11,7 @@ from opentelemetry import metrics
 from sqlalchemy import text
 from windops.asset.v1 import asset_pb2_grpc
 from windops.authorization.v1 import authorization_pb2_grpc
+from windops.tenant.v1 import tenant_pb2_grpc
 from windops.weather.v1 import weather_pb2_grpc
 from windops_auth import current_identity_token
 from windops_grpc import (
@@ -21,6 +22,7 @@ from windops_grpc import (
     replay_ssl_context,
     run_service,
 )
+from windops_grpc.egress import egress_switches
 from windops_migrations import create_service_engine
 from windops_observability import resilience_metrics
 from windops_resilience import BreakerConfig, CircuitBreaker
@@ -94,12 +96,18 @@ def main() -> None:
             await connection.execute(text("SELECT 1"))
         return True
 
+    secret = os.environ["WINDOPS_IDENTITY_SECRET"]
+    # Each tenant may turn forecasts off (EGR-002, ADR 0048).
+    egress = egress_switches(
+        _Lazy(lambda: stub(tenant_pb2_grpc.TenantServiceStub, "WINDOPS_TENANT_ADDRESS")),
+        _client("tenant"), SERVICE_NAME, secret,
+    )  # fmt: skip
+
     def register(server: grpc.aio.Server) -> None:
         weather_pb2_grpc.add_WeatherServiceServicer_to_server(
-            WeatherService(engine, authorizer, sources, forecasts,
-                           os.environ["WINDOPS_IDENTITY_SECRET"]),
+            WeatherService(engine, authorizer, sources, forecasts, secret, egress=egress),
             server,
-        )  # fmt: skip
+        )
 
     asyncio.run(run_service(SERVICE_NAME, register, readiness_checks=(database_ready,)))
 

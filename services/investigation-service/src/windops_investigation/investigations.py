@@ -31,7 +31,7 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
@@ -48,6 +48,7 @@ from windops_grpc import (
     acting_as_service,
     service_subject,
 )
+from windops_grpc.egress import CLAUDE, Gate, Open
 from windops_migrations import across_tenants, in_tenant
 from windops_resilience import BreakerOpenError
 
@@ -165,6 +166,9 @@ class Keeper:
     # Lowers each run's cost budget below the Claude policy's, as for an account with less credit
     # than the policy allows a run. The runtime never lets it raise one. Empty keeps the policy's.
     cost_budget_usd: str = ""
+    # The tenant may turn Claude off. Then its agents do not investigate, and the case says why
+    # (EGR-002, ADR 0048). A rehearsal stands in for Claude, so it does not start either.
+    egress: Gate = field(default_factory=Open)
 
     async def run_once(self) -> int:
         """Start what is ready, and follow what is running. Returns how many changed."""
@@ -220,6 +224,15 @@ class Keeper:
             return False
         if case.status != OPEN:
             return await self._not_started(tenant, case_id, f"The case is {case.status}")
+        decision = await self.egress.check(tenant, CLAUDE)
+        if not decision.known:
+            # The tenant's choice cannot be read yet: tried again next time, as when the runtime
+            # cannot be reached.
+            raise UnavailableError(decision.reason)
+        if not decision.allowed:
+            return await self._not_started(
+                tenant, case_id, f"{decision.reason}: agents cannot investigate this case"
+            )
         delegation, expires = wanted.delegation_id, wanted.delegation_expires_at
         if not delegation:
             delegation, expires = await self.delegations.for_fault_investigator(case_id)

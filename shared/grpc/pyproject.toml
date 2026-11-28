@@ -13,6 +13,7 @@ dependencies = [
     "prometheus-client>=0.26.0",
     "uvicorn>=0.54.0",
     "windops-auth",
+    "windops-contracts",
     "windops-observability",
     "windops-resilience",
 ]
@@ -25,5 +26,6 @@ build-backend = "hatchling.build"
 packages = ["src/windops_grpc"]
 
 [tool.uv.sources]
+windops-contracts = { workspace = true }
 windops-observability = { workspace = true }
 windops-resilience = { workspace = true }

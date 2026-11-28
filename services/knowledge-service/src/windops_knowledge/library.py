@@ -22,6 +22,7 @@ from sqlalchemy import and_, delete, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from windops.events.v1 import events_pb2
 from windops_grpc import ConflictError, InvalidRequestError, NotFoundError
+from windops_grpc.egress import EMBEDDINGS, Gate, Open
 from windops_migrations import in_tenant
 from windops_outbox import add_event
 
@@ -352,8 +353,11 @@ def embedding_input(title: str, section: str, text: str) -> str:
 
 
 async def index_next(engine: AsyncEngine, embedder: embeddings.Embedder, store: vectors.VectorStore,
-                     now: datetime) -> bool:  # fmt: skip
-    """Index the next due revision. Return whether there was one."""
+                     now: datetime, egress: Gate | None = None) -> bool:  # fmt: skip
+    """Index the next due revision. Return whether there was one.
+
+    While the tenant has turned embeddings off, it waits, as during the provider's outage, and
+    is indexed once they are on again (EGR-002)."""
     entry = await _take(engine, now)
     if entry is None:
         return False
@@ -391,6 +395,9 @@ async def index_next(engine: AsyncEngine, embedder: embeddings.Embedder, store: 
                 await _finish(connection, entry, status=NOT_INDEXED, status_reason=reason)
         return True
     try:
+        decision = await (egress or Open()).check(tenant, EMBEDDINGS)
+        if not decision.allowed:
+            raise embeddings.EmbeddingUnavailableError(decision.reason)
         embedded = await embedder.embed(
             [embedding_input(row.title, x.section, x.text) for x in found]
         )

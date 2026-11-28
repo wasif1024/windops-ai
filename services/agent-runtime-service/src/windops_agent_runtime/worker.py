@@ -35,6 +35,7 @@ from windops_claude import (
     is_claude_outage,
     models,
 )
+from windops_grpc.egress import CLAUDE, LANGSMITH_TRACES, Gate, Open
 from windops_resilience import BreakerState, CircuitBreaker
 
 from windops_agent_runtime.checkpoints import RunCheckpointer
@@ -204,8 +205,11 @@ class Worker:
         make_team: Callable[[Claim, Claude, AgentTokens], TeamRunner] | None = None,
         tracer: Tracer | None = None,
         claude_breaker: CircuitBreaker | None = None,
+        egress: Gate | None = None,
     ) -> None:
         self._queue, self._workflows = queue, workflows
+        # Each tenant may turn Claude and LangSmith traces off (EGR-002, ADR 0048).
+        self._egress = egress or Open()
         # One breaker for every call this replica makes to Claude (SRS 7.7).
         self._claude_breaker = claude_breaker
         self._resume_checked = float("-inf")
@@ -275,6 +279,16 @@ class Worker:
             return await self._end(
                 claim, STALE, "Its Claude policy version is no longer in force: start it again"
             )
+        if claim.token_budget:
+            # A run with agents sends case evidence to Claude, or rehearses doing so. Neither
+            # starts while the tenant has turned Claude off: nothing is sent, and it says why.
+            decision = await self._egress.check(claim.tenant_id, CLAUDE)
+            if not decision.known:
+                # Not a choice the tenant made: the run waits, and is tried again later.
+                await self._queue.retry_later(claim, decision.reason, self._settings.retry_seconds)
+                return "retried"
+            if not decision.allowed:
+                return await self._end(claim, FAILED, decision.reason)
         cancelled, lost, paused = asyncio.Event(), asyncio.Event(), asyncio.Event()
         tokens = (
             AgentTokens(self._identity, claim.tenant_id, claim.delegation_id, claim.run_id)
@@ -317,6 +331,13 @@ class Worker:
     async def _traced(self, claim: Claim, run: Awaitable[None]) -> None:
         """The run, traced to LangSmith through the redacting client, when tracing is on."""
         if self._tracer is None:
+            await run
+            return
+        decision = await self._egress.check(claim.tenant_id, LANGSMITH_TRACES)
+        if not decision.allowed:
+            # Not traced, as the tenant chose. The audit trail is complete either way.
+            logger.info("A run is not traced", extra={"run_id": claim.run_id,
+                                                      "reason": decision.reason})  # fmt: skip
             await run
             return
         try:

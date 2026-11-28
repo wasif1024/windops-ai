@@ -30,12 +30,20 @@ from windops_grpc import (
     VerifiedIdentity,
     current_identity,
 )
+from windops_grpc.egress import BY_NAME, PATHS
 from windops_migrations import across_tenants, in_tenant
 from windops_resilience import BreakerOpenError
 
 from windops_tenant import branding as rules
 from windops_tenant.branding import BrandingError, BrandingFields
-from windops_tenant.store import BRANDING, CUSTOM_DOMAINS, EMAIL_TEMPLATES, TENANTS, audit
+from windops_tenant.store import (
+    BRANDING,
+    CUSTOM_DOMAINS,
+    EGRESS_PATHS,
+    EMAIL_TEMPLATES,
+    TENANTS,
+    audit,
+)
 
 logger = logging.getLogger("windops.service")
 STEP_UP = STEP_UP_MESSAGE
@@ -152,6 +160,17 @@ def _branding(row: Any) -> tenant_pb2.Branding:
         has_logo=row.logo is not None,
         updated_at=_timestamp(row.updated_at),
     )
+
+
+def _egress(name: str, row: Any) -> tenant_pb2.EgressPath:
+    path = BY_NAME[name]
+    shown = tenant_pb2.EgressPath(
+        path=name, enabled=True, destination=path.destination, when_off=path.when_off
+    )
+    if row is not None:
+        shown.enabled, shown.reason, shown.updated_by = row.enabled, row.reason, row.updated_by
+        shown.updated_at.FromDatetime(row.updated_at)
+    return shown
 
 
 def _domain(row: Any) -> tenant_pb2.CustomDomain:
@@ -608,3 +627,59 @@ class TenantService(tenant_pb2_grpc.TenantServiceServicer):
                     resource_id=tenant,
                 )
         return tenant_pb2.RemoveCustomDomainResponse()
+
+    # --- egress switches, which each tenant's administrators hold mcp.configure for (ADR 0048)
+
+    async def GetEgress(  # noqa: N802  # The name comes from the contract.
+        self, request: tenant_pb2.GetEgressRequest, context: Any
+    ) -> tenant_pb2.GetEgressResponse:
+        tenant = await self._read(request.target_tenant_id)
+        async with self._engine.connect() as connection:
+            await in_tenant(connection, tenant)
+            rows = (
+                await connection.execute(
+                    select(EGRESS_PATHS).where(EGRESS_PATHS.c.tenant_id == tenant)
+                )
+            ).all()
+        found = {row.path: row for row in rows}
+        return tenant_pb2.GetEgressResponse(
+            paths=[_egress(path.name, found.get(path.name)) for path in PATHS]
+        )
+
+    async def SetEgress(  # noqa: N802  # The name comes from the contract.
+        self, request: tenant_pb2.SetEgressRequest, context: Any
+    ) -> tenant_pb2.SetEgressResponse:
+        if request.path not in BY_NAME:
+            raise InvalidRequestError(f"path is one of: {', '.join(p.name for p in PATHS)}")
+        try:
+            reason = rules.check_reason(request.reason)
+        except BrandingError as error:
+            raise InvalidRequestError(str(error)) from error
+        actor, tenant = await self._change("mcp.configure", request.target_tenant_id)
+        e = EGRESS_PATHS.c
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, tenant)
+            await self._one(
+                connection, select(TENANTS.c.tenant_id).where(TENANTS.c.tenant_id == tenant)
+            )
+            where = (e.tenant_id == tenant) & (e.path == request.path)
+            row = (await connection.execute(select(EGRESS_PATHS).where(where))).one_or_none()
+            # A repeat leaves it as it is, so a retry is safe (GRP-007).
+            if row is None or row.enabled != request.enabled:
+                values = {"enabled": request.enabled, "reason": reason, "updated_by": actor,
+                          "updated_at": _now()}  # fmt: skip
+                if row is None:
+                    await connection.execute(
+                        insert(EGRESS_PATHS).values(tenant_id=tenant, path=request.path, **values)
+                    )
+                else:
+                    await connection.execute(update(EGRESS_PATHS).where(where).values(**values))
+                await audit(
+                    connection,
+                    tenant_id=tenant,
+                    action=f"tenant.egress.{'turned_on' if request.enabled else 'turned_off'}",
+                    actor_id=actor,
+                    resource_id=f"{tenant}/{request.path}",
+                )
+            row = (await connection.execute(select(EGRESS_PATHS).where(where))).one()
+        return tenant_pb2.SetEgressResponse(path=_egress(request.path, row))

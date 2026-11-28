@@ -27,6 +27,7 @@ from windops_web_bff.approvals import add_approval_routes
 from windops_web_bff.audit import add_audit_routes
 from windops_web_bff.branding import add_branding_routes
 from windops_web_bff.catalog import add_catalog_routes
+from windops_web_bff.egress import add_egress_routes
 from windops_web_bff.errors import from_grpc, problem
 from windops_web_bff.fleet import add_fleet_routes
 from windops_web_bff.impact import add_impact_routes
@@ -354,6 +355,7 @@ def create_router(deps: Dependencies) -> APIRouter:
     add_admin_routes(router, caller, call_as)
     add_policy_change_routes(router, caller, call_as)
     add_branding_routes(router, caller, call_as, ApiError)
+    add_egress_routes(router, caller, call_as)
     add_platform_routes(router, caller, call_as)
     add_fleet_routes(
         router,

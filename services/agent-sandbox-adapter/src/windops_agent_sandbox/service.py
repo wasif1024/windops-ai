@@ -18,11 +18,14 @@ from windops.agent_sandbox.v1 import agent_sandbox_pb2 as pb
 from windops.agent_sandbox.v1 import agent_sandbox_pb2_grpc
 from windops_auth import current_peer_service
 from windops_grpc import (
+    ConflictError,
     InvalidRequestError,
     NotFoundError,
     PermissionDeniedError,
     UnavailableError,
+    current_identity,
 )
+from windops_grpc.egress import LANGSMITH_SANDBOX, Gate, Open
 from windops_resilience import BreakerOpenError, CircuitBreaker
 
 from windops_agent_sandbox.executor import Execution, Executor, SandboxUnavailableError
@@ -79,8 +82,11 @@ class AgentSandboxService(agent_sandbox_pb2_grpc.AgentSandboxServiceServicer):
         concurrency: int = 2,
         callers: Collection[str] = (AGENT_RUNTIME,),
         peer: Callable[[], str | None] = current_peer_service,
+        egress: Gate | None = None,
     ) -> None:
         self._tasks, self._executor, self._breaker = tasks, executor, breaker
+        # Each tenant may turn the Sandbox off (EGR-002, ADR 0048).
+        self._egress = egress or Open()
         self._slots = asyncio.Semaphore(concurrency)
         self._callers, self._peer = frozenset(callers), peer
 
@@ -109,6 +115,10 @@ class AgentSandboxService(agent_sandbox_pb2_grpc.AgentSandboxServiceServicer):
             given = task.checked_input(request.input_json)
         except TaskInputError as error:
             raise InvalidRequestError(str(error)) from error
+        decision = await self._egress.check(current_identity().tenant_id, LANGSMITH_SANDBOX)
+        if not decision.allowed:
+            # A refusal, not an outage: no caller's breaker counts it against the Sandbox.
+            raise ConflictError(decision.reason)
         started = time.monotonic()
 
         async def execute() -> Execution:

@@ -2809,6 +2809,7 @@ dependencies = [
     { name = "prometheus-client" },
     { name = "uvicorn" },
     { name = "windops-auth" },
+    { name = "windops-contracts" },
     { name = "windops-observability" },
     { name = "windops-resilience" },
 ]
@@ -2823,6 +2824,7 @@ requires-dist = [
     { name = "prometheus-client", specifier = ">=0.26.0" },
     { name = "uvicorn", specifier = ">=0.54.0" },
     { name = "windops-auth", editable = "shared/auth" },
+    { name = "windops-contracts", editable = "shared/contracts" },
     { name = "windops-observability", editable = "shared/observability" },
     { name = "windops-resilience", editable = "shared/resilience" },
 ]

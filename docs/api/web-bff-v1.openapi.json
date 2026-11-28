@@ -1615,6 +1615,92 @@
         "title": "DomainStatus",
         "type": "object"
       },
+      "EgressChange": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 10,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "reason"
+        ],
+        "title": "EgressChange",
+        "type": "object"
+      },
+      "EgressPath": {
+        "properties": {
+          "destination": {
+            "title": "Destination",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "title": "Updated By",
+            "type": "string"
+          },
+          "when_off": {
+            "title": "When Off",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "enabled",
+          "destination",
+          "when_off",
+          "reason",
+          "updated_by",
+          "updated_at"
+        ],
+        "title": "EgressPath",
+        "type": "object"
+      },
+      "EgressPaths": {
+        "properties": {
+          "paths": {
+            "items": {
+              "$ref": "#/components/schemas/EgressPath"
+            },
+            "title": "Paths",
+            "type": "array"
+          }
+        },
+        "required": [
+          "paths"
+        ],
+        "title": "EgressPaths",
+        "type": "object"
+      },
       "EmailTemplate": {
         "properties": {
           "body": {
@@ -6042,6 +6128,86 @@
           }
         },
         "summary": "Set your tenant's one custom domain, with a token to prove it"
+      }
+    },
+    "/api/v1/admin/egress": {
+      "get": {
+        "operationId": "get_egress_api_v1_admin_egress_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EgressPaths"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Each path out of the platform, whether it is on, and what stops while it is off"
+      }
+    },
+    "/api/v1/admin/egress/{path}": {
+      "put": {
+        "operationId": "set_egress_api_v1_admin_egress__path__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z_]{1,40}$",
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A new random value per change, the same when resending it",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "A new random value per change, the same when resending it",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EgressChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EgressPath"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Turn a path out of the platform on or off, with a reason"
       }
     },
     "/api/v1/admin/email-templates": {

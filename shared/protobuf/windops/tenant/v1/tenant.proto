@@ -35,6 +35,13 @@ service TenantService {
   // One domain per tenant, recorded as metadata with a token to prove it later.
   rpc SetCustomDomain(SetCustomDomainRequest) returns (SetCustomDomainResponse);
   rpc RemoveCustomDomain(RemoveCustomDomainRequest) returns (RemoveCustomDomainResponse);
+
+  // Each path out of the platform the tenant can turn off (EGR-002, SRS 9.3), on until it is.
+  // Anyone in the tenant, and a service acting for it, may read them. Turning one on or off needs
+  // mcp.configure, a person and a recent second factor (ADR 0048). Web research has its own
+  // switch, in the External Intelligence Service's research policy (ADR 0013).
+  rpc GetEgress(GetEgressRequest) returns (GetEgressResponse);
+  rpc SetEgress(SetEgressRequest) returns (SetEgressResponse);
 }
 
 message Tenant {
@@ -218,3 +225,39 @@ message RemoveCustomDomainRequest {
 }
 
 message RemoveCustomDomainResponse {}
+
+message EgressPath {
+  // "claude", "embeddings", "langsmith_traces", "langsmith_sandbox" or "forecasts".
+  string path = 1;
+  bool enabled = 2;
+  // Where it goes and what goes there, such as "Anthropic API: case evidence for the task".
+  string destination = 3;
+  // What stops while it is off, such as "Agents cannot investigate cases".
+  string when_off = 4;
+  // Why it was last changed, by whom and when. Empty while it has never been changed.
+  string reason = 5;
+  string updated_by = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message GetEgressRequest {
+  string target_tenant_id = 1;
+}
+
+message GetEgressResponse {
+  // Every path, in a fixed order.
+  repeated EgressPath paths = 1;
+}
+
+message SetEgressRequest {
+  string target_tenant_id = 1;
+  string path = 2;
+  bool enabled = 3;
+  // At least 10 characters, kept with the change.
+  string reason = 4;
+  string idempotency_key = 5;
+}
+
+message SetEgressResponse {
+  EgressPath path = 1;
+}

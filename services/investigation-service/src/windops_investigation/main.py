@@ -22,9 +22,11 @@ from windops.inventory.v1 import inventory_pb2, inventory_pb2_grpc
 from windops.investigation.v1 import investigation_pb2_grpc
 from windops.policy.v1 import policy_pb2, policy_pb2_grpc
 from windops.telemetry.v1 import telemetry_pb2_grpc
+from windops.tenant.v1 import tenant_pb2_grpc
 from windops_auth import current_identity_token
 from windops_events import Event, Events, EventsUnavailableError, keep_consuming, open_events
 from windops_grpc import ServiceClient, UnavailableError, create_channel, run_service
+from windops_grpc.egress import egress_switches
 from windops_migrations import create_service_engine
 from windops_observability import resilience_metrics
 from windops_outbox import OutboxRelay
@@ -244,7 +246,14 @@ def main() -> None:
     )
     # A run's cost cap below the policy's, when the environment sets one (ADR 0027).
     cost_cap = os.environ.get("WINDOPS_INVESTIGATION_COST_BUDGET_USD", "")
-    keeper = Keeper(engine, runtime, delegations, secret, agents, cost_budget_usd=cost_cap)
+    # Each tenant may turn Claude off (EGR-002, ADR 0048).
+    egress = egress_switches(
+        _Lazy(lambda: stub(tenant_pb2_grpc.TenantServiceStub, "WINDOPS_TENANT_ADDRESS")),
+        _client("tenant"), SERVICE_NAME, secret,
+    )  # fmt: skip
+    keeper = Keeper(
+        engine, runtime, delegations, secret, agents, cost_budget_usd=cost_cap, egress=egress
+    )
 
     async def database_ready() -> bool:
         async with engine.connect() as connection:

@@ -477,7 +477,22 @@ spec:
   ingress:
   - fromEndpoints:
     - matchLabels:
+        app.kubernetes.io/name: windops-agent-runtime
+        k8s:io.kubernetes.pod.namespace: windops-application
+    - matchLabels:
+        app.kubernetes.io/name: windops-agent-sandbox-adapter
+        k8s:io.kubernetes.pod.namespace: windops-application
+    - matchLabels:
         app.kubernetes.io/name: windops-external-intelligence
+        k8s:io.kubernetes.pod.namespace: windops-application
+    - matchLabels:
+        app.kubernetes.io/name: windops-investigation
+        k8s:io.kubernetes.pod.namespace: windops-application
+    - matchLabels:
+        app.kubernetes.io/name: windops-knowledge
+        k8s:io.kubernetes.pod.namespace: windops-application
+    - matchLabels:
+        app.kubernetes.io/name: windops-weather
         k8s:io.kubernetes.pod.namespace: windops-application
     - matchLabels:
         app.kubernetes.io/name: windops-web-bff

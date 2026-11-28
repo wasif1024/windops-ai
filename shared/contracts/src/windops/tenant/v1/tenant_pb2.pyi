@@ -764,3 +764,138 @@ class RemoveCustomDomainResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___RemoveCustomDomainResponse: _TypeAlias = RemoveCustomDomainResponse  # noqa: Y015
+
+@_typing.final
+class EgressPath(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PATH_FIELD_NUMBER: _builtins.int
+    ENABLED_FIELD_NUMBER: _builtins.int
+    DESTINATION_FIELD_NUMBER: _builtins.int
+    WHEN_OFF_FIELD_NUMBER: _builtins.int
+    REASON_FIELD_NUMBER: _builtins.int
+    UPDATED_BY_FIELD_NUMBER: _builtins.int
+    UPDATED_AT_FIELD_NUMBER: _builtins.int
+    path: _builtins.str
+    """"claude", "embeddings", "langsmith_traces", "langsmith_sandbox" or "forecasts"."""
+    enabled: _builtins.bool
+    destination: _builtins.str
+    """Where it goes and what goes there, such as "Anthropic API: case evidence for the task"."""
+    when_off: _builtins.str
+    """What stops while it is off, such as "Agents cannot investigate cases"."""
+    reason: _builtins.str
+    """Why it was last changed, by whom and when. Empty while it has never been changed."""
+    updated_by: _builtins.str
+    @_builtins.property
+    def updated_at(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        path: _builtins.str = ...,
+        enabled: _builtins.bool = ...,
+        destination: _builtins.str = ...,
+        when_off: _builtins.str = ...,
+        reason: _builtins.str = ...,
+        updated_by: _builtins.str = ...,
+        updated_at: _timestamp_pb2.Timestamp | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["updated_at", b"updated_at"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["destination", b"destination", "enabled", b"enabled", "path", b"path", "reason", b"reason", "updated_at", b"updated_at", "updated_by", b"updated_by", "when_off", b"when_off"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___EgressPath: _TypeAlias = EgressPath  # noqa: Y015
+
+@_typing.final
+class GetEgressRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TARGET_TENANT_ID_FIELD_NUMBER: _builtins.int
+    target_tenant_id: _builtins.str
+    def __init__(
+        self,
+        *,
+        target_tenant_id: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["target_tenant_id", b"target_tenant_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetEgressRequest: _TypeAlias = GetEgressRequest  # noqa: Y015
+
+@_typing.final
+class GetEgressResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PATHS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def paths(self) -> _containers.RepeatedCompositeFieldContainer[Global___EgressPath]:
+        """Every path, in a fixed order."""
+
+    def __init__(
+        self,
+        *,
+        paths: _abc.Iterable[Global___EgressPath] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["paths", b"paths"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetEgressResponse: _TypeAlias = GetEgressResponse  # noqa: Y015
+
+@_typing.final
+class SetEgressRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TARGET_TENANT_ID_FIELD_NUMBER: _builtins.int
+    PATH_FIELD_NUMBER: _builtins.int
+    ENABLED_FIELD_NUMBER: _builtins.int
+    REASON_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _builtins.int
+    target_tenant_id: _builtins.str
+    path: _builtins.str
+    enabled: _builtins.bool
+    reason: _builtins.str
+    """At least 10 characters, kept with the change."""
+    idempotency_key: _builtins.str
+    def __init__(
+        self,
+        *,
+        target_tenant_id: _builtins.str = ...,
+        path: _builtins.str = ...,
+        enabled: _builtins.bool = ...,
+        reason: _builtins.str = ...,
+        idempotency_key: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["enabled", b"enabled", "idempotency_key", b"idempotency_key", "path", b"path", "reason", b"reason", "target_tenant_id", b"target_tenant_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SetEgressRequest: _TypeAlias = SetEgressRequest  # noqa: Y015
+
+@_typing.final
+class SetEgressResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PATH_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def path(self) -> Global___EgressPath: ...
+    def __init__(
+        self,
+        *,
+        path: Global___EgressPath | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["path", b"path"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["path", b"path"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SetEgressResponse: _TypeAlias = SetEgressResponse  # noqa: Y015

@@ -14,10 +14,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 from windops.agent_runtime.v1 import agent_runtime_pb2_grpc
 from windops.identity.v1 import identity_pb2_grpc
+from windops.tenant.v1 import tenant_pb2_grpc
 from windops_auth import current_identity_token
 from windops_claude import claude_breaker, load
 from windops_events import EventsUnavailableError, open_events
 from windops_grpc import ServiceClient, create_channel, run_service
+from windops_grpc.egress import EgressSwitches, egress_switches
 from windops_migrations import create_service_engine
 from windops_observability import resilience_metrics
 from windops_outbox import OutboxRelay
@@ -101,6 +103,36 @@ def identity_client() -> IdentityClient:
     )
 
 
+class _TenantStub:
+    """The Tenant Service's stub, made on first use, as a channel must be made on the loop."""
+
+    def __init__(self) -> None:
+        self._stub: Any = None
+
+    def __getattr__(self, name: str) -> Any:
+        if self._stub is None:
+            channel = create_channel(
+                os.environ["WINDOPS_TENANT_ADDRESS"], Path(os.environ["WINDOPS_TLS_DIR"])
+            )
+            self._stub = tenant_pb2_grpc.TenantServiceStub(channel)
+        return getattr(self._stub, name)
+
+
+def tenant_switches() -> EgressSwitches:
+    """Each tenant's egress switches, for Claude and LangSmith traces (EGR-002, ADR 0048)."""
+    breaker = CircuitBreaker(
+        "tenant",
+        BreakerConfig(slow_call_seconds=1.0),
+        **resilience_metrics(metrics.get_meter_provider()),
+    )
+    return egress_switches(
+        _TenantStub(),
+        ServiceClient(breaker, identity_token=current_identity_token),
+        SERVICE_NAME,
+        os.environ["WINDOPS_IDENTITY_SECRET"],
+    )
+
+
 def main() -> None:
     slots = int(_setting("WINDOPS_RUNTIME_WORKER_SLOTS", 2))
     max_attempts = int(_setting("WINDOPS_RUNTIME_MAX_ATTEMPTS", 3))
@@ -135,6 +167,7 @@ def main() -> None:
         # Traces go to LangSmith only redacted, and only when turned on (ADR 0023).
         tracer=tracer_from_environment(),
         claude_breaker=claude_breaker(**resilience_metrics(metrics.get_meter_provider())),
+        egress=tenant_switches(),
     )
 
     async def database_ready() -> bool:

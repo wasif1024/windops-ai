@@ -37,6 +37,7 @@ from windops_grpc import (
     UnavailableError,
     current_identity,
 )
+from windops_grpc.egress import EMBEDDINGS, Gate, Open
 from windops_migrations import in_tenant
 from windops_resilience import BreakerOpenError
 
@@ -131,10 +132,13 @@ def _settings(allowance: library.Allowance) -> pb.IngestionSettings:
 class KnowledgeService(knowledge_pb2_grpc.KnowledgeServiceServicer):
     def __init__(self, engine_: AsyncEngine, authorizer: Authorizer,
                  embedder: embeddings.Embedder, store: vectors.VectorStore,
-                 clock: Callable[[], datetime] | None = None) -> None:  # fmt: skip
+                 clock: Callable[[], datetime] | None = None,
+                 egress: Gate | None = None) -> None:  # fmt: skip
         self._engine, self._authorizer = engine_, authorizer
         self._embedder, self._store = embedder, store
         self._now = clock or (lambda: datetime.now(UTC))
+        # The tenant may turn embeddings off: then searching, which embeds the question, pauses.
+        self._egress = egress or Open()
 
     # --- who may do what
 
@@ -355,6 +359,9 @@ class KnowledgeService(knowledge_pb2_grpc.KnowledgeServiceServicer):
         if not await self._authorizer.allowed(READ, request.wind_farm_id):
             raise PermissionDeniedError("You do not have permission to do this")
         tenant = current_identity().tenant_id
+        decision = await self._egress.check(tenant, EMBEDDINGS)
+        if not decision.allowed:
+            raise UnavailableError(f"Document search is paused: {decision.reason}")
         limit = request.limit or retrieval.DEFAULT_LIMIT
         if not 1 <= limit <= retrieval.MAXIMUM_LIMIT:
             raise InvalidRequestError(f"limit is from 1 to {retrieval.MAXIMUM_LIMIT}")

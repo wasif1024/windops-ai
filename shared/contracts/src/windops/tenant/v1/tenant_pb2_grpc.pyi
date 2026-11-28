@@ -61,6 +61,13 @@ class TenantServiceStub:
     SetCustomDomain: _grpc.UnaryUnaryMultiCallable[_tenant_pb2.SetCustomDomainRequest, _tenant_pb2.SetCustomDomainResponse]
     """One domain per tenant, recorded as metadata with a token to prove it later."""
     RemoveCustomDomain: _grpc.UnaryUnaryMultiCallable[_tenant_pb2.RemoveCustomDomainRequest, _tenant_pb2.RemoveCustomDomainResponse]
+    GetEgress: _grpc.UnaryUnaryMultiCallable[_tenant_pb2.GetEgressRequest, _tenant_pb2.GetEgressResponse]
+    """Each path out of the platform the tenant can turn off (EGR-002, SRS 9.3), on until it is.
+    Anyone in the tenant, and a service acting for it, may read them. Turning one on or off needs
+    mcp.configure, a person and a recent second factor (ADR 0048). Web research has its own
+    switch, in the External Intelligence Service's research policy (ADR 0013).
+    """
+    SetEgress: _grpc.UnaryUnaryMultiCallable[_tenant_pb2.SetEgressRequest, _tenant_pb2.SetEgressResponse]
 
 @_typing.type_check_only
 class TenantServiceAsyncStub(TenantServiceStub):
@@ -95,6 +102,13 @@ class TenantServiceAsyncStub(TenantServiceStub):
     SetCustomDomain: _aio.UnaryUnaryMultiCallable[_tenant_pb2.SetCustomDomainRequest, _tenant_pb2.SetCustomDomainResponse]  # type: ignore[assignment]
     """One domain per tenant, recorded as metadata with a token to prove it later."""
     RemoveCustomDomain: _aio.UnaryUnaryMultiCallable[_tenant_pb2.RemoveCustomDomainRequest, _tenant_pb2.RemoveCustomDomainResponse]  # type: ignore[assignment]
+    GetEgress: _aio.UnaryUnaryMultiCallable[_tenant_pb2.GetEgressRequest, _tenant_pb2.GetEgressResponse]  # type: ignore[assignment]
+    """Each path out of the platform the tenant can turn off (EGR-002, SRS 9.3), on until it is.
+    Anyone in the tenant, and a service acting for it, may read them. Turning one on or off needs
+    mcp.configure, a person and a recent second factor (ADR 0048). Web research has its own
+    switch, in the External Intelligence Service's research policy (ADR 0013).
+    """
+    SetEgress: _aio.UnaryUnaryMultiCallable[_tenant_pb2.SetEgressRequest, _tenant_pb2.SetEgressResponse]  # type: ignore[assignment]
 
 class TenantServiceServicer(metaclass=_abc_1.ABCMeta):
     """Tenants, their lifecycle, branding and settings (FR-TEN-001, FR-TEN-002).
@@ -204,5 +218,24 @@ class TenantServiceServicer(metaclass=_abc_1.ABCMeta):
         request: _tenant_pb2.RemoveCustomDomainRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_tenant_pb2.RemoveCustomDomainResponse, _abc.Awaitable[_tenant_pb2.RemoveCustomDomainResponse]]: ...
+
+    @_abc_1.abstractmethod
+    def GetEgress(
+        self,
+        request: _tenant_pb2.GetEgressRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_tenant_pb2.GetEgressResponse, _abc.Awaitable[_tenant_pb2.GetEgressResponse]]:
+        """Each path out of the platform the tenant can turn off (EGR-002, SRS 9.3), on until it is.
+        Anyone in the tenant, and a service acting for it, may read them. Turning one on or off needs
+        mcp.configure, a person and a recent second factor (ADR 0048). Web research has its own
+        switch, in the External Intelligence Service's research policy (ADR 0013).
+        """
+
+    @_abc_1.abstractmethod
+    def SetEgress(
+        self,
+        request: _tenant_pb2.SetEgressRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_tenant_pb2.SetEgressResponse, _abc.Awaitable[_tenant_pb2.SetEgressResponse]]: ...
 
 def add_TenantServiceServicer_to_server(servicer: TenantServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

@@ -109,6 +109,16 @@ class TenantServiceStub:
                 request_serializer=windops_dot_tenant_dot_v1_dot_tenant__pb2.RemoveCustomDomainRequest.SerializeToString,
                 response_deserializer=windops_dot_tenant_dot_v1_dot_tenant__pb2.RemoveCustomDomainResponse.FromString,
                 _registered_method=True)
+        self.GetEgress = channel.unary_unary(
+                '/windops.tenant.v1.TenantService/GetEgress',
+                request_serializer=windops_dot_tenant_dot_v1_dot_tenant__pb2.GetEgressRequest.SerializeToString,
+                response_deserializer=windops_dot_tenant_dot_v1_dot_tenant__pb2.GetEgressResponse.FromString,
+                _registered_method=True)
+        self.SetEgress = channel.unary_unary(
+                '/windops.tenant.v1.TenantService/SetEgress',
+                request_serializer=windops_dot_tenant_dot_v1_dot_tenant__pb2.SetEgressRequest.SerializeToString,
+                response_deserializer=windops_dot_tenant_dot_v1_dot_tenant__pb2.SetEgressResponse.FromString,
+                _registered_method=True)
 
 
 class TenantServiceServicer:
@@ -207,6 +217,22 @@ class TenantServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetEgress(self, request, context):
+        """Each path out of the platform the tenant can turn off (EGR-002, SRS 9.3), on until it is.
+        Anyone in the tenant, and a service acting for it, may read them. Turning one on or off needs
+        mcp.configure, a person and a recent second factor (ADR 0048). Web research has its own
+        switch, in the External Intelligence Service's research policy (ADR 0013).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetEgress(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_TenantServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -274,6 +300,16 @@ def add_TenantServiceServicer_to_server(servicer, server):
                     servicer.RemoveCustomDomain,
                     request_deserializer=windops_dot_tenant_dot_v1_dot_tenant__pb2.RemoveCustomDomainRequest.FromString,
                     response_serializer=windops_dot_tenant_dot_v1_dot_tenant__pb2.RemoveCustomDomainResponse.SerializeToString,
+            ),
+            'GetEgress': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetEgress,
+                    request_deserializer=windops_dot_tenant_dot_v1_dot_tenant__pb2.GetEgressRequest.FromString,
+                    response_serializer=windops_dot_tenant_dot_v1_dot_tenant__pb2.GetEgressResponse.SerializeToString,
+            ),
+            'SetEgress': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetEgress,
+                    request_deserializer=windops_dot_tenant_dot_v1_dot_tenant__pb2.SetEgressRequest.FromString,
+                    response_serializer=windops_dot_tenant_dot_v1_dot_tenant__pb2.SetEgressResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -637,6 +673,60 @@ class TenantService:
             '/windops.tenant.v1.TenantService/RemoveCustomDomain',
             windops_dot_tenant_dot_v1_dot_tenant__pb2.RemoveCustomDomainRequest.SerializeToString,
             windops_dot_tenant_dot_v1_dot_tenant__pb2.RemoveCustomDomainResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetEgress(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.tenant.v1.TenantService/GetEgress',
+            windops_dot_tenant_dot_v1_dot_tenant__pb2.GetEgressRequest.SerializeToString,
+            windops_dot_tenant_dot_v1_dot_tenant__pb2.GetEgressResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetEgress(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/windops.tenant.v1.TenantService/SetEgress',
+            windops_dot_tenant_dot_v1_dot_tenant__pb2.SetEgressRequest.SerializeToString,
+            windops_dot_tenant_dot_v1_dot_tenant__pb2.SetEgressResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -75,6 +75,17 @@ export interface CustomDomain {
   created_at: string | null;
 }
 
+/** A path out of the platform, which the tenant may turn off (EGR-002). */
+export interface EgressPath {
+  path: string;
+  enabled: boolean;
+  destination: string;
+  when_off: string;
+  reason: string;
+  updated_by: string;
+  updated_at: string | null;
+}
+
 export interface BrandingFields {
   display_name: string;
   primary_color: string;
@@ -224,6 +235,9 @@ export function adminApi(token: string) {
       sendJson<CustomDomain>("PUT", "/admin/custom-domain", token, key, { domain }),
     removeDomain: (key: string) => sendJson<undefined>("DELETE", "/admin/custom-domain", token, key),
     allGrants: () => getJson<{ grants: RoleGrant[] }>("/admin/role-grants", token),
+    egress: () => getJson<{ paths: EgressPath[] }>("/admin/egress", token),
+    setEgress: (key: string, path: string, enabled: boolean, reason: string) =>
+      sendJson<EgressPath>("PUT", `/admin/egress/${encodeURIComponent(path)}`, token, key, { enabled, reason }),
     platformCatalog: () => getJson<PlatformCatalog>("/admin/platform-catalog", token),
     denials: (pageToken = "") =>
       getJson<AccessDenials>(

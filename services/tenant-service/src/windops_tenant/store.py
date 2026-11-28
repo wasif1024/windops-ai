@@ -1,6 +1,6 @@
 """The tables this service owns. All are tenant-owned, so they have row-level security."""
 
-from sqlalchemy import Column, DateTime, LargeBinary, MetaData, Table, Text
+from sqlalchemy import Boolean, Column, DateTime, LargeBinary, MetaData, Table, Text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from windops.events.v1 import events_pb2
 from windops_events import audit_request_subject
@@ -55,7 +55,18 @@ CUSTOM_DOMAINS = Table(
     Column("verification_token", Text, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
-TENANT_TABLES = ("tenants", "branding", "email_templates", "custom_domains")
+# Each path out of the platform a tenant has turned on or off. With no row, it is on (EGR-002).
+EGRESS_PATHS = Table(
+    "egress_paths",
+    METADATA,
+    Column("tenant_id", Text, primary_key=True),
+    Column("path", Text, primary_key=True),
+    Column("enabled", Boolean, nullable=False),
+    Column("reason", Text, nullable=False),
+    Column("updated_by", Text, nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+TENANT_TABLES = ("tenants", "branding", "email_templates", "custom_domains", "egress_paths")
 
 
 async def audit(

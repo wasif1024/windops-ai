@@ -72,6 +72,7 @@ test("a Tenant Administrator manages users, roles and permissions, with step-up"
     "MCP integrations",
     "Gateway policies",
     "Branding",
+    "Data egress",
   ]);
   // Who may approve, and changes to it waiting for a second administrator (RBAC-007).
   await tabs.getByRole("link", { name: "Approval policy" }).click();
@@ -96,6 +97,13 @@ test("a Tenant Administrator manages users, roles and permissions, with step-up"
   await tabs.getByRole("link", { name: "Gateway policies" }).click();
   await expect(page.getByTestId("route-web-bff")).toContainText("Keycloak bearer token");
   await expect(page.getByTestId("route-keycloak-login")).toContainText("5 requests each 60 s per address");
+  await noSidewaysScroll(page);
+  // Each path out of the platform, what it sends and what stops while it is off (EGR-002).
+  await tabs.getByRole("link", { name: "Data egress" }).click();
+  await expect(page.getByRole("list", { name: "Paths out of the platform" }).getByRole("listitem")).toHaveCount(5, {
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId("egress-claude")).toContainText("Anthropic API");
   await noSidewaysScroll(page);
   await tabs.getByRole("link", { name: "Users" }).click();
   const users = page.getByRole("list", { name: "Users" });
