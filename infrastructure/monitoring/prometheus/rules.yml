@@ -158,6 +158,29 @@ groups:
           severity: warning
         annotations:
           summary: "An agent run reached its token or cost budget and stopped (LLM-010). Its audit record names the run"
+      # SRS 7.7: Claude down. Runs pause, resumable, and resume by themselves once it answers;
+      # the operator is told here. Counted from a series' first sample, as above.
+      - alert: WindopsAgentRunsPausedClaudeDown
+        expr: >-
+          sum(increase(windops_agent_runs_paused_claude_down_total[15m])
+          and windops_agent_runs_paused_claude_down_total offset 15m
+          or windops_agent_runs_paused_claude_down_total) > 0
+        labels:
+          severity: warning
+          category: agents
+        annotations:
+          summary: "Claude cannot be reached, so agent runs are paused. They resume when it answers, or an operator resumes them"
+      # SRS 7.7: LangSmith down. Its traces are dropped; the Audit Service stays authoritative.
+      - alert: WindopsAgentTracesDropped
+        expr: >-
+          sum(increase(windops_agent_traces_dropped_total[15m])
+          and windops_agent_traces_dropped_total offset 15m
+          or windops_agent_traces_dropped_total) > 0
+        labels:
+          severity: warning
+          category: agents
+        annotations:
+          summary: "Agent traces could not be sent to LangSmith and were dropped. The audit trail is complete"
       # SRS 10.3: repeated tool failures. An agent's calls to one tool keep getting no answer, or
       # the server's error, for 10 minutes: a server is down, or the agent is misusing it.
       - alert: WindopsAgentToolFailing

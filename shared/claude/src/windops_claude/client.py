@@ -3,7 +3,8 @@
 1. The budget: no call once the run has reached it, and the output limit lowered to what is left.
 2. The role's model and effort, from the policy, with fallback where it is taken.
 3. The history guard: the request must repeat the conversation so far exactly.
-4. The call. Its usage and cost are recorded whatever the answer, as every call is paid for.
+4. The call, through Claude's breaker. Its usage and cost are recorded whatever the answer, as
+   every call is paid for.
 5. The budget again, then the stop reason. Only then is the content read.
 """
 
@@ -11,13 +12,16 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+import anthropic
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage
 from pydantic import BaseModel
+from windops_resilience import CircuitBreaker
 
 from windops_claude import models, responses, telemetry
 from windops_claude.budget import Call, Meter
 from windops_claude.conversation import HistoryGuard
+from windops_claude.outage import ClaudeUnreachableError
 from windops_claude.policy import Policy
 from windops_claude.pricing import cost_usd
 from windops_claude.responses import Response
@@ -50,12 +54,15 @@ class Claude:
         inference_geo: str = "global",
         make_model: Callable[..., ChatAnthropic] = models.chat_model,
         provider: str = "anthropic",
+        breaker: CircuitBreaker | None = None,
     ) -> None:
         self.policy, self._meter, self._api_key = policy, meter, api_key
         self._geo, self._make = inference_geo, make_model
         # "anthropic", or "stand-in" for a dry run's stand-in API, so its calls are never
         # counted as Claude's on the LLM Operations dashboard.
         self.provider = provider
+        # Claude's breaker, shared by every run in this replica (SRS 7.7). None calls directly.
+        self._breaker = breaker
 
     async def invoke(
         self,
@@ -74,17 +81,26 @@ class Claude:
         parsed: BaseModel | None = None
         parsing_error: Any = None
         # Its latency, and what failed if no answer came (SRS 10.3).
+
+        async def ask() -> Any:
+            try:
+                if schema is None:
+                    # Options such as bound tools, as a caller like Deep Agents binds them.
+                    return await model.ainvoke(list(messages), **dict(options or {}))
+                return await models.structured(model, schema).ainvoke(list(messages))
+            except anthropic.APIConnectionError as error:
+                raise ClaudeUnreachableError("Claude could not be reached") from error
+
         with telemetry.timed(role_name, role.model, self.provider):
-            if schema is None:
-                # Options such as bound tools, as a caller like Deep Agents binds them.
-                message = await model.ainvoke(list(messages), **dict(options or {}))
-            else:
-                answer = await models.structured(model, schema).ainvoke(list(messages))
-                message, parsed, parsing_error = (
-                    answer["raw"],
-                    answer["parsed"],
-                    answer["parsing_error"],
-                )
+            answer = await (ask() if self._breaker is None else self._breaker.call(ask))
+        if schema is None:
+            message = answer
+        else:
+            message, parsed, parsing_error = (
+                answer["raw"],
+                answer["parsed"],
+                answer["parsing_error"],
+            )
         if not isinstance(message, AIMessage):
             raise TypeError("Claude's answer was not a message")
         response = responses.read(message, role.model)

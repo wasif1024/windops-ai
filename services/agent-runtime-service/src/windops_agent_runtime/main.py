@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from windops.agent_runtime.v1 import agent_runtime_pb2_grpc
 from windops.identity.v1 import identity_pb2_grpc
 from windops_auth import current_identity_token
-from windops_claude import load
+from windops_claude import claude_breaker, load
 from windops_events import EventsUnavailableError, open_events
 from windops_grpc import ServiceClient, create_channel, run_service
 from windops_migrations import create_service_engine
@@ -134,6 +134,7 @@ def main() -> None:
         ),
         # Traces go to LangSmith only redacted, and only when turned on (ADR 0023).
         tracer=tracer_from_environment(),
+        claude_breaker=claude_breaker(**resilience_metrics(metrics.get_meter_provider())),
     )
 
     async def database_ready() -> bool:

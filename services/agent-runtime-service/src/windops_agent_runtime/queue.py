@@ -46,6 +46,10 @@ from windops_agent_runtime.store import (
     audit,
 )
 
+# Why a run paused itself when Claude was down (SRS 7.7). It resumes by itself once Claude
+# answers again, and a person may resume it sooner, as any paused run.
+CLAUDE_DOWN = "Claude cannot be reached: the run resumes when it answers again"
+
 # Claims looked at in one go, so expired or cancelled runs ahead in the queue cannot block it.
 _SWEEP = 10
 
@@ -376,6 +380,61 @@ class Queue:
                 )
             )  # fmt: skip
             return result.rowcount == 1
+
+    async def pause_for_outage(self, claim: Claim) -> bool:
+        """Claude is down: pause the run, resumable, keeping its checkpoints and its attempt.
+
+        It is paused as the runtime itself asked, so ResumeRun and resume_after_outage both
+        take it up again (SRS 7.7).
+        """
+        async with self._engine.begin() as connection:
+            await in_tenant(connection, claim.tenant_id)
+            now = self._clock()
+            r = RUNS.c
+            result = await connection.execute(
+                update(RUNS)
+                .where(*self._mine(claim))
+                .values(
+                    status=PAUSED, attempt=case((r.attempt > 0, r.attempt - 1), else_=0),
+                    lease_token="", lease_owner="", lease_expires_at=None,
+                    pause_requested_at=now, pause_requested_by=ACTOR, pause_reason=CLAUDE_DOWN,
+                    reason=CLAUDE_DOWN, updated_at=now,
+                )
+            )  # fmt: skip
+            if result.rowcount != 1:
+                return False
+            await audit(
+                connection, tenant_id=claim.tenant_id, actor_type="service", actor_id=ACTOR,
+                action="agent_run.paused", run_id=claim.run_id, outcome="failed",
+            )  # fmt: skip
+            return True
+
+    async def resume_after_outage(self) -> int:
+        """Queue again every run paused because Claude was down. Returns how many."""
+        async with self._engine.begin() as connection:
+            await across_tenants(connection)
+            now = self._clock()
+            r = RUNS.c
+            rows = (
+                await connection.execute(
+                    select(r.tenant_id, r.run_id).where(
+                        r.status == PAUSED, r.pause_requested_by == ACTOR,
+                        r.pause_reason == CLAUDE_DOWN,
+                    ).with_for_update(skip_locked=True)
+                )
+            ).all()  # fmt: skip
+            for row in rows:
+                await connection.execute(
+                    update(RUNS)
+                    .where(r.tenant_id == row.tenant_id, r.run_id == row.run_id)
+                    .values(status=QUEUED, not_before=now, pause_requested_at=None,
+                            pause_requested_by="", pause_reason="", reason="", updated_at=now)
+                )  # fmt: skip
+                await audit(
+                    connection, tenant_id=row.tenant_id, actor_type="service", actor_id=ACTOR,
+                    action="agent_run.resumed", run_id=row.run_id,
+                )  # fmt: skip
+            return len(rows)
 
     async def record_sandbox(self, claim: Claim, use: "SandboxUse") -> None:
         """Audit an agent's Sandbox task, as the agent, on the user's behalf, under the run's

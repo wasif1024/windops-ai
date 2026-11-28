@@ -8,7 +8,9 @@ import httpx2 as httpx
 import pytest
 from windops_claude import telemetry
 from windops_claude.budget import BudgetExhaustedError, Call
+from windops_claude.outage import ClaudeUnreachableError
 from windops_claude.pricing import Usage
+from windops_resilience import BreakerOpenError
 
 
 class Recorder:
@@ -72,6 +74,12 @@ def _status(kind: type[anthropic.APIStatusError], code: int) -> anthropic.APISta
     return kind("failed", response=httpx.Response(code, request=request), body=None)
 
 
+def unreachable(cause: BaseException) -> ClaudeUnreachableError:
+    error = ClaudeUnreachableError("down")
+    error.__cause__ = cause
+    return error
+
+
 @pytest.mark.parametrize(
     ("error", "kind"),
     [
@@ -83,6 +91,11 @@ def _status(kind: type[anthropic.APIStatusError], code: int) -> anthropic.APISta
         (anthropic.APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com")),
          "unreachable"),
         (BudgetExhaustedError("spent"), "budget_exhausted"),
+        (BreakerOpenError("anthropic"), "breaker_open"),
+        (unreachable(anthropic.APITimeoutError(httpx.Request("POST", "https://api.anthropic.com"))),
+         "timeout"),
+        (unreachable(anthropic.APIConnectionError(
+            request=httpx.Request("POST", "https://api.anthropic.com"))), "unreachable"),
         (ValueError("anything else"), "other"),
     ],
 )  # fmt: skip

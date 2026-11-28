@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.checks.resilience.fallbacks import BREAKER_TESTS, FALLBACKS, all_tests
+from scripts.checks.resilience.fallbacks import BREAKER_TESTS, FALLBACKS, all_tests, is_frontend
 
 ROOT = Path(__file__).resolve().parents[1]
 SRS = ROOT / "docs" / "srs.md"
@@ -68,7 +68,10 @@ def test_a_gap_belongs_to_a_module_not_yet_done() -> None:
 def test_each_named_test_exists(test: str) -> None:
     path, _, name = test.partition("::")
     assert (ROOT / path).is_file(), f"No file {path}"
-    assert name in functions(path), f"No test {name} in {path}"
+    if is_frontend(test):
+        assert f'it("{name}"' in (ROOT / path).read_text(), f"No test {name} in {path}"
+    else:
+        assert name in functions(path), f"No test {name} in {path}"
 
 
 def test_the_breaker_itself_is_covered() -> None:

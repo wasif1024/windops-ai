@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { type Branding, getJson, type Me, type Permissions, readPatiently } from "../api/client";
 import { useAuth } from "../auth/auth";
-import { applyBranding } from "../branding/branding";
+import { applyBranding, brandingToShow } from "../branding/branding";
 import { Button } from "../components/Button";
 import { Logo } from "../components/Logo";
 import { useUnread } from "../features/notifications/api";
@@ -32,7 +32,8 @@ function useSession(token: string): Session | "loading" | "failed" {
         if (!cancelled) {
           setSession({
             me,
-            branding,
+            // The Tenant Service down: the last known branding, not the defaults (SRS 7.7).
+            branding: brandingToShow(branding, me.tenant_id, storage()),
             screens: visibleScreens(permissions.permissions),
             held: new Set(permissions.permissions.map((item) => item.permission)),
           });
@@ -46,6 +47,14 @@ function useSession(token: string): Session | "loading" | "failed" {
     };
   }, [token]);
   return session;
+}
+
+function storage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
 }
 
 const STATUS = "p-8 text-slate-500";

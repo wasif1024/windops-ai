@@ -10,6 +10,11 @@ from windops_claude.conversation import (
     public_content,
     stable_system,
 )
+from windops_claude.outage import (
+    ClaudeUnreachableError,
+    claude_breaker,
+    is_claude_outage,
+)
 from windops_claude.policy import Budget, Policy, load
 from windops_claude.pricing import Usage, cost_usd
 from windops_claude.responses import (
@@ -25,6 +30,7 @@ __all__ = [
     "BudgetExhaustedError",
     "Call",
     "Claude",
+    "ClaudeUnreachableError",
     "HistoryEditedError",
     "HistoryGuard",
     "Ledger",
@@ -41,7 +47,9 @@ __all__ = [
     "UnexpectedStopError",
     "Usage",
     "VolatilePromptError",
+    "claude_breaker",
     "cost_usd",
+    "is_claude_outage",
     "load",
     "public_content",
     "stable_system",

@@ -14,6 +14,8 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+import anthropic
+import httpx2 as httpx
 import pytest
 from langchain_core.messages import AIMessage
 from sqlalchemy import select
@@ -22,15 +24,16 @@ from sqlalchemy.pool import NullPool
 from windops.agent_runtime.v1 import agent_runtime_pb2 as pb
 from windops_agent_runtime.checkpoints import RunCheckpointer
 from windops_agent_runtime.investigation import STEPS, Investigation, build
-from windops_agent_runtime.queue import LeaseLostError, Queue
+from windops_agent_runtime.queue import CLAUDE_DOWN, LeaseLostError, Queue
 from windops_agent_runtime.registry import REGISTRY
 from windops_agent_runtime.service import INVESTIGATION, AgentRuntimeService
-from windops_agent_runtime.store import METADATA, RUN_CALLS, RUN_CHECKPOINTS, RUN_STEPS, RUNS
+from windops_agent_runtime.store import ACTOR, METADATA, RUN_CALLS, RUN_CHECKPOINTS, RUN_STEPS, RUNS
 from windops_agent_runtime.team.sandbox import SandboxRun
 from windops_agent_runtime.worker import Worker, WorkerSettings
 from windops_agent_runtime.workflows import Rehearsal
 from windops_auth import identity_scope
 from windops_claude import Call, Claude, Policy, Usage, load
+from windops_claude.outage import DEPENDENCY, breaker_config
 from windops_events import parse_event
 from windops_grpc import (
     ConflictError,
@@ -40,6 +43,7 @@ from windops_grpc import (
     VerifiedIdentity,
 )
 from windops_outbox import OUTBOX_TABLE, create_outbox_table
+from windops_resilience import BreakerState, CircuitBreaker
 
 TENANT, OTHER = "north-sea", "atlas-wind"
 CASE = "case_" + "a" * 20
@@ -587,6 +591,102 @@ async def test_a_refusal_fails_the_run_without_trying_again(
     ended = await get(engine, clock, run.run_id)
     assert (ended.status, ended.attempt, ended.usage.calls) == ("failed", 1, 1)
     assert ended.reason.startswith("RefusedError")
+
+
+class FakeClock:
+    """A monotonic clock for the breaker, moved by hand."""
+
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+class DownChat(FakeChat):
+    """Stands in for ChatAnthropic while Claude cannot be reached."""
+
+    calls = 0
+
+    async def ainvoke(self, messages: list[Any]) -> AIMessage:
+        DownChat.calls += 1
+        raise anthropic.APIConnectionError(request=httpx.Request("POST", "https://claude"))
+
+
+def claude_down_worker(queue: Queue, breaker: CircuitBreaker | None = None) -> Worker:
+    def make(claim: Any, meter: Any) -> Claude:
+        def model(_: Any, role: str, *, api_key: str, max_tokens: int) -> FakeChat:
+            return DownChat("end_turn", max_tokens)
+
+        return Claude(POLICY, meter, lambda: "key", make_model=model, breaker=breaker)  # type: ignore[arg-type]
+
+    settings = WorkerSettings(resume_check_seconds=0)
+    return Worker(
+        queue, REGISTRY, settings, policy=POLICY, make_claude=make, claude_breaker=breaker
+    )
+
+
+@scenario
+async def test_claude_down_pauses_the_run_resumable_without_spending_an_attempt(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    """SRS 7.7: pause with a resumable status, invent no findings, and tell the operator."""
+    run = await start_check(engine, clock)
+    claim = await queue.claim("replica-a/0")
+    assert claim is not None
+    assert await claude_down_worker(queue).execute(claim, asyncio.Event()) == "paused"
+    paused = await status(engine, run.run_id)
+    assert (paused.status, paused.attempt, paused.reason) == ("paused", 0, CLAUDE_DOWN)
+    assert (paused.pause_requested_by, paused.pause_reason) == (ACTOR, CLAUDE_DOWN)
+    assert await steps(engine, run.run_id) == []
+    assert (await audits(engine))[-1] == "agent_run.paused"
+    # A person may resume it, as any paused run.
+    with caller():
+        await service(engine, clock).ResumeRun(
+            pb.ResumeRunRequest(run_id=run.run_id, requested_by="user:operator-1"), None
+        )
+    assert (await status(engine, run.run_id)).status == "queued"
+
+
+@scenario
+async def test_paused_runs_resume_by_themselves_once_claude_may_be_called_again(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    breaker_clock = FakeClock()
+    breaker = CircuitBreaker(DEPENDENCY, breaker_config(), clock=breaker_clock)
+    worker = claude_down_worker(queue, breaker)
+    runs = [await start_check(engine, clock, key=f"outage-{index}") for index in range(4)]
+    DownChat.calls = 0
+    for _ in runs:
+        claim = await queue.claim("replica-a/0")
+        assert claim is not None
+        assert await worker.execute(claim, asyncio.Event()) == "paused"
+    # Three calls failed and opened the breaker; the fourth run was refused without one.
+    assert breaker.state is BreakerState.OPEN and DownChat.calls == 3
+    await worker._resume_if_claude_answers()
+    assert {(await status(engine, run.run_id)).status for run in runs} == {"paused"}
+    breaker_clock.advance(30)
+    await worker._resume_if_claude_answers()
+    for run in runs:
+        row = await status(engine, run.run_id)
+        assert (row.status, row.attempt, row.pause_reason) == ("queued", 0, "")
+    assert (await audits(engine)).count("agent_run.resumed") == 4
+
+
+@scenario
+async def test_a_paused_run_a_person_asked_for_is_not_resumed_by_claude_returning(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    run = await start_check(engine, clock)
+    with caller():
+        await service(engine, clock).PauseRun(
+            pb.PauseRunRequest(run_id=run.run_id, requested_by="user:operator-1",
+                               reason="Holding it for review"), None)  # fmt: skip
+    assert await queue.resume_after_outage() == 0
+    assert (await status(engine, run.run_id)).status == "paused"
 
 
 @scenario
