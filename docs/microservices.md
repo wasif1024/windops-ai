@@ -36,6 +36,8 @@ Then follow the steps in its README.
    The [sample caller](../services/sample-caller-service/src/windops_sample_caller/main.py) shows how.
 4. Handle `BreakerOpenError` with the behavior SRS 7.7 defines for that dependency. A full bulkhead
    raises `BulkheadFullError`, which is one, so the same behavior applies.
+5. Test that behavior with the dependency taken down, and name the test for its SRS 7.7 row in
+   [fallbacks.py](../scripts/checks/resilience/fallbacks.py). `make chaos` runs every such test (RES-005).
 
 ## Rules
 

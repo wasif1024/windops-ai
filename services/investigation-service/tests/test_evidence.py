@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import grpc
+import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -183,12 +184,13 @@ def test_a_joining_detection_brings_a_new_version_and_the_old_one_stays() -> Non
     with_bench(scenario)
 
 
-def test_without_every_source_there_is_no_snapshot_and_evidence_stays_pending() -> None:
-    """SRS 7.7: Telemetry or Alarm down, refuse a new snapshot. Never a partial one."""
+@pytest.mark.parametrize("owner", ["asset", "telemetry", "alarm"])
+def test_without_every_source_there_is_no_snapshot_and_evidence_stays_pending(owner: str) -> None:
+    """SRS 7.7: Asset, Telemetry or Alarm down, refuse a new snapshot. Never a partial one."""
 
     async def scenario(bench: Bench) -> None:
         await bench.detect("d1")
-        bench.sources.down = {"alarm"}
+        bench.sources.down = {owner}
         assert await bench.builder.run_once(NOW) == 0
         assert await bench.snapshots() == []
         assert (await bench.case()).evidence_wanted_at is not None
