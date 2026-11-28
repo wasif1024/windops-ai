@@ -57,7 +57,7 @@ keeps it.
 
 - Connections use TLS, and clients check the server's certificate, but a client proves who it is with a
   password and not a certificate. See [Service certificates](../../security/pki/README.md).
-- Any pod in the cluster can reach the port, though it still needs a password, until M13.3 adds
-  network policies.
+- Only the services with a database Secret, Keycloak and migration Jobs can reach the port, by
+  network policy (ADR 0047). They still need a password.
 - A service's login owns its tables, so row-level security needs `FORCE ROW LEVEL SECURITY` when M3.6
   adds it.

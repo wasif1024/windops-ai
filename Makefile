@@ -119,8 +119,10 @@ cluster-delete: ## Delete the local cluster and all its data
 cluster-check: ## Deploy a throwaway service to prove the manifests work on the cluster
 	uv run python -m scripts.checks.foundation.cluster
 
-infra: ## Create the namespaces, cert-manager, etcd, data stores, Keycloak and observability
+infra: ## Create the namespaces, network policies, cert-manager, etcd, data stores, Keycloak and observability
 	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/namespaces
+	@# Before any workload, so each starts under default-deny (K8S-001, ADR 0047).
+	kubectl --context $(CLUSTER) apply --kustomize $(KUBERNETES_DIR)/base/network
 	uv run python -m scripts.setup.apply_settings
 	uv run python -m scripts.setup.provision_pki
 	kubectl --context $(CLUSTER) apply --kustomize infrastructure/gateway/etcd
@@ -287,6 +289,9 @@ servicebus-provision: ## Create the Service Bus topics and subscriptions, with y
 
 servicebus-check: ## Prove events on a real Service Bus pass the same contract as NATS
 	uv run python -m scripts.checks.data.servicebus
+
+network-policies: ## Regenerate the network policies from the calls each workload makes (ADR 0047)
+	uv run python -m scripts.generate.network_policies
 
 azure-overlay: ## Regenerate the azure overlay: Workload ID and Key Vault for every workload
 	uv run python -m scripts.generate.azure_overlay

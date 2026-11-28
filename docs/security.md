@@ -119,7 +119,8 @@ Each has `category: security`. Routing by severity and owner arrives in M13.7.
 
 - **One signing key for internal identities.** Every service shares it. A per-service key, or tokens signed by
   Keycloak all the way through, would limit what one compromised service could do.
-- **The gateway is not authenticated to Web BFF.** Network policies in M13.3 will let only the gateway reach it.
+- **The gateway is not authenticated to Web BFF.** Network policies let only the gateway reach it (ADR 0047), so
+  this matters only if a policy is wrong.
 - **Rate limits are per gateway pod.** With more than one, each counts on its own.
 - **The gateway's certificate is re-sent by hand** after cert-manager renews it: `make gateway-routes`, which `make
   dev` runs.

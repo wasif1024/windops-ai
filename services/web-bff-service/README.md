@@ -262,8 +262,8 @@ make progress-check      # an investigation's live progress, through the gateway
 
 - **The gateway is not authenticated to the BFF.** The gateway reaches Web BFF over HTTPS on port 8443, and checks
   its certificate, but Web BFF does not ask the gateway for one. Another pod could call it directly and skip the
-  gateway's CORS and per-address limits, though never its token checks, which Web BFF repeats. M13.3's network
-  policies allow only the gateway to reach it.
+  gateway's CORS and per-address limits, though never its token checks, which Web BFF repeats. Network
+  policies allow only the gateway to reach it (ADR 0047).
 - **Clients are trusted to report their own class.** The limit class comes from the client a user signed in
   through, not from their roles. The administrators' client requires a second factor, so only administrators can
   get the higher limit.

@@ -119,9 +119,8 @@ THEMES = (
         (
             Answer("mTLS, MFA and step-up; CodeQL and secret scans", "M3.3, M3.2, M1.2"),
             Answer("Circuit breakers on every dependency; outages fail closed", "M1.4"),
-            Answer(
-                "Default-deny network policy, signed images, tested backups", "M13.3, M14.2, M14.3"
-            ),
+            Answer("Default-deny network policy; egress only to named endpoints", "M13.3"),
+            Answer("Signed images, tested backups", "M14.2, M14.3"),
             Answer("Independent penetration test", "M14.1"),
         ),
     ),

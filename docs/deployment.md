@@ -11,7 +11,7 @@ SRS 11.4 defines this order:
 make cluster          # start the cluster
 make images           # build service images into the cluster
 make secrets          # create namespaces and local secrets
-make infra            # create cert-manager, etcd, data stores, Keycloak and observability
+make infra            # create network policies, cert-manager, etcd, data stores, Keycloak and observability
 make identity-seed    # create the Keycloak realm, tenants and demo users
 make migrate          # run each service's migration Job
 make services         # deploy the gateway and services
@@ -19,14 +19,16 @@ make gateway-routes   # apply the gateway's routes
 ```
 
 `make seed-demo` and `make smoke-test` arrive with their
-modules. `make help` lists what each one does, and which module delivers it.
+modules. Each namespace denies all traffic by default, and each workload may make only the calls
+its code makes (ADR 0047). After a service starts calling another, run `make network-policies`,
+which regenerates the policies, and a test fails until you do. `make help` lists what each one does, and which module delivers it.
 
 ## Check it
 
 | Command | What it proves |
 | --- | --- |
 | `make scaffold-check` | The service template builds, runs and shuts down cleanly |
-| `make cluster-check` | Manifests, Pod Security, NetworkPolicy and graceful shutdown work on the cluster |
+| `make cluster-check` | Manifests, Pod Security, default-deny with a Cilium allow, and graceful shutdown work on the cluster |
 | `make gateway-check` | The gateway routes, skips unhealthy backends, and keeps routes through restarts |
 | `make observability-check` | One call appears in logs, traces and metrics, and dashboards work |
 | `make sample-check` | Two services work together, through the gateway |

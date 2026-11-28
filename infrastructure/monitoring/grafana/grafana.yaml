@@ -50,6 +50,11 @@ spec:
               value: "false"
             - name: GF_ANALYTICS_CHECK_FOR_UPDATES
               value: "false"
+            # Nothing reaches the internet but the named endpoints (EGR-001, ADR 0047).
+            - name: GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES
+              value: "false"
+            - name: GF_NEWS_NEWS_FEED_ENABLED
+              value: "false"
             # Grafana otherwise downloads extra plugins at every start.
             - name: GF_PLUGINS_PREINSTALL_DISABLED
               value: "true"
