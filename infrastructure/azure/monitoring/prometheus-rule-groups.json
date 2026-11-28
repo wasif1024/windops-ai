@@ -256,6 +256,34 @@
           "enabled": true
         },
         {
+          "alert": "WindopsAgentRunsPausedClaudeDown",
+          "expression": "sum(increase(windops_agent_runs_paused_claude_down_total[15m]) and windops_agent_runs_paused_claude_down_total offset 15m or windops_agent_runs_paused_claude_down_total) > 0",
+          "for": "PT1M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning",
+            "category": "agents"
+          },
+          "annotations": {
+            "summary": "Claude cannot be reached, so agent runs are paused. They resume when it answers, or an operator resumes them"
+          },
+          "enabled": true
+        },
+        {
+          "alert": "WindopsAgentTracesDropped",
+          "expression": "sum(increase(windops_agent_traces_dropped_total[15m]) and windops_agent_traces_dropped_total offset 15m or windops_agent_traces_dropped_total) > 0",
+          "for": "PT1M",
+          "severity": 2,
+          "labels": {
+            "severity": "warning",
+            "category": "agents"
+          },
+          "annotations": {
+            "summary": "Agent traces could not be sent to LangSmith and were dropped. The audit trail is complete"
+          },
+          "enabled": true
+        },
+        {
           "alert": "WindopsAgentToolFailing",
           "expression": "sum by (agent, server, tool) (increase(windops_agent_tool_calls_total{outcome!=\"ok\"}[15m])) >= 5",
           "for": "PT10M",

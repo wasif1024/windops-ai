@@ -413,6 +413,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0043](docs/adr/0043-seeded-variants-split-replays-and-locked-dataset-versions.md) | Seeded variants, one split a replay, and dataset versions locked by their hash |
 | [0044](docs/adr/0044-an-evaluation-tenant-on-recorded-providers.md) | An evaluation tenant on recorded providers, and a daily live suite |
 | [0045](docs/adr/0045-a-bulkhead-in-every-breaker-and-a-worker-limit.md) | A bulkhead in every breaker, and a limit on each service's gRPC workers |
+| [0046](docs/adr/0046-claude-down-pauses-runs-and-they-resume-themselves.md) | Claude down pauses runs, and they resume by themselves; last known branding; dropped traces counted |
 
 ## Repository layout
 

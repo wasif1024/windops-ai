@@ -14,8 +14,10 @@ from decimal import Decimal
 
 import anthropic
 from opentelemetry import metrics
+from windops_resilience import BreakerOpenError
 
 from windops_claude.budget import BudgetExhaustedError, Call
+from windops_claude.outage import ClaudeUnreachableError
 
 _meter = metrics.get_meter("windops.claude")
 _calls = _meter.create_counter(
@@ -42,6 +44,10 @@ def error_kind(error: BaseException) -> str:
     """A fixed name for what failed, for a metric's label."""
     if isinstance(error, BudgetExhaustedError):
         return "budget_exhausted"
+    if isinstance(error, BreakerOpenError):
+        return "breaker_open"
+    if isinstance(error, ClaudeUnreachableError):
+        error = error.__cause__ or error
     if isinstance(error, anthropic.RateLimitError):
         return "rate_limited"
     if isinstance(error, anthropic.InternalServerError):

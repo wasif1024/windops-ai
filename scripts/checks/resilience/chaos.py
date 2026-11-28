@@ -7,10 +7,20 @@ row. A row whose behavior is not built yet shows the module that builds it, and 
 as passing. It needs no cluster.
 """
 
+import re
 import subprocess
 import sys
+from pathlib import Path
 
-from scripts.checks.resilience.fallbacks import BREAKER_TESTS, FALLBACKS, all_tests
+from scripts.checks.resilience.fallbacks import (
+    BREAKER_TESTS,
+    FALLBACKS,
+    all_tests,
+    frontend_tests,
+    python_tests,
+)
+
+FRONTEND = Path(__file__).resolve().parents[3] / "frontend"
 
 
 def count(number: int) -> str:
@@ -21,10 +31,17 @@ def main() -> int:
     tests = all_tests()
     print(f"Injecting faults: {len(tests)} tests, {len(FALLBACKS)} dependencies", flush=True)
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider", *tests],
+        [sys.executable, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider",
+         *python_tests()],
         check=False,
+    )  # fmt: skip
+    files = sorted({test.partition("::")[0].removeprefix("frontend/") for test in frontend_tests()})
+    names = [test.partition("::")[2] for test in frontend_tests()]
+    pattern = "|".join(re.escape(name) for name in names)
+    browser = subprocess.run(
+        ["npx", "vitest", "run", *files, "--testNamePattern", pattern], cwd=FRONTEND, check=False
     )
-    passed = result.returncode == 0
+    passed = result.returncode == 0 and browser.returncode == 0
     mark = "ok" if passed else "FAILED"
     print(f"\n{mark:>8}  The breaker itself, {count(len(BREAKER_TESTS))}")
     gaps = 0

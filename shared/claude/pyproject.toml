@@ -13,7 +13,11 @@ dependencies = [
     "opentelemetry-api>=1.45.2",
     "pydantic>=2.12",
     "pyyaml>=6.0.3",
+    "windops-resilience",
 ]
+
+[tool.uv.sources]
+windops-resilience = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

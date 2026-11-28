@@ -5,6 +5,8 @@ names it. An entry lists the tests that take that dependency down, by a breaker,
 deadline, an unreachable address or an error, and check the defined behavior. A behavior not built
 yet names the module that builds it instead, as `gap`. `tests/test_fallbacks.py` keeps the table,
 this list and the tracker in step, and `make chaos` runs every test listed here.
+
+A test is `path::function` for pytest, or `path::name` for a frontend Vitest test, by its `it`.
 """
 
 from dataclasses import dataclass
@@ -22,6 +24,7 @@ WEATHER = "services/weather-service/tests"
 IDENTITY = "services/identity-service/tests/test_identity_service.py"
 KNOWLEDGE = "services/knowledge-service/tests"
 RUNTIME = "services/agent-runtime-service/tests"
+BRANDING = "frontend/src/branding/branding.test.ts"
 
 
 @dataclass(frozen=True)
@@ -57,9 +60,17 @@ BREAKER_TESTS = (
 FALLBACKS = (
     Fallback(
         "Anthropic API",
-        gap="M13.2b",
-        note="No breaker guards Claude, and an outage retries the run until it fails; "
-        "SRS 7.7 pauses it, resumable, and tells the operator.",
+        (
+            "shared/claude/tests/test_outage.py"
+            "::test_no_connection_counts_against_the_breaker_until_it_refuses_without_calling",
+            "shared/claude/tests/test_outage.py::test_anthropic_overloaded_counts_against_the_breaker",
+            "shared/claude/tests/test_outage.py::test_claude_down_is_an_outage",
+            f"{RUNTIME}/test_agent_runtime.py"
+            "::test_claude_down_pauses_the_run_resumable_without_spending_an_attempt",
+            f"{RUNTIME}/test_agent_runtime.py"
+            "::test_paused_runs_resume_by_themselves_once_claude_may_be_called_again",
+        ),
+        note="WindopsAgentRunsPausedClaudeDown tells the operator.",
     ),
     Fallback(
         "Tavily",
@@ -121,8 +132,13 @@ FALLBACKS = (
     ),
     Fallback(
         "LangSmith",
-        gap="M13.2b",
-        note="The LangSmith client buffers and drops traces, but no alert says so.",
+        (
+            f"{RUNTIME}/test_dropped_traces.py"
+            "::test_an_unreachable_langsmith_drops_and_counts_without_holding_up_the_run",
+            f"{RUNTIME}/test_dropped_traces.py"
+            "::test_the_library_still_reports_a_failed_send_as_counted",
+        ),
+        note="WindopsAgentTracesDropped alerts; the Audit Service stays authoritative.",
     ),
     Fallback(
         "Sandbox",
@@ -143,10 +159,11 @@ FALLBACKS = (
     ),
     Fallback(
         "Tenant",
-        (f"{BFF_OUTAGES}::test_tenant_down_refuses_tenant_changes",),
-        gap="M13.2b",
-        note="Tenant changes are refused, but the console falls back to the default branding, "
-        "not the last known.",
+        (
+            f"{BFF_OUTAGES}::test_tenant_down_refuses_tenant_changes",
+            f"{BRANDING}::shows the last known branding, without its logo",
+            f"{BRANDING}::never shows another tenant's branding",
+        ),
     ),
     Fallback(
         "Asset",
@@ -261,3 +278,15 @@ def all_tests() -> list[str]:
     """Every test named above, once each, in order."""
     named = [*BREAKER_TESTS, *(test for entry in FALLBACKS for test in entry.tests)]
     return list(dict.fromkeys(named))
+
+
+def is_frontend(test: str) -> bool:
+    return test.startswith("frontend/")
+
+
+def python_tests() -> list[str]:
+    return [test for test in all_tests() if not is_frontend(test)]
+
+
+def frontend_tests() -> list[str]:
+    return [test for test in all_tests() if is_frontend(test)]

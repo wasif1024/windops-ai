@@ -37,3 +37,46 @@ export function signInTenant(search: string, storage: Pick<Storage, "getItem" | 
     return null;
   }
 }
+
+type Store = Pick<Storage, "getItem" | "setItem">;
+const BRANDING_KEY = "windops.branding.";
+const TEXT_FIELDS = ["display_name", "primary_color", "accent_color", "login_title", "login_message", "time_zone", "locale"] as const;
+
+/** Keep a tenant's branding as last seen, for when the Tenant Service cannot be reached (SRS 7.7). */
+export function rememberBranding(branding: Branding, storage: Store | null): void {
+  if (!TENANT.test(branding.tenant_id)) return;
+  try {
+    storage?.setItem(BRANDING_KEY + branding.tenant_id, JSON.stringify(branding));
+  } catch {
+    // Storage can be blocked. The defaults are used in an outage instead.
+  }
+}
+
+/**
+ * The tenant's last known branding, or null. Only that tenant's, and only well-formed: what is
+ * read back passes the same checks as an answer from the API. Its logo is served by the Tenant
+ * Service too, so it is not shown.
+ */
+export function lastKnownBranding(tenantId: string, storage: Store | null): Branding | null {
+  if (!TENANT.test(tenantId)) return null;
+  let kept: unknown;
+  try {
+    kept = JSON.parse(storage?.getItem(BRANDING_KEY + tenantId) ?? "null");
+  } catch {
+    return null;
+  }
+  if (typeof kept !== "object" || kept === null) return null;
+  const record = kept as Record<string, unknown>;
+  if (record.tenant_id !== tenantId) return null;
+  if (!TEXT_FIELDS.every((name) => typeof record[name] === "string")) return null;
+  return { ...(record as unknown as Branding), has_logo: false };
+}
+
+/** The branding to show: the API's, remembered, or in an outage the last known one. */
+export function brandingToShow(answer: Branding | null, tenantId: string, storage: Store | null): Branding | null {
+  if (answer !== null) {
+    rememberBranding(answer, storage);
+    return answer;
+  }
+  return lastKnownBranding(tenantId, storage);
+}

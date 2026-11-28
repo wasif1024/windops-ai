@@ -32,8 +32,10 @@ from windops_claude import (
     Spent,
     StopError,
     StructuredOutputError,
+    is_claude_outage,
     models,
 )
+from windops_resilience import BreakerState, CircuitBreaker
 
 from windops_agent_runtime.checkpoints import RunCheckpointer
 from windops_agent_runtime.decision import IncompatibleResumeError, Resumed
@@ -64,6 +66,16 @@ _claims = _meter.create_counter(
     "windops_agent_run_claims", description="Runs claimed, and whether each was taken over"
 )
 _ended = _meter.create_counter("windops_agent_runs_ended", description="Runs ended, by state")
+# SRS 7.7: a run that found Claude down pauses, and resumes once it answers again.
+# WindopsAgentRunsPausedClaudeDown tells the operator.
+_outage_pauses = _meter.create_counter(
+    "windops_agent_runs_paused_claude_down",
+    description="Runs paused because Claude could not be reached",
+)
+_outage_resumes = _meter.create_counter(
+    "windops_agent_runs_resumed_claude_back",
+    description="Runs paused because Claude was down, queued again once it answered",
+)
 _lost = _meter.create_counter(
     "windops_agent_run_leases_lost", description="Runs a worker stopped because its lease was lost"
 )
@@ -89,6 +101,8 @@ class WorkerSettings:
     slots: int = 2
     poll_seconds: float = 1.0
     retry_seconds: float = 5.0
+    # How often an idle worker checks whether Claude is back for the runs it paused.
+    resume_check_seconds: float = 30.0
 
 
 class RunLedger:
@@ -189,8 +203,12 @@ class Worker:
         toolbox: ToolBox | None = None,
         make_team: Callable[[Claim, Claude, AgentTokens], TeamRunner] | None = None,
         tracer: Tracer | None = None,
+        claude_breaker: CircuitBreaker | None = None,
     ) -> None:
         self._queue, self._workflows = queue, workflows
+        # One breaker for every call this replica makes to Claude (SRS 7.7).
+        self._claude_breaker = claude_breaker
+        self._resume_checked = float("-inf")
         self._policy = policy
         self._api_key = api_key
         # The stand-in API's address, for dry runs, when the runtime serves one (ADR 0027).
@@ -214,6 +232,7 @@ class Worker:
         while not stop.is_set():
             claim = None
             try:
+                await self._resume_if_claude_answers()
                 claim = await self._queue.claim(owner)
             except Exception as error:  # The database is down: the runs wait, and so do we.
                 logger.warning("Cannot claim a run yet", extra={"error_type": type(error).__name__})
@@ -347,7 +366,28 @@ class Worker:
             )  # fmt: skip
         if self._api_key is None:
             return None
-        return Claude(self._policy, meter, self._api_key)
+        return Claude(self._policy, meter, self._api_key, breaker=self._claude_breaker)
+
+    async def _resume_if_claude_answers(self) -> None:
+        """Queue the runs paused for Claude again, once its breaker lets a call through.
+
+        An open breaker turns half-open after its open duration, without a call. The resumed
+        runs are then its probes: if Claude is still down, they pause again.
+        """
+        breaker = self._claude_breaker
+        if breaker is None:
+            return
+        now = time.monotonic()
+        if now - self._resume_checked < self._settings.resume_check_seconds:
+            return
+        self._resume_checked = now
+        if breaker.state is BreakerState.OPEN:
+            return
+        resumed = await self._queue.resume_after_outage()
+        if resumed:
+            _outage_resumes.add(resumed)
+            logger.info("Claude answers again: resumed the runs paused for it",
+                        extra={"runs": resumed})  # fmt: skip
 
     async def _settle(
         self,
@@ -383,6 +423,16 @@ class Worker:
             # LLM-010. Investigation sends the case back to open, and the Notification Service
             # tells the person who asked (M10.5). WindopsAgentBudgetExhausted alerts too.
             return await self._end(claim, BUDGET_EXHAUSTED, str(error))
+        if is_claude_outage(error):
+            # SRS 7.7: no findings are invented, and no attempt is spent on an outage.
+            if await self._queue.pause_for_outage(claim):
+                _outage_pauses.add(1, {"workflow": claim.workflow})
+                logger.warning("Claude cannot be reached: paused the run",
+                               extra={"run_id": claim.run_id,
+                                      "error_type": type(error).__name__})  # fmt: skip
+                return "paused"
+            _note_lost(claim)
+            return "lost"
         if isinstance(error, FINAL):
             # Trying again would get the same answer, and pay for it again.
             return await self._end(claim, FAILED, f"{type(error).__name__}: {error}")
