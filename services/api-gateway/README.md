@@ -56,4 +56,4 @@ gateway-policy-check` proves the policy on the cluster.
 - **Limits are counted in each gateway pod.** They are kept in the pod's memory, so with two replicas a client could
   get up to twice its limit. That is fine for one replica.
 - The root filesystem is writable, because APISIX generates its nginx configuration at startup.
-- etcd has no authentication. M13.3 limits who can reach it with NetworkPolicies.
+- etcd has no authentication. Network policies let only the gateway reach it (ADR 0047).

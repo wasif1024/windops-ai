@@ -74,8 +74,9 @@ the same failures, and Service Bus panels from Azure Monitor's own metrics arriv
 | Redaction | Applied by the shared library before logs and spans leave a pod | The same | The same |
 
 Metric attributes are not redacted, so they must hold only low-risk values. Loki and Prometheus have
-no authentication of their own locally. Nothing outside the cluster can reach them, and M13.3 limits
-access inside it with NetworkPolicies.
+no authentication of their own locally. Nothing outside the cluster can reach them, and inside it
+network policies let in only the pods that send to them or read from them, such as fluent-bit and
+Grafana for Loki (ADR 0047).
 
 ## Limits
 

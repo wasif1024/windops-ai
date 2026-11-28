@@ -59,7 +59,8 @@ Checks reach a service using `scripts/lib/tls_client.py`, which requests a clien
   identity for its calls. mTLS proves which service is calling, but services do not yet refuse callers that should
   not reach them, or tokens that do not match the caller.
 - Data stores check a password, not a client certificate, so a stolen password still works from inside the
-  cluster. M13.3's network policies limit where it can be used from.
+  cluster. Network policies limit where it can be used from: only the workloads that read the
+  store's Secret may reach it (ADR 0047).
 - **Plain HTTP for probes and metrics only.** The API Gateway reaches Web BFF and Keycloak over HTTPS, and checks
   their certificates. Prometheus scrapes `/metrics`, and Kubernetes probes reach `/health/*`, over plain HTTP,
   because those hold no business data.

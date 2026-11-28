@@ -414,6 +414,7 @@ blank until a module needs one; add yours to `.env`, and never paste a real key 
 | [0044](docs/adr/0044-an-evaluation-tenant-on-recorded-providers.md) | An evaluation tenant on recorded providers, and a daily live suite |
 | [0045](docs/adr/0045-a-bulkhead-in-every-breaker-and-a-worker-limit.md) | A bulkhead in every breaker, and a limit on each service's gRPC workers |
 | [0046](docs/adr/0046-claude-down-pauses-runs-and-they-resume-themselves.md) | Claude down pauses runs, and they resume by themselves; last known branding; dropped traces counted |
+| [0047](docs/adr/0047-network-policies-generated-from-the-calls-made.md) | Network policies: default-deny in every namespace, generated from the calls each workload makes, and egress only to named endpoints |
 
 ## Repository layout
 

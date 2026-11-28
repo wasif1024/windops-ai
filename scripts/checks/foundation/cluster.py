@@ -26,25 +26,13 @@ CLIENT_IMAGE = "busybox:1.37.0"
 IGNORED = shutil.ignore_patterns(
     ".git", ".venv", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", "assets"
 )
-DENY_INGRESS = f"""
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: {WORKLOAD}-deny-check
-  namespace: {NAMESPACE}
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: {WORKLOAD}
-  policyTypes: [Ingress]
-"""
-# Cilium's own policy, as Azure CNI powered by Cilium also enforces (ADR 0006): only pods in the
-# workload's own namespace may reach it, so the check's client, in default, is refused.
-SAME_NAMESPACE_ONLY = f"""
+# The namespace's default-deny refuses everyone (K8S-001, ADR 0047). This Cilium policy, as Azure
+# CNI powered by Cilium also enforces (ADR 0006), lets in only pods of the client's namespace.
+ALLOW_CLIENT = f"""
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: {WORKLOAD}-same-namespace-check
+  name: {WORKLOAD}-allow-check
   namespace: {NAMESPACE}
 spec:
   endpointSelector:
@@ -53,7 +41,11 @@ spec:
   ingress:
     - fromEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: {NAMESPACE}
+            k8s:io.kubernetes.pod.namespace: default
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
 """
 PRIVILEGED_POD = f"""
 apiVersion: v1
@@ -165,32 +157,32 @@ def check_cilium() -> None:
     print(f"Cilium is the network plugin, with {ready} of {wanted} agents ready")
 
 
-def _refused_while(policy: str, kind: str, name: str, url: str) -> None:
-    kubectl("apply", "--filename=-", stdin=policy)
-    try:
-        # A policy takes a moment to reach the data plane.
-        for _ in range(5):
-            time.sleep(2)
-            if not client_request(url):
-                break
-        else:
-            raise RuntimeError(f"Cilium did not enforce the {kind}")
-    finally:
-        kubectl("delete", kind.lower(), name, f"--namespace={NAMESPACE}")
-    if not client_request(url):
-        raise RuntimeError(f"Removing the {kind} did not restore access")
+def _reachable_becomes(url: str, wanted: bool) -> bool:
+    """A policy takes a moment to reach the data plane."""
+    for _ in range(5):
+        if client_request(url) == wanted:
+            return True
+        time.sleep(2)
+    return False
 
 
 def check_network_policy() -> None:
     url = f"http://{WORKLOAD}.{NAMESPACE}.svc.cluster.local:8080/health/live"
-    if not client_request(url):
-        raise RuntimeError("Another pod could not reach the service")
-    _refused_while(DENY_INGRESS, "NetworkPolicy", f"{WORKLOAD}-deny-check", url)
-    print("Cilium enforced a Kubernetes NetworkPolicy, and removing it restored access")
-    _refused_while(
-        SAME_NAMESPACE_ONLY, "CiliumNetworkPolicy", f"{WORKLOAD}-same-namespace-check", url
-    )
-    print("Cilium enforced a CiliumNetworkPolicy, allowing only the workload's own namespace")
+    if not _reachable_becomes(url, False):
+        raise RuntimeError("A pod in another namespace reached a service no policy lets it reach")
+    print("The namespace's default-deny NetworkPolicy refused a pod in another namespace")
+    kubectl("apply", "--filename=-", stdin=ALLOW_CLIENT)
+    try:
+        if not _reachable_becomes(url, True):
+            raise RuntimeError("Cilium did not enforce the CiliumNetworkPolicy allowing the client")
+    finally:
+        kubectl(
+            "delete", "ciliumnetworkpolicy", f"{WORKLOAD}-allow-check", f"--namespace={NAMESPACE}"
+        )
+    print("Cilium let the client in while a CiliumNetworkPolicy allowed it")
+    if not _reachable_becomes(url, False):
+        raise RuntimeError("Removing the CiliumNetworkPolicy did not refuse the client again")
+    print("Removing it refused the client again")
 
 
 def measure_memory() -> str:

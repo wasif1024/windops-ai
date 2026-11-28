@@ -269,14 +269,14 @@ HOP_CONTROLS = (
             Control("Each service has its own database and login"),
             Control("Forced row-level security isolates every tenant"),
             Control("Audit records are append-only and tamper-evident"),
-            Control("Outbound traffic only to named endpoints", "M13.3"),
+            Control("Outbound traffic only to named endpoints"),
         ),
     ),
     (
         "Cluster and delivery",
         (
             Control("Non-root pods, read-only filesystems, memory limits and probes"),
-            Control("Deny all traffic between namespaces by default", "M13.3"),
+            Control("Every namespace denies all traffic by default"),
             Control("Every change passes lint, types, tests, CodeQL and secret scans"),
             Control("On Azure, no stored secrets: Workload ID and Key Vault"),
             Control("Signed container images", "M14.2"),

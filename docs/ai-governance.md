@@ -104,8 +104,10 @@ ISO/IEC 42001 A.6, with ISO/IEC 27001; NIST MEASURE 2.7; NCA defense and resilie
 - **In place:**
   - mutual TLS, MFA and step-up (M3.3, M3.2, `make mtls-check`, `make mfa-check`);
   - CodeQL and secret scans on every pull request (M1.2);
-  - a circuit breaker on every dependency, with outages failing closed (M1.4).
-- **Planned:** default-deny network policy (M13.3), signed images (M14.2), and tested backups (M14.3).
+  - a circuit breaker on every dependency, with outages failing closed (M1.4);
+  - default-deny network policy in every namespace, with egress only to named endpoints (M13.3,
+    `make network-policies`).
+- **Planned:** signed images (M14.2), and tested backups (M14.3).
 - **Planned:** an independent penetration test, which the NCA guidelines list (M14.1).
 
 ### Validity and evaluation
