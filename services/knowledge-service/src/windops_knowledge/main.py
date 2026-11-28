@@ -15,9 +15,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 from windops.authorization.v1 import authorization_pb2_grpc
 from windops.knowledge.v1 import knowledge_pb2_grpc
+from windops.tenant.v1 import tenant_pb2_grpc
 from windops_auth import current_identity_token
 from windops_events import EventsUnavailableError, open_events
 from windops_grpc import ServiceClient, create_channel, run_service
+from windops_grpc.egress import Gate, egress_switches
 from windops_migrations import create_service_engine
 from windops_observability import resilience_metrics
 from windops_outbox import OutboxRelay
@@ -60,12 +62,15 @@ async def run_indexer(
     embedder: embeddings.Embedder,
     store: vectors.VectorStore,
     stop: asyncio.Event,
+    egress: Gate | None = None,
 ) -> None:
     """Index whatever is due, and wait when nothing is. An error waits, and tries again."""
     try:
         while not stop.is_set():
             try:
-                worked = await library.index_next(engine, embedder, store, datetime.now(UTC))
+                worked = await library.index_next(
+                    engine, embedder, store, datetime.now(UTC), egress
+                )
             except Exception as error:  # The indexer must outlive any one failure.
                 logger.warning("Indexing failed", extra={"error_type": type(error).__name__})
                 worked = False
@@ -122,16 +127,24 @@ def main() -> None:
         SECRETS / "qdrant" / "api-key", tls / "ca.crt", _breaker("qdrant", 5.0),
     ))  # fmt: skip
 
+    # Each tenant may turn embeddings off (EGR-002, ADR 0048).
+    egress = egress_switches(
+        _Lazy(lambda: tenant_pb2_grpc.TenantServiceStub(
+            create_channel(os.environ["WINDOPS_TENANT_ADDRESS"], tls))),
+        ServiceClient(_breaker("tenant"), identity_token=current_identity_token),
+        SERVICE_NAME, os.environ["WINDOPS_IDENTITY_SECRET"],
+    )  # fmt: skip
+
     def register(server: grpc.aio.Server) -> None:
         knowledge_pb2_grpc.add_KnowledgeServiceServicer_to_server(
-            KnowledgeService(engine, authorizer, embedder, store), server
+            KnowledgeService(engine, authorizer, embedder, store, egress=egress), server
         )
 
     async def relay(stop: asyncio.Event) -> None:
         await relay_events(engine, stop)
 
     async def indexer(stop: asyncio.Event) -> None:
-        await run_indexer(engine, embedder, store, stop)
+        await run_indexer(engine, embedder, store, stop, egress)
 
     # Ready once the database answers: an outage of the provider or Qdrant pauses indexing,
     # and must not take the API away with it (SRS 7.7).

@@ -40,6 +40,10 @@ class SandboxUnavailableError(Exception):
     """The Agent Sandbox Adapter, or LangSmith Sandbox behind it, cannot be reached."""
 
 
+class SandboxTurnedOffError(SandboxUnavailableError):
+    """The tenant has turned the Sandbox off (EGR-002). Its message says so."""
+
+
 @dataclass(frozen=True)
 class SandboxUse:
     agent: str
@@ -111,10 +115,15 @@ class SandboxTasks:
                 response = await api.run_task(
                     run.tenant_id, task.name, json.dumps(arguments), run.run_id
                 )
-            except SandboxUnavailableError:
+            except SandboxUnavailableError as error:
                 counted.tool_calls.add(1, {**labels, "outcome": "error"})
                 await run.record(SandboxUse(agent, task.name, task.version, "unavailable"))
-                return json.dumps({"status": "unavailable", "note": UNAVAILABLE}), {
+                note = (
+                    f"{error}. Carry on without it, and say so."
+                    if isinstance(error, SandboxTurnedOffError)
+                    else UNAVAILABLE
+                )
+                return json.dumps({"status": "unavailable", "note": note}), {
                     "task": task.name, "status": "unavailable",
                 }  # fmt: skip
             status = _status(response)
@@ -180,6 +189,10 @@ class GrpcSandbox:
         except grpc.aio.AioRpcError as error:
             if error.code() in (grpc.StatusCode.UNAVAILABLE, grpc.StatusCode.DEADLINE_EXCEEDED):
                 raise SandboxUnavailableError(error.code().name) from error
+            if error.code() is grpc.StatusCode.FAILED_PRECONDITION and "EGR-002" in (
+                error.details() or ""
+            ):
+                raise SandboxTurnedOffError(error.details()) from error
             raise
 
 

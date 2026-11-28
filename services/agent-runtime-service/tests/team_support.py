@@ -78,8 +78,8 @@ TREND_SCHEMA = {
 class FakeSandbox:
     """The Agent Sandbox Adapter, answering every task as completed, unless told otherwise."""
 
-    def __init__(self, unavailable: bool = False) -> None:
-        self.unavailable = unavailable
+    def __init__(self, unavailable: bool = False, turned_off: bool = False) -> None:
+        self.unavailable, self.turned_off = unavailable, turned_off
         self.ran: list[tuple[str, str, dict[str, Any], str]] = []
 
     async def list_tasks(self, tenant: str) -> list[Any]:
@@ -99,11 +99,16 @@ class FakeSandbox:
         import json
 
         from windops.agent_sandbox.v1 import agent_sandbox_pb2 as pb
-        from windops_agent_runtime.team.sandbox import SandboxUnavailableError
+        from windops_agent_runtime.team.sandbox import (
+            SandboxTurnedOffError,
+            SandboxUnavailableError,
+        )
 
         self.ran.append((tenant, task, json.loads(input_json), run_id))
         if self.unavailable:
             raise SandboxUnavailableError("test")
+        if self.turned_off:
+            raise SandboxTurnedOffError("LangSmith Sandbox is turned off for this tenant (EGR-002)")
         output = json.dumps({"peaks": [{"frequency_hz": 37.0, "amplitude": 1.0}]})
         return pb.RunTaskResponse(
             status=pb.RUN_STATUS_COMPLETED, output_json=output, task=task, version=1,

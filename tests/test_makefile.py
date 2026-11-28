@@ -71,6 +71,7 @@ BUILT_TARGETS = {
     "openapi",
     "azure-overlay",
     "network-policies",
+    "egress-check",
     "azure-monitoring",
     "bff-check",
     "gateway-policy-check",

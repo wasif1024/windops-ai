@@ -23,7 +23,15 @@ from windops_agent_sandbox.executor import (
 )
 from windops_agent_sandbox.service import AGENT_RUNTIME, AgentSandboxService
 from windops_agent_sandbox.tasks import Task, TaskInputError, load_task, registry, sha256
-from windops_grpc import InvalidRequestError, NotFoundError, PermissionDeniedError, UnavailableError
+from windops_auth import VerifiedIdentity, identity_scope
+from windops_grpc import (
+    ConflictError,
+    InvalidRequestError,
+    NotFoundError,
+    PermissionDeniedError,
+    UnavailableError,
+    egress,
+)
 from windops_resilience import BreakerConfig, CircuitBreaker
 
 TASKS = Path(__file__).resolve().parents[1] / "tasks"
@@ -73,8 +81,11 @@ def service(executor: Any, peer: str | None = AGENT_RUNTIME, **kwargs: Any) -> A
 
 
 def run(svc: AgentSandboxService, task: str, given: Any) -> pb.RunTaskResponse:
+    """As the Agent Runtime calls it: as itself, acting for a tenant."""
     request = pb.RunTaskRequest(task=task, input_json=json.dumps(given), run_id=RUN)
-    return asyncio.run(svc.RunTask(request, None))
+    caller = VerifiedIdentity(subject="service:agent-runtime", tenant_id="north-sea")
+    with identity_scope(caller, "token"):
+        return asyncio.run(svc.RunTask(request, None))
 
 
 def test_the_registered_tasks_load_with_their_code_hashed() -> None:
@@ -203,6 +214,17 @@ def test_an_unavailable_sandbox_is_unavailable_and_opens_the_breaker() -> None:
             run(svc, "trend_fit", given)
     # Two failures open the breaker: the third never tried the Sandbox.
     assert fixed.calls == 2
+
+
+def test_a_sandbox_turned_off_runs_nothing_and_never_opens_the_breaker() -> None:
+    """EGR-002: refused for that tenant, as a refusal, so other tenants keep their Sandbox."""
+    local = Local()
+    svc = service(local, egress=egress.Fixed({"langsmith_sandbox"}))
+    given = {"points": [{"hours": h, "value": h} for h in range(3)]}
+    for _ in range(3):
+        with pytest.raises(ConflictError, match="EGR-002"):
+            run(svc, "trend_fit", given)
+    assert svc._breaker.state.value == "closed"
 
 
 def test_list_tasks_gives_schemas_limits_and_hashes() -> None:

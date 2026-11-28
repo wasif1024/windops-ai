@@ -9,7 +9,10 @@ import certifi
 import grpc
 from opentelemetry import metrics
 from windops.agent_sandbox.v1 import agent_sandbox_pb2_grpc
-from windops_grpc import run_service
+from windops.tenant.v1 import tenant_pb2_grpc
+from windops_auth import current_identity_token
+from windops_grpc import ServiceClient, create_channel, run_service
+from windops_grpc.egress import egress_switches
 from windops_observability import resilience_metrics
 from windops_resilience import BreakerConfig, CircuitBreaker
 
@@ -47,9 +50,33 @@ def main() -> None:
     executor = LangSmithExecutor(SandboxClient(api_key=key or None))
     concurrency = int(os.environ.get("WINDOPS_SANDBOX_CONCURRENCY", "2"))
 
+    tls = Path(os.environ["WINDOPS_TLS_DIR"])
+    stubs: list[tenant_pb2_grpc.TenantServiceStub] = []
+
+    class TenantStub:
+        """Made on first use, as a channel must be made on the running loop."""
+
+        def __getattr__(self, name: str) -> object:
+            if not stubs:
+                channel = create_channel(os.environ["WINDOPS_TENANT_ADDRESS"], tls)
+                stubs.append(tenant_pb2_grpc.TenantServiceStub(channel))
+            return getattr(stubs[0], name)
+
+    # Each tenant may turn the Sandbox off (EGR-002, ADR 0048).
+    egress = egress_switches(
+        TenantStub(),
+        ServiceClient(
+            CircuitBreaker("tenant", BreakerConfig(slow_call_seconds=1.0),
+                           **resilience_metrics(metrics.get_meter_provider())),
+            identity_token=current_identity_token,
+        ),
+        SERVICE_NAME, os.environ["WINDOPS_IDENTITY_SECRET"],
+    )  # fmt: skip
+
     def register(server: grpc.aio.Server) -> None:
         agent_sandbox_pb2_grpc.add_AgentSandboxServiceServicer_to_server(
-            AgentSandboxService(tasks, executor, breaker, concurrency=concurrency), server
+            AgentSandboxService(tasks, executor, breaker, concurrency=concurrency, egress=egress),
+            server,
         )
 
     asyncio.run(run_service(SERVICE_NAME, register))

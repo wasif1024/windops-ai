@@ -25,6 +25,8 @@ from windops_grpc import (
     acting_as_service,
     current_identity,
 )
+from windops_grpc.egress import FORECASTS as FORECASTS_PATH
+from windops_grpc.egress import Gate, Open
 from windops_migrations import in_tenant
 
 from windops_weather import provider, sources
@@ -137,9 +139,12 @@ class WeatherService(weather_pb2_grpc.WeatherServiceServicer):
         provider_: Provider,
         secret: str,
         clock: Callable[[], datetime] | None = None,
+        egress: Gate | None = None,
     ) -> None:
         self._engine, self._authorizer, self._sources = engine_, authorizer, sources_
         self._provider, self._secret = provider_, secret
+        # The tenant may turn forecasts off: then nothing new is fetched (EGR-002).
+        self._egress = egress or Open()
         self._now = clock or (lambda: datetime.now(UTC))
 
     def _window(self, request: pb.GetForecastRequest, now: datetime) -> tuple[datetime, datetime]:
@@ -208,7 +213,12 @@ class WeatherService(weather_pb2_grpc.WeatherServiceServicer):
                                                turbine.location.longitude)  # fmt: skip
         row = await self._newest(tenant, latitude, longitude)
         note = ""
-        if row is None or now - _utc(row.retrieved_at) >= REFRESH_AFTER:
+        refresh = row is None or now - _utc(row.retrieved_at) >= REFRESH_AFTER
+        decision = await self._egress.check(tenant, FORECASTS_PATH) if refresh else None
+        if decision is not None and not decision.allowed:
+            # Kept forecasts are still shown, with their age; only a new fetch would send data.
+            note = decision.reason
+        elif refresh:
             try:
                 retrieval = await self._provider.fetch(turbine.location.latitude,
                                                        turbine.location.longitude, now)  # fmt: skip

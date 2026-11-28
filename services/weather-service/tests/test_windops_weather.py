@@ -17,6 +17,8 @@ from windops.asset.v1 import asset_pb2
 from windops.weather.v1 import weather_pb2 as pb
 from windops.weather.v1 import weather_pb2_grpc
 from windops_grpc import ServiceRuntime, Settings, VerifiedIdentity, current_identity, sign_identity
+from windops_grpc.egress import FORECASTS as FORECASTS_PATH
+from windops_grpc.egress import Decision, Path, turned_off
 from windops_weather import provider
 from windops_weather.service import WeatherService
 from windops_weather.store import METADATA, SERVICE_NAME
@@ -95,12 +97,25 @@ class FakeProvider:
 
 
 @dataclass
+class FakeSwitches:
+    """The tenant's egress switches, as the Tenant Service would answer them."""
+
+    off: set[str] = field(default_factory=set)
+
+    async def check(self, tenant: str, path: Path) -> Decision:
+        if path.name in self.off:
+            return Decision(False, turned_off(path))
+        return Decision(True)
+
+
+@dataclass
 class World:
     stub: Any
     engine: AsyncEngine
     clock: Clock
     provider: FakeProvider
     sources: FakeSources
+    switches: FakeSwitches
 
 
 def as_user(user: str = "u-operator") -> Any:
@@ -135,11 +150,14 @@ def with_service(scenario: Callable[[World], Awaitable[None]]) -> None:
             await connection.run_sync(METADATA.create_all)
         authorizer = FakeAuthorizer({("u-operator", "weather.read"),
                                      ("u-dogger", "weather.read@dogger-east")})  # fmt: skip
-        clock, fake, sources = Clock(), FakeProvider(), FakeSources()
+        clock, fake, sources, switches = Clock(), FakeProvider(), FakeSources(), FakeSwitches()
 
         def register(server: grpc.aio.Server) -> None:
             weather_pb2_grpc.add_WeatherServiceServicer_to_server(
-                WeatherService(engine_, authorizer, sources, fake, SECRET, clock=clock), server
+                WeatherService(
+                    engine_, authorizer, sources, fake, SECRET, clock=clock, egress=switches
+                ),
+                server,
             )
 
         runtime = ServiceRuntime(SERVICE_NAME, SETTINGS, register, install_global_telemetry=False)
@@ -147,7 +165,7 @@ def with_service(scenario: Callable[[World], Awaitable[None]]) -> None:
         try:
             async with grpc.aio.insecure_channel(f"127.0.0.1:{runtime.grpc_port}") as channel:
                 stub = weather_pb2_grpc.WeatherServiceStub(channel)
-                await scenario(World(stub, engine_, clock, fake, sources))
+                await scenario(World(stub, engine_, clock, fake, sources, switches))
         finally:
             await runtime.stop()
             await engine_.dispose()
@@ -213,6 +231,25 @@ def test_during_an_outage_old_data_is_marked_stale_and_never_presented_as_curren
         old = await forecast(world)
         assert old.state == "stale" and old.age_seconds == 3 * 3600 + 60
         assert "cannot be reached" in old.note and "more than 3 h" in old.note
+
+    with_service(scenario)
+
+
+def test_forecasts_turned_off_fetch_nothing_and_say_why() -> None:
+    """EGR-002: a kept forecast stays visible, with its age, but nothing new is fetched."""
+
+    async def scenario(world: World) -> None:
+        world.switches.off.add("forecasts")
+        none = await forecast(world)
+        assert (none.state, world.provider.calls) == ("unavailable", 0)
+        assert none.note == turned_off(FORECASTS_PATH)
+        world.switches.off.clear()
+        await forecast(world)
+        world.switches.off.add("forecasts")
+        world.clock.now += timedelta(hours=3, minutes=1)
+        old = await forecast(world)
+        assert (old.state, world.provider.calls) == ("stale", 1)
+        assert old.note.startswith(turned_off(FORECASTS_PATH))
 
     with_service(scenario)
 

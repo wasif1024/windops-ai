@@ -15,6 +15,7 @@ from windops.events.v1 import events_pb2
 from windops.investigation.v1 import investigation_pb2 as pb
 from windops_events import Event
 from windops_grpc import UnavailableError, current_identity
+from windops_grpc.egress import CLAUDE, Fixed, Unreadable, turned_off
 from windops_investigation import investigations
 from windops_investigation.consumer import handle
 from windops_investigation.investigations import Keeper
@@ -100,9 +101,11 @@ class Setup:
     runtime: FakeRuntime = field(default_factory=FakeRuntime)
     delegations: FakeDelegations = field(default_factory=FakeDelegations)
 
+    switches: Fixed = field(default_factory=Fixed)
+
     def keeper(self, world: World, mode: str = "rehearse") -> Keeper:
         return Keeper(world.engine, self.runtime, self.delegations, SECRET, mode,
-                      clock=lambda: NOW)  # fmt: skip
+                      clock=lambda: NOW, egress=self.switches)  # fmt: skip
 
     def run(self, scenario: Any, agents: str = "rehearse", **options: Any) -> None:
         with_service(scenario, delegations=self.delegations, agents=agents, poll_seconds=0.01,
@@ -356,6 +359,42 @@ def test_an_unreachable_runtime_or_a_lapsed_delegation() -> None:
         got = await case_of(world, late.case_id)
         assert (got.case.status, got.case.investigation_status) == ("open", "not_started")
         assert got.history[-1].action == "investigation_not_started"
+        assert len(setup.runtime.started) == 1
+
+    setup.run(scenario)
+
+
+def test_claude_turned_off_starts_no_agents_and_the_case_says_why() -> None:
+    """EGR-002: the case carries on without agents, and its history gives the reason."""
+    setup = Setup()
+    setup.switches.off.add(CLAUDE.name)
+
+    async def scenario(world: World) -> None:
+        case = await investigate(world)
+        await freeze(world, case.case_id)
+        await setup.keeper(world).run_once()
+        got = await case_of(world, case.case_id)
+        assert (got.case.status, got.case.investigation_status) == ("open", "not_started")
+        assert got.history[-1].action == "investigation_not_started"
+        assert turned_off(CLAUDE) in got.history[-1].note
+        assert setup.runtime.started == []
+
+    setup.run(scenario)
+
+
+def test_unreadable_switches_leave_the_investigation_waiting_to_try_again() -> None:
+    """A Tenant Service outage is not the tenant's choice: nothing starts, and nothing is lost."""
+    setup = Setup()
+
+    async def scenario(world: World) -> None:
+        case = await investigate(world)
+        await freeze(world, case.case_id)
+        keeper = setup.keeper(world)
+        keeper.egress = Unreadable()
+        assert await keeper.run_once() == 0
+        assert (await case_of(world, case.case_id)).case.investigation_status == "waiting"
+        keeper.egress = Fixed()
+        assert await keeper.run_once() == 1
         assert len(setup.runtime.started) == 1
 
     setup.run(scenario)

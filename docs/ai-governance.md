@@ -93,6 +93,9 @@ ISO/IEC 42001 A.7; NIST MAP 2 and MEASURE 2.10; NCA data protection; SDAIA priva
   - row-level tenant isolation, attacked on every data path (M3.12, `make cross-tenant-check`).
 - **In place:** no secrets or needless personal data in traces, redacted in the LangSmith client before export, with
   leakage tests (M8.9, OBS-003, EGR-003, `make trace-check`).
+- **In place:** each tenant can turn off each path its data leaves by: Claude, embeddings, LangSmith traces, the
+  Sandbox, forecasts and web research. Each screen that depends on one says what stops (M13.3b, EGR-002,
+  `make egress-check`).
 - **Planned:** a PDPL personal-data map and a cross-border transfer review (M15.10). The data is mostly turbine telemetry, not
   personal data, but users, approvers and audit records are personal data. Today the Azure staging deployment is in
   Sweden Central, and the Claude API is outside the Kingdom. A Saudi tenant needs a recorded decision on where its data

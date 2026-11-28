@@ -6,6 +6,7 @@ import { ApprovalPolicyPage } from "./ApprovalPolicyPage";
 import { BrandingPage } from "./BrandingPage";
 import { ChangeReviewPage } from "./ChangeReviewPage";
 import { DenialsPage } from "./DenialsPage";
+import { EgressPage } from "./EgressPage";
 import { GatewayPoliciesPage, McpIntegrationsPage } from "./PlatformCatalogPages";
 import { RolesPage } from "./RolesPage";
 import { UserPage } from "./UserPage";
@@ -27,6 +28,7 @@ export const TABS: Tab[] = [
   { id: "mcp", title: "MCP integrations", needs: "audit.read" },
   { id: "gateway", title: "Gateway policies", needs: "audit.read" },
   { id: "branding", title: "Branding", needs: "branding.manage" },
+  { id: "egress", title: "Data egress", needs: "mcp.configure" },
 ];
 
 export function visibleTabs(held: ReadonlySet<string>): Tab[] {
@@ -89,6 +91,7 @@ export function AdminPage({ token, held }: { token: string; held: ReadonlySet<st
         {tab.id === "mcp" && <McpIntegrationsPage api={api} />}
         {tab.id === "gateway" && <GatewayPoliciesPage api={api} />}
         {tab.id === "branding" && <BrandingPage api={api} />}
+        {tab.id === "egress" && <EgressPage api={api} />}
       </div>
     </section>
   );

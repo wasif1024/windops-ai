@@ -221,6 +221,42 @@ def test_an_unavailable_sandbox_tells_the_agent_to_carry_on() -> None:
     assert [u.status for u in record.uses] == ["unavailable"]
 
 
+def test_a_sandbox_turned_off_tells_the_agent_why_and_to_carry_on() -> None:
+    from windops_agent_runtime.team.sandbox import SandboxTasks
+
+    async def build_and_call() -> Any:
+        tool = await SandboxTasks(FakeSandbox(turned_off=True)).tool(
+            "reliability-engineer", "sandbox.vibration_spectrum", sandbox_run()
+        )
+        return await tool.ainvoke({"type": "tool_call", "id": "c1", "name": tool.name,
+                                   "args": {"sample_rate_hz": 512, "samples": [1.0]}})  # fmt: skip
+
+    answer = json.loads(asyncio.run(build_and_call()).content)
+    assert answer["status"] == "unavailable"
+    assert answer["note"].startswith("LangSmith Sandbox is turned off for this tenant (EGR-002)")
+    assert answer["note"].endswith("Carry on without it, and say so.")
+
+
+def test_the_adapter_refusing_for_the_tenant_is_turned_off_not_an_outage() -> None:
+    import grpc
+    from windops_agent_runtime.team.sandbox import GrpcSandbox, SandboxTurnedOffError
+
+    class Refusing:
+        async def RunTask(self, request: Any, **_: Any) -> Any:  # noqa: N802
+            raise grpc.aio.AioRpcError(
+                grpc.StatusCode.FAILED_PRECONDITION, grpc.aio.Metadata(), grpc.aio.Metadata(),
+                details="LangSmith Sandbox is turned off for this tenant (EGR-002)",
+            )  # fmt: skip
+
+    class Direct:
+        async def call(self, method: Any, request: Any, **_: Any) -> Any:
+            return await method(request)
+
+    sandbox = GrpcSandbox(lambda: Refusing(), Direct(), "x" * 32)
+    with pytest.raises(SandboxTurnedOffError, match="EGR-002"):
+        asyncio.run(sandbox.run_task("north-sea", "trend_fit", "{}", "run_1"))
+
+
 def test_an_agent_named_a_sandbox_task_needs_the_sandbox() -> None:
     from windops_agent_runtime.team.tools import ToolBox, stand_in
 

@@ -150,6 +150,9 @@ spec:
     - matchLabels:
         app.kubernetes.io/name: windops-identity
         k8s:io.kubernetes.pod.namespace: windops-system
+    - matchLabels:
+        app.kubernetes.io/name: windops-tenant
+        k8s:io.kubernetes.pod.namespace: windops-system
     toPorts:
     - ports:
       - port: '50051'
@@ -197,6 +200,14 @@ spec:
     toPorts:
     - ports:
       - port: '4318'
+        protocol: TCP
+  - toEndpoints:
+    - matchLabels:
+        app.kubernetes.io/name: windops-tenant
+        k8s:io.kubernetes.pod.namespace: windops-system
+    toPorts:
+    - ports:
+      - port: '50051'
         protocol: TCP
   - toFQDNs:
     - matchName: api.smith.langchain.com
@@ -849,6 +860,9 @@ spec:
     - matchLabels:
         app.kubernetes.io/name: windops-telemetry
         k8s:io.kubernetes.pod.namespace: windops-application
+    - matchLabels:
+        app.kubernetes.io/name: windops-tenant
+        k8s:io.kubernetes.pod.namespace: windops-system
     toPorts:
     - ports:
       - port: '50051'
@@ -915,6 +929,9 @@ spec:
   - toEndpoints:
     - matchLabels:
         app.kubernetes.io/name: windops-authorization
+        k8s:io.kubernetes.pod.namespace: windops-system
+    - matchLabels:
+        app.kubernetes.io/name: windops-tenant
         k8s:io.kubernetes.pod.namespace: windops-system
     toPorts:
     - ports:
@@ -1447,6 +1464,9 @@ spec:
         k8s:io.kubernetes.pod.namespace: windops-application
     - matchLabels:
         app.kubernetes.io/name: windops-authorization
+        k8s:io.kubernetes.pod.namespace: windops-system
+    - matchLabels:
+        app.kubernetes.io/name: windops-tenant
         k8s:io.kubernetes.pod.namespace: windops-system
     toPorts:
     - ports:

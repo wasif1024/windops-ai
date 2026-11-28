@@ -127,6 +127,7 @@ def with_service(scenario: Callable[[World], Awaitable[None]]) -> None:
         authorizer = FakeAuthorizer(
             {
                 ("u-admin", "branding.manage"),
+                ("u-admin", "mcp.configure"),
                 ("u-platform", "tenant.manage"),
                 ("u-atlas-admin", "branding.manage"),
             }
@@ -430,5 +431,86 @@ def test_the_platform_tenant_cannot_be_suspended_and_ids_are_checked(target: str
         )
         code = await code_of(world.stub.SuspendTenant(request, metadata=PLATFORM_ADMIN, timeout=5))
         assert code is grpc.StatusCode.INVALID_ARGUMENT
+
+    with_service(scenario)
+
+
+# --- egress switches (EGR-002, ADR 0048)
+
+
+def turn(path: str, enabled: bool, reason: str = "Privacy review pending") -> Any:
+    return tenant_pb2.SetEgressRequest(path=path, enabled=enabled, reason=reason)
+
+
+def test_every_path_is_on_until_turned_off_and_a_service_may_read_them() -> None:
+    async def scenario(world: World) -> None:
+        answer = await world.stub.GetEgress(
+            tenant_pb2.GetEgressRequest(), metadata=as_service(), timeout=5
+        )
+        assert [(p.path, p.enabled) for p in answer.paths] == [
+            ("claude", True), ("embeddings", True), ("langsmith_traces", True),
+            ("langsmith_sandbox", True), ("forecasts", True),
+        ]  # fmt: skip
+        assert all(p.destination and p.when_off and not p.reason for p in answer.paths)
+
+    with_service(scenario)
+
+
+def test_an_administrator_turns_a_path_off_with_a_reason_and_it_is_audited() -> None:
+    async def scenario(world: World) -> None:
+        changed = await world.stub.SetEgress(
+            turn("forecasts", False), metadata=as_user(), timeout=5
+        )
+        assert (changed.path.enabled, changed.path.reason, changed.path.updated_by) == (
+            False, "Privacy review pending", "u-admin",
+        )  # fmt: skip
+        assert changed.path.updated_at.seconds > 0
+        answer = await world.stub.GetEgress(
+            tenant_pb2.GetEgressRequest(), metadata=as_service(), timeout=5
+        )
+        assert {p.path: p.enabled for p in answer.paths}["forecasts"] is False
+        other = await world.stub.GetEgress(
+            tenant_pb2.GetEgressRequest(), metadata=as_service(OTHER), timeout=5
+        )
+        assert all(p.enabled for p in other.paths), "another tenant is not affected"
+        # A repeat changes nothing and records nothing more.
+        await world.stub.SetEgress(turn("forecasts", False), metadata=as_user(), timeout=5)
+        await world.stub.SetEgress(turn("forecasts", True), metadata=as_user(), timeout=5)
+        actions = [a for t, a in await audit_actions(world.engine) if a.startswith("tenant.egress")]
+        assert actions == ["tenant.egress.turned_off", "tenant.egress.turned_on"]
+
+    with_service(scenario)
+
+
+@pytest.mark.parametrize(
+    ("metadata", "request_", "code"),
+    [
+        (as_user("u-operator"), turn("claude", False), grpc.StatusCode.PERMISSION_DENIED),
+        (as_user(level=LEVEL_PASSWORD), turn("claude", False), grpc.StatusCode.PERMISSION_DENIED),
+        (as_service(), turn("claude", False), grpc.StatusCode.PERMISSION_DENIED),
+        (as_user(), turn("web_research", False), grpc.StatusCode.INVALID_ARGUMENT),
+        (as_user(), turn("claude", False, reason="short"), grpc.StatusCode.INVALID_ARGUMENT),
+    ],
+    ids=["no-permission", "no-second-factor", "a-service", "unknown-path", "no-reason"],
+)
+def test_turning_a_path_off_needs_a_person_permission_second_factor_and_reason(
+    metadata: Any, request_: Any, code: grpc.StatusCode
+) -> None:
+    async def scenario(world: World) -> None:
+        assert await code_of(world.stub.SetEgress(request_, metadata=metadata, timeout=5)) is code
+        answer = await world.stub.GetEgress(
+            tenant_pb2.GetEgressRequest(), metadata=as_service(), timeout=5
+        )
+        assert all(p.enabled for p in answer.paths)
+
+    with_service(scenario)
+
+
+def test_a_tenant_administrator_cannot_switch_another_tenants_paths() -> None:
+    async def scenario(world: World) -> None:
+        request = turn("claude", False)
+        request.target_tenant_id = OTHER
+        code = await code_of(world.stub.SetEgress(request, metadata=as_user(), timeout=5))
+        assert code is grpc.StatusCode.PERMISSION_DENIED
 
     with_service(scenario)

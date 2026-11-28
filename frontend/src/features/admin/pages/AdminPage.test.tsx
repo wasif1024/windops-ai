@@ -3,7 +3,14 @@ import { visibleTabs } from "./AdminPage";
 
 describe("the administrator console's tabs", () => {
   it("shows a Tenant Administrator every tab", () => {
-    const held = new Set(["users.manage", "roles.manage", "permissions.manage", "audit.read", "branding.manage"]);
+    const held = new Set([
+      "users.manage",
+      "roles.manage",
+      "permissions.manage",
+      "audit.read",
+      "branding.manage",
+      "mcp.configure",
+    ]);
     expect(visibleTabs(held).map((tab) => tab.id)).toEqual([
       "users",
       "roles",
@@ -13,6 +20,7 @@ describe("the administrator console's tabs", () => {
       "mcp",
       "gateway",
       "branding",
+      "egress",
     ]);
   });
 

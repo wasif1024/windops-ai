@@ -42,6 +42,7 @@ from windops_grpc import (
     PermissionDeniedError,
     VerifiedIdentity,
 )
+from windops_grpc.egress import CLAUDE, UNKNOWN, Fixed, Unreadable, turned_off
 from windops_outbox import OUTBOX_TABLE, create_outbox_table
 from windops_resilience import BreakerState, CircuitBreaker
 
@@ -1212,3 +1213,73 @@ def test_a_dry_run_is_the_team_on_the_stand_in_never_a_rehearsal(
         Investigation().check(parameters)
     assert Investigation().check({"stand_in": "true"})["stand_in"] is True
     assert "stand_in" not in Investigation().check({}), "other runs' parameters are unchanged"
+
+
+# --- egress switches (EGR-002, ADR 0048)
+
+
+class CountingTracer:
+    """Counts the runs traced to LangSmith."""
+
+    def __init__(self) -> None:
+        self.traced: list[str] = []
+
+    @contextlib.contextmanager
+    def tracing(self, run_id: str, tags: Sequence[str]) -> Iterator[None]:
+        self.traced.append(run_id)
+        yield
+
+    def flush(self) -> None:
+        return None
+
+
+def switched_worker(
+    queue: Queue, off: set[str], tracer: CountingTracer | None = None, gate: Any = None
+) -> Worker:
+    worker = claude_down_worker(queue)
+    return Worker(
+        queue, REGISTRY, WorkerSettings(resume_check_seconds=0), policy=POLICY,
+        make_claude=worker._make_claude, tracer=tracer,  # type: ignore[arg-type]
+        egress=gate or Fixed(off),
+    )  # fmt: skip
+
+
+@scenario
+async def test_claude_turned_off_ends_a_run_before_any_call_and_says_why(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    run = await start_check(engine, clock)
+    claim = await queue.claim("replica-a/0")
+    assert claim is not None
+    before = DownChat.calls
+    assert await switched_worker(queue, {"claude"}).execute(claim, asyncio.Event()) == "failed"
+    ended = await status(engine, run.run_id)
+    assert (ended.status, ended.reason) == ("failed", turned_off(CLAUDE))
+    assert DownChat.calls == before, "nothing was sent to Claude"
+    assert await steps(engine, run.run_id) == []
+
+
+@scenario
+async def test_traces_turned_off_leave_a_run_untraced(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    tracer = CountingTracer()
+    for key, off in (("traced-1", set()), ("untraced-1", {"langsmith_traces"})):
+        await start_check(engine, clock, key=key)
+        claim = await queue.claim("replica-a/0")
+        assert claim is not None
+        await switched_worker(queue, off, tracer).execute(claim, asyncio.Event())
+    assert len(tracer.traced) == 1, "only the run whose tenant allows traces was traced"
+
+
+@scenario
+async def test_unreadable_switches_retry_the_run_later_instead_of_failing_it(
+    engine: AsyncEngine, clock: Clock, queue: Queue
+) -> None:
+    run = await start_check(engine, clock)
+    claim = await queue.claim("replica-a/0")
+    assert claim is not None
+    worker = switched_worker(queue, set(), gate=Unreadable())
+    assert await worker.execute(claim, asyncio.Event()) == "retried"
+    waiting = await status(engine, run.run_id)
+    assert (waiting.status, waiting.reason) == ("queued", UNKNOWN)

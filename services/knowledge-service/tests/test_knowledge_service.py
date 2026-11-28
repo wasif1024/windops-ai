@@ -28,6 +28,7 @@ from windops_grpc import (
     current_identity,
     sign_identity,
 )
+from windops_grpc.egress import EMBEDDINGS, Fixed, turned_off
 from windops_knowledge import embeddings, library, vectors
 from windops_knowledge.service import KnowledgeService
 from windops_knowledge.store import INDEX_QUEUE, METADATA, SERVICE_NAME
@@ -139,11 +140,14 @@ class World:
     qdrant: FakeQdrant
     clock: list[datetime]
     authorizer: FakeAuthorizer
+    switches: Fixed
 
     async def index(self) -> int:
         """Run the indexer until nothing is due, and return how many it took."""
         taken = 0
-        while await library.index_next(self.engine, self.embedder, self.qdrant, self.clock[0]):
+        while await library.index_next(
+            self.engine, self.embedder, self.qdrant, self.clock[0], self.switches
+        ):
             taken += 1
         return taken
 
@@ -205,19 +209,21 @@ def with_service(scenario: Callable[[World], Awaitable[None]]) -> None:
                    ("u-tenant-admin", "knowledge.manage", "")}  # fmt: skip
         clock = [NOW]
         authorizer, embedder, qdrant = FakeAuthorizer(grants), FakeEmbedder(), FakeQdrant()
+        switches = Fixed()
 
         def register(server: grpc.aio.Server) -> None:
             knowledge_pb2_grpc.add_KnowledgeServiceServicer_to_server(
-                KnowledgeService(engine_, authorizer, embedder, qdrant, clock=lambda: clock[0]),
+                KnowledgeService(engine_, authorizer, embedder, qdrant, clock=lambda: clock[0],
+                                 egress=switches),
                 server,
-            )
+            )  # fmt: skip
 
         runtime = ServiceRuntime(SERVICE_NAME, SETTINGS, register, install_global_telemetry=False)
         await runtime.start()
         try:
             async with grpc.aio.insecure_channel(f"127.0.0.1:{runtime.grpc_port}") as channel:
                 stub = knowledge_pb2_grpc.KnowledgeServiceStub(channel)
-                await scenario(World(stub, engine_, embedder, qdrant, clock, authorizer))
+                await scenario(World(stub, engine_, embedder, qdrant, clock, authorizer, switches))
         finally:
             await runtime.stop()
             await engine_.dispose()
@@ -432,6 +438,35 @@ def test_an_outage_pauses_indexing_and_a_refusal_ends_it() -> None:
         assert await world.index() == 1 and await world.index() == 0
         failed = (await get(world, "WS-PRC-BRG-021")).document
         assert failed.status == "failed" and "400" in failed.status_reason
+
+    with_service(scenario)
+
+
+def test_embeddings_turned_off_hold_indexing_and_pause_search_until_on_again() -> None:
+    """EGR-002: nothing goes to the embedding provider, and the documents and searches say why."""
+
+    async def scenario(world: World) -> None:
+        world.switches.off.add(EMBEDDINGS.name)
+        await upload(world, GEARBOX)
+        assert await world.index() == 1
+        waiting = (await get(world, "WS-PRC-GBX-012")).document
+        assert waiting.status == "pending"
+        assert waiting.status_reason.endswith(turned_off(EMBEDDINGS))
+        assert world.embedder.sent == []
+        search = world.stub.SearchPassages(
+            pb.SearchPassagesRequest(query="gearbox oil temperature"),
+            metadata=as_user("u-reader"), timeout=5,
+        )  # fmt: skip
+        try:
+            await search
+            raise AssertionError("A search embeds the question, so it must pause")
+        except grpc.aio.AioRpcError as error:
+            assert error.code() is grpc.StatusCode.UNAVAILABLE
+            assert turned_off(EMBEDDINGS) in (error.details() or "")
+        world.switches.off.clear()
+        world.clock[0] = NOW + timedelta(minutes=1)
+        assert await world.index() == 1
+        assert (await get(world, "WS-PRC-GBX-012")).document.status == "indexed"
 
     with_service(scenario)
 
